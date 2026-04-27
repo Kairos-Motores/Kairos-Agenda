@@ -84,6 +84,50 @@ body {
 }
 [data-theme='dark'] ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
 
+.nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-left, .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.view-switcher {
+  display: flex;
+  background: var(--bg-secondary);
+  padding: 4px;
+  border-radius: var(--radius-premium);
+  gap: 2px;
+}
+
+@media (max-width: 768px) {
+  .nav-container {
+    justify-content: center;
+    padding: 8px 0;
+  }
+  
+  .nav-left, .nav-right {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
 /* Buttons Design System - Android 17 Unified */
 .nav-pill, .icon-btn, .btn-primary, .btn-secondary, .fab-btn {
   height: 44px; /* Unified height */

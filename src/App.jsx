@@ -8,7 +8,22 @@ import { ListView } from './components/ListView';
 import { UserManagementModal } from './components/UserManagementModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { generateMonthDays } from './utils/dateHelpers';
-import { format, subMonths, addMonths } from 'date-fns';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  isSameDay, 
+  addYears, 
+  subYears, 
+  addDays, 
+  subDays 
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const LoginScreen = ({ onLogin }) => {
@@ -198,6 +213,16 @@ function App() {
       return event.cr4a1_cor || getUserColor(event.cr4a1_user_login);
   };
 
+  const handleNavigate = (direction) => {
+    if (view === 'year') {
+      setCurrentDate(direction === 'next' ? addYears(currentDate, 1) : subYears(currentDate, 1));
+    } else if (view === 'day') {
+      setCurrentDate(direction === 'next' ? addDays(currentDate, 1) : subDays(currentDate, 1));
+    } else {
+      setCurrentDate(direction === 'next' ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
       <Toaster position="top-right" toastOptions={{ style: { fontFamily: "'Poppins', sans-serif" } }} />
@@ -205,27 +230,17 @@ function App() {
       {loading && <div style={{ position: 'fixed', top: 15, left: '50%', transform: 'translateX(-50%)', background: '#f1c40f', color: '#333', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', zIndex: 2100, boxShadow: '0 4px 10px rgba(0,0,0,0.1)', fontWeight: '500' }}>Sincronizando Banco de Dados...</div>}
       
       <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-        <nav style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
-          gap: '8px', 
-          flexWrap: 'wrap', 
-          padding: '0 20px',
-          margin: '0 auto',
-          maxWidth: '1200px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-accent)', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <nav className="nav-container">
+          <div className="nav-left">
+            <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer' }}>
               <span>📅</span> <span className="nav-label">Kairós</span>
             </h1>
-            <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '2px', borderRadius: '10px' }}>
+            <div className="view-switcher">
               {['year', 'month', 'day', 'list'].map((v) => (
                 <button
                   key={v}
                   onClick={() => setView(v)}
                   className={`nav-pill ${view === v ? 'active' : ''}`}
-                  style={{ padding: '6px 8px', fontSize: '11px' }}
                 >
                   {v === 'year' ? 'Ano' : v === 'month' ? 'Mês' : v === 'day' ? 'Dia' : 'Fichas'}
                 </button>
@@ -233,24 +248,28 @@ function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="icon-btn"><span>&lt;</span></button>
-            <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
-            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="icon-btn"><span>&gt;</span></button>
+          <div className="nav-right">
+            <div className="nav-group">
+              <button onClick={() => handleNavigate('prev')} className="icon-btn"><span>&lt;</span></button>
+              <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn"><span>&gt;</span></button>
+            </div>
             
-            <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
-              <span>{theme === 'light' ? '🌙' : '☀️'}</span>
-            </button>
-            
-            {userRole === 'ADMIN' && (
-              <button onClick={() => setIsUserManagementModalOpen(true)} className="nav-pill">
-                <span>👥</span> <span className="nav-label">Usuários</span>
+            <div className="nav-group">
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
+                <span>{theme === 'light' ? '🌙' : '☀️'}</span>
               </button>
-            )}
+              
+              {userRole === 'ADMIN' && (
+                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn">
+                  <span>👥</span>
+                </button>
+              )}
 
-            <button onClick={logout} className="nav-pill" style={{ color: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)' }}>
-              <span>📤</span> <span className="nav-label">Sair</span>
-            </button>
+              <button onClick={logout} className="icon-btn" style={{ color: '#e74c3c' }}>
+                <span>📤</span>
+              </button>
+            </div>
           </div>
         </nav>
 
