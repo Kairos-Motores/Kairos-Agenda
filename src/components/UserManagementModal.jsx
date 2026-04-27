@@ -1,0 +1,92 @@
+import React, { useState } from 'react';
+
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, deleteEventType }) => {
+    const [activeTab, setActiveTab] = useState('users');
+    const [newTypeName, setNewTypeName] = useState('');
+    const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
+    
+    if (!isOpen) return null;
+
+    const tabStyle = (active) => ({
+        padding: '10px 20px',
+        cursor: 'pointer',
+        borderBottom: active ? '3px solid var(--text-accent)' : '3px solid transparent',
+        color: active ? 'var(--text-accent)' : 'var(--text-secondary)',
+        fontWeight: '600',
+        transition: 'all 0.2s'
+    });
+
+    return (
+        <div className="modal-overlay">
+            <div className="modal-container">
+                <div className="modal-header">
+                    <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>⚙️ Configurações</h3>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-secondary)' }}>✕</button>
+                </div>
+
+                <div className="modal-body">
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '20px', overflowX: 'auto' }}>
+                        <div onClick={() => setActiveTab('users')} style={tabStyle(activeTab === 'users')}>Membros</div>
+                        <div onClick={() => setActiveTab('types')} style={tabStyle(activeTab === 'types')}>Tipos de Evento</div>
+                    </div>
+
+                    {activeTab === 'users' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {allUsers.map(u => (
+                                <div key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', gap: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }} />
+                                        <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{u.cr4a1_username}</span>
+                                    </div>
+                                    <input type="color" value={u.cr4a1_cor || '#3498db'} onChange={(e) => updateUserColor(u.cr4a1_usuarios_agendaid, e.target.value)} style={{ border: 'none', width: '28px', height: '28px', cursor: 'pointer', background: 'none' }} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div>
+                            <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '150px' }}>
+                                    <input 
+                                        value={newTypeEmoji} 
+                                        onChange={e => setNewTypeEmoji(e.target.value)} 
+                                        style={{ width: '45px', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', textAlign: 'center' }} 
+                                        placeholder="Emoji"
+                                    />
+                                    <input 
+                                        value={newTypeName} 
+                                        onChange={e => setNewTypeName(e.target.value)} 
+                                        style={{ flex: 1, padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} 
+                                        placeholder="Novo tipo..."
+                                    />
+                                </div>
+                                <button 
+                                    onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji); setNewTypeName(''); } }}
+                                    className="btn-primary"
+                                    style={{ padding: '10px 20px', borderRadius: '12px' }}
+                                >
+                                    Add
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {eventTypes.map(t => (
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '10px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '16px' }}>{t.emoji}</span>
+                                            <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{t.name}</span>
+                                        </div>
+                                        <button onClick={() => deleteEventType(t.id)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ marginTop: '24px' }}>
+                        <button onClick={onClose} className="btn-primary" style={{ width: '100%', padding: '14px' }}>Concluído</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
