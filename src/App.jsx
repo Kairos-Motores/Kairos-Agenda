@@ -8,21 +8,21 @@ import { ListView } from './components/ListView';
 import { UserManagementModal } from './components/UserManagementModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { generateMonthDays } from './utils/dateHelpers';
-import { 
-  format, 
-  addMonths, 
-  subMonths, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfWeek, 
-  endOfWeek, 
-  eachDayOfInterval, 
-  isSameMonth, 
-  isSameDay, 
-  addYears, 
-  subYears, 
-  addDays, 
-  subDays 
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addYears,
+  subYears,
+  addDays,
+  subDays
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -36,16 +36,16 @@ const LoginScreen = ({ onLogin }) => {
     setIsAuthenticating(true);
     const result = await onLogin(username, password);
     if (!result.success) {
-        if (result.reason === 'connection_error') {
-            toast.error('Erro de conexão. Verifique sua internet.', {
-                style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
-            });
-        } else {
-            toast.error('Usuário ou senha inválidos.', {
-                style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
-            });
-        }
-        setIsAuthenticating(false);
+      if (result.reason === 'connection_error') {
+        toast.error('Erro de conexão. Verifique sua internet.', {
+          style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
+        });
+      } else {
+        toast.error('Usuário ou senha inválidos.', {
+          style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
+        });
+      }
+      setIsAuthenticating(false);
     }
   };
 
@@ -66,8 +66,8 @@ const LoginScreen = ({ onLogin }) => {
 function App() {
   const {
     view, setView, currentDate, setCurrentDate,
-    holidays, events, addEvent, updateEvent, deleteEvent,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, 
+    holidays, events, addEvent, updateEvent, deleteEvent, notification,
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser,
     allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor
   } = useCalendar();
 
@@ -97,7 +97,7 @@ function App() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   });
-  
+
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
   const welcomeToastShown = useRef(false);
@@ -121,30 +121,30 @@ function App() {
     if (!user || loading || events.length === 0) return;
 
     const timerId = setInterval(() => {
-        const now = new Date();
-        setClock(now);
-        
-        const currentDateStr = format(now, 'yyyy-MM-dd');
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        
-        events.forEach(event => {
-            if (event.cr4a1_data_inicio?.split('T')[0] === currentDateStr && event.cr4a1_hora_inicio) {
-                const [evtHStr, evtMStr] = event.cr4a1_hora_inicio.split(':');
-                const evtH = parseInt(evtHStr);
-                const evtM = parseInt(evtMStr);
-                
-                const timeDiffMins = (evtH * 60 + evtM) - (currentHour * 60 + currentMinute);
-                
-                if (timeDiffMins === 30 && !notifiedEvents.current.has(event.cr4a1_event_id)) {
-                    toast(`Faltam 30 minutos para o evento:\n${event.cr4a1_titulo}`, {
-                        icon: '⏰',
-                        duration: 8000
-                    });
-                    notifiedEvents.current.add(event.cr4a1_event_id);
-                }
-            }
-        });
+      const now = new Date();
+      setClock(now);
+
+      const currentDateStr = format(now, 'yyyy-MM-dd');
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      events.forEach(event => {
+        if (event.cr4a1_data_inicio?.split('T')[0] === currentDateStr && event.cr4a1_hora_inicio) {
+          const [evtHStr, evtMStr] = event.cr4a1_hora_inicio.split(':');
+          const evtH = parseInt(evtHStr);
+          const evtM = parseInt(evtMStr);
+
+          const timeDiffMins = (evtH * 60 + evtM) - (currentHour * 60 + currentMinute);
+
+          if (timeDiffMins === 30 && !notifiedEvents.current.has(event.cr4a1_event_id)) {
+            toast(`Faltam 30 minutos para o evento:\n${event.cr4a1_titulo}`, {
+              icon: '⏰',
+              duration: 8000
+            });
+            notifiedEvents.current.add(event.cr4a1_event_id);
+          }
+        }
+      });
     }, 1000);
 
     return () => clearInterval(timerId);
@@ -153,24 +153,24 @@ function App() {
   // Notificação de Boas-vindas preditiva
   useEffect(() => {
     if (events.length > 0 && !welcomeToastShown.current && !loading && user) {
-         welcomeToastShown.current = true;
-         const todayStr = format(new Date(), 'yyyy-MM-dd');
-         
-         const startingToday = events.filter(e => e.cr4a1_data_inicio?.split('T')[0] === todayStr);
-         const endingToday = events.filter(e => e.cr4a1_data_fim?.split('T')[0] === todayStr && e.cr4a1_data_inicio?.split('T')[0] !== todayStr);
-         
-         if (startingToday.length > 0) {
-             toast.success(`Você tem ${startingToday.length} evento(s) marcado(s) para iniciar hoje.`, { 
-                 duration: 6000, 
-                 icon: '📅'
-             });
-         }
-         if (endingToday.length > 0) {
-             toast(`Atenção: Você tem ${endingToday.length} evento(s) longo(s) que terminam hoje!`, { 
-                 icon: '⏳', 
-                 duration: 6000
-             });
-         }
+      welcomeToastShown.current = true;
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+      const startingToday = events.filter(e => e.cr4a1_data_inicio?.split('T')[0] === todayStr);
+      const endingToday = events.filter(e => e.cr4a1_data_fim?.split('T')[0] === todayStr && e.cr4a1_data_inicio?.split('T')[0] !== todayStr);
+
+      if (startingToday.length > 0) {
+        toast.success(`Você tem ${startingToday.length} evento(s) marcado(s) para iniciar hoje.`, {
+          duration: 6000,
+          icon: '📅'
+        });
+      }
+      if (endingToday.length > 0) {
+        toast(`Atenção: Você tem ${endingToday.length} evento(s) longo(s) que terminam hoje!`, {
+          icon: '⏳',
+          duration: 6000
+        });
+      }
     }
   }, [events, loading, user]);
 
@@ -189,31 +189,31 @@ function App() {
 
   const handleSaveEvent = async (data) => {
     try {
-        if (data.cr4a1_event_id) await updateEvent(data); // updateEvent assumes data injection fallback if needed
-        else await addEvent(data);
-        
-        toast.success("Salvo com sucesso!");
-        setIsModalOpen(false);
-    } catch(err) {
-        toast.error("Falha ao salvar evento.");
+      if (data.cr4a1_event_id) await updateEvent(data); // updateEvent assumes data injection fallback if needed
+      else await addEvent(data);
+
+      toast.success("Salvo com sucesso!");
+      setIsModalOpen(false);
+    } catch (err) {
+      toast.error("Falha ao salvar evento.");
     }
   };
 
   const handleDeleteClick = (event) => {
-      setEventToDelete(event);
-      setIsDeleteModalOpen(true);
+    setEventToDelete(event);
+    setIsDeleteModalOpen(true);
   };
 
   const confirmDelete = async () => {
-      if (!eventToDelete) return;
-      try {
-          await deleteEvent(eventToDelete.cr4a1_agenda_kairosid, eventToDelete.cr4a1_user_login);
-          toast.success("Evento excluído.");
-          setIsDeleteModalOpen(false);
-          setEventToDelete(null);
-      } catch (err) {
-          toast.error("Falha ao excluir.");
-      }
+    if (!eventToDelete) return;
+    try {
+      await deleteEvent(eventToDelete.cr4a1_agenda_kairosid, eventToDelete.cr4a1_user_login);
+      toast.success("Evento excluído.");
+      setIsDeleteModalOpen(false);
+      setEventToDelete(null);
+    } catch (err) {
+      toast.error("Falha ao excluir.");
+    }
   };
 
   const getUserColor = (username) => {
@@ -222,7 +222,7 @@ function App() {
   };
 
   const getEventColor = (event) => {
-      return event.cr4a1_cor || getUserColor(event.cr4a1_user_login);
+    return event.cr4a1_cor || getUserColor(event.cr4a1_user_login);
   };
 
   const handleNavigate = (direction) => {
@@ -237,32 +237,41 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
-      <Toaster 
-        position="bottom-center" 
-        toastOptions={{ 
-            style: { 
-                fontFamily: "'Poppins', sans-serif",
-                borderRadius: '32px',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                backdropFilter: 'blur(15px) saturate(180%)',
-                border: '1px solid var(--border-color)',
-                padding: '12px 24px',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
-                fontSize: '14px',
-                fontWeight: '500'
-            },
-            success: {
-                iconTheme: { primary: '#2ecc71', secondary: '#fff' }
-            },
-            error: {
-                iconTheme: { primary: '#e74c3c', secondary: '#fff' }
-            }
-        }} 
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            fontFamily: "'Poppins', sans-serif",
+            borderRadius: '32px',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            backdropFilter: 'blur(15px) saturate(180%)',
+            border: '1px solid var(--border-color)',
+            padding: '12px 24px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+            fontSize: '14px',
+            fontWeight: '500'
+          },
+          success: {
+            iconTheme: { primary: '#2ecc71', secondary: '#fff' }
+          },
+          error: {
+            iconTheme: { primary: '#e74c3c', secondary: '#fff' }
+          }
+        }}
       />
-      
+
+      {notification && (
+        <div className="android-notification-container">
+          <div className="android-notification error">
+            <div className="notification-icon-pill">!</div>
+            <span style={{ fontSize: '14px', fontWeight: '500' }}>{notification}</span>
+          </div>
+        </div>
+      )}
+
       {loading && <div style={{ position: 'fixed', top: 15, left: '50%', transform: 'translateX(-50%)', background: '#f1c40f', color: '#333', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', zIndex: 2100, boxShadow: '0 4px 10px rgba(0,0,0,0.1)', fontWeight: '500' }}>Sincronizando Banco de Dados...</div>}
-      
+
       <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
         <nav className="nav-container">
           <div className="nav-left">
@@ -288,12 +297,12 @@ function App() {
               <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
               <button onClick={() => handleNavigate('next')} className="icon-btn"><span>&gt;</span></button>
             </div>
-            
+
             <div className="nav-group">
               <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                 <span>{theme === 'light' ? '🌙' : '☀️'}</span>
               </button>
-              
+
               {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                 <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                   <span>👥</span>
@@ -335,7 +344,7 @@ function App() {
         </nav>
 
         {/* Month/Year Title & Year Selector */}
-        <div className="header-secondary-row" style={{ 
+        <div className="header-secondary-row" style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -348,11 +357,11 @@ function App() {
             <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize' }}>
               {format(currentDate, 'MMMM', { locale: ptBR })}
             </span>
-            <span 
+            <span
               onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)}
               className="year-pill"
-              style={{ 
-                cursor: 'pointer', 
+              style={{
+                cursor: 'pointer',
                 fontSize: '20px',
                 color: 'var(--text-secondary)',
                 fontWeight: '400',
@@ -420,14 +429,14 @@ function App() {
         {view === 'year' && (
           <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
             {Array.from({ length: 12 }, (_, i) => (
-              <MiniMonth 
-                  key={i} 
-                  monthDate={new Date(currentDate.getFullYear(), i, 1)} 
-                  onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} 
-                  getEventsForDay={getEventsForDay}
-                  holidays={holidays}
-                  allUsers={allUsers}
-                  onEditEvent={(ev) => { setEditingEvent(ev); setIsModalOpen(true); }}
+              <MiniMonth
+                key={i}
+                monthDate={new Date(currentDate.getFullYear(), i, 1)}
+                onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
+                getEventsForDay={getEventsForDay}
+                holidays={holidays}
+                allUsers={allUsers}
+                onEditEvent={(ev) => { setEditingEvent(ev); setIsModalOpen(true); }}
               />
             ))}
           </div>
@@ -447,91 +456,91 @@ function App() {
                 const isFirstRow = index < 7;
 
                 return (
-                  <div 
-                      key={day.toString()} 
-                      onClick={() => { setCurrentDate(day); setView('day'); }} 
-                      onMouseEnter={() => hasContent && setHoveredMonthDay(dateStr)}
-                      onMouseLeave={() => setHoveredMonthDay(null)}
-                      className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`} 
-                      style={{ cursor: 'pointer', position: 'relative', overflow: 'visible' }}
+                  <div
+                    key={day.toString()}
+                    onClick={() => { setCurrentDate(day); setView('day'); }}
+                    onMouseEnter={() => hasContent && setHoveredMonthDay(dateStr)}
+                    onMouseLeave={() => setHoveredMonthDay(null)}
+                    className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`}
+                    style={{ cursor: 'pointer', position: 'relative', overflow: 'visible' }}
                   >
                     <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ 
-                          display: 'flex', 
-                          justifyContent: 'center', 
-                          alignItems: 'center',
-                          alignSelf: 'center',
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          backgroundColor: isToday ? 'var(--text-accent)' : 'transparent',
-                          color: isToday ? 'white' : (holiday ? '#e74c3c' : (isCurrentMonth ? 'var(--text-title)' : 'var(--text-secondary)')),
-                          fontWeight: (isToday || holiday) ? '700' : '500',
-                          fontSize: '12px',
-                          marginBottom: '4px'
-                        }}>
-                            {format(day, 'd')}
-                        </div>
-                        
-                        {holiday && <div style={{ fontSize: '9px', color: '#e74c3c', textAlign: 'center', fontWeight: '700', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🚩 {holiday.name}</div>}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        alignSelf: 'center',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        backgroundColor: isToday ? 'var(--text-accent)' : 'transparent',
+                        color: isToday ? 'white' : (holiday ? '#e74c3c' : (isCurrentMonth ? 'var(--text-title)' : 'var(--text-secondary)')),
+                        fontWeight: (isToday || holiday) ? '700' : '500',
+                        fontSize: '12px',
+                        marginBottom: '4px'
+                      }}>
+                        {format(day, 'd')}
+                      </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, overflow: 'hidden' }}>
+                      {holiday && <div style={{ fontSize: '9px', color: '#e74c3c', textAlign: 'center', fontWeight: '700', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🚩 {holiday.name}</div>}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, overflow: 'hidden' }}>
                         {dayEvents.map(e => {
-                            const isAllDay = e.cr4a1_dia_inteiro;
-                            const color = getEventColor(e);
-                            return (
-                              <div key={e.cr4a1_event_id} className="event-badge" style={{ 
-                                  background: isAllDay ? color : 'transparent',
-                                  color: isAllDay ? 'white' : 'inherit'
-                              }}>
-                                  {!isAllDay && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
-                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                                      {!isAllDay && <strong>{e.cr4a1_hora_inicio} </strong>}
-                                      {e.cr4a1_titulo}
-                                  </span>
-                              </div>
-                            );
+                          const isAllDay = e.cr4a1_dia_inteiro;
+                          const color = getEventColor(e);
+                          return (
+                            <div key={e.cr4a1_event_id} className="event-badge" style={{
+                              background: isAllDay ? color : 'transparent',
+                              color: isAllDay ? 'white' : 'inherit'
+                            }}>
+                              {!isAllDay && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                                {!isAllDay && <strong>{e.cr4a1_hora_inicio} </strong>}
+                                {e.cr4a1_titulo}
+                              </span>
+                            </div>
+                          );
                         })}
-                        </div>
+                      </div>
                     </div>
 
                     {hoveredMonthDay === dateStr && hasContent && (
-                      <div 
-                          onClick={(e) => e.stopPropagation()} 
-                          className="premium-tooltip"
-                          style={{
-                              position: 'absolute',
-                              [isFirstRow ? 'top' : 'bottom']: '105%',
-                              left: '50%',
-                              transform: 'translateX(-50%)',
-                              zIndex: 1500,
-                              animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out'
-                          }}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="premium-tooltip"
+                        style={{
+                          position: 'absolute',
+                          [isFirstRow ? 'top' : 'bottom']: '105%',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 1500,
+                          animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out'
+                        }}
                       >
-                          <div style={{ fontSize: '11px', fontWeight: '800', marginBottom: '8px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                              <span>{format(day, "d 'de' MMMM", { locale: ptBR })}</span>
-                          </div>
-                          
-                          {holiday && (
-                              <div style={{ color: '#e74c3c', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🚩 {holiday.name}</div>
-                          )}
+                        <div style={{ fontSize: '11px', fontWeight: '800', marginBottom: '8px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{format(day, "d 'de' MMMM", { locale: ptBR })}</span>
+                        </div>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {dayEvents.map((ev, idx) => (
-                                  <div 
-                                      key={idx} 
-                                      onClick={() => { setEditingEvent(ev); setIsModalOpen(true); }}
-                                      className="tooltip-event-item"
-                                      style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '4px', borderRadius: '4px' }}
-                                  >
-                                      <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: getUserColor(ev.cr4a1_user_login), marginTop: '4px' }} />
-                                      <div style={{ fontSize: '10px', lineHeight: '1.3' }}>
-                                          <span style={{ fontWeight: '700' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
-                                          {!ev.cr4a1_dia_inteiro && <div style={{ opacity: 0.7 }}>🕒 {ev.cr4a1_hora_inicio}</div>}
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
+                        {holiday && (
+                          <div style={{ color: '#e74c3c', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🚩 {holiday.name}</div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {dayEvents.map((ev, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => { setEditingEvent(ev); setIsModalOpen(true); }}
+                              className="tooltip-event-item"
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '4px', borderRadius: '4px' }}
+                            >
+                              <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: getUserColor(ev.cr4a1_user_login), marginTop: '4px' }} />
+                              <div style={{ fontSize: '10px', lineHeight: '1.3' }}>
+                                <span style={{ fontWeight: '700' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
+                                {!ev.cr4a1_dia_inteiro && <div style={{ opacity: 0.7 }}>🕒 {ev.cr4a1_hora_inicio}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -547,9 +556,9 @@ function App() {
       </main>
 
       {isModalOpen && (
-        <EventModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+        <EventModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
           onSave={handleSaveEvent}
           initialDate={currentDate.toISOString()}
           editingEvent={editingEvent}
@@ -561,7 +570,7 @@ function App() {
       )}
 
       {isUserManagementModalOpen && (
-        <UserManagementModal 
+        <UserManagementModal
           isOpen={isUserManagementModalOpen}
           onClose={() => setIsUserManagementModalOpen(false)}
           allUsers={allUsers}
@@ -573,7 +582,7 @@ function App() {
       )}
 
       {isDeleteModalOpen && (
-        <DeleteConfirmationModal 
+        <DeleteConfirmationModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={confirmDelete}
@@ -582,7 +591,7 @@ function App() {
       )}
 
       {userRole === 'SECRETARIA' && (
-        <button 
+        <button
           className="create-btn-mobile fab-btn"
           onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}
         >
@@ -595,26 +604,26 @@ function App() {
 
 
 const btnStyle = (active) => ({
-    padding: '6px 18px',
-    borderRadius: '20px',
-    border: `1px solid ${active ? 'var(--text-title)' : 'var(--border-color)'}`,
-    background: active ? 'var(--text-title)' : 'var(--bg-secondary)',
-    color: active ? 'var(--bg-primary)' : 'var(--text-primary)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    fontWeight: active ? '600' : '500',
-    boxShadow: active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+  padding: '6px 18px',
+  borderRadius: '20px',
+  border: `1px solid ${active ? 'var(--text-title)' : 'var(--border-color)'}`,
+  background: active ? 'var(--text-title)' : 'var(--bg-secondary)',
+  color: active ? 'var(--bg-primary)' : 'var(--text-primary)',
+  cursor: 'pointer',
+  transition: 'all 0.2s',
+  fontWeight: active ? '600' : '500',
+  boxShadow: active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
 });
 
 const navBtnStyle = {
-    padding: '6px 18px',
-    borderRadius: '20px',
-    border: `1px solid var(--border-color)`,
-    background: 'var(--bg-primary)',
-    color: 'var(--text-primary)',
-    cursor: 'pointer',
-    fontWeight: '500',
-    transition: 'all 0.2s'
+  padding: '6px 18px',
+  borderRadius: '20px',
+  border: `1px solid var(--border-color)`,
+  background: 'var(--bg-primary)',
+  color: 'var(--text-primary)',
+  cursor: 'pointer',
+  fontWeight: '500',
+  transition: 'all 0.2s'
 };
 
 export default App;

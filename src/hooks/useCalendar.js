@@ -11,7 +11,8 @@ export const useCalendar = () => {
     const [holidays, setHolidays] = useState([]);
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+    const [notification, setNotification] = useState(null);
+
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
     const [viewedUser, setViewedUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -133,7 +134,7 @@ export const useCalendar = () => {
             });
             if (res.ok) fetchEventTypes();
             else throw new Error("API Fail");
-        } catch (error) { 
+        } catch (error) {
             // Fallback robusto para local
             setEventTypes(prev => {
                 const updated = [...prev, newType];
@@ -170,7 +171,6 @@ export const useCalendar = () => {
 
     const login = async (username, password) => {
     try {
-        // Usamos encodeURIComponent para garantir que caracteres especiais não quebrem a URL
         const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
         const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
         
@@ -178,7 +178,6 @@ export const useCalendar = () => {
         
         const data = await response.json();
 
-        // SEGURANÇA: Só loga se encontrar exatamente UM registro correspondente
         if (data.value && data.value.length === 1) {
             const userData = data.value[0];
             localStorage.setItem('kairos_logged_user', username);
@@ -189,10 +188,11 @@ export const useCalendar = () => {
             return { success: true };
         }
         
-        // Se retornar 0 ou mais de 1, as credenciais são inválidas
+        // DISPARO NO ERRO DE CREDENCIAIS
+        triggerAndroidNotification("Usuário ou senha incorretos");
         return { success: false, reason: 'invalid_credentials' };
     } catch (error) { 
-        console.error('Login error:', error);
+        triggerAndroidNotification("Erro de conexão com o banco");
         return { success: false, reason: 'connection_error' };
     }
 };
@@ -219,9 +219,9 @@ export const useCalendar = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newEvent)
             });
-            
+
             try {
-                const alertPhone = import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '5511999999999'; 
+                const alertPhone = import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '5511999999999';
                 const message = `*Novo Evento no Calendário*\n\n*Título:* ${eventData.title}\n*Data:* ${eventData.startDate} a ${eventData.endDate}\n*Horário:* ${eventData.allDay ? 'Dia Inteiro' : eventData.startHour + ' às ' + eventData.endHour}\n*Detalhes:* ${eventData.details || 'Nenhum'}`;
                 await fetch('http://localhost:3005/api/alert', {
                     method: 'POST',
@@ -283,9 +283,18 @@ export const useCalendar = () => {
         });
     };
 
+    const triggerAndroidNotification = (message) => {
+        setNotification(message);
+        setTimeout(() => {
+            const el = document.querySelector('.android-notification');
+            if (el) el.classList.add('android-out');
+            setTimeout(() => setNotification(null), 500);
+        }, 3500);
+    };
+
     return {
-        view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser, 
-        allUsers, eventTypes, addEventType, deleteEventType,
+        view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
+        allUsers, eventTypes, addEventType, deleteEventType, notification,
         colorPalette, updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         next: () => setCurrentDate(addMonths(currentDate, 1)),
