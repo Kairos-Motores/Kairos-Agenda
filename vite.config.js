@@ -10,6 +10,10 @@ export default defineConfig({
         target: 'https://kairosagenda.vercel.app',
         changeOrigin: true,
         secure: true,
+        bypass(req) {
+          // Only proxy actual API calls — never JS/CSS/HTML
+          if (req.headers.accept?.includes('text/html')) return req.url;
+        }
       }
     }
   }
