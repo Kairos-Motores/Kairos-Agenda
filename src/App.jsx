@@ -590,7 +590,7 @@ function App() {
         />
       )}
 
-      {userRole === 'SECRETARIA' && (
+      {userRole === 'SECRETARIA' || userRole === 'DIRETORIA' && (
         <button
           className="create-btn-mobile fab-btn"
           onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}
