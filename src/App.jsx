@@ -34,9 +34,17 @@ const LoginScreen = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsAuthenticating(true);
-    const success = await onLogin(username, password);
-    if (!success) {
-        alert("Acesso negado.");
+    const result = await onLogin(username, password);
+    if (!result.success) {
+        if (result.reason === 'connection_error') {
+            toast.error('Erro de conexão. Verifique sua internet.', {
+                style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
+            });
+        } else {
+            toast.error('Usuário ou senha inválidos.', {
+                style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' }
+            });
+        }
         setIsAuthenticating(false);
     }
   };
@@ -60,7 +68,7 @@ function App() {
     view, setView, currentDate, setCurrentDate,
     holidays, events, addEvent, updateEvent, deleteEvent,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, 
-    allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, updateUserColor
+    allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor
   } = useCalendar();
 
   const navButtonStyle = {
@@ -131,8 +139,7 @@ function App() {
                 if (timeDiffMins === 30 && !notifiedEvents.current.has(event.cr4a1_event_id)) {
                     toast(`Faltam 30 minutos para o evento:\n${event.cr4a1_titulo}`, {
                         icon: '⏰',
-                        duration: 8000,
-                        style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)' }
+                        duration: 8000
                     });
                     notifiedEvents.current.add(event.cr4a1_event_id);
                 }
@@ -155,15 +162,13 @@ function App() {
          if (startingToday.length > 0) {
              toast.success(`Você tem ${startingToday.length} evento(s) marcado(s) para iniciar hoje.`, { 
                  duration: 6000, 
-                 icon: '📅',
-                 style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)' } 
+                 icon: '📅'
              });
          }
          if (endingToday.length > 0) {
              toast(`Atenção: Você tem ${endingToday.length} evento(s) longo(s) que terminam hoje!`, { 
                  icon: '⏳', 
-                 duration: 6000,
-                 style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)' }  
+                 duration: 6000
              });
          }
     }
@@ -173,6 +178,13 @@ function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
+  if (isValidatingSession) return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
+      <span style={{ fontSize: '48px' }}>📅</span>
+      <p style={{ color: 'var(--text-secondary)', fontFamily: "'Poppins', sans-serif", fontSize: '14px' }}>Verificando sessão...</p>
+    </div>
+  );
+
   if (!user) return <LoginScreen onLogin={login} />;
 
   const handleSaveEvent = async (data) => {
@@ -180,10 +192,10 @@ function App() {
         if (data.cr4a1_event_id) await updateEvent(data); // updateEvent assumes data injection fallback if needed
         else await addEvent(data);
         
-        toast.success("Salvo com sucesso!", { style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)' } });
+        toast.success("Salvo com sucesso!");
         setIsModalOpen(false);
     } catch(err) {
-        toast.error("Falha ao salvar evento.", { style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)' } });
+        toast.error("Falha ao salvar evento.");
     }
   };
 
@@ -225,7 +237,29 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)' }}>
-      <Toaster position="top-right" toastOptions={{ style: { fontFamily: "'Poppins', sans-serif" } }} />
+      <Toaster 
+        position="bottom-center" 
+        toastOptions={{ 
+            style: { 
+                fontFamily: "'Poppins', sans-serif",
+                borderRadius: '32px',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                backdropFilter: 'blur(15px) saturate(180%)',
+                border: '1px solid var(--border-color)',
+                padding: '12px 24px',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+                fontSize: '14px',
+                fontWeight: '500'
+            },
+            success: {
+                iconTheme: { primary: '#2ecc71', secondary: '#fff' }
+            },
+            error: {
+                iconTheme: { primary: '#e74c3c', secondary: '#fff' }
+            }
+        }} 
+      />
       
       {loading && <div style={{ position: 'fixed', top: 15, left: '50%', transform: 'translateX(-50%)', background: '#f1c40f', color: '#333', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', zIndex: 2100, boxShadow: '0 4px 10px rgba(0,0,0,0.1)', fontWeight: '500' }}>Sincronizando Banco de Dados...</div>}
       
@@ -260,13 +294,40 @@ function App() {
                 <span>{theme === 'light' ? '🌙' : '☀️'}</span>
               </button>
               
-              {userRole === 'ADMIN' && (
-                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn">
+              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
+                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                   <span>👥</span>
                 </button>
               )}
 
-              <button onClick={logout} className="icon-btn" style={{ color: '#e74c3c' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'var(--bg-secondary)',
+                borderRadius: '32px',
+                padding: '6px 14px 6px 8px',
+                border: '1px solid var(--border-color)',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: 'var(--text-secondary)',
+              }}>
+                <span style={{
+                  width: '28px', height: '28px',
+                  borderRadius: '50%',
+                  background: 'var(--text-accent)',
+                  color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  flexShrink: 0
+                }}>
+                  {user?.[0]?.toUpperCase()}
+                </span>
+                <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
+              </div>
+
+              <button onClick={logout} className="icon-btn" title="Sair" style={{ color: '#e74c3c' }}>
                 <span>📤</span>
               </button>
             </div>

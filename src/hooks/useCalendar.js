@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { addMonths, subMonths, format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
 
 const API_PROXY = '/api/dataverse-proxy';
@@ -14,6 +15,7 @@ export const useCalendar = () => {
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
     const [viewedUser, setViewedUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
+    const [isValidatingSession, setIsValidatingSession] = useState(!!localStorage.getItem('kairos_logged_user'));
     const [allUsers, setAllUsers] = useState([]);
     const [eventTypes, setEventTypes] = useState(() => {
         const saved = localStorage.getItem('kairos_event_types');
@@ -32,6 +34,42 @@ export const useCalendar = () => {
         '#c0392b', '#f39c12', '#bdc3c7', '#34495e', '#ecf0f1', '#ff9f43', '#0abde3',
         '#ee5253', '#00d2d3', '#54a0ff', '#5f27cd'
     ];
+
+    // Validate stored session against Dataverse on startup
+    useEffect(() => {
+        const storedUser = localStorage.getItem('kairos_logged_user');
+        if (!storedUser) {
+            setIsValidatingSession(false);
+            return;
+        }
+        const validate = async () => {
+            try {
+                const filter = encodeURIComponent(`cr4a1_username eq '${storedUser}'`);
+                const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                const data = await response.json();
+                if (!data.value || data.value.length === 0) {
+                    throw new Error('User not found');
+                }
+                // Session is valid — update role from Dataverse (in case it changed)
+                const freshRole = data.value[0]?.cr4a1_role;
+                if (freshRole) {
+                    setUserRole(freshRole);
+                    localStorage.setItem('kairos_user_role', freshRole);
+                }
+            } catch (e) {
+                // Any failure = force logout. No stale sessions allowed.
+                console.warn('Session validation failed, forcing logout:', e.message);
+                localStorage.clear();
+                setUser(null);
+                setUserRole(null);
+                setViewedUser(null);
+            } finally {
+                setIsValidatingSession(false);
+            }
+        };
+        validate();
+    }, []);
 
     useEffect(() => {
         fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays);
@@ -127,13 +165,16 @@ export const useCalendar = () => {
                 body: JSON.stringify({ cr4a1_cor: newColor })
             });
             fetchUsers();
-        } catch (error) { alert("Erro ao atualizar cor"); }
+        } catch (error) { toast.error("Erro ao atualizar cor"); }
     };
 
     const login = async (username, password) => {
         try {
             const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+            
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            
             const data = await response.json();
 
             if (data.value && data.value.length > 0) {
@@ -143,10 +184,13 @@ export const useCalendar = () => {
                 setUser(username);
                 setUserRole(userData.cr4a1_role);
                 setViewedUser(username);
-                return true;
+                return { success: true };
             }
-            return false;
-        } catch (error) { return false; }
+            return { success: false, reason: 'invalid_credentials' };
+        } catch (error) { 
+            console.error('Login error:', error);
+            return { success: false, reason: 'connection_error' };
+        }
     };
 
     const addEvent = async (eventData) => {
@@ -183,7 +227,7 @@ export const useCalendar = () => {
             } catch (wppError) { console.error(wppError); }
 
             fetchEvents();
-        } catch (error) { alert("Erro ao salvar"); }
+        } catch (error) { toast.error("Erro ao salvar"); }
     };
 
     const updateEvent = async (eventData) => {
@@ -208,7 +252,7 @@ export const useCalendar = () => {
                 body: JSON.stringify(updatedEvent)
             });
             fetchEvents();
-        } catch (error) { alert("Erro ao atualizar"); }
+        } catch (error) { toast.error("Erro ao atualizar"); }
     };
 
     const deleteEvent = async (id, owner) => {
@@ -217,7 +261,7 @@ export const useCalendar = () => {
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
         if (userRole !== 'SECRETARIA' && finalOwner !== user) {
-            alert("Você só pode excluir seus próprios eventos.");
+            toast.error("Você só pode excluir seus próprios eventos.");
             return;
         }
         try {
@@ -239,7 +283,7 @@ export const useCalendar = () => {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser, 
         allUsers, eventTypes, addEventType, deleteEventType,
         colorPalette, updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
-        loading, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
+        loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         next: () => setCurrentDate(addMonths(currentDate, 1)),
         prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
