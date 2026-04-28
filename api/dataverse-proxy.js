@@ -7,10 +7,11 @@ export default async function handler(req, res) {
   } = process.env;
 
   const { table, id } = req.query;
-  const filter = req.headers['x-dataverse-filter'];
+  
+  // CORREÇÃO: Tenta pegar o filtro do Header OU do parâmetro '$filter' na URL
+  const filter = req.headers['x-dataverse-filter'] || req.query['$filter'];
 
   try {
-    // 1. Autenticação
     const tokenRes = await axios.post(
       `https://login.microsoftonline.com/${DATAVERSE_TENANT_ID}/oauth2/v2.0/token`,
       new URLSearchParams({
@@ -22,16 +23,12 @@ export default async function handler(req, res) {
     );
 
     const accessToken = tokenRes.data.access_token;
-
-    // 2. Montagem da URL no padrão OData (Entidade + ID)
-    // Se for DELETE, a URL final deve ser: .../tabela(id) SEM interrogação depois
     let finalUrl = `${DATAVERSE_ENV_URL}/api/data/v9.2/${table}`;
 
     if (id) {
       finalUrl += `(${id})`;
     }
 
-    // No seu arquivo api/dataverse-proxy.js
     const axiosConfig = {
       method: req.method,
       url: finalUrl,
@@ -42,16 +39,13 @@ export default async function handler(req, res) {
         'OData-MaxVersion': '4.0',
         'OData-Version': '4.0'
       },
-      // Se for DELETE, mandamos null. Se for POST/PATCH, mandamos o body.
       data: req.method === 'DELETE' ? null : req.body
     };
 
-    // Apenas adicionamos params se NÃO for um delete por ID
+    // Aplica o filtro se ele existir e não for uma busca por ID específico
     if (filter && !id) {
       axiosConfig.params = { '$filter': filter };
     }
-
-    console.log(`>>> [${req.method}] Executando em:`, finalUrl);
 
     const dataverseRes = await axios(axiosConfig);
     res.status(200).json(dataverseRes.data);

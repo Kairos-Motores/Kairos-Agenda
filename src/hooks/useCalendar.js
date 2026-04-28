@@ -169,29 +169,33 @@ export const useCalendar = () => {
     };
 
     const login = async (username, password) => {
-        try {
-            const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
-            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
-            
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-            
-            const data = await response.json();
+    try {
+        // Usamos encodeURIComponent para garantir que caracteres especiais não quebrem a URL
+        const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
+        const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+        
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        
+        const data = await response.json();
 
-            if (data.value && data.value.length > 0) {
-                const userData = data.value[0];
-                localStorage.setItem('kairos_logged_user', username);
-                localStorage.setItem('kairos_user_role', userData.cr4a1_role);
-                setUser(username);
-                setUserRole(userData.cr4a1_role);
-                setViewedUser(username);
-                return { success: true };
-            }
-            return { success: false, reason: 'invalid_credentials' };
-        } catch (error) { 
-            console.error('Login error:', error);
-            return { success: false, reason: 'connection_error' };
+        // SEGURANÇA: Só loga se encontrar exatamente UM registro correspondente
+        if (data.value && data.value.length === 1) {
+            const userData = data.value[0];
+            localStorage.setItem('kairos_logged_user', username);
+            localStorage.setItem('kairos_user_role', userData.cr4a1_role);
+            setUser(username);
+            setUserRole(userData.cr4a1_role);
+            setViewedUser(username);
+            return { success: true };
         }
-    };
+        
+        // Se retornar 0 ou mais de 1, as credenciais são inválidas
+        return { success: false, reason: 'invalid_credentials' };
+    } catch (error) { 
+        console.error('Login error:', error);
+        return { success: false, reason: 'connection_error' };
+    }
+};
 
     const addEvent = async (eventData) => {
         const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
