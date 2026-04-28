@@ -6,15 +6,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Esta configuração só afeta o ambiente de DESENVOLVIMENTO local
       '/api': {
-        target: 'https://kairosagenda.vercel.app',
+        target: 'http://localhost:5173', // Em dev, aponte para o seu servidor local
         changeOrigin: true,
-        secure: true,
-        bypass(req) {
-          // Only proxy actual API calls — never JS/CSS/HTML
-          if (req.headers.accept?.includes('text/html')) return req.url;
-        }
+        secure: false,
       }
     }
+  },
+  build: {
+    // Garante que os assets sejam gerados com caminhos relativos corretos
+    outDir: 'dist',
   }
 })
