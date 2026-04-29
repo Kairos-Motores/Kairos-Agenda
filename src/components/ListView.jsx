@@ -20,13 +20,13 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
 
     const filteredEvents = useMemo(() => {
         return events.filter(event => {
-            const matchesText = !filters.text || 
+            const matchesText = !filters.text ||
                 (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) ||
                 (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
-            
+
             const matchesUser = filters.user === 'all' || event.cr4a1_user_login === filters.user;
             const matchesType = filters.type === 'all' || event.cr4a1_tipo === filters.type;
-            
+
             let matchesMonth = true;
             if (filters.month !== 'all') {
                 const eventMonth = event.cr4a1_data_inicio?.split('-').slice(0, 2).join('-'); // yyyy-MM
@@ -70,43 +70,43 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
         <div style={{ marginTop: '20px' }} className="view-enter">
             {/* Barra de Filtros */}
             <div className="list-filter-bar">
-                <input 
-                    placeholder="🔍 Buscar evento..." 
+                <input
+                    placeholder="🔍 Buscar evento..."
                     value={filters.text}
-                    onChange={e => setFilters({...filters, text: e.target.value})}
+                    onChange={e => setFilters({ ...filters, text: e.target.value })}
                     style={{ flex: 2, minWidth: '200px' }}
                 />
-                
-                <select 
-                    value={filters.user} 
-                    onChange={e => setFilters({...filters, user: e.target.value})}
+
+                <select
+                    value={filters.user}
+                    onChange={e => setFilters({ ...filters, user: e.target.value })}
                 >
                     <option value="all">👤 Todos Usuários</option>
                     {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_username}</option>)}
                 </select>
- 
-                <select 
-                    value={filters.type} 
-                    onChange={e => setFilters({...filters, type: e.target.value})}
+
+                <select
+                    value={filters.type}
+                    onChange={e => setFilters({ ...filters, type: e.target.value })}
                 >
                     <option value="all">🏷️ Todos Tipos</option>
                     {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
                 </select>
- 
-                <select 
-                    value={filters.month} 
-                    onChange={e => setFilters({...filters, month: e.target.value})}
+
+                <select
+                    value={filters.month}
+                    onChange={e => setFilters({ ...filters, month: e.target.value })}
                 >
                     <option value="all">📅 Todos Meses</option>
                     {availableMonths.map(m => {
                         const [y, mm] = m.split('-');
-                        const date = new Date(y, parseInt(mm)-1);
+                        const date = new Date(y, parseInt(mm) - 1);
                         return <option key={m} value={m}>{format(date, 'MMMM yyyy', { locale: ptBR })}</option>
                     })}
                 </select>
- 
+
                 {(filters.text || filters.user !== 'all' || filters.type !== 'all' || filters.month !== 'all') && (
-                    <button 
+                    <button
                         onClick={() => setFilters({ text: '', user: 'all', type: 'all', month: 'all' })}
                         className="nav-pill"
                         style={{ color: 'var(--text-accent)' }}
@@ -115,7 +115,7 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
                     </button>
                 )}
             </div>
- 
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {sortedEvents.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', borderRadius: '32px' }}>
@@ -123,12 +123,12 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
                         <p style={{ fontSize: '16px', fontWeight: '500' }}>Nenhum evento encontrado para estes filtros.</p>
                     </div>
                 )}
- 
+
                 {sortedEvents.map(event => {
                     const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
                     const eventType = eventTypes.find(t => t.name === event.cr4a1_tipo);
                     const emoji = eventType?.emoji || "📝";
-                    
+
                     return (
                         <div key={event.cr4a1_agenda_kairosid || Math.random()} className="list-event-card" style={{ borderLeft: `8px solid ${userColor}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -137,7 +137,9 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
                                         👤 {event.cr4a1_user_login}
                                     </div>
                                     <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '18px', fontWeight: '700' }}>
-                                        {event.cr4a1_titulo || "SEM TÍTULO"}
+                                        <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-title)' }}>
+                                            {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo || "SEM TÍTULO"}
+                                        </h3>
                                     </h3>
                                     <span style={{
                                         backgroundColor: userColor,
@@ -150,24 +152,24 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
                                         {emoji} {event.cr4a1_tipo || "TASK"}
                                     </span>
                                 </div>
- 
+
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button onClick={() => onEdit(event)} className="nav-pill" style={{ backgroundColor: 'var(--bg-secondary)' }}>✏️ Editar</button>
                                     <button onClick={() => onDelete(event)} className="icon-btn" style={{ color: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)' }}>🗑️</button>
                                 </div>
                             </div>
- 
+
                             <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', margin: '8px 0' }}>
                                 <span>📅 <strong>Data:</strong> {event.cr4a1_data_inicio} até {event.cr4a1_data_fim}</span>
                                 <span>🕒 <strong>Horário:</strong> {event.cr4a1_dia_inteiro ? <span style={{ color: 'var(--text-accent)', fontWeight: '700' }}>🌞 Dia Inteiro</span> : `${event.cr4a1_hora_inicio} - ${event.cr4a1_hora_fim}`}</span>
                             </div>
- 
+
                             {event.cr4a1_detalhes && (
                                 <div style={{ backgroundColor: 'var(--bg-page)', padding: '16px', borderRadius: '16px', fontSize: '14px', color: 'var(--text-primary)', borderLeft: '3px solid var(--border-color)', fontStyle: 'italic', lineHeight: '1.6' }}>
                                     {event.cr4a1_detalhes}
                                 </div>
                             )}
- 
+
                             {event.cr4a1_arquivos && (
                                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
                                     {JSON.parse(event.cr4a1_arquivos || "[]").map((file, idx) => (

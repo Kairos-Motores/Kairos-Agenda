@@ -496,7 +496,7 @@ function App() {
                               {!isAllDay && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
                                 {!isAllDay && <strong>{e.cr4a1_hora_inicio} </strong>}
-                                {e.cr4a1_titulo}
+                                {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                               </span>
                             </div>
                           );
@@ -535,7 +535,7 @@ function App() {
                             >
                               <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: getUserColor(ev.cr4a1_user_login), marginTop: '4px' }} />
                               <div style={{ fontSize: '10px', lineHeight: '1.3' }}>
-                                <span style={{ fontWeight: '700' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
+                                <<span style={{ fontWeight: '700' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_privado ? '🔒 ' : ''}{ev.cr4a1_titulo}
                                 {!ev.cr4a1_dia_inteiro && <div style={{ opacity: 0.7 }}>🕒 {ev.cr4a1_hora_inicio}</div>}
                               </div>
                             </div>

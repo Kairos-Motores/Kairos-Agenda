@@ -29,13 +29,13 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
   };
 
   const EventCard = ({ event, showDetails, userColor }) => (
-    <div 
+    <div
       className="day-view-event"
-      style={{ 
+      style={{
         boxSizing: 'border-box',
-        width: '100%', 
-        backgroundColor: userColor, 
-        color: 'white', 
+        width: '100%',
+        backgroundColor: userColor,
+        color: 'white',
         padding: '6px 12px',
         borderRadius: '8px',
         fontSize: '12px',
@@ -52,30 +52,33 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {showDetails ? `${event.cr4a1_user_login?.charAt(0).toUpperCase()}: ${event.cr4a1_titulo}` : `(Cont.) ${event.cr4a1_titulo}`}
+            {showDetails
+              ? `${event.cr4a1_user_login?.charAt(0).toUpperCase()}: ${event.cr4a1_privado ? '🔒 ' : ''}${event.cr4a1_titulo}`
+              : `(Cont.) ${event.cr4a1_privado ? '🔒 ' : ''}${event.cr4a1_titulo}`
+            }
           </div>
           {showDetails && !event.cr4a1_dia_inteiro && (
-              <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', fontWeight: '500' }}>
-                  🕒 {event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}
-              </div>
+            <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', fontWeight: '500' }}>
+              🕒 {event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}
+            </div>
           )}
           {event.cr4a1_dia_inteiro && <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', fontWeight: '600' }}>🌞 Dia Inteiro</div>}
         </div>
 
         <div style={{ display: 'flex', gap: '8px', paddingRight: '8px' }}>
-          <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(event); }} 
-              title="Editar"
-              style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(event); }}
+            title="Editar"
+            style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}
           >
-              ✏️
+            ✏️
           </button>
-          <button 
-              onClick={(e) => { e.stopPropagation(); onDelete(event); }} 
-              title="Excluir"
-              style={{ background: 'rgba(231,76,60,0.9)', border: 'none', color: 'white', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(event); }}
+            title="Excluir"
+            style={{ background: 'rgba(231,76,60,0.9)', border: 'none', color: 'white', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}
           >
-              🗑️
+            🗑️
           </button>
         </div>
       </div>
@@ -84,11 +87,11 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
 
   return (
     <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', overflow: 'hidden' }}>
-      
+
       {/* CABEÇALHO DO DIA */}
       <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', textAlign: 'center' }}>
         <h2 style={{ margin: 0, color: 'var(--text-title)', textTransform: 'capitalize', fontSize: '20px' }}>
-            {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </h2>
       </div>
 
@@ -105,11 +108,11 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
         <div style={{ padding: '10px 15px', background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '2px' }}>🌞 Eventos de Dia Inteiro</div>
           {allDayEvents.map(event => (
-            <EventCard 
-              key={event.cr4a1_agenda_kairosid} 
-              event={event} 
-              showDetails={true} 
-              userColor={userColorMap[event.cr4a1_user_login] || '#3498db'} 
+            <EventCard
+              key={event.cr4a1_agenda_kairosid}
+              event={event}
+              showDetails={true}
+              userColor={userColorMap[event.cr4a1_user_login] || '#3498db'}
             />
           ))}
         </div>
@@ -117,7 +120,7 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
 
       {hours.map(hour => {
         const eventsInHour = getEventsInThisHour(hour, hourlyEvents);
-        
+
         return (
           <div key={hour} style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', minHeight: '65px', position: 'relative' }}>
             <div style={{ width: '50px', padding: '10px', fontSize: '12px', color: 'var(--text-secondary)', borderRight: '1px solid var(--border-color)', textAlign: 'right', backgroundColor: 'var(--bg-secondary)' }}>
@@ -131,13 +134,13 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
                   if (targetDateStr === ev.cr4a1_data_inicio) return parseInt(ev.cr4a1_hora_inicio.split(':')[0]) === hour;
                   return hour === 0;
                 };
-                
+
                 return (
-                  <EventCard 
-                    key={event.cr4a1_agenda_kairosid} 
-                    event={event} 
-                    showDetails={isFirstHourOfDay(event)} 
-                    userColor={userColor} 
+                  <EventCard
+                    key={event.cr4a1_agenda_kairosid}
+                    event={event}
+                    showDetails={isFirstHourOfDay(event)}
+                    userColor={userColor}
                   />
                 );
               })}
