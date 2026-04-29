@@ -93,8 +93,10 @@ function App() {
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
   const [hoveredMonthDay, setHoveredMonthDay] = useState(null);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
+  
+  // NOVO: Toggle da visualização diária
+  const [dayViewMode, setDayViewMode] = useState('timeline'); 
 
-  // States relacionados a temas e alertas
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   });
@@ -104,20 +106,17 @@ function App() {
   const welcomeToastShown = useRef(false);
   const notifiedEvents = useRef(new Set());
 
-  // Listener de Scroll para o cabeçalho compacto
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Aplicar tema persistente
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Relógio e Verificador de Eventos (30 min)
   useEffect(() => {
     if (!user || loading || events.length === 0) return;
 
@@ -151,7 +150,6 @@ function App() {
     return () => clearInterval(timerId);
   }, [events, user, loading]);
 
-  // Notificação de Boas-vindas preditiva
   useEffect(() => {
     if (events.length > 0 && !welcomeToastShown.current && !loading && user) {
       welcomeToastShown.current = true;
@@ -190,13 +188,14 @@ function App() {
 
   const handleSaveEvent = async (data) => {
     try {
-      if (data.cr4a1_event_id) await updateEvent(data); // updateEvent assumes data injection fallback if needed
+      if (data.cr4a1_event_id) await updateEvent(data);
       else await addEvent(data);
 
       toast.success("Salvo com sucesso!");
       setIsModalOpen(false);
     } catch (err) {
       toast.error("Falha ao salvar evento.");
+      throw err; // Repassa erro para destravar o botão
     }
   };
 
@@ -217,7 +216,6 @@ function App() {
     }
   };
 
-  // FUNÇÃO CENTRALIZADORA DE SEGURANÇA PARA EDIÇÃO
   const handleEditClick = (event) => {
     if (userRole === 'SECRETARIA' || event.cr4a1_user_login === user) {
       setEditingEvent(event);
@@ -266,12 +264,8 @@ function App() {
             fontSize: '14px',
             fontWeight: '500'
           },
-          success: {
-            iconTheme: { primary: '#2ecc71', secondary: '#fff' }
-          },
-          error: {
-            iconTheme: { primary: '#e74c3c', secondary: '#fff' }
-          }
+          success: { iconTheme: { primary: '#2ecc71', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#e74c3c', secondary: '#fff' } }
         }}
       />
 
@@ -324,26 +318,16 @@ function App() {
               )}
 
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'var(--bg-secondary)',
-                borderRadius: '32px',
-                padding: '6px 14px 6px 8px',
-                border: '1px solid var(--border-color)',
-                fontSize: '13px',
-                fontWeight: '500',
-                color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: 'var(--bg-secondary)', borderRadius: '32px',
+                padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)',
+                fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)',
               }}>
                 <span style={{
-                  width: '28px', height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--text-accent)',
-                  color: '#fff',
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: 'var(--text-accent)', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  flexShrink: 0
+                  fontSize: '13px', fontWeight: '700', flexShrink: 0
                 }}>
                   {user?.[0]?.toUpperCase()}
                 </span>
@@ -357,15 +341,10 @@ function App() {
           </div>
         </nav>
 
-        {/* Month/Year Title & Year Selector */}
+        {/* Título & Toggle de visualização (Timeline/Cartões) */}
         <div className="header-secondary-row" style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '4px',
-          marginTop: '10px',
-          position: 'relative',
-          transition: 'all 0.4s ease'
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+          marginTop: '10px', position: 'relative', transition: 'all 0.4s ease'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize' }}>
@@ -375,39 +354,41 @@ function App() {
               onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)}
               className="year-pill"
               style={{
-                cursor: 'pointer',
-                fontSize: '20px',
-                color: 'var(--text-secondary)',
-                fontWeight: '400',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                transition: 'background 0.2s'
+                cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)',
+                fontWeight: '400', display: 'flex', alignItems: 'center', gap: '4px',
+                padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s'
               }}
             >
               {format(currentDate, 'yyyy')}
               <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
             </span>
+
+            {/* NOVO: Toggle Exclusivo do DayView */}
+            {view === 'day' && (
+              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
+                  <button 
+                      onClick={() => setDayViewMode('timeline')} 
+                      style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: '500' }}
+                  >
+                      Linhas
+                  </button>
+                  <button 
+                      onClick={() => setDayViewMode('cards')} 
+                      style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: '500' }}
+                  >
+                      Cartões
+                  </button>
+              </div>
+            )}
           </div>
 
           {isYearSelectorOpen && (
             <div style={{
-              position: 'absolute',
-              top: '40px',
-              zIndex: 2000,
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '12px',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-              width: '280px',
-              maxWidth: '90vw',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '8px',
-              animation: 'scaleIn 0.2s ease-out'
+              position: 'absolute', top: '40px', zIndex: 2000,
+              backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+              borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+              width: '280px', maxWidth: '90vw', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '8px', animation: 'scaleIn 0.2s ease-out'
             }}>
               {Array.from({ length: 16 }, (_, i) => {
                 const year = currentDate.getFullYear() - 7 + i;
@@ -420,14 +401,10 @@ function App() {
                       setIsYearSelectorOpen(false);
                     }}
                     style={{
-                      padding: '10px 0',
-                      borderRadius: '8px',
-                      border: 'none',
+                      padding: '10px 0', borderRadius: '8px', border: 'none',
                       backgroundColor: isSelected ? 'var(--text-accent)' : 'transparent',
-                      color: isSelected ? 'white' : 'var(--text-primary)',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: isSelected ? '700' : '400'
+                      color: isSelected ? 'white' : 'var(--text-primary)', cursor: 'pointer',
+                      fontSize: '14px', fontWeight: isSelected ? '700' : '400'
                     }}
                   >
                     {year}
@@ -440,41 +417,41 @@ function App() {
       </header>
 
       <main className="main-container view-enter" key={view}>
+        
+        {/* BARRA DE FILTRO GLOBAL */}
         <div className="list-filter-bar" style={{ marginBottom: '24px', animation: 'fadeInDown 0.3s ease-out', padding: '12px' }}>
           <input
-            placeholder="🔍 Buscar evento..."
-            value={filters.text}
-            onChange={e => setFilters({ ...filters, text: e.target.value })}
-            style={{ flex: 2, minWidth: '200px' }}
+              placeholder="🔍 Buscar evento..."
+              value={filters.text}
+              onChange={e => setFilters({ ...filters, text: e.target.value })}
+              style={{ flex: 2, minWidth: '200px' }}
           />
           <select value={filters.user} onChange={e => setFilters({ ...filters, user: e.target.value })}>
-            <option value="all">👤 Todos Usuários</option>
-            {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_username}</option>)}
+              <option value="all">👤 Todos Usuários</option>
+              {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_username}</option>)}
           </select>
           <select value={filters.type} onChange={e => setFilters({ ...filters, type: e.target.value })}>
-            <option value="all">🏷️ Todos Tipos</option>
-            {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
+              <option value="all">🏷️ Todos Tipos</option>
+              {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
           </select>
           {(filters.text || filters.user !== 'all' || filters.type !== 'all') && (
-            <button
-              onClick={() => setFilters({ text: '', user: 'all', type: 'all' })}
-              className="nav-pill"
-              style={{ color: 'var(--text-accent)' }}
-            >
-              Limpar Filtros
-            </button>
+              <button 
+                onClick={() => setFilters({ text: '', user: 'all', type: 'all' })} 
+                className="nav-pill" 
+                style={{ color: 'var(--text-accent)' }}
+              >
+                  Limpar Filtros
+              </button>
           )}
         </div>
+
         {view === 'year' && (
           <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
             {Array.from({ length: 12 }, (_, i) => (
               <MiniMonth
-                key={i}
-                monthDate={new Date(currentDate.getFullYear(), i, 1)}
+                key={i} monthDate={new Date(currentDate.getFullYear(), i, 1)}
                 onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
-                getEventsForDay={getEventsForDay}
-                holidays={holidays}
-                allUsers={allUsers}
+                getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers}
                 onEditEvent={handleEditClick}
               />
             ))}
@@ -496,27 +473,18 @@ function App() {
 
                 return (
                   <div
-                    key={day.toString()}
-                    onClick={() => { setCurrentDate(day); setView('day'); }}
-                    onMouseEnter={() => hasContent && setHoveredMonthDay(dateStr)}
-                    onMouseLeave={() => setHoveredMonthDay(null)}
+                    key={day.toString()} onClick={() => { setCurrentDate(day); setView('day'); }}
+                    onMouseEnter={() => hasContent && setHoveredMonthDay(dateStr)} onMouseLeave={() => setHoveredMonthDay(null)}
                     className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`}
                     style={{ cursor: 'pointer', position: 'relative', overflow: 'visible' }}
                   >
                     <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
                       <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        alignSelf: 'center',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
+                        display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
+                        width: '28px', height: '28px', borderRadius: '50%',
                         backgroundColor: isToday ? 'var(--text-accent)' : 'transparent',
                         color: isToday ? 'white' : (holiday ? '#e74c3c' : (isCurrentMonth ? 'var(--text-title)' : 'var(--text-secondary)')),
-                        fontWeight: (isToday || holiday) ? '700' : '500',
-                        fontSize: '12px',
-                        marginBottom: '4px'
+                        fontWeight: (isToday || holiday) ? '700' : '500', fontSize: '12px', marginBottom: '4px'
                       }}>
                         {format(day, 'd')}
                       </div>
@@ -529,8 +497,7 @@ function App() {
                           const color = getEventColor(e);
                           return (
                             <div key={e.cr4a1_event_id} className="event-badge" style={{
-                              background: isAllDay ? color : 'transparent',
-                              color: isAllDay ? 'white' : 'inherit'
+                              background: isAllDay ? color : 'transparent', color: isAllDay ? 'white' : 'inherit'
                             }}>
                               {!isAllDay && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
@@ -545,31 +512,21 @@ function App() {
 
                     {hoveredMonthDay === dateStr && hasContent && (
                       <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="premium-tooltip"
+                        onClick={(e) => e.stopPropagation()} className="premium-tooltip"
                         style={{
-                          position: 'absolute',
-                          [isFirstRow ? 'top' : 'bottom']: '105%',
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          zIndex: 1500,
+                          position: 'absolute', [isFirstRow ? 'top' : 'bottom']: '105%',
+                          left: '50%', transform: 'translateX(-50%)', zIndex: 1500,
                           animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out'
                         }}
                       >
                         <div style={{ fontSize: '11px', fontWeight: '800', marginBottom: '8px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
                           <span>{format(day, "d 'de' MMMM", { locale: ptBR })}</span>
                         </div>
-
-                        {holiday && (
-                          <div style={{ color: '#e74c3c', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🚩 {holiday.name}</div>
-                        )}
-
+                        {holiday && <div style={{ color: '#e74c3c', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🚩 {holiday.name}</div>}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {dayEvents.map((ev, idx) => (
                             <div
-                              key={idx}
-                              onClick={() => handleEditClick(ev)}
-                              className="tooltip-event-item"
+                              key={idx} onClick={() => handleEditClick(ev)} className="tooltip-event-item"
                               style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '4px', borderRadius: '4px' }}
                             >
                               <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: getUserColor(ev.cr4a1_user_login), marginTop: '4px' }} />
@@ -591,49 +548,35 @@ function App() {
 
         {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
 
-        {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
+        {/* Repassando o estado de dayViewMode para ser manipulado por DayView */}
+        {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} onDelete={handleDeleteClick} dayViewMode={dayViewMode} />}
       </main>
 
       {isModalOpen && (
         <EventModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleSaveEvent}
-          initialDate={currentDate.toISOString()}
-          editingEvent={editingEvent}
-          userRole={userRole}
-          allUsers={allUsers}
-          eventTypes={eventTypes}
-          viewedUser={viewedUser}
+          isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent}
+          initialDate={currentDate.toISOString()} editingEvent={editingEvent}
+          userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser}
         />
       )}
 
       {isUserManagementModalOpen && (
         <UserManagementModal
-          isOpen={isUserManagementModalOpen}
-          onClose={() => setIsUserManagementModalOpen(false)}
-          allUsers={allUsers}
-          updateUserColor={updateUserColor}
-          eventTypes={eventTypes}
-          addEventType={addEventType}
-          deleteEventType={deleteEventType}
+          isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)}
+          allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes}
+          addEventType={addEventType} deleteEventType={deleteEventType}
         />
       )}
 
       {isDeleteModalOpen && (
         <DeleteConfirmationModal
-          isOpen={isDeleteModalOpen}
-          onClose={() => setIsDeleteModalOpen(false)}
-          onConfirm={confirmDelete}
-          eventTitle={eventToDelete?.cr4a1_titulo}
+          isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo}
         />
       )}
 
       {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
-        <button
-          className="create-btn-mobile fab-btn"
-          onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}
-        >
+        <button className="create-btn-mobile fab-btn" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>
           <span style={{ fontSize: '24px', color: 'white', fontWeight: '700' }}>+</span> <span className="nav-label">Criar</span>
         </button>
       )}
@@ -642,26 +585,18 @@ function App() {
 }
 
 const btnStyle = (active) => ({
-  padding: '6px 18px',
-  borderRadius: '20px',
+  padding: '6px 18px', borderRadius: '20px',
   border: `1px solid ${active ? 'var(--text-title)' : 'var(--border-color)'}`,
   background: active ? 'var(--text-title)' : 'var(--bg-secondary)',
   color: active ? 'var(--bg-primary)' : 'var(--text-primary)',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-  fontWeight: active ? '600' : '500',
+  cursor: 'pointer', transition: 'all 0.2s', fontWeight: active ? '600' : '500',
   boxShadow: active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
 });
 
 const navBtnStyle = {
-  padding: '6px 18px',
-  borderRadius: '20px',
-  border: `1px solid var(--border-color)`,
-  background: 'var(--bg-primary)',
-  color: 'var(--text-primary)',
-  cursor: 'pointer',
-  fontWeight: '500',
-  transition: 'all 0.2s'
+  padding: '6px 18px', borderRadius: '20px', border: `1px solid var(--border-color)`,
+  background: 'var(--bg-primary)', color: 'var(--text-primary)',
+  cursor: 'pointer', fontWeight: '500', transition: 'all 0.2s'
 };
 
 export default App;

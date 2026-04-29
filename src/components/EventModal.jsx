@@ -10,8 +10,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     });
     
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-    // Estado de privacidade
     const [isPrivate, setIsPrivate] = useState(false);
+    
+    // NOVO: Previne cliques duplos ao salvar
+    const [isSaving, setIsSaving] = useState(false);
 
     const commonEmojis = ['📝', '🤝', '🏠', '🔥', '📅', '⏰', '🚀', '⭐', '💡', '✅', '❌', '🏢', '💻', '📞', '✈️', '🚗', '🍴', '🎉', '⚽', '🎨'];
 
@@ -43,6 +45,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
             });
             setIsPrivate(false);
         }
+        setIsSaving(false);
     }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes]);
 
     if (!isOpen) return null;
@@ -50,6 +53,15 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     const handleEmojiClick = (emoji) => {
         setFormData(prev => ({ ...prev, title: prev.title + emoji }));
         setIsEmojiPickerOpen(false);
+    };
+
+    // NOVO: Lógica que adiciona 1 hora automaticamente caso a Hora Início seja alterada
+    const handleStartHourChange = (newTime) => {
+        setFormData(prev => {
+            const [h, m] = newTime.split(':');
+            const endH = String((parseInt(h) + 1) % 24).padStart(2, '0');
+            return { ...prev, startHour: newTime, endHour: `${endH}:${m}` };
+        });
     };
 
     const handleFileChange = (e) => {
@@ -82,6 +94,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         width: '100%', marginBottom: '12px', padding: '12px 16px', boxSizing: 'border-box', 
         borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', 
         color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', fontSize: '14px', transition: 'all 0.2s'
+    };
+
+    // NOVO: Estilo para os seletores de horas Mobile-friendly
+    const customSelectStyle = {
+        padding: '10px 4px', borderRadius: '10px', border: '1px solid var(--border-color)', 
+        background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
+        fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none'
     };
 
     return (
@@ -148,13 +167,32 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                     {!formData.allDay && (
                         <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                            {/* NOVO: Seletor de Hora Início Mobile-Friendly */}
                             <div style={{ flex: '1 1 140px' }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Início</label>
-                                <input type="time" value={formData.startHour} onChange={e => setFormData({ ...formData, startHour: e.target.value })} style={inputStyle} />
+                                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                                    <select value={formData.startHour.split(':')[0]} onChange={e => handleStartHourChange(`${e.target.value}:${formData.startHour.split(':')[1]}`)} style={{...customSelectStyle, border: 'none'}}>
+                                        {Array.from({ length: 24 }).map((_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}h</option>)}
+                                    </select>
+                                    <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-secondary)' }}>:</span>
+                                    <select value={formData.startHour.split(':')[1]} onChange={e => handleStartHourChange(`${formData.startHour.split(':')[0]}:${e.target.value}`)} style={{...customSelectStyle, border: 'none'}}>
+                                        {Array.from({ length: 12 }).map((_, i) => <option key={i} value={String(i * 5).padStart(2, '0')}>{String(i * 5).padStart(2, '0')}m</option>)}
+                                    </select>
+                                </div>
                             </div>
+                            
+                            {/* NOVO: Seletor de Hora Fim Mobile-Friendly */}
                             <div style={{ flex: '1 1 140px' }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Fim</label>
-                                <input type="time" value={formData.endHour} onChange={e => setFormData({ ...formData, endHour: e.target.value })} style={inputStyle} />
+                                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                                    <select value={formData.endHour.split(':')[0]} onChange={e => setFormData({ ...formData, endHour: `${e.target.value}:${formData.endHour.split(':')[1]}` })} style={{...customSelectStyle, border: 'none'}}>
+                                        {Array.from({ length: 24 }).map((_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}h</option>)}
+                                    </select>
+                                    <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-secondary)' }}>:</span>
+                                    <select value={formData.endHour.split(':')[1]} onChange={e => setFormData({ ...formData, endHour: `${formData.endHour.split(':')[0]}:${e.target.value}` })} style={{...customSelectStyle, border: 'none'}}>
+                                        {Array.from({ length: 12 }).map((_, i) => <option key={i} value={String(i * 5).padStart(2, '0')}>{String(i * 5).padStart(2, '0')}m</option>)}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -199,17 +237,22 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+                        <button onClick={onClose} disabled={isSaving} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
                         <button 
-                            onClick={() => {
+                            disabled={isSaving}
+                            onClick={async () => {
                                 if (!formData.title) return toast.error('Título obrigatório');
-                                // Envia os dados do form + o estado de privacidade
-                                onSave({ ...formData, cr4a1_privado: isPrivate });
+                                setIsSaving(true);
+                                try {
+                                    await onSave({ ...formData, cr4a1_privado: isPrivate });
+                                } catch(e) {
+                                    setIsSaving(false); // Só volta se der erro. Se for sucesso o modal fecha.
+                                }
                             }} 
                             className="btn-primary"
-                            style={{ flex: 2 }}
+                            style={{ flex: 2, opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
                         >
-                            Salvar Compromisso
+                            {isSaving ? '⏳ Salvando...' : 'Salvar Compromisso'}
                         </button>
                     </div>
                 </div>
