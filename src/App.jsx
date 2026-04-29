@@ -216,6 +216,19 @@ function App() {
     }
   };
 
+  // FUNÇÃO CENTRALIZADORA DE SEGURANÇA PARA EDIÇÃO
+  const handleEditClick = (event) => {
+    if (userRole === 'SECRETARIA' || event.cr4a1_user_login === user) {
+      setEditingEvent(event);
+      setIsModalOpen(true);
+    } else {
+      toast.error("Acesso Negado: Apenas a Secretaria pode editar eventos de terceiros.", {
+        icon: '🚫',
+        style: { borderRadius: '32px', background: '#ff453a', color: '#fff' }
+      });
+    }
+  };
+
   const getUserColor = (username) => {
     const found = allUsers.find(u => u.cr4a1_username === username);
     return found ? found.cr4a1_cor : '#3498db';
@@ -436,7 +449,7 @@ function App() {
                 getEventsForDay={getEventsForDay}
                 holidays={holidays}
                 allUsers={allUsers}
-                onEditEvent={(ev) => { setEditingEvent(ev); setIsModalOpen(true); }}
+                onEditEvent={handleEditClick}
               />
             ))}
           </div>
@@ -529,7 +542,7 @@ function App() {
                           {dayEvents.map((ev, idx) => (
                             <div
                               key={idx}
-                              onClick={() => { setEditingEvent(ev); setIsModalOpen(true); }}
+                              onClick={() => handleEditClick(ev)}
                               className="tooltip-event-item"
                               style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '4px', borderRadius: '4px' }}
                             >
@@ -550,9 +563,9 @@ function App() {
           </div>
         )}
 
-        {view === 'list' && <ListView events={events} allUsers={allUsers} eventTypes={eventTypes} onEdit={(ev) => { setEditingEvent(ev); setIsModalOpen(true); }} onDelete={handleDeleteClick} />}
+        {view === 'list' && <ListView events={events} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
 
-        {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={(ev) => { setEditingEvent(ev); setIsModalOpen(true); }} onDelete={handleDeleteClick} />}
+        {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
       </main>
 
       {isModalOpen && (
@@ -601,7 +614,6 @@ function App() {
     </div>
   );
 }
-
 
 const btnStyle = (active) => ({
   padding: '6px 18px',
