@@ -12,7 +12,7 @@ export const useCalendar = () => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [notification, setNotification] = useState(null);
-
+    
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
     const [viewedUser, setViewedUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -28,7 +28,6 @@ export const useCalendar = () => {
         ];
     });
 
-    // Cores profissionais expandidas
     const colorPalette = [
         '#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c',
         '#2c3e50', '#d35400', '#27ae60', '#2980b9', '#8e44ad', '#16a085', '#7f8c8d',
@@ -36,7 +35,16 @@ export const useCalendar = () => {
         '#ee5253', '#00d2d3', '#54a0ff', '#5f27cd'
     ];
 
-    // Validate stored session against Dataverse on startup
+    const triggerAndroidNotification = (message) => {
+        setNotification(message);
+        setTimeout(() => {
+            const el = document.querySelector('.android-notification');
+            if (el) el.classList.add('android-out');
+            setTimeout(() => setNotification(null), 500);
+        }, 3500);
+    };
+
+    // Validação de Sessão Inicial
     useEffect(() => {
         const storedUser = localStorage.getItem('kairos_logged_user');
         if (!storedUser) {
@@ -49,18 +57,15 @@ export const useCalendar = () => {
                 const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
                 if (!response.ok) throw new Error(`API error: ${response.status}`);
                 const data = await response.json();
-                if (!data.value || data.value.length === 0) {
-                    throw new Error('User not found');
-                }
-                // Session is valid — update role from Dataverse (in case it changed)
+                if (!data.value || data.value.length === 0) throw new Error('User not found');
+                
                 const freshRole = data.value[0]?.cr4a1_role;
                 if (freshRole) {
                     setUserRole(freshRole);
                     localStorage.setItem('kairos_user_role', freshRole);
                 }
             } catch (e) {
-                // Any failure = force logout. No stale sessions allowed.
-                console.warn('Session validation failed, forcing logout:', e.message);
+                console.warn('Sessão inválida:', e.message);
                 localStorage.clear();
                 setUser(null);
                 setUserRole(null);
@@ -81,7 +86,7 @@ export const useCalendar = () => {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`);
             const data = await response.json();
             setAllUsers(data.value || []);
-        } catch (error) { console.error(error); }
+        } catch (error) { console.error('Erro ao buscar usuários:', error); }
     }, []);
 
     const fetchEventTypes = useCallback(async () => {
@@ -99,8 +104,25 @@ export const useCalendar = () => {
                     localStorage.setItem('kairos_event_types', JSON.stringify(formatted));
                 }
             }
-        } catch (error) { console.log("Usando tipos de evento padrão/local"); }
+        } catch (error) { console.log("Usando tipos locais"); }
     }, []);
+
+    const fetchEvents = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
+            const data = await response.json();
+            const mapped = (data.value || [])
+                // FILTRO DE PRIVACIDADE UNIFICADO
+                .filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user)
+                .map(e => ({
+                    ...e,
+                    cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
+                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+                }));
+            setEvents(mapped);
+        } catch (error) { console.error('Erro ao buscar eventos:', error); } finally { setLoading(false); }
+    };
 
     useEffect(() => {
         if (user) {
@@ -110,116 +132,46 @@ export const useCalendar = () => {
         }
     }, [user, fetchUsers, fetchEventTypes]);
 
-    const fetchEvents = async () => {
-    setLoading(true);
-    try {
-        const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
-        const data = await response.json();
-        
-        const mapped = (data.value || [])
-            // FILTRO DE PRIVACIDADE:
-            // Mostra o evento se: NÃO for privado OU se o dono for o usuário logado
-            .filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user)
-            .map(e => ({
-                ...e,
-                cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
-                cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
-            }));
-            
-        setEvents(mapped);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
-};
-
-    const addEventType = async (name, emoji) => {
-        const newType = { id: Date.now().toString(), name, emoji };
-        try {
-            const res = await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
-            });
-            if (res.ok) fetchEventTypes();
-            else throw new Error("API Fail");
-        } catch (error) {
-            // Fallback robusto para local
-            setEventTypes(prev => {
-                const updated = [...prev, newType];
-                localStorage.setItem('kairos_event_types', JSON.stringify(updated));
-                return updated;
-            });
-        }
-    };
-
-    const deleteEventType = async (id) => {
-        try {
-            const res = await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos&id=${id}`, { method: 'DELETE' });
-            if (res.ok) fetchEventTypes();
-            else throw new Error("API Fail");
-        } catch (error) {
-            setEventTypes(prev => {
-                const updated = prev.filter(t => t.id !== id);
-                localStorage.setItem('kairos_event_types', JSON.stringify(updated));
-                return updated;
-            });
-        }
-    };
-
-    const updateUserColor = async (userId, newColor) => {
-        try {
-            await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cr4a1_cor: newColor })
-            });
-            fetchUsers();
-        } catch (error) { toast.error("Erro ao atualizar cor"); }
-    };
-
     const login = async (username, password) => {
-    try {
-        const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
-        const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
-        
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-        
-        const data = await response.json();
+        try {
+            const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            const data = await response.json();
 
-        if (data.value && data.value.length === 1) {
-            const userData = data.value[0];
-            localStorage.setItem('kairos_logged_user', username);
-            localStorage.setItem('kairos_user_role', userData.cr4a1_role);
-            setUser(username);
-            setUserRole(userData.cr4a1_role);
-            setViewedUser(username);
-            return { success: true };
+            if (data.value && data.value.length === 1) {
+                const userData = data.value[0];
+                localStorage.setItem('kairos_logged_user', username);
+                localStorage.setItem('kairos_user_role', userData.cr4a1_role);
+                setUser(username);
+                setUserRole(userData.cr4a1_role);
+                setViewedUser(username);
+                return { success: true };
+            }
+            triggerAndroidNotification("Usuário ou senha incorretos");
+            return { success: false };
+        } catch (error) { 
+            triggerAndroidNotification("Erro de conexão com o banco");
+            return { success: false };
         }
-        
-        // DISPARO NO ERRO DE CREDENCIAIS
-        triggerAndroidNotification("Usuário ou senha incorretos");
-        return { success: false, reason: 'invalid_credentials' };
-    } catch (error) { 
-        triggerAndroidNotification("Erro de conexão com o banco");
-        return { success: false, reason: 'connection_error' };
-    }
-};
+    };
 
     const addEvent = async (eventData) => {
-    const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
-    const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
-    
-    const newEvent = {
-        cr4a1_event_id: crypto.randomUUID(),
-        cr4a1_titulo: eventData.title,
-        cr4a1_user_login: targetUser,
-        cr4a1_data_inicio: eventData.startDate,
-        cr4a1_data_fim: eventData.endDate,
-        cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
-        cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
-        cr4a1_tipo: eventData.type,
-        cr4a1_detalhes: details,
-        cr4a1_privado: eventData.isPrivate, // NOVO CAMPO
-        cr4a1_arquivos: JSON.stringify(eventData.files || []),
-    };
+        const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
+        const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
+        const newEvent = {
+            cr4a1_event_id: crypto.randomUUID(),
+            cr4a1_titulo: eventData.title,
+            cr4a1_user_login: targetUser,
+            cr4a1_data_inicio: eventData.startDate,
+            cr4a1_data_fim: eventData.endDate,
+            cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
+            cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
+            cr4a1_tipo: eventData.type,
+            cr4a1_detalhes: details,
+            cr4a1_privado: eventData.cr4a1_privado, // Persistência da Privacidade
+            cr4a1_arquivos: JSON.stringify(eventData.files || []),
+        };
 
         try {
             await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`, {
@@ -228,15 +180,16 @@ export const useCalendar = () => {
                 body: JSON.stringify(newEvent)
             });
 
+            // Lógica Restaurada do WhatsApp
             try {
                 const alertPhone = import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '5511999999999';
-                const message = `*Novo Evento no Calendário*\n\n*Título:* ${eventData.title}\n*Data:* ${eventData.startDate} a ${eventData.endDate}\n*Horário:* ${eventData.allDay ? 'Dia Inteiro' : eventData.startHour + ' às ' + eventData.endHour}\n*Detalhes:* ${eventData.details || 'Nenhum'}`;
+                const message = `*Novo Evento*\n*Título:* ${eventData.title}\n*Horário:* ${eventData.allDay ? 'Dia Inteiro' : eventData.startHour}`;
                 await fetch('http://localhost:3005/api/alert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phone: alertPhone, message })
                 });
-            } catch (wppError) { console.error(wppError); }
+            } catch (wppError) { console.error('Erro WPP:', wppError); }
 
             fetchEvents();
         } catch (error) { toast.error("Erro ao salvar"); }
@@ -254,6 +207,7 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: details,
+            cr4a1_privado: eventData.cr4a1_privado, // Persistência da Privacidade na edição
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
         };
 
@@ -268,18 +222,46 @@ export const useCalendar = () => {
     };
 
     const deleteEvent = async (id, owner) => {
-        // Se receber o objeto do evento em vez do ID diretamente
         const finalId = (typeof id === 'object') ? id.cr4a1_agenda_kairosid : id;
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
         if (userRole !== 'SECRETARIA' && finalOwner !== user) {
-            toast.error("Você só pode excluir seus próprios eventos.");
+            toast.error("Permissão negada.");
             return;
         }
         try {
             await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${finalId}`, { method: 'DELETE' });
-            setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== finalId));
+            fetchEvents();
+        } catch (error) { console.error('Erro ao deletar:', error); }
+    };
+
+    const addEventType = async (name, emoji) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
+            });
+            fetchEventTypes();
         } catch (error) { console.error(error); }
+    };
+
+    const deleteEventType = async (id) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos&id=${id}`, { method: 'DELETE' });
+            fetchEventTypes();
+        } catch (error) { console.error(error); }
+    };
+
+    const updateUserColor = async (userId, newColor) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_cor: newColor })
+            });
+            fetchUsers();
+        } catch (error) { toast.error("Erro ao atualizar cor"); }
     };
 
     const getEventsForDay = (day) => {
@@ -291,19 +273,11 @@ export const useCalendar = () => {
         });
     };
 
-    const triggerAndroidNotification = (message) => {
-        setNotification(message);
-        setTimeout(() => {
-            const el = document.querySelector('.android-notification');
-            if (el) el.classList.add('android-out');
-            setTimeout(() => setNotification(null), 500);
-        }, 3500);
-    };
-
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
-        colorPalette, updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
+        colorPalette, updateUserColor, login, 
+        logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         next: () => setCurrentDate(addMonths(currentDate, 1)),
         prev: () => setCurrentDate(subMonths(currentDate, 1))
