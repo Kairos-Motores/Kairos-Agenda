@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
@@ -13,6 +13,9 @@ export const useCalendar = () => {
     const [loading, setLoading] = useState(false);
     const [notification, setNotification] = useState(null);
     
+    // ESTADO GLOBAL DE FILTROS
+    const [filters, setFilters] = useState({ text: '', user: 'all', type: 'all' });
+
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
     const [viewedUser, setViewedUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -44,7 +47,6 @@ export const useCalendar = () => {
         }, 3500);
     };
 
-    // Validação de Sessão Inicial
     useEffect(() => {
         const storedUser = localStorage.getItem('kairos_logged_user');
         if (!storedUser) {
@@ -113,7 +115,6 @@ export const useCalendar = () => {
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
             const data = await response.json();
             const mapped = (data.value || [])
-                // FILTRO DE PRIVACIDADE UNIFICADO
                 .filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user)
                 .map(e => ({
                     ...e,
@@ -131,6 +132,19 @@ export const useCalendar = () => {
             fetchEventTypes();
         }
     }, [user, fetchUsers, fetchEventTypes]);
+
+    // LÓGICA DO FILTRO GLOBAL
+    const filteredEvents = useMemo(() => {
+        return events.filter(event => {
+            const matchesText = !filters.text ||
+                (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) ||
+                (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
+            const matchesUser = filters.user === 'all' || event.cr4a1_user_login === filters.user;
+            const matchesType = filters.type === 'all' || event.cr4a1_tipo === filters.type;
+
+            return matchesText && matchesUser && matchesType;
+        });
+    }, [events, filters]);
 
     const login = async (username, password) => {
         try {
@@ -169,7 +183,7 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: details,
-            cr4a1_privado: eventData.cr4a1_privado, // Persistência da Privacidade
+            cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
         };
 
@@ -180,7 +194,6 @@ export const useCalendar = () => {
                 body: JSON.stringify(newEvent)
             });
 
-            // Lógica Restaurada do WhatsApp
             try {
                 const alertPhone = import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '5511999999999';
                 const message = `*Novo Evento*\n*Título:* ${eventData.title}\n*Horário:* ${eventData.allDay ? 'Dia Inteiro' : eventData.startHour}`;
@@ -207,7 +220,7 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: details,
-            cr4a1_privado: eventData.cr4a1_privado, // Persistência da Privacidade na edição
+            cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
         };
 
@@ -264,9 +277,10 @@ export const useCalendar = () => {
         } catch (error) { toast.error("Erro ao atualizar cor"); }
     };
 
+    // Agora usa filteredEvents em vez de events puros
     const getEventsForDay = (day) => {
         const targetDate = format(day, 'yyyy-MM-dd');
-        return events.filter(event => {
+        return filteredEvents.filter(event => {
             const start = event.cr4a1_data_inicio?.split('T')[0];
             const end = event.cr4a1_data_fim?.split('T')[0];
             return targetDate >= start && targetDate <= end;
@@ -279,6 +293,7 @@ export const useCalendar = () => {
         colorPalette, updateUserColor, login, 
         logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
+        filters, setFilters, filteredEvents, // <-- Novas exportações do filtro
         next: () => setCurrentDate(addMonths(currentDate, 1)),
         prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

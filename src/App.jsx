@@ -68,7 +68,8 @@ function App() {
     view, setView, currentDate, setCurrentDate,
     holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser,
-    allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor
+    allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor,
+    filters, setFilters, filteredEvents
   } = useCalendar();
 
   const navButtonStyle = {
@@ -439,6 +440,31 @@ function App() {
       </header>
 
       <main className="main-container view-enter" key={view}>
+        <div className="list-filter-bar" style={{ marginBottom: '24px', animation: 'fadeInDown 0.3s ease-out', padding: '12px' }}>
+          <input
+            placeholder="🔍 Buscar evento..."
+            value={filters.text}
+            onChange={e => setFilters({ ...filters, text: e.target.value })}
+            style={{ flex: 2, minWidth: '200px' }}
+          />
+          <select value={filters.user} onChange={e => setFilters({ ...filters, user: e.target.value })}>
+            <option value="all">👤 Todos Usuários</option>
+            {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_username}</option>)}
+          </select>
+          <select value={filters.type} onChange={e => setFilters({ ...filters, type: e.target.value })}>
+            <option value="all">🏷️ Todos Tipos</option>
+            {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
+          </select>
+          {(filters.text || filters.user !== 'all' || filters.type !== 'all') && (
+            <button
+              onClick={() => setFilters({ text: '', user: 'all', type: 'all' })}
+              className="nav-pill"
+              style={{ color: 'var(--text-accent)' }}
+            >
+              Limpar Filtros
+            </button>
+          )}
+        </div>
         {view === 'year' && (
           <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
             {Array.from({ length: 12 }, (_, i) => (
@@ -563,7 +589,7 @@ function App() {
           </div>
         )}
 
-        {view === 'list' && <ListView events={events} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
+        {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
 
         {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
       </main>

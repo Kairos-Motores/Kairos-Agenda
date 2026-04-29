@@ -1,121 +1,22 @@
-import React, { useState, useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import React from 'react';
 
 export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDelete }) => {
-    const [filters, setFilters] = useState({
-        text: '',
-        user: 'all',
-        type: 'all',
-        month: 'all'
-    });
-
     if (!events) return <p>Carregando eventos...</p>;
 
-    // Criamos um mapa de cores para busca rápida
     const userColorMap = allUsers.reduce((acc, u) => {
         acc[u.cr4a1_username] = u.cr4a1_cor || '#3498db';
         return acc;
     }, {});
 
-    const filteredEvents = useMemo(() => {
-        return events.filter(event => {
-            const matchesText = !filters.text ||
-                (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) ||
-                (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
-
-            const matchesUser = filters.user === 'all' || event.cr4a1_user_login === filters.user;
-            const matchesType = filters.type === 'all' || event.cr4a1_tipo === filters.type;
-
-            let matchesMonth = true;
-            if (filters.month !== 'all') {
-                const eventMonth = event.cr4a1_data_inicio?.split('-').slice(0, 2).join('-'); // yyyy-MM
-                matchesMonth = eventMonth === filters.month;
-            }
-
-            return matchesText && matchesUser && matchesType && matchesMonth;
-        });
-    }, [events, filters]);
-
-    const sortedEvents = [...filteredEvents].sort((a, b) => {
+    // Apenas ordena, porque a filtragem já veio pronta do Hook global
+    const sortedEvents = [...events].sort((a, b) => {
         const dateA = a.cr4a1_data_inicio || "";
         const dateB = b.cr4a1_data_inicio || "";
         return dateA.localeCompare(dateB);
     });
 
-    // Meses únicos dos eventos para o filtro
-    const availableMonths = useMemo(() => {
-        const months = new Set();
-        events.forEach(e => {
-            if (e.cr4a1_data_inicio) {
-                const [y, m] = e.cr4a1_data_inicio.split('-');
-                months.add(`${y}-${m}`);
-            }
-        });
-        return Array.from(months).sort().reverse();
-    }, [events]);
-
-    const filterStyle = {
-        padding: '8px 12px',
-        borderRadius: '10px',
-        border: '1px solid var(--border-color)',
-        background: 'var(--bg-secondary)',
-        color: 'var(--text-primary)',
-        outline: 'none',
-        fontSize: '13px',
-        minWidth: '120px'
-    };
-
     return (
-        <div style={{ marginTop: '20px' }} className="view-enter">
-            {/* Barra de Filtros */}
-            <div className="list-filter-bar">
-                <input
-                    placeholder="🔍 Buscar evento..."
-                    value={filters.text}
-                    onChange={e => setFilters({ ...filters, text: e.target.value })}
-                    style={{ flex: 2, minWidth: '200px' }}
-                />
-
-                <select
-                    value={filters.user}
-                    onChange={e => setFilters({ ...filters, user: e.target.value })}
-                >
-                    <option value="all">👤 Todos Usuários</option>
-                    {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_username}</option>)}
-                </select>
-
-                <select
-                    value={filters.type}
-                    onChange={e => setFilters({ ...filters, type: e.target.value })}
-                >
-                    <option value="all">🏷️ Todos Tipos</option>
-                    {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
-                </select>
-
-                <select
-                    value={filters.month}
-                    onChange={e => setFilters({ ...filters, month: e.target.value })}
-                >
-                    <option value="all">📅 Todos Meses</option>
-                    {availableMonths.map(m => {
-                        const [y, mm] = m.split('-');
-                        const date = new Date(y, parseInt(mm) - 1);
-                        return <option key={m} value={m}>{format(date, 'MMMM yyyy', { locale: ptBR })}</option>
-                    })}
-                </select>
-
-                {(filters.text || filters.user !== 'all' || filters.type !== 'all' || filters.month !== 'all') && (
-                    <button
-                        onClick={() => setFilters({ text: '', user: 'all', type: 'all', month: 'all' })}
-                        className="nav-pill"
-                        style={{ color: 'var(--text-accent)' }}
-                    >
-                        Limpar Filtros
-                    </button>
-                )}
-            </div>
-
+        <div className="view-enter">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {sortedEvents.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', borderRadius: '32px' }}>
@@ -137,9 +38,7 @@ export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDel
                                         👤 {event.cr4a1_user_login}
                                     </div>
                                     <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '18px', fontWeight: '700' }}>
-                                        <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-title)' }}>
-                                            {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo || "SEM TÍTULO"}
-                                        </h3>
+                                        {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo || "SEM TÍTULO"}
                                     </h3>
                                     <span style={{
                                         backgroundColor: userColor,
