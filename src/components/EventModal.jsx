@@ -10,6 +10,8 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     });
     
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+    // Estado de privacidade
+    const [isPrivate, setIsPrivate] = useState(false);
 
     const commonEmojis = ['📝', '🤝', '🏠', '🔥', '📅', '⏰', '🚀', '⭐', '💡', '✅', '❌', '🏢', '💻', '📞', '✈️', '🚗', '🍴', '🎉', '⚽', '🎨'];
 
@@ -29,6 +31,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
                 targetUser: editingEvent.cr4a1_user_login || viewedUser
             });
+            setIsPrivate(editingEvent.cr4a1_privado || false);
         }
         else {
             const cleanInitialDate = initialDate ? initialDate.split('T')[0] : '';
@@ -38,6 +41,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
                 targetUser: viewedUser || '', allDay: false
             });
+            setIsPrivate(false);
         }
     }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes]);
 
@@ -155,9 +159,16 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                        <input type="checkbox" checked={formData.allDay} onChange={e => setFormData({ ...formData, allDay: e.target.checked })} id="allDay" style={{ cursor: 'pointer' }} />
-                        <label htmlFor="allDay" style={{ fontSize: '13px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500' }}>🌞 Dia Inteiro</label>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <input type="checkbox" checked={formData.allDay} onChange={e => setFormData({ ...formData, allDay: e.target.checked })} id="allDay" style={{ cursor: 'pointer' }} />
+                            <label htmlFor="allDay" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500' }}>🌞 Dia Inteiro</label>
+                        </div>
+                        
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} id="isPrivate" style={{ cursor: 'pointer' }} />
+                            <label htmlFor="isPrivate" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500' }}>🔒 Privado</label>
+                        </div>
                     </div>
 
                     <div style={{ marginBottom: '12px' }}>
@@ -180,7 +191,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         <div style={{ display: 'flex', gap: '5px', marginTop: '10px', overflowX: 'auto' }}>
                             {formData.files?.map((f, i) => (
                                 <div key={i} style={{ position: 'relative' }}>
-                                    <img src={f} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+                                    <img src={f} alt="upload" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                                     <button onClick={() => setFormData(p => ({ ...p, files: p.files.filter((_, idx) => idx !== i) }))} style={{ position: 'absolute', top: -5, right: -5, background: '#e74c3c', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer' }}>✕</button>
                                 </div>
                             ))}
@@ -192,7 +203,8 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         <button 
                             onClick={() => {
                                 if (!formData.title) return toast.error('Título obrigatório');
-                                onSave(formData);
+                                // Envia os dados do form + o estado de privacidade
+                                onSave({ ...formData, cr4a1_privado: isPrivate });
                             }} 
                             className="btn-primary"
                             style={{ flex: 2 }}

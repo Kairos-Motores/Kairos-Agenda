@@ -111,18 +111,24 @@ export const useCalendar = () => {
     }, [user, fetchUsers, fetchEventTypes]);
 
     const fetchEvents = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
-            const data = await response.json();
-            const mapped = (data.value || []).map(e => ({
+    setLoading(true);
+    try {
+        const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
+        const data = await response.json();
+        
+        const mapped = (data.value || [])
+            // FILTRO DE PRIVACIDADE:
+            // Mostra o evento se: NÃO for privado OU se o dono for o usuário logado
+            .filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user)
+            .map(e => ({
                 ...e,
                 cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
                 cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
             }));
-            setEvents(mapped);
-        } catch (error) { console.error(error); } finally { setLoading(false); }
-    };
+            
+        setEvents(mapped);
+    } catch (error) { console.error(error); } finally { setLoading(false); }
+};
 
     const addEventType = async (name, emoji) => {
         const newType = { id: Date.now().toString(), name, emoji };
@@ -198,20 +204,22 @@ export const useCalendar = () => {
 };
 
     const addEvent = async (eventData) => {
-        const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
-        const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
-        const newEvent = {
-            cr4a1_event_id: crypto.randomUUID(),
-            cr4a1_titulo: eventData.title,
-            cr4a1_user_login: targetUser,
-            cr4a1_data_inicio: eventData.startDate,
-            cr4a1_data_fim: eventData.endDate,
-            cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
-            cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
-            cr4a1_tipo: eventData.type,
-            cr4a1_detalhes: details,
-            cr4a1_arquivos: JSON.stringify(eventData.files || []),
-        };
+    const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
+    const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
+    
+    const newEvent = {
+        cr4a1_event_id: crypto.randomUUID(),
+        cr4a1_titulo: eventData.title,
+        cr4a1_user_login: targetUser,
+        cr4a1_data_inicio: eventData.startDate,
+        cr4a1_data_fim: eventData.endDate,
+        cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
+        cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
+        cr4a1_tipo: eventData.type,
+        cr4a1_detalhes: details,
+        cr4a1_privado: eventData.isPrivate, // NOVO CAMPO
+        cr4a1_arquivos: JSON.stringify(eventData.files || []),
+    };
 
         try {
             await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`, {
