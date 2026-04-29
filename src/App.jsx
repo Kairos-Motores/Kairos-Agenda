@@ -94,7 +94,6 @@ function App() {
   const [hoveredMonthDay, setHoveredMonthDay] = useState(null);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   
-  // NOVO: Toggle da visualização diária
   const [dayViewMode, setDayViewMode] = useState('timeline'); 
 
   const [theme, setTheme] = useState(() => {
@@ -195,7 +194,7 @@ function App() {
       setIsModalOpen(false);
     } catch (err) {
       toast.error("Falha ao salvar evento.");
-      throw err; // Repassa erro para destravar o botão
+      throw err; 
     }
   };
 
@@ -341,7 +340,6 @@ function App() {
           </div>
         </nav>
 
-        {/* Título & Toggle de visualização (Timeline/Cartões) */}
         <div className="header-secondary-row" style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
           marginTop: '10px', position: 'relative', transition: 'all 0.4s ease'
@@ -363,7 +361,6 @@ function App() {
               <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
             </span>
 
-            {/* NOVO: Toggle Exclusivo do DayView */}
             {view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
                   <button 
@@ -418,7 +415,6 @@ function App() {
 
       <main className="main-container view-enter" key={view}>
         
-        {/* BARRA DE FILTRO GLOBAL */}
         <div className="list-filter-bar" style={{ marginBottom: '24px', animation: 'fadeInDown 0.3s ease-out', padding: '12px' }}>
           <input
               placeholder="🔍 Buscar evento..."
@@ -491,19 +487,25 @@ function App() {
 
                       {holiday && <div style={{ fontSize: '9px', color: '#e74c3c', textAlign: 'center', fontWeight: '700', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🚩 {holiday.name}</div>}
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, overflow: 'hidden' }}>
+                      {/* NOVO ESTILO DAS TIRAS AQUI */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
                         {dayEvents.map(e => {
                           const isAllDay = e.cr4a1_dia_inteiro;
                           const color = getEventColor(e);
                           return (
                             <div key={e.cr4a1_event_id} className="event-badge" style={{
-                              background: isAllDay ? color : 'transparent', color: isAllDay ? 'white' : 'inherit'
+                              background: color,
+                              color: 'white',
+                              borderRadius: '4px',
+                              padding: '2px 4px',
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontSize: '10px'
                             }}>
-                              {!isAllDay && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />}
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                                {!isAllDay && <strong>{e.cr4a1_hora_inicio} </strong>}
-                                {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                              </span>
+                              {!isAllDay && <span style={{ fontWeight: '700', marginRight: '3px', opacity: 0.9 }}>{e.cr4a1_hora_inicio}</span>}
+                              {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                             </div>
                           );
                         })}
@@ -548,7 +550,6 @@ function App() {
 
         {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={handleDeleteClick} />}
 
-        {/* Repassando o estado de dayViewMode para ser manipulado por DayView */}
         {view === 'day' && <DayView selectedDate={currentDate} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} onDelete={handleDeleteClick} dayViewMode={dayViewMode} />}
       </main>
 
