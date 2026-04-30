@@ -94,6 +94,7 @@ function App() {
 
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
+  
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -108,7 +109,8 @@ function App() {
   useEffect(() => {
     applyDynamicTheme(accentColor, theme === 'dark');
     localStorage.setItem('kairos_accent_color', accentColor);
-}, [accentColor, theme]);
+    localStorage.setItem('theme', theme);
+  }, [accentColor, theme]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
