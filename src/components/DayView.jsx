@@ -1,227 +1,229 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, addDays, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = [], onEdit, onDelete, dayViewMode = 'cards' }) => {
-  const dayEvents = getEventsForDay(selectedDate);
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const targetDateStr = selectedDate.toISOString().split('T')[0];
+export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, allUsers = [], onEdit, dayViewMode = 'timeline' }) => {
+    
+    // Define quantos dias serão renderizados
+    let daysToRender = [];
+    if (viewType === 'day') {
+        daysToRender = [selectedDate];
+    } else if (viewType === '3days') {
+        daysToRender = [selectedDate, addDays(selectedDate, 1), addDays(selectedDate, 2)];
+    } else if (viewType === 'week') {
+        const start = startOfWeek(selectedDate, { weekStartsOn: 0 }); // Inicia no Domingo
+        daysToRender = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    }
 
-  const userColorMap = allUsers.reduce((acc, u) => {
-    acc[u.cr4a1_username] = u.cr4a1_cor || '#3498db';
-    return acc;
-  }, {});
+    const hours = Array.from({ length: 24 }, (_, i) => i);
 
-  const dayHolidays = (holidays || []).filter(h => h.date === targetDateStr);
-  const allDayEvents = dayEvents.filter(e => e.cr4a1_dia_inteiro);
-  const hourlyEvents = dayEvents.filter(e => !e.cr4a1_dia_inteiro);
+    const userColorMap = allUsers.reduce((acc, u) => {
+        acc[u.cr4a1_username] = u.cr4a1_cor || '#3498db';
+        return acc;
+    }, {});
 
-  const getEventsInThisHour = (hour, events) => {
-    return events.filter(e => {
-      if (!e.cr4a1_hora_inicio || !e.cr4a1_hora_fim) return false;
-      const startH = parseInt(e.cr4a1_hora_inicio.split(':')[0]);
-      const endH = parseInt(e.cr4a1_hora_fim.split(':')[0]);
-      if (e.cr4a1_data_inicio === e.cr4a1_data_fim) return hour >= startH && hour <= endH;
-      if (targetDateStr === e.cr4a1_data_inicio) return hour >= startH;
-      if (targetDateStr === e.cr4a1_data_fim) return hour <= endH;
-      return targetDateStr > e.cr4a1_data_inicio && targetDateStr < e.cr4a1_data_fim;
-    });
-  };
+    // Helper para processar sobreposição geométrica de eventos POR DIA
+    const processEventsForTimeline = (hourlyEvents, targetDateStr) => {
+        const eventsWithPosition = hourlyEvents.map(e => {
+            const [sh, sm] = (e.cr4a1_hora_inicio || '00:00').split(':').map(Number);
+            const [eh, em] = (e.cr4a1_hora_fim || '01:00').split(':').map(Number);
+            let startMins = sh * 60 + sm;
+            let endMins = eh * 60 + em;
 
-  const EventCard = ({ event, showDetails, userColor }) => (
-    <div
-      className="day-view-event"
-      style={{
-        boxSizing: 'border-box',
-        backgroundColor: userColor,
-        color: 'white',
-        padding: '6px 12px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        opacity: 0.95,
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-        marginBottom: '2px',
-        overflow: 'hidden', // Trava para não esticar o card horizontalmente
-        width: '100%'
-      }}
-      onClick={() => onEdit(event)}
-    >
-      <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {showDetails 
-          ? `${event.cr4a1_user_login?.charAt(0).toUpperCase()}: ${event.cr4a1_privado ? '🔒 ' : ''}${event.cr4a1_titulo}` 
-          : `(Cont.) ${event.cr4a1_privado ? '🔒 ' : ''}${event.cr4a1_titulo}`
-        }
-      </div>
-      {showDetails && (
-        <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-          <span style={{ whiteSpace: 'nowrap' }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</span>
-          {event.cr4a1_detalhes && <span style={{ whiteSpace: 'nowrap' }}>• 📄 Detalhes</span>}
-          {event.cr4a1_arquivos && JSON.parse(event.cr4a1_arquivos).length > 0 && <span style={{ whiteSpace: 'nowrap' }}>• 📎 Anexos</span>}
-        </div>
-      )}
-    </div>
-  );
+            if (e.cr4a1_data_inicio !== e.cr4a1_data_fim) {
+                if (targetDateStr > e.cr4a1_data_inicio) startMins = 0; 
+                if (targetDateStr < e.cr4a1_data_fim) endMins = 24 * 60; 
+            }
+            if (endMins <= startMins) endMins = startMins + 60;
+            return { ...e, startMins, endMins };
+        }).sort((a, b) => a.startMins - b.startMins);
 
-  if (dayViewMode === 'timeline') {
-      const eventsWithPosition = hourlyEvents.map(e => {
-          const [sh, sm] = (e.cr4a1_hora_inicio || '00:00').split(':').map(Number);
-          const [eh, em] = (e.cr4a1_hora_fim || '01:00').split(':').map(Number);
-          let startMins = sh * 60 + sm;
-          let endMins = eh * 60 + em;
-          if (endMins <= startMins) endMins = startMins + 60;
-          return { ...e, startMins, endMins };
-      }).sort((a, b) => a.startMins - b.startMins);
+        const columns = [];
+        eventsWithPosition.forEach(event => {
+            let placed = false;
+            for (let i = 0; i < columns.length; i++) {
+                if (!columns[i].some(e => e.startMins < event.endMins && e.endMins > event.startMins)) {
+                    columns[i].push(event);
+                    event.colIndex = i;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                event.colIndex = columns.length;
+                columns.push([event]);
+            }
+        });
 
-      const columns = [];
-      eventsWithPosition.forEach(event => {
-          let placed = false;
-          for (let i = 0; i < columns.length; i++) {
-              if (!columns[i].some(e => e.startMins < event.endMins && e.endMins > event.startMins)) {
-                  columns[i].push(event);
-                  event.colIndex = i;
-                  placed = true;
-                  break;
-              }
-          }
-          if (!placed) {
-              event.colIndex = columns.length;
-              columns.push([event]);
-          }
-      });
+        return { eventsWithPosition, totalCols: columns.length || 1 };
+    };
 
-      const totalCols = columns.length || 1;
-
-      return (
-          <div className="view-enter" style={{ padding: '20px', boxSizing: 'border-box', overflowX: 'hidden' }}>
-              <h2 style={{ color: 'var(--text-title)', fontSize: '20px', marginBottom: '16px', fontWeight: '600' }}>
-                  {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-              </h2>
-
-              {dayHolidays.length > 0 && (
-                  <div style={{ marginBottom: '16px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderLeft: '4px solid #e74c3c', padding: '10px 15px', borderRadius: '8px', color: '#c0392b', fontSize: '13px', fontWeight: '600' }}>
-                      {dayHolidays.map(h => <div key={h.name}>🚩 Feriado: {h.name}</div>)}
-                  </div>
-              )}
-
-              {allDayEvents.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>🌞 Eventos de Dia Inteiro</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {allDayEvents.map(event => (
-                              <EventCard key={event.cr4a1_agenda_kairosid} event={event} showDetails={true} userColor={event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db'} />
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              <div style={{ position: 'relative', height: `${24 * 60}px`, marginTop: '20px', backgroundColor: 'var(--bg-primary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-                  {Array.from({ length: 24 }).map((_, h) => (
-                      <div key={h} style={{ position: 'absolute', top: `${h * 60}px`, width: '100%', height: '60px', borderBottom: '1px dashed var(--border-color)', display: 'flex' }}>
-                          <div style={{ width: '55px', fontSize: '11px', color: 'var(--text-secondary)', padding: '8px 4px', borderRight: '1px solid var(--border-color)', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '500', boxSizing: 'border-box' }}>
-                              {String(h).padStart(2, '0')}:00
-                          </div>
-                          <div style={{ flex: 1 }}></div>
-                      </div>
-                  ))}
-                  
-                  {eventsWithPosition.map(event => {
-                      const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
-                      return (
-                          <div 
-                              key={event.cr4a1_agenda_kairosid}
-                              onClick={() => onEdit(event)}
-                              style={{
-                                  position: 'absolute',
-                                  top: `${event.startMins}px`,
-                                  height: `${event.endMins - event.startMins}px`,
-                                  left: `calc(55px + ((100% - 55px) / ${totalCols}) * ${event.colIndex})`,
-                                  width: `calc((100% - 55px) / ${totalCols} - 4px)`,
-                                  backgroundColor: userColor,
-                                  color: 'white',
-                                  borderRadius: '8px',
-                                  padding: '6px 8px',
-                                  fontSize: '11px',
-                                  overflow: 'hidden',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  border: '1px solid rgba(255,255,255,0.2)',
-                                  transition: 'all 0.2s',
-                                  zIndex: 10,
-                                  boxSizing: 'border-box'
-                              }}>
-                              <div style={{ fontWeight: '800', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo}
-                              </div>
-                              <div style={{ opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
-                          </div>
-                      )
-                  })}
-              </div>
-          </div>
-      );
-  }
-
-  return (
-    <div className="view-enter" style={{ padding: '20px', boxSizing: 'border-box', overflowX: 'hidden' }}>
-      <h2 style={{ color: 'var(--text-title)', fontSize: '20px', marginBottom: '16px', fontWeight: '600' }}>
-        {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-      </h2>
-
-      {dayHolidays.length > 0 && (
-        <div style={{ marginBottom: '16px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderLeft: '4px solid #e74c3c', padding: '10px 15px', borderRadius: '8px', color: '#c0392b', fontSize: '13px', fontWeight: '600', boxSizing: 'border-box' }}>
-          {dayHolidays.map(h => <div key={h.name}>🚩 Feriado: {h.name}</div>)}
-        </div>
-      )}
-
-      {allDayEvents.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>🌞 Eventos de Dia Inteiro</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {allDayEvents.map(event => (
-              <EventCard key={event.cr4a1_agenda_kairosid} event={event} showDetails={true} userColor={event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db'} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {hours.map(hour => {
-        const eventsInHour = getEventsInThisHour(hour, hourlyEvents);
+    // MODO CARTÕES (Permitido apenas para visualização de 1 dia para não quebrar o layout)
+    if (dayViewMode === 'cards' && viewType === 'day') {
+        const targetDateStr = selectedDate.toISOString().split('T')[0];
+        const dayEvents = getEventsForDay(selectedDate);
+        const hourlyEvents = dayEvents.filter(e => !e.cr4a1_dia_inteiro);
+        
+        const getEventsInThisHour = (hour, events) => {
+            return events.filter(e => {
+                if (!e.cr4a1_hora_inicio) return false;
+                const startH = parseInt(e.cr4a1_hora_inicio.split(':')[0]);
+                return startH === hour;
+            });
+        };
 
         return (
-          <div key={hour} style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', minHeight: '65px', position: 'relative', width: '100%', boxSizing: 'border-box' }}>
-            <div style={{ width: '50px', minWidth: '50px', padding: '10px', fontSize: '12px', color: 'var(--text-secondary)', borderRight: '1px solid var(--border-color)', textAlign: 'right', backgroundColor: 'var(--bg-secondary)', fontWeight: '500', boxSizing: 'border-box' }}>
-              {hour}:00
+            <div className="view-enter" style={{ padding: '16px', boxSizing: 'border-box', overflowX: 'hidden' }}>
+                {hours.map(hour => {
+                    const eventsInHour = getEventsInThisHour(hour, hourlyEvents);
+                    return (
+                        <div key={hour} style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', minHeight: '65px', width: '100%', boxSizing: 'border-box' }}>
+                            <div style={{ width: '50px', minWidth: '50px', padding: '10px', fontSize: '12px', color: 'var(--text-secondary)', borderRight: '1px solid var(--border-color)', textAlign: 'right', backgroundColor: 'var(--bg-secondary)', fontWeight: '500', boxSizing: 'border-box' }}>
+                                {hour}:00
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '5px', backgroundColor: eventsInHour.length > 0 ? 'var(--bg-tertiary)' : 'transparent', minWidth: 0, boxSizing: 'border-box' }}>
+                                {eventsInHour.map(event => {
+                                    const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                    return (
+                                        <div key={event.cr4a1_agenda_kairosid} onClick={() => onEdit(event)} style={{ backgroundColor: userColor, color: 'white', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', overflow: 'hidden', width: '100%' }}>
+                                            <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.cr4a1_titulo}</div>
+                                            <div style={{ fontSize: '10px', opacity: 0.9 }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
-
-            {/* O segredo para não estourar a tela está neste minWidth: 0 */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '5px', backgroundColor: eventsInHour.length > 0 ? 'var(--bg-tertiary)' : 'transparent', minWidth: 0, boxSizing: 'border-box' }}>
-              {eventsInHour.map(event => {
-                const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
-                const isFirstHourOfDay = (ev) => {
-                  if (targetDateStr === ev.cr4a1_data_inicio) return parseInt(ev.cr4a1_hora_inicio.split(':')[0]) === hour;
-                  return hour === 0;
-                };
-
-                return (
-                  <EventCard
-                    key={event.cr4a1_agenda_kairosid}
-                    event={event}
-                    showDetails={isFirstHourOfDay(event)}
-                    userColor={userColor}
-                  />
-                );
-              })}
-            </div>
-          </div>
         );
-      })}
-    </div>
-  );
+    }
+
+    // MODO LINHA DO TEMPO (Para 1 dia, 3 dias ou Semana)
+    return (
+        <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-primary)' }}>
+            
+            {/* CABEÇALHO (Dias da semana + Eventos de Dia Inteiro) */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
+                {/* Espaço vazio acima da régua de horas */}
+                <div style={{ width: '50px', minWidth: '50px', borderRight: '1px solid var(--border-color)' }}></div>
+                
+                {/* Scroll horizontal sincronizado para o cabeçalho */}
+                <div style={{ display: 'flex', flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }} className="timeline-scroll-sync">
+                    {daysToRender.map(day => {
+                        const targetDateStr = format(day, 'yyyy-MM-dd');
+                        const isToday = format(new Date(), 'yyyy-MM-dd') === targetDateStr;
+                        const dayEvents = getEventsForDay(day);
+                        const allDayEvents = dayEvents.filter(e => e.cr4a1_dia_inteiro);
+                        const dayHolidays = (holidays || []).filter(h => h.date === targetDateStr);
+
+                        return (
+                            <div key={targetDateStr} style={{ flex: 1, minWidth: viewType === 'day' ? '100%' : '120px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
+                                {/* Título do Dia */}
+                                <div style={{ padding: '10px 0', textAlign: 'center', borderBottom: '1px solid var(--border-color)', backgroundColor: isToday ? 'rgba(26, 115, 232, 0.05)' : 'transparent' }}>
+                                    <div style={{ fontSize: '11px', textTransform: 'uppercase', color: isToday ? 'var(--text-accent)' : 'var(--text-secondary)', fontWeight: '600' }}>
+                                        {format(day, 'EEE', { locale: ptBR })}
+                                    </div>
+                                    <div style={{ fontSize: '20px', color: isToday ? 'var(--text-accent)' : 'var(--text-title)', fontWeight: isToday ? '700' : '400' }}>
+                                        {format(day, 'd')}
+                                    </div>
+                                </div>
+                                
+                                {/* Área de Eventos de Dia Inteiro e Feriados */}
+                                <div style={{ minHeight: '30px', padding: '4px', backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    {dayHolidays.map(h => (
+                                        <div key={h.name} style={{ fontSize: '9px', backgroundColor: 'rgba(231, 76, 60, 0.1)', color: '#c0392b', padding: '2px 4px', borderRadius: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            🚩 {h.name}
+                                        </div>
+                                    ))}
+                                    {allDayEvents.map(event => {
+                                        const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                        return (
+                                            <div key={event.cr4a1_agenda_kairosid} onClick={() => onEdit(event)} style={{ backgroundColor: userColor, color: 'white', padding: '2px 4px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* CORPO DA TIMELINE (Régua de horas + Grid de colunas) */}
+            <div style={{ display: 'flex', flex: 1, overflowY: 'auto', position: 'relative' }}>
+                {/* Régua Fixa de Horas */}
+                <div style={{ width: '50px', minWidth: '50px', backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-color)', zIndex: 10 }}>
+                    {hours.map(h => (
+                        <div key={h} style={{ height: '60px', borderBottom: '1px dashed transparent', fontSize: '10px', color: 'var(--text-secondary)', textAlign: 'right', padding: '4px 6px', fontWeight: '500' }}>
+                            {String(h).padStart(2, '0')}:00
+                        </div>
+                    ))}
+                </div>
+
+                {/* Área Rolável Horizontalmente com os Dias */}
+                <div style={{ display: 'flex', flex: 1, overflowX: 'auto', position: 'relative' }} className="timeline-scroll-sync" onScroll={(e) => {
+                    const headers = document.querySelectorAll('.timeline-scroll-sync');
+                    headers.forEach(h => { if(h !== e.target) h.scrollLeft = e.target.scrollLeft; });
+                }}>
+                    
+                    {/* Linhas de grade horizontais ao fundo */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
+                        {hours.map(h => (
+                            <div key={h} style={{ height: '60px', borderBottom: '1px dashed var(--border-color)', width: '100%' }}></div>
+                        ))}
+                    </div>
+
+                    {/* Colunas dos Dias Renderizadas */}
+                    {daysToRender.map(day => {
+                        const targetDateStr = format(day, 'yyyy-MM-dd');
+                        const dayEvents = getEventsForDay(day);
+                        const hourlyEvents = dayEvents.filter(e => !e.cr4a1_dia_inteiro);
+                        
+                        const { eventsWithPosition, totalCols } = processEventsForTimeline(hourlyEvents, targetDateStr);
+
+                        return (
+                            <div key={targetDateStr} style={{ flex: 1, minWidth: viewType === 'day' ? '100%' : '120px', position: 'relative', borderRight: '1px solid var(--border-color)', height: `${24 * 60}px` }}>
+                                {eventsWithPosition.map(event => {
+                                    const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                    return (
+                                        <div 
+                                            key={event.cr4a1_agenda_kairosid}
+                                            onClick={() => onEdit(event)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: `${event.startMins}px`,
+                                                height: `${event.endMins - event.startMins}px`,
+                                                left: `calc((100% / ${totalCols}) * ${event.colIndex})`,
+                                                width: `calc(100% / ${totalCols} - 2px)`,
+                                                backgroundColor: userColor,
+                                                color: 'white',
+                                                borderRadius: '6px',
+                                                padding: '4px',
+                                                fontSize: '10px',
+                                                overflow: 'hidden',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                                                border: '1px solid rgba(255,255,255,0.2)',
+                                                zIndex: 5,
+                                                boxSizing: 'border-box',
+                                                display: 'flex', flexDirection: 'column'
+                                            }}>
+                                            <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo}
+                                            </div>
+                                            <div style={{ opacity: 0.9, fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    );
 };
