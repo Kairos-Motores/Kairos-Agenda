@@ -25,16 +25,26 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
     // Helper para processar sobreposição geométrica de eventos POR DIA
     const processEventsForTimeline = (hourlyEvents, targetDateStr) => {
         const eventsWithPosition = hourlyEvents.map(e => {
+            // Garantimos que a data fim esteja no mesmo formato yyyy-MM-dd para comparação
+            const endDateFormatted = e.cr4a1_data_fim?.includes('T') 
+                ? e.cr4a1_data_fim.split('T')[0] 
+                : e.cr4a1_data_fim;
+
             const [sh, sm] = (e.cr4a1_hora_inicio || '00:00').split(':').map(Number);
             const [eh, em] = (e.cr4a1_hora_fim || '01:00').split(':').map(Number);
+            
             let startMins = sh * 60 + sm;
             let endMins = eh * 60 + em;
 
-            if (e.cr4a1_data_inicio !== e.cr4a1_data_fim) {
+            // Lógica de expansão para eventos que atravessam dias
+            if (e.cr4a1_data_inicio !== endDateFormatted) {
                 if (targetDateStr > e.cr4a1_data_inicio) startMins = 0; 
-                if (targetDateStr < e.cr4a1_data_fim) endMins = 24 * 60; 
+                if (targetDateStr < endDateFormatted) endMins = 24 * 60; 
             }
+
+            // Failsafe: impede que a caixa tenha altura zero ou negativa
             if (endMins <= startMins) endMins = startMins + 60;
+
             return { ...e, startMins, endMins };
         }).sort((a, b) => a.startMins - b.startMins);
 
@@ -58,9 +68,8 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
         return { eventsWithPosition, totalCols: columns.length || 1 };
     };
 
-    // MODO CARTÕES (Permitido apenas para visualização de 1 dia para não quebrar o layout)
+    // MODO CARTÕES
     if (dayViewMode === 'cards' && viewType === 'day') {
-        const targetDateStr = selectedDate.toISOString().split('T')[0];
         const dayEvents = getEventsForDay(selectedDate);
         const hourlyEvents = dayEvents.filter(e => !e.cr4a1_dia_inteiro);
         
@@ -99,16 +108,13 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
         );
     }
 
-    // MODO LINHA DO TEMPO (Para 1 dia, 3 dias ou Semana)
+    // MODO LINHA DO TEMPO
     return (
         <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-primary)' }}>
             
-            {/* CABEÇALHO (Dias da semana + Eventos de Dia Inteiro) */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                {/* Espaço vazio acima da régua de horas */}
                 <div style={{ width: '50px', minWidth: '50px', borderRight: '1px solid var(--border-color)' }}></div>
                 
-                {/* Scroll horizontal sincronizado para o cabeçalho */}
                 <div style={{ display: 'flex', flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }} className="timeline-scroll-sync">
                     {daysToRender.map(day => {
                         const targetDateStr = format(day, 'yyyy-MM-dd');
@@ -119,7 +125,6 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
 
                         return (
                             <div key={targetDateStr} style={{ flex: 1, minWidth: viewType === 'day' ? '100%' : '120px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
-                                {/* Título do Dia */}
                                 <div style={{ padding: '10px 0', textAlign: 'center', borderBottom: '1px solid var(--border-color)', backgroundColor: isToday ? 'rgba(26, 115, 232, 0.05)' : 'transparent' }}>
                                     <div style={{ fontSize: '11px', textTransform: 'uppercase', color: isToday ? 'var(--text-accent)' : 'var(--text-secondary)', fontWeight: '600' }}>
                                         {format(day, 'EEE', { locale: ptBR })}
@@ -129,7 +134,6 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                                     </div>
                                 </div>
                                 
-                                {/* Área de Eventos de Dia Inteiro e Feriados */}
                                 <div style={{ minHeight: '30px', padding: '4px', backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                     {dayHolidays.map(h => (
                                         <div key={h.name} style={{ fontSize: '9px', backgroundColor: 'rgba(231, 76, 60, 0.1)', color: '#c0392b', padding: '2px 4px', borderRadius: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -151,31 +155,26 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                 </div>
             </div>
 
-            {/* CORPO DA TIMELINE (Régua de horas + Grid de colunas) */}
             <div style={{ display: 'flex', flex: 1, overflowY: 'auto', position: 'relative' }}>
-                {/* Régua Fixa de Horas */}
                 <div style={{ width: '50px', minWidth: '50px', backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-color)', zIndex: 10 }}>
                     {hours.map(h => (
-                        <div key={h} style={{ height: '60px', borderBottom: '1px dashed transparent', fontSize: '10px', color: 'var(--text-secondary)', textAlign: 'right', padding: '4px 6px', fontWeight: '500' }}>
+                        <div key={h} style={{ height: '60px', fontSize: '10px', color: 'var(--text-secondary)', textAlign: 'right', padding: '4px 6px', fontWeight: '500' }}>
                             {String(h).padStart(2, '0')}:00
                         </div>
                     ))}
                 </div>
 
-                {/* Área Rolável Horizontalmente com os Dias */}
                 <div style={{ display: 'flex', flex: 1, overflowX: 'auto', position: 'relative' }} className="timeline-scroll-sync" onScroll={(e) => {
                     const headers = document.querySelectorAll('.timeline-scroll-sync');
                     headers.forEach(h => { if(h !== e.target) h.scrollLeft = e.target.scrollLeft; });
                 }}>
                     
-                    {/* Linhas de grade horizontais ao fundo */}
                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
                         {hours.map(h => (
                             <div key={h} style={{ height: '60px', borderBottom: '1px dashed var(--border-color)', width: '100%' }}></div>
                         ))}
                     </div>
 
-                    {/* Colunas dos Dias Renderizadas */}
                     {daysToRender.map(day => {
                         const targetDateStr = format(day, 'yyyy-MM-dd');
                         const dayEvents = getEventsForDay(day);
