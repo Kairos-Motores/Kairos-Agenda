@@ -602,3 +602,24 @@ button:active {
 @keyframes android-out {
   to { top: -80px; opacity: 0; transform: translateX(-50%) scale(0.7); }
 }
+/* Previne seleção acidental durante o arraste */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+/* Feedback visual de "levantamento" do Android 17 */
+.event-badge:active, .day-view-event:active {
+  cursor: grabbing;
+  transform: scale(1.1) rotate(1deg);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+  z-index: 5000 !important;
+}
+
+/* Destaque para o dia que vai receber o evento */
+.calendar-day-card.drop-over {
+  background-color: rgba(var(--text-accent-rgb), 0.15) !important;
+  transform: scale(0.98);
+  outline: 2px solid var(--text-accent);
+}

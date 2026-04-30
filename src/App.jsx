@@ -12,6 +12,22 @@ import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
+
+const DraggableEvent = ({ event, children }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
+  return <div ref={setNodeRef} style={style} {...listeners} {...attributes}>{children}</div>;
+};
+
+const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: dateStr });
+  return (
+    <div ref={setNodeRef} onClick={onClick} className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}>
+      {children}
+    </div>
+  );
+};
 
 const LoginScreen = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -43,17 +59,17 @@ const LoginScreen = ({ onLogin }) => {
 };
 
 const materialColors = [
-    { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
-    { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
-    { id: 'teal', hex: '#00897b', label: 'Verde Mar' },
-    { id: 'green', hex: '#388e3c', label: 'Verde Sálvia' },
-    { id: 'amber', hex: '#ffb300', label: 'Amarelo Ouro' },
-    { id: 'orange', hex: '#f57c00', label: 'Laranja Outono' },
-    { id: 'coral', hex: '#f4511e', label: 'Coral' },
-    { id: 'rose', hex: '#d81b60', label: 'Rosa Escuro' },
-    { id: 'purple', hex: '#673ab7', label: 'Lavanda' },
-    { id: 'indigo', hex: '#3949ab', label: 'Índigo' },
-    { id: 'graphite', hex: '#5f6368', label: 'Grafite' }
+  { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
+  { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
+  { id: 'teal', hex: '#00897b', label: 'Verde Mar' },
+  { id: 'green', hex: '#388e3c', label: 'Verde Sálvia' },
+  { id: 'amber', hex: '#ffb300', label: 'Amarelo Ouro' },
+  { id: 'orange', hex: '#f57c00', label: 'Laranja Outono' },
+  { id: 'coral', hex: '#f4511e', label: 'Coral' },
+  { id: 'rose', hex: '#d81b60', label: 'Rosa Escuro' },
+  { id: 'purple', hex: '#673ab7', label: 'Lavanda' },
+  { id: 'indigo', hex: '#3949ab', label: 'Índigo' },
+  { id: 'graphite', hex: '#5f6368', label: 'Grafite' }
 ];
 
 function App() {
@@ -70,7 +86,7 @@ function App() {
   const [hoveredMonthDay, setHoveredMonthDay] = useState(null);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [dayViewMode, setDayViewMode] = useState('timeline'); 
+  const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
 
@@ -79,7 +95,7 @@ function App() {
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const minSwipeDistance = 50; 
+  const minSwipeDistance = 50;
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -93,31 +109,31 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-      document.documentElement.style.setProperty('--text-accent', accentColor);
-      localStorage.setItem('kairos_accent_color', accentColor);
+    document.documentElement.style.setProperty('--text-accent', accentColor);
+    localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
   const onTouchStart = (e) => {
-      setTouchEnd(null);
-      setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
   const onTouchMove = (e) => {
-      setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEnd(e.targetTouches[0].clientX);
   };
 
   const onTouchEnd = () => {
-      if (!touchStart || !touchEnd) return;
-      const distance = touchStart - touchEnd;
-      const isLeftSwipe = distance > minSwipeDistance;
-      const isRightSwipe = distance < -minSwipeDistance;
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
 
-      if (isRightSwipe && touchStart < 60) {
-          setIsSidebarOpen(true);
-      }
-      if (isLeftSwipe && isSidebarOpen) {
-          setIsSidebarOpen(false);
-      }
+    if (isRightSwipe && touchStart < 60) {
+      setIsSidebarOpen(true);
+    }
+    if (isLeftSwipe && isSidebarOpen) {
+      setIsSidebarOpen(false);
+    }
   };
 
   // FUNCIONALIDADE 1: Solicitar Permissão de Notificações
@@ -130,7 +146,7 @@ function App() {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       toast.success('Notificações ativadas!', { icon: '🔔' });
-      
+
       // Teste imediato através do Service Worker
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
@@ -190,274 +206,284 @@ function App() {
   };
 
   const viewsConfig = [
-      { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
-      { id: 'month', label: 'Mês', icon: 'calendar_month' },
-      { id: 'week', label: 'Semana', icon: 'view_week' },
-      { id: '3days', label: '3 Dias', icon: 'view_timeline' },
-      { id: 'day', label: 'Dia', icon: 'view_day' },
-      { id: 'list', label: 'Fichas', icon: 'view_agenda' }
+    { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
+    { id: 'month', label: 'Mês', icon: 'calendar_month' },
+    { id: 'week', label: 'Semana', icon: 'view_week' },
+    { id: '3days', label: '3 Dias', icon: 'view_timeline' },
+    { id: 'day', label: 'Dia', icon: 'view_day' },
+    { id: 'list', label: 'Fichas', icon: 'view_agenda' }
   ];
 
   const toggleFilter = (type, val) => {
-      setFilters(prev => {
-          const current = prev[type];
-          return { ...prev, [type]: current.includes(val) ? current.filter(item => item !== val) : [...current, val] };
-      });
+    setFilters(prev => {
+      const current = prev[type];
+      return { ...prev, [type]: current.includes(val) ? current.filter(item => item !== val) : [...current, val] };
+    });
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
+  );
+
+  const handleDragEnd = (e) => { if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); };
+
   return (
-    <div 
-        onTouchStart={onTouchStart} 
-        onTouchMove={onTouchMove} 
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}
-    >
-      <Toaster position="bottom-center" />
+      >
+        <Toaster position="bottom-center" />
 
-      {isSidebarOpen && (
+        {isSidebarOpen && (
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
-      )}
+        )}
 
-      <div style={{
+        <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
           borderRight: '1px solid var(--border-color)', overflowY: 'auto', display: 'flex', flexDirection: 'column',
           borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
-      }}>
+        }}>
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
-                  </h1>
-                  <button onClick={() => setIsSidebarOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
-                      <span className="material-symbols-rounded">close</span>
-                  </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {viewsConfig.map(v => (
-                      <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); }} className="nav-pill" style={{
-                          display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                          fontWeight: view === v.id ? '700' : '500', backgroundColor: view === v.id ? 'var(--bg-tertiary)' : 'transparent', color: view === v.id ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
-                      }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
-                      </button>
-                  ))}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
+              </h1>
+              <button onClick={() => setIsSidebarOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+                <span className="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {viewsConfig.map(v => (
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); }} className="nav-pill" style={{
+                  display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
+                  fontWeight: view === v.id ? '700' : '500', backgroundColor: view === v.id ? 'var(--bg-tertiary)' : 'transparent', color: view === v.id ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
+                }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-                      {materialColors.map(c => (
-                          <div key={c.id} onClick={() => setAccentColor(c.hex)} style={{
-                              width: '36px', height: '36px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer', margin: 'auto',
-                              border: accentColor === c.hex ? '3px solid var(--bg-primary)' : 'none',
-                              boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
-                              transition: 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s', 
-                              transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
-                          }} 
-                          title={c.label} 
-                          onMouseEnter={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1.1)'; }}
-                          onMouseLeave={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1)'; }}
-                          />
-                      ))}
-                  </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                {materialColors.map(c => (
+                  <div key={c.id} onClick={() => setAccentColor(c.hex)} style={{
+                    width: '36px', height: '36px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer', margin: 'auto',
+                    border: accentColor === c.hex ? '3px solid var(--bg-primary)' : 'none',
+                    boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
+                    transition: 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s',
+                    transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
+                  }}
+                    title={c.label}
+                    onMouseEnter={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1.1)'; }}
+                    onMouseLeave={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1)'; }}
+                  />
+                ))}
               </div>
+            </div>
 
-              <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
-                  <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
+              <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Agendas</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {allUsers.map(u => (
+                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                    <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)', width: '18px', height: '18px' }} />
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>{u.cr4a1_username}
+                  </label>
+                ))}
               </div>
+            </div>
 
-              <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Agendas</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {allUsers.map(u => (
-                          <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                              <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)', width: '18px', height: '18px' }} />
-                              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>{u.cr4a1_username}
-                          </label>
-                      ))}
-                  </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {eventTypes.map(t => (
+                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                    <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
+                    <span>{t.emoji} {t.name}</span>
+                  </label>
+                ))}
               </div>
+            </div>
 
-              <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {eventTypes.map(t => (
-                          <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                              <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
-                              <span>{t.emoji} {t.name}</span>
-                          </label>
-                      ))}
-                  </div>
-              </div>
-
-              {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-                  <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
-              )}
+            {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
+              <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
+            )}
           </div>
-      </div>
+        </div>
 
-      <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-        <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          
-          <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
+          <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+            <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
-            </button>
-            <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
-              <span className="nav-label">Kairós</span>
-            </h1>
-
-            <select
-              value={view}
-              onChange={(e) => setView(e.target.value)}
-              style={{
-                appearance: 'none',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '20px',
-                padding: '6px 30px 6px 14px',
-                fontSize: '13px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                cursor: 'pointer',
-                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 10px top 50%',
-                backgroundSize: '10px auto',
-                transition: 'all 0.2s'
-              }}
-            >
-              {viewsConfig.map(v => (
-                <option key={v.id} value={v.id}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="nav-right">
-            <div className="nav-group">
-              <button onClick={() => handleNavigate('prev')} className="icon-btn">
-                  <span className="material-symbols-rounded">chevron_left</span>
               </button>
-              <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn">
-                  <span className="material-symbols-rounded">chevron_right</span>
-              </button>
+              <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
+                <span className="nav-label">Kairós</span>
+              </h1>
+
+              <select
+                value={view}
+                onChange={(e) => setView(e.target.value)}
+                style={{
+                  appearance: 'none',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '20px',
+                  padding: '6px 30px 6px 14px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 10px top 50%',
+                  backgroundSize: '10px auto',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {viewsConfig.map(v => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
+                ))}
+              </select>
             </div>
-            <div className="nav-group">
-              {/* BOTÃO DE NOTIFICAÇÕES (NOVIDADE) */}
-              <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
-                  <span className="material-symbols-rounded">notifications</span>
-              </button>
 
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
+            <div className="nav-right">
+              <div className="nav-group">
+                <button onClick={() => handleNavigate('prev')} className="icon-btn">
+                  <span className="material-symbols-rounded">chevron_left</span>
+                </button>
+                <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
+                <button onClick={() => handleNavigate('next')} className="icon-btn">
+                  <span className="material-symbols-rounded">chevron_right</span>
+                </button>
+              </div>
+              <div className="nav-group">
+                {/* BOTÃO DE NOTIFICAÇÕES (NOVIDADE) */}
+                <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
+                  <span className="material-symbols-rounded">notifications</span>
+                </button>
+
+                <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-              </button>
-              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
+                </button>
+                {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                   <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
-                      <span className="material-symbols-rounded">group</span>
+                    <span className="material-symbols-rounded">group</span>
                   </button>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}>
-                <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
-                <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}>
+                  <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
+                  <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </nav>
+          </nav>
 
-        <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize' }}>
-              {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
-            </span>
-            <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
-              {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
-            </span>
+          <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize' }}>
+                {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
+              </span>
+              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
+                {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
+              </span>
 
-            {view === 'day' && (
-              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
+              {view === 'day' && (
+                <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
                   <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
                   <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
+                </div>
+              )}
+            </div>
+            {isYearSelectorOpen && (
+              <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {Array.from({ length: 16 }, (_, i) => {
+                  const year = currentDate.getFullYear() - 7 + i;
+                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
+                })}
               </div>
             )}
           </div>
-          {isYearSelectorOpen && (
-            <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-              {Array.from({ length: 16 }, (_, i) => {
-                const year = currentDate.getFullYear() - 7 + i;
-                return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
-              })}
+        </header>
+
+        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
+
+          {view === 'year' && (
+            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+              {Array.from({ length: 12 }, (_, i) => <MiniMonth key={i} monthDate={new Date(currentDate.getFullYear(), i, 1)} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />)}
             </div>
           )}
-        </div>
-      </header>
 
-      <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
-        
-        {view === 'year' && (
-          <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
-            {Array.from({ length: 12 }, (_, i) => <MiniMonth key={i} monthDate={new Date(currentDate.getFullYear(), i, 1)} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />)}
-          </div>
-        )}
+          {view === 'month' && (
+            <div className="responsive-grid-container">
+              <div className="calendar-month-grid">
+                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
+                {generateMonthDays(currentDate).map((day, index) => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
+                  const dayEvents = getEventsForDay(day);
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
-        {view === 'month' && (
-          <div className="responsive-grid-container">
-            <div className="calendar-month-grid">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-              {generateMonthDays(currentDate).map((day, index) => {
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                const dayEvents = getEventsForDay(day);
-                const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-
-                return (
-                  <div key={day.toString()} onClick={() => { setCurrentDate(day); setView('day'); }} className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`} style={{ cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
-                      {dayEvents.map(e => (
-                        <div key={e.cr4a1_event_id} className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                          {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                        </div>
-                      ))}
+                  return (
+                    <div key={day.toString()} onClick={() => { setCurrentDate(day); setView('day'); }} className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`} style={{ cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
+                        {dayEvents.map(e => (
+                          <div key={e.cr4a1_event_id} className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => {setEventToDelete(e); setIsDeleteModalOpen(true);}} />}
+          {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
 
-        {['day', '3days', 'week'].includes(view) && (
-            <DayView 
-                selectedDate={currentDate} 
-                viewType={view} 
-                getEventsForDay={getEventsForDay} 
-                holidays={holidays} 
-                allUsers={allUsers} 
-                onEdit={handleEditClick} 
-                dayViewMode={dayViewMode} 
+          {['day', '3days', 'week'].includes(view) && (
+            <DayView
+              selectedDate={currentDate}
+              viewType={view}
+              getEventsForDay={getEventsForDay}
+              holidays={holidays}
+              allUsers={allUsers}
+              onEdit={handleEditClick}
+              dayViewMode={dayViewMode}
             />
-        )}
-      </main>
+          )}
+        </main>
 
-      {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
-      {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
-      {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-      
-      {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
-        <button className="create-btn-mobile fab-btn" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '28px', color: 'white' }}>add</span>
-        </button>
-      )}
-    </div>
+        {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
+        {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
+        {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+
+        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
+          <button className="create-btn-mobile fab-btn" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>
+            <span className="material-symbols-rounded" style={{ fontSize: '28px', color: 'white' }}>add</span>
+          </button>
+        )}
+      </div>
+    </DndContext>
+
   );
 }
 
