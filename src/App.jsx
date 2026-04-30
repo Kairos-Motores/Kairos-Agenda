@@ -32,9 +32,9 @@ const LoginScreen = ({ onLogin }) => {
     <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)' }}>
       <form onSubmit={handleSubmit} style={{ padding: '40px', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: 'var(--shadow-hover)', width: '350px' }}>
         <h2 style={{ textAlign: 'center', color: 'var(--text-title)', marginBottom: '30px', fontWeight: '600' }}>Kairós Agenda</h2>
-        <input type="text" placeholder="Usuário" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
-        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '25px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
-        <button type="submit" disabled={isAuthenticating} style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.3s ease' }}>
+        <input type="text" placeholder="Usuário" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
+        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '25px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
+        <button type="submit" disabled={isAuthenticating} style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
           {isAuthenticating ? 'Validando...' : 'Entrar'}
         </button>
       </form>
@@ -42,11 +42,18 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+// NOVIDADE: Paleta Completa do Material You (Android 17)
 const materialColors = [
     { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
+    { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
+    { id: 'teal', hex: '#00897b', label: 'Verde Mar' },
     { id: 'green', hex: '#388e3c', label: 'Verde Sálvia' },
-    { id: 'purple', hex: '#673ab7', label: 'Lavanda' },
+    { id: 'amber', hex: '#ffb300', label: 'Amarelo Ouro' },
+    { id: 'orange', hex: '#f57c00', label: 'Laranja Outono' },
+    { id: 'coral', hex: '#f4511e', label: 'Coral' },
     { id: 'rose', hex: '#d81b60', label: 'Rosa Escuro' },
+    { id: 'purple', hex: '#673ab7', label: 'Lavanda' },
+    { id: 'indigo', hex: '#3949ab', label: 'Índigo' },
     { id: 'graphite', hex: '#5f6368', label: 'Grafite' }
 ];
 
@@ -71,7 +78,6 @@ function App() {
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Estados para Gestos de Swipe (Puxar)
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50; 
@@ -92,7 +98,6 @@ function App() {
       localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
-  // Funções de Touch para o Swipe
   const onTouchStart = (e) => {
       setTouchEnd(null);
       setTouchStart(e.targetTouches[0].clientX);
@@ -160,7 +165,6 @@ function App() {
     else setCurrentDate(isNext ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
   };
 
-  // SUBSTITUÍDO: Emojis pelos Material Symbols
   const viewsConfig = [
       { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
       { id: 'month', label: 'Mês', icon: 'calendar_month' },
@@ -187,14 +191,14 @@ function App() {
       <Toaster position="bottom-center" />
 
       {isSidebarOpen && (
-          <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(2px)' }} />
+          <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
       )}
 
       <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
           borderRight: '1px solid var(--border-color)', overflowY: 'auto', display: 'flex', flexDirection: 'column',
-          borderTopRightRadius: '24px', borderBottomRightRadius: '24px'
+          borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
       }}>
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -207,8 +211,8 @@ function App() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {viewsConfig.map(v => (
-                      <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); }} style={{
-                          display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px',
+                      <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); }} className="nav-pill" style={{
+                          display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
                           fontWeight: view === v.id ? '700' : '500', backgroundColor: view === v.id ? 'var(--bg-tertiary)' : 'transparent', color: view === v.id ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
                       }}>
                           <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
@@ -220,21 +224,26 @@ function App() {
           <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
                       {materialColors.map(c => (
                           <div key={c.id} onClick={() => setAccentColor(c.hex)} style={{
-                              width: '32px', height: '32px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer',
+                              width: '36px', height: '36px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer', margin: 'auto',
                               border: accentColor === c.hex ? '3px solid var(--bg-primary)' : 'none',
-                              boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : 'none',
-                              transition: 'transform 0.2s', transform: accentColor === c.hex ? 'scale(1.1)' : 'scale(1)'
-                          }} title={c.label} />
+                              boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
+                              transition: 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s', 
+                              transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
+                          }} 
+                          title={c.label} 
+                          onMouseEnter={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1.1)'; }}
+                          onMouseLeave={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1)'; }}
+                          />
                       ))}
                   </div>
               </div>
 
               <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
-                  <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+                  <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
               </div>
 
               <div>
@@ -242,7 +251,7 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {allUsers.map(u => (
                           <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                              <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} />
+                              <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)', width: '18px', height: '18px' }} />
                               <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>{u.cr4a1_username}
                           </label>
                       ))}
@@ -254,7 +263,7 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {eventTypes.map(t => (
                           <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                              <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)' }} />
+                              <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
                               <span>{t.emoji} {t.name}</span>
                           </label>
                       ))}
@@ -262,7 +271,7 @@ function App() {
               </div>
 
               {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-                  <button onClick={() => setFilters({ text: '', users: [], types: [] })} style={{ padding: '12px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', fontWeight: '600', cursor: 'pointer' }}>Limpar Filtros</button>
+                  <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
               )}
           </div>
       </div>
@@ -297,6 +306,7 @@ function App() {
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'right 10px top 50%',
                 backgroundSize: '10px auto',
+                transition: 'all 0.2s'
               }}
             >
               {viewsConfig.map(v => (
@@ -343,8 +353,8 @@ function App() {
 
             {view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
-                  <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
-                  <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
+                  <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
+                  <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
               </div>
             )}
           </div>
@@ -352,7 +362,7 @@ function App() {
             <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {Array.from({ length: 16 }, (_, i) => {
                 const year = currentDate.getFullYear() - 7 + i;
-                return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
+                return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
               })}
             </div>
           )}
