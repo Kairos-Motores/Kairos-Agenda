@@ -623,3 +623,19 @@ body {
   transform: scale(0.98);
   outline: 2px solid var(--text-accent);
 }
+
+.event-badge {
+  background-color: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border: 1px solid var(--border-color);
+}
+
+.calendar-day-card.today {
+  background-color: var(--bg-tertiary);
+  outline: 2px solid var(--text-accent);
+}
+
+.sidebar-material {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
