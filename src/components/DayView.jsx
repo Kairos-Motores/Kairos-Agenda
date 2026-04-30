@@ -33,7 +33,6 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
       className="day-view-event"
       style={{
         boxSizing: 'border-box',
-        width: '100%',
         backgroundColor: userColor,
         color: 'white',
         padding: '6px 12px',
@@ -47,6 +46,8 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
         cursor: 'pointer',
         transition: 'transform 0.2s',
         marginBottom: '2px',
+        overflow: 'hidden', // Trava para não esticar o card horizontalmente
+        width: '100%'
       }}
       onClick={() => onEdit(event)}
     >
@@ -57,27 +58,25 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
         }
       </div>
       {showDetails && (
-        <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</span>
-          {event.cr4a1_detalhes && <span>• 📄 Detalhes</span>}
-          {event.cr4a1_arquivos && JSON.parse(event.cr4a1_arquivos).length > 0 && <span>• 📎 Anexos</span>}
+        <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+          <span style={{ whiteSpace: 'nowrap' }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</span>
+          {event.cr4a1_detalhes && <span style={{ whiteSpace: 'nowrap' }}>• 📄 Detalhes</span>}
+          {event.cr4a1_arquivos && JSON.parse(event.cr4a1_arquivos).length > 0 && <span style={{ whiteSpace: 'nowrap' }}>• 📎 Anexos</span>}
         </div>
       )}
     </div>
   );
 
-  // MODO: LINHA DO TEMPO (TIMELINE)
   if (dayViewMode === 'timeline') {
       const eventsWithPosition = hourlyEvents.map(e => {
           const [sh, sm] = (e.cr4a1_hora_inicio || '00:00').split(':').map(Number);
           const [eh, em] = (e.cr4a1_hora_fim || '01:00').split(':').map(Number);
           let startMins = sh * 60 + sm;
           let endMins = eh * 60 + em;
-          if (endMins <= startMins) endMins = startMins + 60; // fallback se fim for antes do início
+          if (endMins <= startMins) endMins = startMins + 60;
           return { ...e, startMins, endMins };
       }).sort((a, b) => a.startMins - b.startMins);
 
-      // Algoritmo para separar eventos que encavalam e exibi-los lado a lado
       const columns = [];
       eventsWithPosition.forEach(event => {
           let placed = false;
@@ -98,7 +97,7 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
       const totalCols = columns.length || 1;
 
       return (
-          <div className="view-enter" style={{ padding: '20px' }}>
+          <div className="view-enter" style={{ padding: '20px', boxSizing: 'border-box', overflowX: 'hidden' }}>
               <h2 style={{ color: 'var(--text-title)', fontSize: '20px', marginBottom: '16px', fontWeight: '600' }}>
                   {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
               </h2>
@@ -120,19 +119,16 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
                   </div>
               )}
 
-              {/* GRID DA TIMELINE */}
               <div style={{ position: 'relative', height: `${24 * 60}px`, marginTop: '20px', backgroundColor: 'var(--bg-primary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-                  {/* Linhas de fundo e marcações de horas */}
                   {Array.from({ length: 24 }).map((_, h) => (
                       <div key={h} style={{ position: 'absolute', top: `${h * 60}px`, width: '100%', height: '60px', borderBottom: '1px dashed var(--border-color)', display: 'flex' }}>
-                          <div style={{ width: '55px', fontSize: '11px', color: 'var(--text-secondary)', padding: '8px 4px', borderRight: '1px solid var(--border-color)', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '500' }}>
+                          <div style={{ width: '55px', fontSize: '11px', color: 'var(--text-secondary)', padding: '8px 4px', borderRight: '1px solid var(--border-color)', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '500', boxSizing: 'border-box' }}>
                               {String(h).padStart(2, '0')}:00
                           </div>
                           <div style={{ flex: 1 }}></div>
                       </div>
                   ))}
                   
-                  {/* Eventos Posicionados */}
                   {eventsWithPosition.map(event => {
                       const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
                       return (
@@ -157,12 +153,13 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
                                   flexDirection: 'column',
                                   border: '1px solid rgba(255,255,255,0.2)',
                                   transition: 'all 0.2s',
-                                  zIndex: 10
+                                  zIndex: 10,
+                                  boxSizing: 'border-box'
                               }}>
                               <div style={{ fontWeight: '800', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo}
                               </div>
-                              <div style={{ opacity: 0.9 }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
+                              <div style={{ opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
                           </div>
                       )
                   })}
@@ -171,15 +168,14 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
       );
   }
 
-  // MODO: CARTÕES (Padrão Original)
   return (
-    <div className="view-enter" style={{ padding: '20px' }}>
+    <div className="view-enter" style={{ padding: '20px', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <h2 style={{ color: 'var(--text-title)', fontSize: '20px', marginBottom: '16px', fontWeight: '600' }}>
         {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
       </h2>
 
       {dayHolidays.length > 0 && (
-        <div style={{ marginBottom: '16px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderLeft: '4px solid #e74c3c', padding: '10px 15px', borderRadius: '8px', color: '#c0392b', fontSize: '13px', fontWeight: '600' }}>
+        <div style={{ marginBottom: '16px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderLeft: '4px solid #e74c3c', padding: '10px 15px', borderRadius: '8px', color: '#c0392b', fontSize: '13px', fontWeight: '600', boxSizing: 'border-box' }}>
           {dayHolidays.map(h => <div key={h.name}>🚩 Feriado: {h.name}</div>)}
         </div>
       )}
@@ -199,12 +195,13 @@ export const DayView = ({ selectedDate, getEventsForDay, holidays, allUsers = []
         const eventsInHour = getEventsInThisHour(hour, hourlyEvents);
 
         return (
-          <div key={hour} style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', minHeight: '65px', position: 'relative' }}>
-            <div style={{ width: '50px', padding: '10px', fontSize: '12px', color: 'var(--text-secondary)', borderRight: '1px solid var(--border-color)', textAlign: 'right', backgroundColor: 'var(--bg-secondary)', fontWeight: '500' }}>
+          <div key={hour} style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', minHeight: '65px', position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ width: '50px', minWidth: '50px', padding: '10px', fontSize: '12px', color: 'var(--text-secondary)', borderRight: '1px solid var(--border-color)', textAlign: 'right', backgroundColor: 'var(--bg-secondary)', fontWeight: '500', boxSizing: 'border-box' }}>
               {hour}:00
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '5px', backgroundColor: eventsInHour.length > 0 ? 'var(--bg-tertiary)' : 'transparent' }}>
+            {/* O segredo para não estourar a tela está neste minWidth: 0 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '5px', backgroundColor: eventsInHour.length > 0 ? 'var(--bg-tertiary)' : 'transparent', minWidth: 0, boxSizing: 'border-box' }}>
               {eventsInHour.map(event => {
                 const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
                 const isFirstHourOfDay = (ev) => {

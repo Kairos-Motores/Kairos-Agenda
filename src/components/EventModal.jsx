@@ -11,8 +11,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
-    
-    // NOVO: Previne cliques duplos ao salvar
     const [isSaving, setIsSaving] = useState(false);
 
     const commonEmojis = ['📝', '🤝', '🏠', '🔥', '📅', '⏰', '🚀', '⭐', '💡', '✅', '❌', '🏢', '💻', '📞', '✈️', '🚗', '🍴', '🎉', '⚽', '🎨'];
@@ -55,7 +53,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         setIsEmojiPickerOpen(false);
     };
 
-    // NOVO: Lógica que adiciona 1 hora automaticamente caso a Hora Início seja alterada
     const handleStartHourChange = (newTime) => {
         setFormData(prev => {
             const [h, m] = newTime.split(':');
@@ -96,16 +93,16 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', fontSize: '14px', transition: 'all 0.2s'
     };
 
-    // NOVO: Estilo para os seletores de horas Mobile-friendly
     const customSelectStyle = {
         padding: '10px 4px', borderRadius: '10px', border: '1px solid var(--border-color)', 
         background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
-        fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none'
+        fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none', boxSizing: 'border-box'
     };
 
     return (
         <div className="modal-overlay">
-            <div className="modal-container" style={{ maxWidth: '450px' }}>
+            {/* O maxWidth foi ajustado e o width: '90%' adicionado para garantir margens no mobile */}
+            <div className="modal-container" style={{ maxWidth: '450px', width: '90%', boxSizing: 'border-box' }}>
                 <div className="modal-header">
                     <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>
                         {editingEvent ? '📝 Editar' : '✨ Novo'} Agendamento
@@ -113,7 +110,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-secondary)' }}>✕</button>
                 </div>
 
-                <div className="modal-body">
+                <div className="modal-body" style={{ boxSizing: 'border-box' }}>
                     {userRole === 'SECRETARIA' && (
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>👤 Agendar para:</label>
@@ -136,11 +133,11 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                             placeholder="Título do compromisso..." 
                             value={formData.title} 
                             onChange={e => setFormData({ ...formData, title: e.target.value })} 
-                            style={{ ...inputStyle, flex: 1 }} 
+                            style={{ ...inputStyle, flex: 1, minWidth: 0 }} 
                         />
                         <button 
                             onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '20px', height: '45px', width: '45px', cursor: 'pointer' }}
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '20px', height: '45px', width: '45px', flexShrink: 0, cursor: 'pointer', boxSizing: 'border-box' }}
                         >
                             😊
                         </button>
@@ -154,12 +151,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         )}
                     </div>
 
+                    {/* flexWrap garante que, se a tela for minúscula, os campos de data quebram pra linha de baixo */}
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 180px' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Início</label>
                             <input type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} style={inputStyle} />
                         </div>
-                        <div style={{ flex: '1 1 180px' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Fim</label>
                             <input type="date" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={inputStyle} />
                         </div>
@@ -167,8 +165,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                     {!formData.allDay && (
                         <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                            {/* NOVO: Seletor de Hora Início Mobile-Friendly */}
-                            <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Início</label>
                                 <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                                     <select value={formData.startHour.split(':')[0]} onChange={e => handleStartHourChange(`${e.target.value}:${formData.startHour.split(':')[1]}`)} style={{...customSelectStyle, border: 'none'}}>
@@ -181,8 +178,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                 </div>
                             </div>
                             
-                            {/* NOVO: Seletor de Hora Fim Mobile-Friendly */}
-                            <div style={{ flex: '1 1 140px' }}>
+                            <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Fim</label>
                                 <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                                     <select value={formData.endHour.split(':')[0]} onChange={e => setFormData({ ...formData, endHour: `${e.target.value}:${formData.endHour.split(':')[1]}` })} style={{...customSelectStyle, border: 'none'}}>
@@ -197,15 +193,15 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}>
                             <input type="checkbox" checked={formData.allDay} onChange={e => setFormData({ ...formData, allDay: e.target.checked })} id="allDay" style={{ cursor: 'pointer' }} />
-                            <label htmlFor="allDay" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500' }}>🌞 Dia Inteiro</label>
+                            <label htmlFor="allDay" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500', whiteSpace: 'nowrap' }}>🌞 Dia Inteiro</label>
                         </div>
                         
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}>
                             <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} id="isPrivate" style={{ cursor: 'pointer' }} />
-                            <label htmlFor="isPrivate" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500' }}>🔒 Privado</label>
+                            <label htmlFor="isPrivate" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500', whiteSpace: 'nowrap' }}>🔒 Privado</label>
                         </div>
                     </div>
 
@@ -225,10 +221,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                     <div style={{ marginBottom: '20px' }}>
                         <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Imagens (max 3)</label>
-                        <input type="file" multiple accept="image/*" onChange={handleFileChange} style={{ fontSize: '12px', width: '100%' }} />
-                        <div style={{ display: 'flex', gap: '5px', marginTop: '10px', overflowX: 'auto' }}>
+                        <input type="file" multiple accept="image/*" onChange={handleFileChange} style={{ fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
                             {formData.files?.map((f, i) => (
-                                <div key={i} style={{ position: 'relative' }}>
+                                <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
                                     <img src={f} alt="upload" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                                     <button onClick={() => setFormData(p => ({ ...p, files: p.files.filter((_, idx) => idx !== i) }))} style={{ position: 'absolute', top: -5, right: -5, background: '#e74c3c', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer' }}>✕</button>
                                 </div>
@@ -236,8 +232,9 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={onClose} disabled={isSaving} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+                    {/* flexWrap: wrap garante que, se não houver espaço horizontal, o botão de Salvar vá para a linha de baixo, impedindo o vazamento da tela */}
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <button onClick={onClose} disabled={isSaving} className="btn-secondary" style={{ flex: '1 1 100px', boxSizing: 'border-box' }}>Cancelar</button>
                         <button 
                             disabled={isSaving}
                             onClick={async () => {
@@ -246,11 +243,11 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                 try {
                                     await onSave({ ...formData, cr4a1_privado: isPrivate });
                                 } catch(e) {
-                                    setIsSaving(false); // Só volta se der erro. Se for sucesso o modal fecha.
+                                    setIsSaving(false); 
                                 }
                             }} 
                             className="btn-primary"
-                            style={{ flex: 2, opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+                            style={{ flex: '2 1 160px', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer', boxSizing: 'border-box' }}
                         >
                             {isSaving ? '⏳ Salvando...' : 'Salvar Compromisso'}
                         </button>
