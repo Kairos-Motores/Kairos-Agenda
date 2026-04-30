@@ -324,13 +324,29 @@ export const useCalendar = () => {
 
     const addEventType = async (name, emoji) => {
         try {
+            // Cria um ID temporário rápido para UI responder imediatamente
+            const tempId = crypto.randomUUID(); 
+            const newType = { id: tempId, name: name, emoji: emoji };
+            
+            // ATUALIZA O ESTADO IMEDIATAMENTE (UI Otimista)
+            setEventTypes(prev => {
+                const updated = [...prev, newType];
+                localStorage.setItem('kairos_event_types', JSON.stringify(updated));
+                return updated;
+            });
+
             await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
             });
-            fetchEventTypes();
-        } catch (error) { console.error(error); }
+            
+            // Busca o ID real do banco e substitui o temporário
+            fetchEventTypes(); 
+        } catch (error) { 
+            console.error(error); 
+            toast.error("Erro ao adicionar tipo de evento");
+        }
     };
 
     const deleteEventType = async (id) => {
