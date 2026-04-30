@@ -42,7 +42,6 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-// NOVO: Paleta de Cores Dinâmicas do Material You
 const materialColors = [
     { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
     { id: 'green', hex: '#388e3c', label: 'Verde Sálvia' },
@@ -67,12 +66,15 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dayViewMode, setDayViewMode] = useState('timeline'); 
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  
-  // NOVO: Estado da Cor Dinâmica
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
 
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Estados para Gestos de Swipe (Puxar)
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const minSwipeDistance = 50; // Distância mínima para ser considerado um deslize
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -85,11 +87,36 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // NOVO: Aplica a cor dinâmica no root do CSS
   useEffect(() => {
       document.documentElement.style.setProperty('--text-accent', accentColor);
       localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
+
+  // Funções de Touch para o Swipe
+  const onTouchStart = (e) => {
+      setTouchEnd(null);
+      setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+      setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+      if (!touchStart || !touchEnd) return;
+      const distance = touchStart - touchEnd;
+      const isLeftSwipe = distance > minSwipeDistance;
+      const isRightSwipe = distance < -minSwipeDistance;
+
+      // Puxar da esquerda para a direita (abre o menu se o toque começar no canto esquerdo da tela)
+      if (isRightSwipe && touchStart < 60) {
+          setIsSidebarOpen(true);
+      }
+      // Puxar da direita para a esquerda (fecha o menu)
+      if (isLeftSwipe && isSidebarOpen) {
+          setIsSidebarOpen(false);
+      }
+  };
 
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
@@ -141,7 +168,7 @@ function App() {
       { id: 'week', label: 'Semana', icon: '📅' },
       { id: '3days', label: '3 Dias', icon: '📆' },
       { id: 'day', label: 'Dia', icon: '☀️' },
-      { id: 'list', label: 'Agenda', icon: '📝' }
+      { id: 'list', label: 'Fichas', icon: '📝' }
   ];
 
   const toggleFilter = (type, val) => {
@@ -152,7 +179,12 @@ function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}>
+    <div 
+        onTouchStart={onTouchStart} 
+        onTouchMove={onTouchMove} 
+        onTouchEnd={onTouchEnd}
+        style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}
+    >
       <Toaster position="bottom-center" />
 
       {isSidebarOpen && (
@@ -183,7 +215,6 @@ function App() {
           </div>
 
           <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {/* NOVO: Material You Dynamic Color Picker */}
               <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -215,6 +246,19 @@ function App() {
                   </div>
               </div>
 
+              {/* RETORNO DOS FILTROS DE TIPOS DE EVENTO */}
+              <div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {eventTypes.map(t => (
+                          <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                              <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)' }} />
+                              <span>{t.emoji} {t.name}</span>
+                          </label>
+                      ))}
+                  </div>
+              </div>
+
               {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
                   <button onClick={() => setFilters({ text: '', users: [], types: [] })} style={{ padding: '12px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', fontWeight: '600', cursor: 'pointer' }}>Limpar Filtros</button>
               )}
@@ -223,12 +267,40 @@ function App() {
 
       <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
         <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          
           <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ fontSize: '24px', color: 'var(--text-primary)' }}>☰</button>
             <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0 }}>
               <span className="nav-label">Kairós</span>
             </h1>
+
+            {/* NOVA PÍLULA DE MUDANÇA RÁPIDA DE VISUALIZAÇÃO NO HEADER */}
+            <select
+              value={view}
+              onChange={(e) => setView(e.target.value)}
+              style={{
+                appearance: 'none',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '6px 30px 6px 14px',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                cursor: 'pointer',
+                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 10px top 50%',
+                backgroundSize: '10px auto',
+              }}
+            >
+              {viewsConfig.map(v => (
+                <option key={v.id} value={v.id}>{v.label}</option>
+              ))}
+            </select>
           </div>
+
           <div className="nav-right">
             <div className="nav-group">
               <button onClick={() => handleNavigate('prev')} className="icon-btn"><span>&lt;</span></button>
@@ -310,7 +382,6 @@ function App() {
 
         {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => {setEventToDelete(e); setIsDeleteModalOpen(true);}} />}
 
-        {/* NOVO: Componente DayView agora lida com 1, 3 ou 7 dias */}
         {['day', '3days', 'week'].includes(view) && (
             <DayView 
                 selectedDate={currentDate} 

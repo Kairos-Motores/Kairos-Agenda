@@ -467,43 +467,25 @@ body {
     padding: 16px;
   }
   
+  /* CORREÇÃO DO HEADER: Mantém os botões nas extremidades */
+  .app-header .nav-container {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    padding: 10px 16px;
+  }
+
+  .nav-left, .nav-right {
+    width: auto;
+    justify-content: flex-start;
+  }
+
+  .nav-label {
+    display: none; 
+  }
+
   .calendar-month-grid {
     grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-  }
-  
-  .calendar-day-card {
-    min-height: 100px; /* Aumento da altura mínima para acomodar mais eventos */
-    padding: 4px; /* Aumento do padding para espaçamento */
-    min-width: 0; 
-  }
-  
-  .event-badge {
-    padding: 2px 4px; /* Aumento do padding para as tiras coloridas */
-    font-size: 10px; /* Aumento do tamanho da fonte para as tiras coloridas */
-    height: auto; /* Altura flexível para acomodar as tiras */
-    line-height: normal; /* Altura de linha padrão */
-  }
-  
-  .event-badge span {
-    display: inline; /* Modificação para que o horário e título fiquem na mesma linha */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .event-dot {
-    width: 4px;
-    height: 4px;
-  }
-  .create-btn-mobile {
-    width: 64px;
-    height: 64px;
-    bottom: 24px !important;
-    right: 24px !important;
-  }
-  
-  .nav-label {
-    display: none;
+    width: 100%;
   }
 }
 
