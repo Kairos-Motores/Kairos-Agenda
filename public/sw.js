@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kairos-v2'; // Alteramos a versão para forçar atualização
+const CACHE_NAME = 'kairos-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,48 +6,67 @@ const ASSETS_TO_CACHE = [
   '/favicon.svg'
 ];
 
-// Instalação e ativação imediata
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Força o novo SW a assumir o controle imediatamente
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
 });
 
-// Limpeza de caches antigos
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Removendo cache antigo:', cache);
-            return caches.delete(cache);
-          }
+          if (cache !== CACHE_NAME) return caches.delete(cache);
         })
       );
-    }).then(() => self.clients.claim()) // Assume o controle das abas abertas
+    }).then(() => self.clients.claim())
   );
 });
 
-// Estratégia: Tenta rede primeiro para Scripts/CSS, Cache para o resto
+// ESTRATÉGIA DE FETCH (Mantendo sua lógica original)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-
-  // Para arquivos JS e CSS do Vite (pasta assets), sempre tenta a rede primeiro
   if (url.pathname.includes('/assets/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
   }
+  event.respondWith(caches.match(event.request).then((response) => response || fetch(event.request)));
+});
 
-  // Para o resto, usa cache com fallback para rede
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+// ==========================================
+// NOVO: SISTEMA DE NOTIFICAÇÕES (PUSH)
+// ==========================================
+
+// 1. Ouvir a chegada de uma notificação
+self.addEventListener('push', (event) => {
+  let data = { title: 'Kairós Agenda', body: 'Você tem um novo compromisso!' };
+  
+  if (event.data) {
+    data = event.data.json();
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icon-512.jpg', // Usando o ícone definido no seu manifest[cite: 5]
+    badge: '/favicon.svg',
+    vibrate: [100, 50, 100],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: '1'
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// 2. Ouvir o clique na notificação
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow('/') // Abre o app ao clicar
   );
 });

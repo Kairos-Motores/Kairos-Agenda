@@ -42,7 +42,6 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-// NOVIDADE: Paleta Completa do Material You (Android 17)
 const materialColors = [
     { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
     { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
@@ -119,6 +118,31 @@ function App() {
       if (isLeftSwipe && isSidebarOpen) {
           setIsSidebarOpen(false);
       }
+  };
+
+  // FUNCIONALIDADE 1: Solicitar Permissão de Notificações
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Este navegador não suporta notificações.');
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      toast.success('Notificações ativadas!', { icon: '🔔' });
+      
+      // Teste imediato através do Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification('Kairós Agenda', {
+            body: 'As notificações estão funcionando perfeitamente!',
+            icon: '/icon-512.jpg'
+          });
+        });
+      }
+    } else {
+      toast.error('As notificações foram bloqueadas.');
+    }
   };
 
   if (isValidatingSession) return (
@@ -326,6 +350,11 @@ function App() {
               </button>
             </div>
             <div className="nav-group">
+              {/* BOTÃO DE NOTIFICAÇÕES (NOVIDADE) */}
+              <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
+                  <span className="material-symbols-rounded">notifications</span>
+              </button>
+
               <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
               </button>
