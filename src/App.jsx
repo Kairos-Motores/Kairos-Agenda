@@ -74,7 +74,7 @@ function App() {
   // Estados para Gestos de Swipe (Puxar)
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const minSwipeDistance = 50; // Distância mínima para ser considerado um deslize
+  const minSwipeDistance = 50; 
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -108,11 +108,9 @@ function App() {
       const isLeftSwipe = distance > minSwipeDistance;
       const isRightSwipe = distance < -minSwipeDistance;
 
-      // Puxar da esquerda para a direita (abre o menu se o toque começar no canto esquerdo da tela)
       if (isRightSwipe && touchStart < 60) {
           setIsSidebarOpen(true);
       }
-      // Puxar da direita para a esquerda (fecha o menu)
       if (isLeftSwipe && isSidebarOpen) {
           setIsSidebarOpen(false);
       }
@@ -162,13 +160,14 @@ function App() {
     else setCurrentDate(isNext ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
   };
 
+  // SUBSTITUÍDO: Emojis pelos Material Symbols
   const viewsConfig = [
-      { id: 'year', label: 'Ano', icon: '📅' },
-      { id: 'month', label: 'Mês', icon: '🗓️' },
-      { id: 'week', label: 'Semana', icon: '📅' },
-      { id: '3days', label: '3 Dias', icon: '📆' },
-      { id: 'day', label: 'Dia', icon: '☀️' },
-      { id: 'list', label: 'Fichas', icon: '📝' }
+      { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
+      { id: 'month', label: 'Mês', icon: 'calendar_month' },
+      { id: 'week', label: 'Semana', icon: 'view_week' },
+      { id: '3days', label: '3 Dias', icon: 'view_timeline' },
+      { id: 'day', label: 'Dia', icon: 'view_day' },
+      { id: 'list', label: 'Fichas', icon: 'view_agenda' }
   ];
 
   const toggleFilter = (type, val) => {
@@ -199,8 +198,12 @@ function App() {
       }}>
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <h1 className="logo" style={{ margin: 0, fontSize: '22px' }}><span>📅</span> Kairós</h1>
-                  <button onClick={() => setIsSidebarOpen(false)} className="icon-btn" style={{ fontSize: '20px' }}>✕</button>
+                  <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
+                  </h1>
+                  <button onClick={() => setIsSidebarOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+                      <span className="material-symbols-rounded">close</span>
+                  </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {viewsConfig.map(v => (
@@ -208,7 +211,7 @@ function App() {
                           display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px',
                           fontWeight: view === v.id ? '700' : '500', backgroundColor: view === v.id ? 'var(--bg-tertiary)' : 'transparent', color: view === v.id ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
                       }}>
-                          <span style={{ fontSize: '20px' }}>{v.icon}</span> {v.label}
+                          <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                       </button>
                   ))}
               </div>
@@ -246,7 +249,6 @@ function App() {
                   </div>
               </div>
 
-              {/* RETORNO DOS FILTROS DE TIPOS DE EVENTO */}
               <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -269,12 +271,14 @@ function App() {
         <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           
           <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ fontSize: '24px', color: 'var(--text-primary)' }}>☰</button>
-            <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0 }}>
+            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
+            </button>
+            <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
               <span className="nav-label">Kairós</span>
             </h1>
 
-            {/* NOVA PÍLULA DE MUDANÇA RÁPIDA DE VISUALIZAÇÃO NO HEADER */}
             <select
               value={view}
               onChange={(e) => setView(e.target.value)}
@@ -303,13 +307,23 @@ function App() {
 
           <div className="nav-right">
             <div className="nav-group">
-              <button onClick={() => handleNavigate('prev')} className="icon-btn"><span>&lt;</span></button>
+              <button onClick={() => handleNavigate('prev')} className="icon-btn">
+                  <span className="material-symbols-rounded">chevron_left</span>
+              </button>
               <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn"><span>&gt;</span></button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn">
+                  <span className="material-symbols-rounded">chevron_right</span>
+              </button>
             </div>
             <div className="nav-group">
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn"><span>{theme === 'light' ? '🌙' : '☀️'}</span></button>
-              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn"><span>👥</span></button>}
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
+                  <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+              </button>
+              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
+                  <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
+                      <span className="material-symbols-rounded">group</span>
+                  </button>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}>
                 <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
                 <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
@@ -398,9 +412,10 @@ function App() {
       {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
       {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
       {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+      
       {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
         <button className="create-btn-mobile fab-btn" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>
-          <span style={{ fontSize: '24px', color: 'white', fontWeight: '700' }}>+</span>
+          <span className="material-symbols-rounded" style={{ fontSize: '28px', color: 'white' }}>add</span>
         </button>
       )}
     </div>
