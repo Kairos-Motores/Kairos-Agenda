@@ -13,8 +13,8 @@ export const useCalendar = () => {
     const [loading, setLoading] = useState(false);
     const [notification, setNotification] = useState(null);
     
-    // ESTADO GLOBAL DE FILTROS
-    const [filters, setFilters] = useState({ text: '', user: 'all', type: 'all' });
+    // NOVO: Estado de filtros agora aceita Arrays para múltiplas escolhas
+    const [filters, setFilters] = useState({ text: '', users: [], types: [] });
 
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
@@ -133,14 +133,16 @@ export const useCalendar = () => {
         }
     }, [user, fetchUsers, fetchEventTypes]);
 
-    // LÓGICA DO FILTRO GLOBAL
+    // LÓGICA DO FILTRO MULTIPLA ESCOLHA
     const filteredEvents = useMemo(() => {
         return events.filter(event => {
             const matchesText = !filters.text ||
                 (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) ||
                 (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
-            const matchesUser = filters.user === 'all' || event.cr4a1_user_login === filters.user;
-            const matchesType = filters.type === 'all' || event.cr4a1_tipo === filters.type;
+            
+            // Se o array estiver vazio, mostra tudo. Se tiver algo, verifica se inclui o usuário do evento.
+            const matchesUser = filters.users.length === 0 || filters.users.includes(event.cr4a1_user_login);
+            const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
 
             return matchesText && matchesUser && matchesType;
         });
@@ -205,7 +207,7 @@ export const useCalendar = () => {
             } catch (wppError) { console.error('Erro WPP:', wppError); }
 
             fetchEvents();
-        } catch (error) { toast.error("Erro ao salvar"); }
+        } catch (error) { toast.error("Erro ao salvar"); throw error; }
     };
 
     const updateEvent = async (eventData) => {
@@ -231,7 +233,7 @@ export const useCalendar = () => {
                 body: JSON.stringify(updatedEvent)
             });
             fetchEvents();
-        } catch (error) { toast.error("Erro ao atualizar"); }
+        } catch (error) { toast.error("Erro ao atualizar"); throw error; }
     };
 
     const deleteEvent = async (id, owner) => {
@@ -277,7 +279,6 @@ export const useCalendar = () => {
         } catch (error) { toast.error("Erro ao atualizar cor"); }
     };
 
-    // Agora usa filteredEvents em vez de events puros
     const getEventsForDay = (day) => {
         const targetDate = format(day, 'yyyy-MM-dd');
         return filteredEvents.filter(event => {
@@ -293,7 +294,7 @@ export const useCalendar = () => {
         colorPalette, updateUserColor, login, 
         logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
-        filters, setFilters, filteredEvents, // <-- Novas exportações do filtro
+        filters, setFilters, filteredEvents, 
         next: () => setCurrentDate(addMonths(currentDate, 1)),
         prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
