@@ -94,7 +94,7 @@ function App() {
 
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
-  
+
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -390,15 +390,23 @@ function App() {
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
+
                 {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                   <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}>
                   <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
                   <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
                 </div>
+
+                {/* BOTÃO DE DESLOGAR ADICIONADO AQUI */}
+                <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
+                  <span className="material-symbols-rounded">logout</span>
+                </button>
+
               </div>
             </div>
           </nav>
