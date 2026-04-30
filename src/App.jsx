@@ -73,9 +73,10 @@ const materialColors = [
 ];
 
 function App() {
+  // 1. TODOS OS HOOKS DEVEM FICAR NO TOPO DA FUNÇÃO (ESTA É A REGRA DE OURO)
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent
   } = useCalendar();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,6 +98,12 @@ function App() {
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50;
 
+  // Hooks do DND-Kit movidos para cima para evitar o bug #310
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
+  );
+
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
@@ -113,6 +120,16 @@ function App() {
     localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
+  // 2. RETORNOS CONDICIONAIS APENAS DEPOIS DOS HOOKS
+  if (isValidatingSession) return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
+      <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
+    </div>
+  );
+
+  if (!user) return <LoginScreen onLogin={login} />;
+
+  // 3. LÓGICA DE FUNÇÕES
   const onTouchStart = (e) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -136,7 +153,6 @@ function App() {
     }
   };
 
-  // FUNCIONALIDADE 1: Solicitar Permissão de Notificações
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
       toast.error('Este navegador não suporta notificações.');
@@ -146,8 +162,6 @@ function App() {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       toast.success('Notificações ativadas!', { icon: '🔔' });
-
-      // Teste imediato através do Service Worker
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           registration.showNotification('Kairós Agenda', {
@@ -160,14 +174,6 @@ function App() {
       toast.error('As notificações foram bloqueadas.');
     }
   };
-
-  if (isValidatingSession) return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
-      <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
-    </div>
-  );
-
-  if (!user) return <LoginScreen onLogin={login} />;
 
   const handleSaveEvent = async (data) => {
     try {
@@ -220,11 +226,6 @@ function App() {
       return { ...prev, [type]: current.includes(val) ? current.filter(item => item !== val) : [...current, val] };
     });
   };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
-  );
 
   const handleDragEnd = (e) => { if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); };
 
@@ -374,7 +375,6 @@ function App() {
                 </button>
               </div>
               <div className="nav-group">
-                {/* BOTÃO DE NOTIFICAÇÕES (NOVIDADE) */}
                 <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
                   <span className="material-symbols-rounded">notifications</span>
                 </button>
@@ -441,16 +441,18 @@ function App() {
                   const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
                   return (
-                    <div key={day.toString()} onClick={() => { setCurrentDate(day); setView('day'); }} className={`calendar-day-card ${isCurrentMonth ? 'current-month' : ''} ${isToday ? 'today' : ''}`} style={{ cursor: 'pointer' }}>
+                    <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
                         {dayEvents.map(e => (
-                          <div key={e.cr4a1_event_id} className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                          </div>
+                          <DraggableEvent key={e.cr4a1_event_id} event={e}>
+                            <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                              {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                            </div>
+                          </DraggableEvent>
                         ))}
                       </div>
-                    </div>
+                    </DroppableDay>
                   );
                 })}
               </div>
@@ -483,7 +485,6 @@ function App() {
         )}
       </div>
     </DndContext>
-
   );
 }
 
