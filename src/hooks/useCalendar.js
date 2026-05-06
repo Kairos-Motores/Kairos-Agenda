@@ -64,6 +64,18 @@ export const useCalendar = () => {
         validate();
     }, []);
 
+    const APP_VERSION = '1.0.2';
+
+    useEffect(() => {
+        const savedVersion = localStorage.getItem('kairos_version');
+        if (savedVersion !== APP_VERSION) {
+            localStorage.removeItem('kairos_events_cache');
+            localStorage.removeItem('kairos_event_types');
+            localStorage.setItem('kairos_version', APP_VERSION);
+            window.location.reload(); 
+        }
+    }, []);
+
     // ==========================================
     // MOTOR OFFLINE E SINCRONIZAÇÃO DE FILA
     // ==========================================
@@ -150,31 +162,31 @@ export const useCalendar = () => {
     }, []);
 
     const fetchEvents = async () => {
-    setLoading(true);
-    try {
-        if (!navigator.onLine) throw new Error('Offline');
-        const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
-        const data = await response.json();
-        const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => {
-            let localStart = e.cr4a1_data_inicio;
-            if (e.cr4a1_data_inicio?.includes('Z')) {
-                const startObj = new Date(e.cr4a1_data_inicio); // Converte UTC para fuso do celular
-                localStart = format(startObj, 'yyyy-MM-dd');
-                e.cr4a1_hora_inicio = format(startObj, 'HH:mm');
-            }
-            return { 
-                ...e, 
-                cr4a1_data_inicio: localStart, 
-                cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
-                cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
-            };
-        });
-        setEvents(mapped);
-        localStorage.setItem('kairos_events_cache', JSON.stringify(mapped));
-    } catch (error) { 
-        setEvents(JSON.parse(localStorage.getItem('kairos_events_cache') || '[]'));
-    } finally { setLoading(false); }
-};
+        setLoading(true);
+        try {
+            if (!navigator.onLine) throw new Error('Offline');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
+            const data = await response.json();
+            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => {
+                let localStart = e.cr4a1_data_inicio;
+                if (e.cr4a1_data_inicio?.includes('Z')) {
+                    const startObj = new Date(e.cr4a1_data_inicio); // Converte UTC para fuso do celular
+                    localStart = format(startObj, 'yyyy-MM-dd');
+                    e.cr4a1_hora_inicio = format(startObj, 'HH:mm');
+                }
+                return {
+                    ...e,
+                    cr4a1_data_inicio: localStart,
+                    cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
+                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+                };
+            });
+            setEvents(mapped);
+            localStorage.setItem('kairos_events_cache', JSON.stringify(mapped));
+        } catch (error) {
+            setEvents(JSON.parse(localStorage.getItem('kairos_events_cache') || '[]'));
+        } finally { setLoading(false); }
+    };
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
     useEffect(() => { if (user) { fetchUsers(); fetchEvents(); fetchEventTypes(); } }, [user, fetchUsers, fetchEventTypes]);
@@ -189,20 +201,20 @@ export const useCalendar = () => {
     }, [events, filters]);
 
     const moveEvent = async (eventId, newDate) => {
-    const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
-    if (!event || (userRole !== 'SECRETARIA' && event.cr4a1_user_login !== user)) return;
-    
-    await updateEvent({ 
-        ...event, 
-        startDate: newDate, 
-        endDate: newDate, 
-        title: event.cr4a1_titulo, 
-        startHour: event.cr4a1_hora_inicio, 
-        allDay: event.cr4a1_dia_inteiro, 
-        details: event.cr4a1_detalhes,
-        targetUser: event.cr4a1_user_login 
-    });
-};
+        const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
+        if (!event || (userRole !== 'SECRETARIA' && event.cr4a1_user_login !== user)) return;
+
+        await updateEvent({
+            ...event,
+            startDate: newDate,
+            endDate: newDate,
+            title: event.cr4a1_titulo,
+            startHour: event.cr4a1_hora_inicio,
+            allDay: event.cr4a1_dia_inteiro,
+            details: event.cr4a1_detalhes,
+            targetUser: event.cr4a1_user_login
+        });
+    };
 
 
     // ==========================================
@@ -325,9 +337,9 @@ export const useCalendar = () => {
     const addEventType = async (name, emoji) => {
         try {
             // Cria um ID temporário rápido para UI responder imediatamente
-            const tempId = crypto.randomUUID(); 
+            const tempId = crypto.randomUUID();
             const newType = { id: tempId, name: name, emoji: emoji };
-            
+
             // ATUALIZA O ESTADO IMEDIATAMENTE (UI Otimista)
             setEventTypes(prev => {
                 const updated = [...prev, newType];
@@ -340,11 +352,11 @@ export const useCalendar = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
             });
-            
+
             // Busca o ID real do banco e substitui o temporário
-            fetchEventTypes(); 
-        } catch (error) { 
-            console.error(error); 
+            fetchEventTypes();
+        } catch (error) {
+            console.error(error);
             toast.error("Erro ao adicionar tipo de evento");
         }
     };

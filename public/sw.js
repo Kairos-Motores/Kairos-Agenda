@@ -1,3 +1,23 @@
+self.addEventListener('install', (event) => {
+  // Força o Service Worker recém-instalado a se tornar o ativo
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  // Faz com que o Service Worker tome controle das abas abertas imediatamente
+  event.waitUntil(clients.claim());
+  
+  // Opcional: Limpa caches antigos de versões anteriores aqui
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
+      );
+    })
+  );
+});
 const CACHE_NAME = 'kairos-v2';
 const ASSETS_TO_CACHE = [
   '/',

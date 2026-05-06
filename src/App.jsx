@@ -190,6 +190,15 @@ function App() {
     localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // Quando o Service Worker muda (nova versão), recarrega a página
+        window.location.reload();
+      });
+    }
+  }, []);
+
   // 2. RETORNOS CONDICIONAIS APENAS DEPOIS DOS HOOKS
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
