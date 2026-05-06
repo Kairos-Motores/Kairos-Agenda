@@ -133,16 +133,25 @@ function App() {
           const notificationKey = `${event.cr4a1_agenda_kairosid}_${diffMin}`;
 
           if (!notifiedRef.current.has(notificationKey)) {
-            const bodyMessage = diffMin === 0
-              ? "O evento está começando agora!"
-              : `Este evento começa em ${diffMin} minutos.`;
+            const title = `📌 ${event.cr4a1_titulo}`;
+            const options = {
+              body: diffMin === 0 ? "Começando agora!" : `Em ${diffMin} minutos.`,
+              icon: '/icon-512.jpg',
+              tag: event.cr4a1_agenda_kairosid,
+              badge: '/icon-512.jpg', // Ícone pequeno que aparece na barra de status do Android
+              vibrate: [200, 100, 200], // Faz o celular vibrar
+              requireInteraction: diffMin <= 5
+            };
 
-            new Notification(`📌 ${event.cr4a1_titulo}`, {
-              body: bodyMessage,
-              icon: '/icon-512.jpg', // Caminho do ícone na sua pasta public
-              tag: event.cr4a1_agenda_kairosid, // Agrupa notificações do mesmo evento
-              requireInteraction: diffMin <= 5 // Mantém o alerta visível se estiver muito próximo
-            });
+            // Tenta pelo Service Worker (Recomendado para Android)
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(title, options);
+              });
+            } else {
+              // Fallback para Desktop (Windows 11)
+              new Notification(title, options);
+            }
 
             notifiedRef.current.add(notificationKey);
           }
