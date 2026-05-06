@@ -72,7 +72,7 @@ export const useCalendar = () => {
             localStorage.removeItem('kairos_events_cache');
             localStorage.removeItem('kairos_event_types');
             localStorage.setItem('kairos_version', APP_VERSION);
-            window.location.reload(); 
+            window.location.reload();
         }
     }, []);
 
