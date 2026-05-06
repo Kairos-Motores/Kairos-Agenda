@@ -80,6 +80,8 @@ function App() {
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent
   } = useCalendar();
 
+  const notifiedRef = useRef(new Set());
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -105,6 +107,57 @@ function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
   );
+
+  useEffect(() => {
+    const checkNotifications = () => {
+      // Só prossegue se o usuário permitiu notificações no navegador
+      if (Notification.permission !== 'granted') return;
+
+      const now = new Date();
+      const milestones = [30, 15, 5, 0]; // Minutos de antecedência desejados
+
+      events.forEach(event => {
+        // Ignora eventos de dia inteiro ou que não possuem horário definido
+        if (event.cr4a1_dia_inteiro || !event.cr4a1_hora_inicio) return;
+
+        // Monta o objeto de data combinando a data e hora do evento
+        const [year, month, day] = event.cr4a1_data_inicio.split('-').map(Number);
+        const [hours, minutes] = event.cr4a1_hora_inicio.split(':').map(Number);
+        const eventDate = new Date(year, month - 1, day, hours, minutes, 0);
+
+        const diffMs = eventDate - now;
+        const diffMin = Math.floor(diffMs / 60000);
+
+        // Se a diferença em minutos for um dos marcos (30, 15, 5 ou 0)
+        if (milestones.includes(diffMin)) {
+          const notificationKey = `${event.cr4a1_agenda_kairosid}_${diffMin}`;
+
+          if (!notifiedRef.current.has(notificationKey)) {
+            const bodyMessage = diffMin === 0
+              ? "O evento está começando agora!"
+              : `Este evento começa em ${diffMin} minutos.`;
+
+            new Notification(`📌 ${event.cr4a1_titulo}`, {
+              body: bodyMessage,
+              icon: '/icon-512.jpg', // Caminho do ícone na sua pasta public
+              tag: event.cr4a1_agenda_kairosid, // Agrupa notificações do mesmo evento
+              requireInteraction: diffMin <= 5 // Mantém o alerta visível se estiver muito próximo
+            });
+
+            notifiedRef.current.add(notificationKey);
+          }
+        }
+      });
+
+      // Limpeza simples para evitar acúmulo de chaves antigas no Set
+      if (notifiedRef.current.size > 50) notifiedRef.current.clear();
+    };
+
+    // Executa a checagem a cada 30 segundos
+    const timer = setInterval(checkNotifications, 30000);
+
+    return () => clearInterval(timer);
+  }, [events]); // Monitora sempre que a lista de eventos for atualizada
 
   useEffect(() => {
     applyDynamicTheme(accentColor, theme === 'dark');
