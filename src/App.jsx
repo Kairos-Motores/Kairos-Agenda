@@ -15,6 +15,87 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
+// --- COMPONENTES AUXILIARES ---
+
+const countryCodes = [
+  { code: '+55', flag: '🇧🇷', name: 'Brasil' },
+  { code: '+351', flag: '🇵🇹', name: 'Portugal' },
+  { code: '+1', flag: '🇺🇸', name: 'EUA' },
+  { code: '+44', flag: '🇬🇧', name: 'Reino Unido' },
+  { code: '+34', flag: '🇪🇸', name: 'Espanha' },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+];
+
+const WhatsAppInput = ({ initialValue, onSave, userId }) => {
+  const [selectedCountry, setSelectedCountry] = useState(countryCodes[0]);
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  useEffect(() => {
+    if (initialValue) {
+      const country = countryCodes.find(c => initialValue.startsWith(c.code.replace('+', '')));
+      if (country) {
+        setSelectedCountry(country);
+        setPhoneNumber(initialValue.replace(country.code.replace('+', ''), ''));
+      } else {
+        setPhoneNumber(initialValue);
+      }
+    }
+  }, [initialValue]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+      <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+        WHATSAPP PARA ALERTAS
+      </label>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <select 
+          value={selectedCountry.code}
+          onChange={(e) => setSelectedCountry(countryCodes.find(c => c.code === e.target.value))}
+          style={{
+            padding: '12px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            fontSize: '16px',
+            cursor: 'pointer',
+            outline: 'none'
+          }}
+        >
+          {countryCodes.map(c => (
+            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+          ))}
+        </select>
+
+        <input 
+          type="tel"
+          placeholder="Código de área + Número"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+          style={{
+            flex: 1,
+            padding: '12px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            fontSize: '14px',
+            outline: 'none'
+          }}
+        />
+        
+        <button 
+          onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
+          className="icon-btn"
+          style={{ background: 'var(--text-accent)', color: 'white', width: '44px', borderRadius: '12px' }}
+        >
+          <span className="material-symbols-rounded">save</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const DraggableEvent = ({ event, children }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
@@ -73,11 +154,13 @@ const materialColors = [
   { id: 'graphite', hex: '#5f6368', label: 'Grafite' }
 ];
 
+// --- COMPONENTE PRINCIPAL ---
+
 function App() {
-  // 1. TODOS OS HOOKS DEVEM FICAR NO TOPO DA FUNÇÃO (ESTA É A REGRA DE OURO)
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent, 
+    updateWhatsApp // Certifique-se de que esta função exista no useCalendar
   } = useCalendar();
 
   const notifiedRef = useRef(new Set());
@@ -93,16 +176,15 @@ function App() {
   const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
-
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 50;
 
-  // Hooks do DND-Kit movidos para cima para evitar o bug #310
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
@@ -110,63 +192,45 @@ function App() {
 
   useEffect(() => {
     const checkNotifications = () => {
-      // Só prossegue se o usuário permitiu notificações no navegador
       if (Notification.permission !== 'granted') return;
-
       const now = new Date();
-      const milestones = [30, 15, 5, 0]; // Minutos de antecedência desejados
-
+      const milestones = [30, 15, 5, 0];
       events.forEach(event => {
-        // Ignora eventos de dia inteiro ou que não possuem horário definido
         if (event.cr4a1_dia_inteiro || !event.cr4a1_hora_inicio) return;
-
-        // Monta o objeto de data combinando a data e hora do evento
         const [year, month, day] = event.cr4a1_data_inicio.split('-').map(Number);
         const [hours, minutes] = event.cr4a1_hora_inicio.split(':').map(Number);
         const eventDate = new Date(year, month - 1, day, hours, minutes, 0);
-
         const diffMs = eventDate - now;
         const diffMin = Math.floor(diffMs / 60000);
 
-        // Se a diferença em minutos for um dos marcos (30, 15, 5 ou 0)
         if (milestones.includes(diffMin)) {
           const notificationKey = `${event.cr4a1_agenda_kairosid}_${diffMin}`;
-
           if (!notifiedRef.current.has(notificationKey)) {
             const title = `📌 ${event.cr4a1_titulo}`;
             const options = {
               body: diffMin === 0 ? "Começando agora!" : `Em ${diffMin} minutos.`,
               icon: '/icon-512.jpg',
               tag: event.cr4a1_agenda_kairosid,
-              badge: '/icon-512.jpg', // Ícone pequeno que aparece na barra de status do Android
-              vibrate: [200, 100, 200], // Faz o celular vibrar
+              badge: '/icon-512.jpg',
+              vibrate: [200, 100, 200],
               requireInteraction: diffMin <= 5
             };
-
-            // Tenta pelo Service Worker (Recomendado para Android)
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
               navigator.serviceWorker.ready.then(registration => {
                 registration.showNotification(title, options);
               });
             } else {
-              // Fallback para Desktop (Windows 11)
               new Notification(title, options);
             }
-
             notifiedRef.current.add(notificationKey);
           }
         }
       });
-
-      // Limpeza simples para evitar acúmulo de chaves antigas no Set
       if (notifiedRef.current.size > 50) notifiedRef.current.clear();
     };
-
-    // Executa a checagem a cada 30 segundos
     const timer = setInterval(checkNotifications, 30000);
-
     return () => clearInterval(timer);
-  }, [events]); // Monitora sempre que a lista de eventos for atualizada
+  }, [events]);
 
   useEffect(() => {
     applyDynamicTheme(accentColor, theme === 'dark');
@@ -193,13 +257,11 @@ function App() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // Quando o Service Worker muda (nova versão), recarrega a página
         window.location.reload();
       });
     }
   }, []);
 
-  // 2. RETORNOS CONDICIONAIS APENAS DEPOIS DOS HOOKS
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
       <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
@@ -208,7 +270,6 @@ function App() {
 
   if (!user) return <LoginScreen onLogin={login} />;
 
-  // 3. LÓGICA DE FUNÇÕES
   const onTouchStart = (e) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -223,13 +284,8 @@ function App() {
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isRightSwipe && touchStart < 60) {
-      setIsSidebarOpen(true);
-    }
-    if (isLeftSwipe && isSidebarOpen) {
-      setIsSidebarOpen(false);
-    }
+    if (isRightSwipe && touchStart < 60) setIsSidebarOpen(true);
+    if (isLeftSwipe && isSidebarOpen) setIsSidebarOpen(false);
   };
 
   const requestNotificationPermission = async () => {
@@ -237,7 +293,6 @@ function App() {
       toast.error('Este navegador não suporta notificações.');
       return;
     }
-
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       toast.success('Notificações ativadas!', { icon: '🔔' });
@@ -362,8 +417,6 @@ function App() {
                     transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
                   }}
                     title={c.label}
-                    onMouseEnter={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1.1)'; }}
-                    onMouseLeave={(e) => { if (accentColor !== c.hex) e.currentTarget.style.transform = 'scale(1)'; }}
                   />
                 ))}
               </div>
@@ -374,8 +427,9 @@ function App() {
               <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
+            {/* SEÇÃO DE WORKSPACES / AGENDAS */}
             <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Agendas</div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Workspaces</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {allUsers.map(u => (
                   <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
@@ -406,7 +460,6 @@ function App() {
 
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
           <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
             <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
@@ -415,26 +468,13 @@ function App() {
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
                 <span className="nav-label">Kairós</span>
               </h1>
-
               <select
                 value={view}
                 onChange={(e) => setView(e.target.value)}
                 style={{
-                  appearance: 'none',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '20px',
-                  padding: '6px 30px 6px 14px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                  cursor: 'pointer',
+                  appearance: 'none', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '6px 30px 6px 14px', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer',
                   backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px top 50%',
-                  backgroundSize: '10px auto',
-                  transition: 'all 0.2s'
+                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px top 50%', backgroundSize: '10px auto', transition: 'all 0.2s'
                 }}
               >
                 {viewsConfig.map(v => (
@@ -457,27 +497,24 @@ function App() {
                 <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
                   <span className="material-symbols-rounded">notifications</span>
                 </button>
-
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
-
                 {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                   <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}>
+                <div 
+                  onClick={() => setIsProfileModalOpen(true)} 
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
+                >
                   <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
                   <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
                 </div>
-
-                {/* BOTÃO DE DESLOGAR ADICIONADO AQUI */}
                 <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
                   <span className="material-symbols-rounded">logout</span>
                 </button>
-
               </div>
             </div>
           </nav>
@@ -490,7 +527,6 @@ function App() {
               <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
                 {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
               </span>
-
               {view === 'day' && (
                 <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
                   <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
@@ -510,7 +546,6 @@ function App() {
         </header>
 
         <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
-
           {view === 'year' && (
             <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
               {Array.from({ length: 12 }, (_, i) => <MiniMonth key={i} monthDate={new Date(currentDate.getFullYear(), i, 1)} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />)}
@@ -525,8 +560,6 @@ function App() {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                   const dayEvents = getEventsForDay(day);
-                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-
                   return (
                     <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
@@ -564,6 +597,35 @@ function App() {
         {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
         {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
         {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+        
+        {/* MODAL DE PERFIL DO USUÁRIO */}
+        {isProfileModalOpen && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <div className="modal-content" style={{ maxWidth: '400px', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-title)' }}>Meu Perfil</h2>
+                <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {(() => {
+                  const currentUserData = allUsers.find(u => u.cr4a1_username === user);
+                  return (
+                    <WhatsAppInput 
+                      userId={currentUserData?.cr4a1_usuarios_agendaid}
+                      initialValue={currentUserData?.cr4a1_whatsapp}
+                      onSave={updateWhatsApp}
+                    />
+                  );
+                })()}
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                  Configure seu WhatsApp para receber alertas automáticos de compromissos com 30 minutos de antecedência.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <button className="create-btn-mobile fab-btn" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>

@@ -384,13 +384,31 @@ export const useCalendar = () => {
         return filteredEvents.filter(event => targetDate >= event.cr4a1_data_inicio && targetDate <= event.cr4a1_data_fim);
     };
 
+    const updateWhatsApp = async (userId, phone) => {
+    try {
+        // Remove qualquer caractere que não seja número antes de enviar
+        const cleanPhone = phone.replace(/\D/g, '');
+        
+        await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cr4a1_whatsapp: cleanPhone })
+        });
+        
+        toast.success("WhatsApp atualizado!");
+        fetchUsers(); // Recarrega a lista de usuários com o novo número
+    } catch (error) {
+        toast.error("Erro ao atualizar WhatsApp");
+    }
+};
+
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
-        isOnline, isSyncing,
+        isOnline, isSyncing, updateWhatsApp,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };
