@@ -48,7 +48,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         WHATSAPP PARA ALERTAS
       </label>
       <div style={{ display: 'flex', gap: '8px' }}>
-        <select 
+        <select
           value={selectedCountry.code}
           onChange={(e) => setSelectedCountry(countryCodes.find(c => c.code === e.target.value))}
           style={{
@@ -67,7 +67,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
           ))}
         </select>
 
-        <input 
+        <input
           type="tel"
           placeholder="Código de área + Número"
           value={phoneNumber}
@@ -83,8 +83,8 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
             outline: 'none'
           }}
         />
-        
-        <button 
+
+        <button
           onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
           className="icon-btn"
           style={{ background: 'var(--text-accent)', color: 'white', width: '44px', borderRadius: '12px' }}
@@ -159,7 +159,7 @@ const materialColors = [
 function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent, 
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp // Certifique-se de que esta função exista no useCalendar
   } = useCalendar();
 
@@ -505,8 +505,8 @@ function App() {
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
-                <div 
-                  onClick={() => setIsProfileModalOpen(true)} 
+                <div
+                  onClick={() => setIsProfileModalOpen(true)}
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
                 >
                   <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
@@ -597,31 +597,65 @@ function App() {
         {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
         {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
         {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-        
+
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
-          <div className="modal-overlay" style={{ zIndex: 4000 }}>
-            <div className="modal-content" style={{ maxWidth: '400px', padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-title)' }}>Meu Perfil</h2>
-                <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">
+          <div className="modal-overlay" style={{
+            zIndex: 5000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px' // Respiro lateral no mobile
+          }}>
+            <div
+              className="modal-content view-enter"
+              style={{
+                maxWidth: '450px',
+                width: '100%',
+                maxHeight: '90vh', // Não deixa o modal sumir para baixo em telas pequenas
+                overflowY: 'auto', // Scroll interno se necessário
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                padding: '28px',
+                borderRadius: '28px',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+                border: '1px solid var(--border-color)',
+                position: 'relative'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Configurações</h2>
+                <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)' }}>
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {(() => {
                   const currentUserData = allUsers.find(u => u.cr4a1_username === user);
                   return (
-                    <WhatsAppInput 
+                    <WhatsAppInput
                       userId={currentUserData?.cr4a1_usuarios_agendaid}
                       initialValue={currentUserData?.cr4a1_whatsapp}
                       onSave={updateWhatsApp}
                     />
                   );
                 })()}
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
-                  Configure seu WhatsApp para receber alertas automáticos de compromissos com 30 minutos de antecedência.
-                </p>
+
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  padding: '16px',
+                  borderRadius: '20px',
+                  display: 'flex',
+                  gap: '14px',
+                  alignItems: 'flex-start',
+                  border: '1px dashed var(--border-color)'
+                }}>
+                  <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', marginTop: '2px' }}>notifications_active</span>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                    <strong>Atenção:</strong> Certifique-se de incluir o DDD. Os lembretes são disparados automaticamente pelo servidor da Kairós.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
