@@ -15,34 +15,34 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
   }, [initialValue]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
         WhatsApp para Lembretes
       </label>
       
       <div style={{ 
-        display: 'flex', 
+        display: 'grid', 
+        gridTemplateColumns: 'auto 1fr auto', // Colunas: Automática (Bandeira) | Flexível (Número) | Automática (Botão)
         gap: '8px', 
-        flexWrap: 'wrap', // Mágica da responsividade
         alignItems: 'center' 
       }}>
         
-        {/* Container de Seleção do País */}
+        {/* Seletor de País */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
           gap: '8px',
-          padding: '10px 12px',
+          padding: '0 12px',
           background: 'var(--bg-secondary)',
-          borderRadius: '16px',
+          borderRadius: '14px',
           border: '1px solid var(--border-color)',
-          flex: '0 1 auto'
+          height: '48px',
+          boxSizing: 'border-box'
         }}>
           <img 
             src={`https://flagcdn.com/w40/${selectedCountry.id}.png`} 
             width="20" 
-            alt={selectedCountry.name} 
-            style={{ borderRadius: '2px' }}
+            style={{ borderRadius: '2px', objectFit: 'cover' }}
           />
           <select 
             value={selectedCountry.code}
@@ -52,10 +52,10 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
               border: 'none',
               color: 'var(--text-primary)',
               fontSize: '14px',
-              fontWeight: '600',
+              fontWeight: '700',
               outline: 'none',
               cursor: 'pointer',
-              paddingRight: '4px'
+              width: '50px'
             }}
           >
             {countryCodes.map(c => (
@@ -66,42 +66,41 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
           </select>
         </div>
 
-        {/* Input do Número - Cresce para ocupar o espaço */}
+        {/* Input do Número */}
         <input 
           type="tel"
           placeholder="DDD + Número"
           value={phoneNumber}
           onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
           style={{
-            flex: '1 1 180px', // Cresce e tem tamanho mínimo de 180px
-            padding: '14px 16px',
-            borderRadius: '16px',
+            width: '100%',
+            height: '48px',
+            padding: '0 12px',
+            borderRadius: '14px',
             border: '1px solid var(--border-color)',
             background: 'var(--bg-secondary)',
             color: 'var(--text-primary)',
-            fontSize: '16px', // Previne zoom automático no iOS
+            fontSize: '16px',
             outline: 'none',
-            minWidth: '150px'
+            boxSizing: 'border-box'
           }}
         />
         
-        {/* Botão de Salvar - No mobile ele pode expandir */}
+        {/* Botão Salvar */}
         <button 
           onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
-          className="fab-btn" // Reutilizando sua classe de botão flutuante se quiser
           style={{ 
             background: 'var(--text-accent)', 
             color: 'white', 
             height: '48px', 
-            minWidth: '48px',
-            flex: '0 0 auto',
-            borderRadius: '16px',
+            width: '48px',
+            borderRadius: '14px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             border: 'none',
             cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            flexShrink: 0
           }}
         >
           <span className="material-symbols-rounded">save</span>

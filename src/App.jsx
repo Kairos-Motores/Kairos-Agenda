@@ -601,60 +601,79 @@ function App() {
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
           <div className="modal-overlay" style={{
-            zIndex: 5000,
+            zIndex: 9999, // Garantir que fique acima de tudo
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '16px' // Respiro lateral no mobile
+            padding: '16px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)', // Overlay mais escuro para foco total
+            backdropFilter: 'blur(6px)' // Desfoque do fundo para isolar o modal
           }}>
             <div
               className="modal-content view-enter"
               style={{
-                maxWidth: '450px',
+                maxWidth: '420px',
                 width: '100%',
-                maxHeight: '90vh', // Não deixa o modal sumir para baixo em telas pequenas
-                overflowY: 'auto', // Scroll interno se necessário
-                background: 'var(--bg-primary)',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                // --- CORREÇÃO DE TRANSPARÊNCIA: COR SÓLIDA FORÇADA ---
+                backgroundColor: theme === 'dark' ? '#1e1e1e' : '#ffffff',
+                backgroundImage: 'linear-gradient(var(--bg-primary), var(--bg-primary))',
                 color: 'var(--text-primary)',
                 padding: '28px',
-                borderRadius: '28px',
-                boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+                borderRadius: '32px',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
                 border: '1px solid var(--border-color)',
-                position: 'relative'
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Configurações</h2>
-                <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)' }}>
+              {/* Cabeçalho do Modal */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Meu Perfil</h2>
+                <button
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="icon-btn"
+                  style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}
+                >
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Conteúdo Principal */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {(() => {
                   const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                  return (
+                  return currentUserData ? (
                     <WhatsAppInput
-                      userId={currentUserData?.cr4a1_usuarios_agendaid}
-                      initialValue={currentUserData?.cr4a1_whatsapp}
+                      userId={currentUserData.cr4a1_usuarios_agendaid}
+                      initialValue={currentUserData.cr4a1_whatsapp}
                       onSave={updateWhatsApp}
                     />
-                  );
+                  ) : null;
                 })()}
 
+                {/* Card de Aviso Estilizado */}
                 <div style={{
-                  background: 'var(--bg-secondary)',
+                  background: 'var(--bg-tertiary)',
                   padding: '16px',
                   borderRadius: '20px',
                   display: 'flex',
                   gap: '14px',
                   alignItems: 'flex-start',
-                  border: '1px dashed var(--border-color)'
+                  border: '1px solid var(--border-color)'
                 }}>
-                  <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', marginTop: '2px' }}>notifications_active</span>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-                    <strong>Atenção:</strong> Certifique-se de incluir o DDD. Os lembretes são disparados automaticamente pelo servidor da Kairós.
-                  </p>
+                  <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>
+                    notifications_active
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Lembretes Ativos</span>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                      Certifique-se de incluir o código do país e DDD. O servidor enviará alertas 30 min antes.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
