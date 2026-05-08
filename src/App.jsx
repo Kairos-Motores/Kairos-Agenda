@@ -601,13 +601,13 @@ function App() {
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
           <div className="modal-overlay" style={{
-            zIndex: 9999, // Garantir que fique acima de tudo
+            zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)', // Overlay mais escuro para foco total
-            backdropFilter: 'blur(6px)' // Desfoque do fundo para isolar o modal
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(6px)'
           }}>
             <div
               className="modal-content view-enter"
@@ -616,7 +616,6 @@ function App() {
                 width: '100%',
                 maxHeight: '90vh',
                 overflowY: 'auto',
-                // --- CORREÇÃO DE TRANSPARÊNCIA: COR SÓLIDA FORÇADA ---
                 backgroundColor: theme === 'dark' ? '#1e1e1e' : '#ffffff',
                 backgroundImage: 'linear-gradient(var(--bg-primary), var(--bg-primary))',
                 color: 'var(--text-primary)',
@@ -654,6 +653,31 @@ function App() {
                     />
                   ) : null;
                 })()}
+
+                {/* Link para Validação do Bot */}
+                <div style={{ textAlign: 'center', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                    Para ativar os alertas, envie um "Oi" para o sistema:
+                  </p>
+                  <a
+                    href={`https://wa.me/${VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      color: 'var(--text-accent)',
+                      textDecoration: 'none',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>chat</span>
+                    Iniciar conversa com o Bot
+                  </a>
+                </div>
 
                 {/* Card de Aviso Estilizado */}
                 <div style={{
