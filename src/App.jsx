@@ -660,7 +660,8 @@ function App() {
                     Para ativar os alertas, envie um "Oi" para o sistema:
                   </p>
                   <a
-                    href={`https://wa.me/${VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`}
+                    // AQUI ESTAVA O ERRO: Adicionado import.meta.env
+                    href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`}
                     target="_blank"
                     rel="noreferrer"
                     style={{
