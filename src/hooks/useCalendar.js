@@ -14,7 +14,7 @@ export const useCalendar = () => {
     const [notification, setNotification] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
-    
+
     // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspaces, setActiveWorkspaces] = useState([]); // IDs selecionados
@@ -141,7 +141,7 @@ export const useCalendar = () => {
             const data = await response.json();
             const wsList = data.value || [];
             setWorkspaces(wsList);
-            
+
             // Ativa todos por padrão na primeira carga
             if (activeWorkspaces.length === 0) {
                 setActiveWorkspaces(wsList.map(w => w.cr4a1_calendarios_workspacesid));
@@ -184,12 +184,12 @@ export const useCalendar = () => {
         setLoading(true);
         try {
             if (!navigator.onLine) throw new Error('Offline');
-            
+
             // Filtra eventos apenas dos workspaces ativos
             const wsFilter = activeWorkspaces.map(id => `cr4a1_workspace_id eq '${id}'`).join(' or ');
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
-            
+
             const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => {
                 let localStart = e.cr4a1_data_inicio;
                 if (e.cr4a1_data_inicio?.includes('Z')) {
@@ -212,12 +212,12 @@ export const useCalendar = () => {
     }, [activeWorkspaces, user]);
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
-    useEffect(() => { 
-        if (user) { 
-            fetchUsers(); 
-            fetchEventTypes(); 
+    useEffect(() => {
+        if (user) {
+            fetchUsers();
+            fetchEventTypes();
             fetchWorkspaces();
-        } 
+        }
     }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces]);
 
     useEffect(() => {
@@ -236,7 +236,7 @@ export const useCalendar = () => {
     }, [events, filters]);
 
     const toggleWorkspaceFilter = (wsId) => {
-        setActiveWorkspaces(prev => 
+        setActiveWorkspaces(prev =>
             prev.includes(wsId) ? prev.filter(id => id !== wsId) : [...prev, wsId]
         );
     };
@@ -438,13 +438,41 @@ export const useCalendar = () => {
         }
     };
 
+    const addWorkspace = async (wsData) => {
+        setLoading(true);
+        try {
+            const newWS = {
+                cr4a1_nome: wsData.nome,
+                cr4a1_tipo_workspace: wsData.tipo, // PESSOAL ou COMPARTILHADO
+                cr4a1_cor_hex: wsData.cor,
+                cr4a1_criador_login: user,
+                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros // String separada por vírgula
+            };
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaces`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newWS)
+            });
+
+            if (response.ok) {
+                toast.success("Workspace criado!");
+                await fetchWorkspaces(); // Atualiza a lista lateral
+            }
+        } catch (error) {
+            toast.error("Erro ao criar workspace");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
-        isOnline, isSyncing, updateWhatsApp,
+        isOnline, isSyncing, updateWhatsApp, addWorkspace,
         workspaces, activeWorkspaces, toggleWorkspaceFilter, // EXPOSTOS PARA O APP
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

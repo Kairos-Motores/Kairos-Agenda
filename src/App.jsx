@@ -8,6 +8,7 @@ import { ListView } from './components/ListView';
 import { UserManagementModal } from './components/UserManagementModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { generateMonthDays } from './utils/dateHelpers';
+import { WorkspaceModal } from './components/WorkspaceModal';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
@@ -178,6 +179,7 @@ function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
 
   const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
@@ -433,22 +435,22 @@ function App() {
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Workspaces</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {workspaces.map(ws => (
-                  <label key={ws.cr4a1_calendarios_workspacesid} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '12px', 
-                    cursor: 'pointer', 
-                    fontSize: '14px', 
+                  <label key={ws.cr4a1_calendarios_workspacesid} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
                     fontWeight: '500',
                     padding: '8px 10px',
                     borderRadius: '12px',
                     backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-secondary)' : 'transparent'
                   }}>
-                    <input 
-                      type="checkbox" 
-                      checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)} 
-                      onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)} 
-                      style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }} 
+                    <input
+                      type="checkbox"
+                      checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)}
+                      onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
+                      style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }}
                     />
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -513,6 +515,19 @@ function App() {
                   <option key={v.id} value={v.id}>{v.label}</option>
                 ))}
               </select>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Workspaces
+                {(userRole === 'ADMIN' || userRole === 'DIRETORIA') && (
+                  <button
+                    className="icon-btn"
+                    style={{ padding: 0 }}
+                    title="Novo Workspace"
+                    onClick={() => setIsWorkspaceModalOpen(true)} // ABRE O MODAL
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-accent)' }}>add_circle</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="nav-right">
@@ -626,20 +641,26 @@ function App() {
           )}
         </main>
 
-        {isModalOpen && <EventModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSave={handleSaveEvent} 
-            initialDate={currentDate.toISOString()} 
-            editingEvent={editingEvent} 
-            userRole={userRole} 
-            allUsers={allUsers} 
-            eventTypes={eventTypes} 
-            viewedUser={viewedUser}
-            workspaces={workspaces} // PASSANDO WORKSPACES PARA O MODAL
+        {isModalOpen && <EventModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSaveEvent}
+          initialDate={currentDate.toISOString()}
+          editingEvent={editingEvent}
+          userRole={userRole}
+          allUsers={allUsers}
+          eventTypes={eventTypes}
+          viewedUser={viewedUser}
+          workspaces={workspaces} // PASSANDO WORKSPACES PARA O MODAL
         />}
         {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
         {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+
+        <WorkspaceModal
+          isOpen={isWorkspaceModalOpen}
+          onClose={() => setIsWorkspaceModalOpen(false)}
+          onSave={addWorkspace}
+        />
 
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
