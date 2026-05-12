@@ -14,6 +14,10 @@ export const useCalendar = () => {
     const [notification, setNotification] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    // --- ESTADOS DE WORKSPACE ---
+    const [workspaces, setWorkspaces] = useState([]);
+    const [activeWorkspaces, setActiveWorkspaces] = useState([]); // IDs selecionados
 
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -31,7 +35,6 @@ export const useCalendar = () => {
         setTimeout(() => setNotification(null), 3500);
     };
 
-    // Validação de Sessão Inicial
     useEffect(() => {
         const storedUser = localStorage.getItem('kairos_logged_user');
         if (!storedUser) {
@@ -76,9 +79,6 @@ export const useCalendar = () => {
         }
     }, []);
 
-    // ==========================================
-    // MOTOR OFFLINE E SINCRONIZAÇÃO DE FILA
-    // ==========================================
     useEffect(() => {
         const handleOnline = () => { setIsOnline(true); syncPendingQueue(); };
         const handleOffline = () => { setIsOnline(false); toast('Você está offline. Alterações serão salvas no dispositivo.', { icon: '✈️' }); };
@@ -132,9 +132,23 @@ export const useCalendar = () => {
         }
     };
 
-    // ==========================================
-    // BUSCA DE DADOS E CONVERSÃO DE FUSO HORÁRIO
-    // ==========================================
+    // --- BUSCA DE WORKSPACES ---
+    const fetchWorkspaces = useCallback(async () => {
+        try {
+            // Filtra workspaces onde o usuário é criador ou membro
+            const filter = encodeURIComponent(`(cr4a1_criador_login eq '${user}') or (contains(cr4a1_membros_logins, '${user}'))`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaces&$filter=${filter}`);
+            const data = await response.json();
+            const wsList = data.value || [];
+            setWorkspaces(wsList);
+            
+            // Ativa todos por padrão na primeira carga
+            if (activeWorkspaces.length === 0) {
+                setActiveWorkspaces(wsList.map(w => w.cr4a1_calendarios_workspacesid));
+            }
+        } catch (error) { console.error('Erro ao buscar Workspaces:', error); }
+    }, [user]);
+
     const fetchUsers = useCallback(async () => {
         try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`);
@@ -161,16 +175,25 @@ export const useCalendar = () => {
         } catch (error) { console.log("Usando tipos locais"); }
     }, []);
 
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
+        if (activeWorkspaces.length === 0) {
+            setEvents([]);
+            return;
+        }
+
         setLoading(true);
         try {
             if (!navigator.onLine) throw new Error('Offline');
-            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`);
+            
+            // Filtra eventos apenas dos workspaces ativos
+            const wsFilter = activeWorkspaces.map(id => `cr4a1_workspace_id eq '${id}'`).join(' or ');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
+            
             const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => {
                 let localStart = e.cr4a1_data_inicio;
                 if (e.cr4a1_data_inicio?.includes('Z')) {
-                    const startObj = new Date(e.cr4a1_data_inicio); // Converte UTC para fuso do celular
+                    const startObj = new Date(e.cr4a1_data_inicio);
                     localStart = format(startObj, 'yyyy-MM-dd');
                     e.cr4a1_hora_inicio = format(startObj, 'HH:mm');
                 }
@@ -186,10 +209,22 @@ export const useCalendar = () => {
         } catch (error) {
             setEvents(JSON.parse(localStorage.getItem('kairos_events_cache') || '[]'));
         } finally { setLoading(false); }
-    };
+    }, [activeWorkspaces, user]);
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
-    useEffect(() => { if (user) { fetchUsers(); fetchEvents(); fetchEventTypes(); } }, [user, fetchUsers, fetchEventTypes]);
+    useEffect(() => { 
+        if (user) { 
+            fetchUsers(); 
+            fetchEventTypes(); 
+            fetchWorkspaces();
+        } 
+    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces]);
+
+    useEffect(() => {
+        if (user && activeWorkspaces.length >= 0) {
+            fetchEvents();
+        }
+    }, [fetchEvents, activeWorkspaces]);
 
     const filteredEvents = useMemo(() => {
         return events.filter(event => {
@@ -199,6 +234,12 @@ export const useCalendar = () => {
             return matchesText && matchesUser && matchesType;
         });
     }, [events, filters]);
+
+    const toggleWorkspaceFilter = (wsId) => {
+        setActiveWorkspaces(prev => 
+            prev.includes(wsId) ? prev.filter(id => id !== wsId) : [...prev, wsId]
+        );
+    };
 
     const moveEvent = async (eventId, newDate) => {
         const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
@@ -212,14 +253,11 @@ export const useCalendar = () => {
             startHour: event.cr4a1_hora_inicio,
             allDay: event.cr4a1_dia_inteiro,
             details: event.cr4a1_detalhes,
-            targetUser: event.cr4a1_user_login
+            targetUser: event.cr4a1_user_login,
+            workspaceId: event.cr4a1_workspace_id
         });
     };
 
-
-    // ==========================================
-    // AÇÕES DO USUÁRIO
-    // ==========================================
     const login = async (username, password) => {
         try {
             const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
@@ -266,6 +304,7 @@ export const useCalendar = () => {
             cr4a1_detalhes: details,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
+            cr4a1_workspace_id: eventData.workspaceId // ENVIA O WORKSPACE
         };
 
         const optimisticEvent = {
@@ -302,6 +341,7 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type, cr4a1_detalhes: details,
             cr4a1_privado: eventData.cr4a1_privado, cr4a1_arquivos: JSON.stringify(eventData.files || []),
+            cr4a1_workspace_id: eventData.workspaceId
         };
 
         setEvents(prev => prev.map(e => e.cr4a1_agenda_kairosid === id ? {
@@ -336,11 +376,9 @@ export const useCalendar = () => {
 
     const addEventType = async (name, emoji) => {
         try {
-            // Cria um ID temporário rápido para UI responder imediatamente
             const tempId = crypto.randomUUID();
             const newType = { id: tempId, name: name, emoji: emoji };
 
-            // ATUALIZA O ESTADO IMEDIATAMENTE (UI Otimista)
             setEventTypes(prev => {
                 const updated = [...prev, newType];
                 localStorage.setItem('kairos_event_types', JSON.stringify(updated));
@@ -353,7 +391,6 @@ export const useCalendar = () => {
                 body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
             });
 
-            // Busca o ID real do banco e substitui o temporário
             fetchEventTypes();
         } catch (error) {
             console.error(error);
@@ -385,22 +422,21 @@ export const useCalendar = () => {
     };
 
     const updateWhatsApp = async (userId, phone) => {
-    try {
-        // Remove qualquer caractere que não seja número antes de enviar
-        const cleanPhone = phone.replace(/\D/g, '');
-        
-        await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cr4a1_whatsapp: cleanPhone })
-        });
-        
-        toast.success("WhatsApp atualizado!");
-        fetchUsers(); // Recarrega a lista de usuários com o novo número
-    } catch (error) {
-        toast.error("Erro ao atualizar WhatsApp");
-    }
-};
+        try {
+            const cleanPhone = phone.replace(/\D/g, '');
+
+            await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_whatsapp: cleanPhone })
+            });
+
+            toast.success("WhatsApp atualizado!");
+            fetchUsers();
+        } catch (error) {
+            toast.error("Erro ao atualizar WhatsApp");
+        }
+    };
 
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
@@ -409,6 +445,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp,
+        workspaces, activeWorkspaces, toggleWorkspaceFilter, // EXPOSTOS PARA O APP
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };

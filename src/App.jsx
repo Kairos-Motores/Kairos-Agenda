@@ -23,7 +23,7 @@ const countryCodes = [
   { code: '+1', flag: '🇺🇸', name: 'EUA' },
   { code: '+44', flag: '🇬🇧', name: 'Reino Unido' },
   { code: '+34', flag: '🇪🇸', name: 'Espanha' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+  { code: '+55', flag: '🇧🇷', name: 'Brasil' }
 ];
 
 const WhatsAppInput = ({ initialValue, onSave, userId }) => {
@@ -160,7 +160,8 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp // Certifique-se de que esta função exista no useCalendar
+    updateWhatsApp,
+    workspaces, activeWorkspaces, toggleWorkspaceFilter // IMPORTADOS DO HOOK
   } = useCalendar();
 
   const notifiedRef = useRef(new Set());
@@ -427,9 +428,40 @@ function App() {
               <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
-            {/* SEÇÃO DE WORKSPACES / AGENDAS */}
+            {/* SEÇÃO DE WORKSPACES / AGENDAS ATUALIZADA */}
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Workspaces</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {workspaces.map(ws => (
+                  <label key={ws.cr4a1_calendarios_workspacesid} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px', 
+                    cursor: 'pointer', 
+                    fontSize: '14px', 
+                    fontWeight: '500',
+                    padding: '8px 10px',
+                    borderRadius: '12px',
+                    backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-secondary)' : 'transparent'
+                  }}>
+                    <input 
+                      type="checkbox" 
+                      checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)} 
+                      onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)} 
+                      style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }} 
+                    />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ color: 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Filtro por Colega</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {allUsers.map(u => (
                   <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
@@ -594,7 +626,18 @@ function App() {
           )}
         </main>
 
-        {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} />}
+        {isModalOpen && <EventModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            onSave={handleSaveEvent} 
+            initialDate={currentDate.toISOString()} 
+            editingEvent={editingEvent} 
+            userRole={userRole} 
+            allUsers={allUsers} 
+            eventTypes={eventTypes} 
+            viewedUser={viewedUser}
+            workspaces={workspaces} // PASSANDO WORKSPACES PARA O MODAL
+        />}
         {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
         {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
 
@@ -660,7 +703,6 @@ function App() {
                     Para ativar os alertas, envie um "Oi" para o sistema:
                   </p>
                   <a
-                    // AQUI ESTAVA O ERRO: Adicionado import.meta.env
                     href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`}
                     target="_blank"
                     rel="noreferrer"

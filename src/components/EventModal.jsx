@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 
-export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent, userRole, allUsers = [], eventTypes = [], viewedUser }) => {
+export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent, userRole, allUsers = [], eventTypes = [], viewedUser, workspaces = [] }) => {
     const [formData, setFormData] = useState({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
         details: '', type: '', files: [],
-        targetUser: '', allDay: false
+        targetUser: '', allDay: false,
+        workspaceId: '' // NOVO CAMPO
     });
     
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -29,7 +30,8 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 details: editingEvent.cr4a1_detalhes || '',
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
-                targetUser: editingEvent.cr4a1_user_login || viewedUser
+                targetUser: editingEvent.cr4a1_user_login || viewedUser,
+                workspaceId: editingEvent.cr4a1_workspace_id || (workspaces[0]?.cr4a1_calendarios_workspacesid || '')
             });
             setIsPrivate(editingEvent.cr4a1_privado || false);
         }
@@ -39,12 +41,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
                 startHour: '08:00', endHour: '09:00',
                 details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
-                targetUser: viewedUser || '', allDay: false
+                targetUser: viewedUser || '', allDay: false,
+                workspaceId: workspaces[0]?.cr4a1_calendarios_workspacesid || ''
             });
             setIsPrivate(false);
         }
         setIsSaving(false);
-    }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes]);
+    }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
 
     if (!isOpen) return null;
 
@@ -101,7 +104,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
     return (
         <div className="modal-overlay">
-            {/* O maxWidth foi ajustado e o width: '90%' adicionado para garantir margens no mobile */}
             <div className="modal-container" style={{ maxWidth: '450px', width: '90%', boxSizing: 'border-box' }}>
                 <div className="modal-header">
                     <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>
@@ -111,6 +113,24 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 </div>
 
                 <div className="modal-body" style={{ boxSizing: 'border-box' }}>
+                    {/* SELETOR DE WORKSPACE (OBRIGATÓRIO) */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>📁 Workspace Destino:</label>
+                        <select 
+                            value={formData.workspaceId} 
+                            style={{ ...inputStyle, border: '2px solid var(--border-color)' }} 
+                            onChange={e => setFormData({ ...formData, workspaceId: e.target.value })}
+                            required
+                        >
+                            <option value="">Selecione um Workspace...</option>
+                            {workspaces.map(ws => (
+                                <option key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>
+                                    {ws.cr4a1_nome} ({ws.cr4a1_tipo_workspace})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     {userRole === 'SECRETARIA' && (
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>👤 Agendar para:</label>
@@ -151,7 +171,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         )}
                     </div>
 
-                    {/* flexWrap garante que, se a tela for minúscula, os campos de data quebram pra linha de baixo */}
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Início</label>
@@ -232,13 +251,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </div>
                     </div>
 
-                    {/* flexWrap: wrap garante que, se não houver espaço horizontal, o botão de Salvar vá para a linha de baixo, impedindo o vazamento da tela */}
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         <button onClick={onClose} disabled={isSaving} className="btn-secondary" style={{ flex: '1 1 100px', boxSizing: 'border-box' }}>Cancelar</button>
                         <button 
                             disabled={isSaving}
                             onClick={async () => {
                                 if (!formData.title) return toast.error('Título obrigatório');
+                                if (!formData.workspaceId) return toast.error('Selecione um Workspace');
                                 setIsSaving(true);
                                 try {
                                     await onSave({ ...formData, cr4a1_privado: isPrivate });
