@@ -23,8 +23,7 @@ const countryCodes = [
   { code: '+351', flag: '🇵🇹', name: 'Portugal' },
   { code: '+1', flag: '🇺🇸', name: 'EUA' },
   { code: '+44', flag: '🇬🇧', name: 'Reino Unido' },
-  { code: '+34', flag: '🇪🇸', name: 'Espanha' },
-  { code: '+55', flag: '🇧🇷', name: 'Brasil' }
+  { code: '+34', flag: '🇪🇸', name: 'Espanha' }
 ];
 
 const WhatsAppInput = ({ initialValue, onSave, userId }) => {
@@ -431,20 +430,25 @@ function App() {
               <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
+            {/* SEÇÃO DE WORKSPACES / FILTRO DE VISIBILIDADE */}
             <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Workspaces</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Filtro de Workspaces</div>
+                {activeWorkspaces.length > 0 && (
+                  <button 
+                    onClick={() => { workspaces.forEach(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) && toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)) }}
+                    style={{ fontSize: '10px', color: 'var(--text-accent)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  >
+                    Ver Todos
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {workspaces.map(ws => (
                   <label key={ws.cr4a1_calendarios_workspacesid} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    padding: '8px 10px',
-                    borderRadius: '12px',
-                    backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-secondary)' : 'transparent'
+                    display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
+                    backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-tertiary)' : 'transparent',
+                    transition: 'background 0.2s'
                   }}>
                     <input
                       type="checkbox"
@@ -454,7 +458,7 @@ function App() {
                     />
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ color: 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
+                      <span style={{ color: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--text-accent)' : 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
                       <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
                     </div>
                   </label>
@@ -654,7 +658,7 @@ function App() {
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
           <div className="modal-overlay" style={{
-            zIndex: 9999, // MODAL SEMPRE ACIMA
+            zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -682,69 +686,37 @@ function App() {
                 gap: '24px'
               }}
             >
-              {/* Cabeçalho do Modal */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Meu Perfil</h2>
-                <button
-                  onClick={() => setIsProfileModalOpen(false)}
-                  className="icon-btn"
-                  style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}
-                >
+                <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}>
                   <span className="material-symbols-rounded">close</span>
                 </button>
               </div>
 
-              {/* Conteúdo Principal */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {(() => {
                   const currentUserData = allUsers.find(u => u.cr4a1_username === user);
                   return currentUserData ? (
-                    <WhatsAppInput
-                      userId={currentUserData.cr4a1_usuarios_agendaid}
-                      initialValue={currentUserData.cr4a1_whatsapp}
-                      onSave={updateWhatsApp}
-                    />
+                    <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
                   ) : null;
                 })()}
 
-                {/* Link para Validação do Bot */}
                 <div style={{ textAlign: 'center', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                   <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                     Para ativar os alertas, envie um "Oi" para o sistema:
                   </p>
                   <a
                     href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      color: 'var(--text-accent)',
-                      textDecoration: 'none',
-                      fontWeight: '700',
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }}
+                    target="_blank" rel="noreferrer"
+                    style={{ color: 'var(--text-accent)', textDecoration: 'none', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                   >
                     <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>chat</span>
                     Iniciar conversa com o Bot
                   </a>
                 </div>
 
-                {/* Card de Aviso Estilizado */}
-                <div style={{
-                  background: 'var(--bg-tertiary)',
-                  padding: '16px',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  gap: '14px',
-                  alignItems: 'flex-start',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>
-                    notifications_active
-                  </span>
+                <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start', border: '1px solid var(--border-color)' }}>
+                  <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>notifications_active</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Lembretes Ativos</span>
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
@@ -757,91 +729,54 @@ function App() {
           </div>
         )}
 
-        {/* MENU FAB EXPANSÍVEL */}
+        {/* MENU FAB EXPANSÍVEL - CORRIGIDO SEM SOBREPOSIÇÃO */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
-          <div style={{ position: 'fixed', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column-reverse', alignItems: 'flex-end', gap: '16px', zIndex: 1000 }}>
+          <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 3000 }}>
             
-            {/* Botão Principal */}
-            <button 
-              className="fab-btn" 
-              onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-              style={{ 
-                width: '60px', height: '60px', borderRadius: '20px', background: 'var(--text-accent)', 
-                color: 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                zIndex: 1002 
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
-                add
-              </span>
-            </button>
-
-            {/* Sub-botões */}
+            {/* BOTÕES DE OPÇÃO (FLUTUAM ACIMA DO PRINCIPAL) */}
             {isFabMenuOpen && (
-              <div className="view-enter" style={{ 
-                display: 'flex', 
-                flexDirection: 'column-reverse', 
-                gap: '12px', 
-                alignItems: 'flex-end',
-                marginBottom: '16px', 
-                paddingRight: '6px', 
-                zIndex: 1001 
-              }}>
+              <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
                 
-                {/* Opção de Workspace */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
-                  <span style={{ 
-                    background: 'var(--bg-primary)', 
-                    padding: '6px 14px', 
-                    borderRadius: '12px', 
-                    fontSize: '13px', 
-                    fontWeight: '700', 
-                    boxShadow: 'var(--shadow-md)', 
-                    color: 'var(--text-primary)',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    Workspace
-                  </span>
+                {/* Opção Evento */}
+                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
-                    style={{ 
-                      width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
-                      border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
-                    }}
-                  >
-                    <span className="material-symbols-rounded">workspaces</span>
-                  </button>
-                </div>
-
-                {/* Opção de Evento */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
-                  <span style={{ 
-                    background: 'var(--bg-primary)', 
-                    padding: '6px 14px', 
-                    borderRadius: '12px', 
-                    fontSize: '13px', 
-                    fontWeight: '700', 
-                    boxShadow: 'var(--shadow-md)', 
-                    color: 'var(--text-primary)',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    Evento
-                  </span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }}
-                    style={{ 
-                      width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
-                      border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
-                    }}
+                    onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }}
+                    style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   >
                     <span className="material-symbols-rounded">calendar_add_on</span>
                   </button>
                 </div>
+
+                {/* Opção Workspace */}
+                {(userRole === 'ADMIN' || userRole === 'DIRETORIA' || userRole === 'SECRETARIA') && (
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
+                    <button 
+                      onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
+                      style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    >
+                      <span className="material-symbols-rounded">workspaces</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* BOTÃO PRINCIPAL (X ou +) */}
+            <button 
+              className="fab-btn" 
+              onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
+              style={{ 
+                width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', 
+                color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
+                {isFabMenuOpen ? 'close' : 'add'}
+              </span>
+            </button>
           </div>
         )}
       </div>
