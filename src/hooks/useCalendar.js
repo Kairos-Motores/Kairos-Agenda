@@ -439,30 +439,32 @@ export const useCalendar = () => {
     };
 
     const addWorkspace = async (wsData) => {
-        setLoading(true);
         try {
             const newWS = {
                 cr4a1_nome: wsData.nome,
-                cr4a1_tipo_workspace: wsData.tipo, // PESSOAL ou COMPARTILHADO
+                cr4a1_tipo_workspace: wsData.tipo,
                 cr4a1_cor_hex: wsData.cor,
                 cr4a1_criador_login: user,
-                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros // String separada por vírgula
+                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros
             };
 
-            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaces`, {
+            // Note o "es" no final da tabela
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newWS)
             });
 
             if (response.ok) {
-                toast.success("Workspace criado!");
-                await fetchWorkspaces(); // Atualiza a lista lateral
+                toast.success("Workspace criado com sucesso!");
+                if (typeof fetchWorkspaces === 'function') await fetchWorkspaces();
+            } else {
+                const error = await response.text();
+                console.error("Erro Dataverse:", error);
+                toast.error("Erro ao criar: Nome da tabela ou colunas incorretos.");
             }
-        } catch (error) {
-            toast.error("Erro ao criar workspace");
-        } finally {
-            setLoading(false);
+        } catch (err) {
+            console.error("Erro de rede:", err);
         }
     };
 

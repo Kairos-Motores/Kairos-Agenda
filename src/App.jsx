@@ -654,7 +654,7 @@ function App() {
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
           <div className="modal-overlay" style={{
-            zIndex: 9999,
+            zIndex: 9999, // MODAL SEMPRE ACIMA
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -759,7 +759,7 @@ function App() {
 
         {/* MENU FAB EXPANSÍVEL */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
-          <div style={{ position: 'fixed', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column-reverse', alignItems: 'flex-end', gap: '16px', zIndex: 4000 }}>
+          <div style={{ position: 'fixed', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column-reverse', alignItems: 'flex-end', gap: '16px', zIndex: 1000 }}>
             
             {/* Botão Principal */}
             <button 
@@ -769,7 +769,7 @@ function App() {
                 width: '60px', height: '60px', borderRadius: '20px', background: 'var(--text-accent)', 
                 color: 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                zIndex: 4002 
+                zIndex: 1002 
               }}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
@@ -786,36 +786,34 @@ function App() {
                 alignItems: 'flex-end',
                 marginBottom: '16px', 
                 paddingRight: '6px', 
-                zIndex: 5000 
+                zIndex: 1001 
               }}>
                 
-                {/* Opção de Workspace (Aparecendo logo acima do botão principal) */}
-                {(userRole === 'ADMIN' || userRole === 'DIRETORIA' || userRole === 'SECRETARIA') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
-                    <span style={{ 
-                      background: 'var(--bg-primary)', 
-                      padding: '6px 14px', 
-                      borderRadius: '12px', 
-                      fontSize: '13px', 
-                      fontWeight: '700', 
-                      boxShadow: 'var(--shadow-md)', 
-                      color: 'var(--text-primary)',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      Workspace
-                    </span>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
-                      style={{ 
-                        width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
-                        border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
-                      }}
-                    >
-                      <span className="material-symbols-rounded">workspaces</span>
-                    </button>
-                  </div>
-                )}
+                {/* Opção de Workspace */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+                  <span style={{ 
+                    background: 'var(--bg-primary)', 
+                    padding: '6px 14px', 
+                    borderRadius: '12px', 
+                    fontSize: '13px', 
+                    fontWeight: '700', 
+                    boxShadow: 'var(--shadow-md)', 
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    Workspace
+                  </span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
+                    style={{ 
+                      width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
+                      border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <span className="material-symbols-rounded">workspaces</span>
+                  </button>
+                </div>
 
                 {/* Opção de Evento */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
