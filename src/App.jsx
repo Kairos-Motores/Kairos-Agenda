@@ -140,6 +140,7 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+// PALETA EXPANDIDA - 22 CORES
 const materialColors = [
   { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
   { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
@@ -270,14 +271,6 @@ function App() {
     localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-    }
-  }, []);
-
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
       <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
@@ -302,27 +295,6 @@ function App() {
     const isRightSwipe = distance < -minSwipeDistance;
     if (isRightSwipe && touchStart < 60) setIsSidebarOpen(true);
     if (isLeftSwipe && isSidebarOpen) setIsSidebarOpen(false);
-  };
-
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-      toast.error('Este navegador não suporta notificações.');
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      toast.success('Notificações ativadas!', { icon: '🔔' });
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification('Kairós Agenda', {
-            body: 'As notificações estão funcionando perfeitamente!',
-            icon: '/icon-512.jpg'
-          });
-        });
-      }
-    } else {
-      toast.error('As notificações foram bloqueadas.');
-    }
   };
 
   const handleSaveEvent = async (data) => {
@@ -393,7 +365,7 @@ function App() {
     toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
 
-  // CÁLCULO DA BORDA SUTIL (1px / 1.5px) PARA OS WORKSPACES
+  // CÁLCULO DA BORDA SUTIL E OVERFLOW VISÍVEL PARA TOOLTIPS
   const getWorkspaceBorderStyle = () => {
     const activeWSColors = workspaces
       .filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))
@@ -405,17 +377,16 @@ function App() {
     }
 
     if (activeWSColors.length === 1) {
-      // Borda sólida única, bem fina
-      return { border: `1px solid ${activeWSColors[0]}` };
+      return { border: `1px solid ${activeWSColors[0]}`, overflow: 'visible' };
     } else if (activeWSColors.length > 1) {
-      // Padding reduzido para gradiente mais sutil
       return {
         padding: '1.5px',
         background: `linear-gradient(135deg, ${activeWSColors.join(', ')})`,
-        borderRadius: '16px'
+        borderRadius: '16px',
+        overflow: 'visible'
       };
     }
-    return { border: '1px solid var(--border-color)' };
+    return { border: '1px solid var(--border-color)', overflow: 'visible' };
   };
 
   const wsBorderStyle = getWorkspaceBorderStyle();
@@ -545,10 +516,6 @@ function App() {
                 ))}
               </div>
             </div>
-
-            {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-              <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
-            )}
           </div>
         </div>
 
@@ -562,15 +529,7 @@ function App() {
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
                 <span className="nav-label">Kairós</span>
               </h1>
-              <select
-                value={view}
-                onChange={(e) => setView(e.target.value)}
-                style={{
-                  appearance: 'none', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '6px 30px 6px 14px', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer',
-                  backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px top 50%', backgroundSize: '10px auto', transition: 'all 0.2s'
-                }}
-              >
+              <select value={view} onChange={(e) => setView(e.target.value)} className="view-selector">
                 {viewsConfig.map(v => (
                   <option key={v.id} value={v.id}>{v.label}</option>
                 ))}
@@ -588,70 +547,55 @@ function App() {
                 </button>
               </div>
               <div className="nav-group">
-                <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
-                  <span className="material-symbols-rounded">notifications</span>
-                </button>
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
-                {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
-                  <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
-                    <span className="material-symbols-rounded">group</span>
-                  </button>
-                )}
-                <div
-                  onClick={() => setIsProfileModalOpen(true)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
-                >
-                  <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
-                  <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
+                <div onClick={() => setIsProfileModalOpen(true)} className="profile-badge">
+                  <span className="avatar">{user?.[0]?.toUpperCase()}</span>
+                  <span className="nav-label">{user}</span>
                 </div>
-                <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
+                <button onClick={logout} className="icon-btn" title="Sair" style={{ color: '#e74c3c' }}>
                   <span className="material-symbols-rounded">logout</span>
                 </button>
               </div>
             </div>
           </nav>
 
-          <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
-              <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', textAlign: 'center' }}>
+          <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', textTransform: 'capitalize' }}>
                 {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
               </span>
-              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
-                {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
+              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px' }}>
+                {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px' }}>▼</span>
               </span>
-              {view === 'day' && (
-                <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
-                  <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
-                  <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
-                </div>
-              )}
             </div>
           </div>
         </header>
 
-        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
+        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px', overflow: 'visible' }}>
           
-          {/* VISUALIZAÇÃO ANUAL COM BORDAS SUTIS REPLICADAS */}
           {view === 'year' && (
-            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(currentDate.getFullYear(), i, 1);
                 const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                 
                 return (
-                  <div key={i} style={activeWSForGradient.length > 1 ? { 
-                      background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                      padding: '1.5px',
-                      borderRadius: '16px'
-                    } : {}}>
+                  <div key={i} style={{ 
+                      ...(activeWSForGradient.length > 1 ? { 
+                        background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                        padding: '1.5px',
+                        borderRadius: '16px'
+                      } : {}),
+                      overflow: 'visible'
+                  }}>
                     <div style={{ 
-                        ...wsBorderStyle, 
+                        ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
                         borderRadius: '14px', 
                         background: 'var(--bg-primary)', 
                         height: '100%',
-                        overflow: 'hidden' 
+                        overflow: 'visible' 
                     }}>
                       <MiniMonth 
                         monthDate={monthDate} 
@@ -669,31 +613,34 @@ function App() {
           )}
 
           {view === 'month' && (
-            <div className="responsive-grid-container">
-              {/* WRAPPER COM GRADIENTE ULTRA-FINO (1.5px) */}
-              <div style={activeWorkspaces.length > 1 ? { 
-                  background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                  padding: '1.5px',
-                  borderRadius: '24px'
-                } : {}}>
-                <div className="calendar-month-grid" style={{
-                  ...wsBorderStyle,
-                  background: 'var(--bg-primary)',
-                  borderRadius: '22px'
+            <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
+              <div style={{ 
+                  ...(activeWorkspaces.length > 1 ? { 
+                    background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                    padding: '1.5px',
+                    borderRadius: '24px'
+                  } : {}),
+                  overflow: 'visible'
                 }}>
-                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
+                <div className="calendar-month-grid" style={{
+                  ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                  background: 'var(--bg-primary)',
+                  borderRadius: '22px',
+                  overflow: 'visible'
+                }}>
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} className="day-header" style={{ color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)' }}>{d}</b>)}
                   {generateMonthDays(currentDate).map((day) => {
                     const dateStr = format(day, 'yyyy-MM-dd');
                     const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                     const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
                     return (
                       <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
+                        <div className={`day-number ${isToday ? 'today' : ''}`}>{format(day, 'd')}</div>
+                        <div className="event-stack">
                           {dayEvents.map(e => (
                             <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                              <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                                {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                              <div className="event-badge" style={{ background: getEventColor(e) }}>
+                                {!e.cr4a1_dia_inteiro && <span className="time">{e.cr4a1_hora_inicio}</span>} {e.cr4a1_titulo}
                               </div>
                             </DraggableEvent>
                           ))}
@@ -721,7 +668,6 @@ function App() {
           )}
         </main>
 
-        {/* MODAIS */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -738,56 +684,28 @@ function App() {
             {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
             {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
             {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
-            
-            {isProfileModalOpen && (
-              <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-                <div className="modal-content" style={{ maxWidth: '420px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Meu Perfil</h2>
-                    <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}><span className="material-symbols-rounded">close</span></button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {(() => {
-                      const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                      return currentUserData ? (<WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />) : null;
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
         </div>
 
-        {/* MENU FAB */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
-              <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              <div className="fab-menu view-enter">
+                <div className="fab-item">
+                  <span className="fab-label">Evento</span>
+                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="fab-sub-btn">
                     <span className="material-symbols-rounded">calendar_add_on</span>
                   </button>
                 </div>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                <div className="fab-item">
+                  <span className="fab-label">Workspace</span>
+                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="fab-sub-btn">
                     <span className="material-symbols-rounded">workspaces</span>
                   </button>
                 </div>
               </div>
             )}
-            <button 
-              className="fab-btn" 
-              onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-              style={{ 
-                width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', 
-                color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
-                {isFabMenuOpen ? 'close' : 'add'}
-              </span>
+            <button className={`fab-btn ${isFabMenuOpen ? 'open' : ''}`} onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}>
+              <span className="material-symbols-rounded">{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
         )}
