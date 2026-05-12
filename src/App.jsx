@@ -638,16 +638,18 @@ function App() {
           allUsers={allUsers}
           eventTypes={eventTypes}
           viewedUser={viewedUser}
-          workspaces={workspaces} // PASSANDO WORKSPACES PARA O MODAL
+          workspaces={workspaces}
         />}
         {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
         {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
 
-        <WorkspaceModal
-          isOpen={isWorkspaceModalOpen}
-          onClose={() => setIsWorkspaceModalOpen(false)}
-          onSave={addWorkspace}
-        />
+        {isWorkspaceModalOpen && (
+          <WorkspaceModal
+            isOpen={isWorkspaceModalOpen}
+            onClose={() => setIsWorkspaceModalOpen(false)}
+            onSave={addWorkspace}
+          />
+        )}
 
         {/* MODAL DE PERFIL DO USUÁRIO */}
         {isProfileModalOpen && (
@@ -759,7 +761,7 @@ function App() {
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column-reverse', alignItems: 'flex-end', gap: '16px', zIndex: 4000 }}>
             
-            {/* Botão Principal (Gira quando aberto) */}
+            {/* Botão Principal */}
             <button 
               className="fab-btn" 
               onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
@@ -767,7 +769,7 @@ function App() {
                 width: '60px', height: '60px', borderRadius: '20px', background: 'var(--text-accent)', 
                 color: 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                zIndex: 4002
+                zIndex: 4002 
               }}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
@@ -775,48 +777,21 @@ function App() {
               </span>
             </button>
 
-            {/* Sub-botões (Só aparecem se o menu estiver aberto) */}
+            {/* Sub-botões */}
             {isFabMenuOpen && (
               <div className="view-enter" style={{ 
                 display: 'flex', 
-                flexDirection: 'column', 
+                flexDirection: 'column-reverse', 
                 gap: '12px', 
                 alignItems: 'flex-end',
-                marginBottom: '16px', // Espaço extra para não sobrepor o botão principal
-                paddingRight: '6px', // Centraliza os botões menores sobre o principal
-                zIndex: 4001
+                marginBottom: '16px', 
+                paddingRight: '6px', 
+                zIndex: 5000 
               }}>
                 
-                {/* Opção 1: Criar Evento */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ 
-                    background: 'var(--bg-primary)', 
-                    padding: '6px 14px', 
-                    borderRadius: '12px', 
-                    fontSize: '13px', 
-                    fontWeight: '700', 
-                    boxShadow: 'var(--shadow-md)', 
-                    color: 'var(--text-primary)',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    Evento
-                  </span>
-                  <button 
-                    onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }}
-                    style={{ 
-                      width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
-                      border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)',
-                      transition: 'transform 0.2s'
-                    }}
-                  >
-                    <span className="material-symbols-rounded">calendar_add_on</span>
-                  </button>
-                </div>
-
-                {/* Opção 2: Criar Workspace (Liberado para Secretaria também) */}
+                {/* Opção de Workspace (Aparecendo logo acima do botão principal) */}
                 {(userRole === 'ADMIN' || userRole === 'DIRETORIA' || userRole === 'SECRETARIA') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
                     <span style={{ 
                       background: 'var(--bg-primary)', 
                       padding: '6px 14px', 
@@ -830,18 +805,43 @@ function App() {
                       Workspace
                     </span>
                     <button 
-                      onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
+                      onClick={(e) => { e.stopPropagation(); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }}
                       style={{ 
                         width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
                         border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)',
-                        transition: 'transform 0.2s'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
                       }}
                     >
                       <span className="material-symbols-rounded">workspaces</span>
                     </button>
                   </div>
                 )}
+
+                {/* Opção de Evento */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+                  <span style={{ 
+                    background: 'var(--bg-primary)', 
+                    padding: '6px 14px', 
+                    borderRadius: '12px', 
+                    fontSize: '13px', 
+                    fontWeight: '700', 
+                    boxShadow: 'var(--shadow-md)', 
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    Evento
+                  </span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }}
+                    style={{ 
+                      width: '48px', height: '48px', borderRadius: '14px', background: 'var(--bg-primary)', 
+                      border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <span className="material-symbols-rounded">calendar_add_on</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
