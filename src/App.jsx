@@ -13,7 +13,7 @@ import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@nd-kit/core';
+import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
 // --- COMPONENTES AUXILIARES ---
