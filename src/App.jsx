@@ -161,7 +161,7 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp,
+    updateWhatsApp, addWorkspace, // IMPORTADOS DO HOOK
     workspaces, activeWorkspaces, toggleWorkspaceFilter // IMPORTADOS DO HOOK
   } = useCalendar();
 
