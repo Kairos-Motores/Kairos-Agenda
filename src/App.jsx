@@ -140,7 +140,6 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-// PALETA EXPANDIDA - 22 CORES
 const materialColors = [
   { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
   { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
@@ -351,7 +350,6 @@ function App() {
     }
   };
 
-  // MANTÉM A COR DO USUÁRIO NOS EVENTOS
   const getEventColor = (event) => event.cr4a1_cor || (allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login)?.cr4a1_cor || '#3498db');
 
   const handleNavigate = (direction) => {
@@ -395,7 +393,7 @@ function App() {
     toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
 
-  // CÁLCULO DA BORDA GRADIENTE DOS WORKSPACES
+  // CÁLCULO DA BORDA SUTIL (1px / 1.5px) PARA OS WORKSPACES
   const getWorkspaceBorderStyle = () => {
     const activeWSColors = workspaces
       .filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))
@@ -407,15 +405,17 @@ function App() {
     }
 
     if (activeWSColors.length === 1) {
-      return { border: `4px solid ${activeWSColors[0]}` };
+      // Borda sólida única, bem fina
+      return { border: `1px solid ${activeWSColors[0]}` };
     } else if (activeWSColors.length > 1) {
+      // Padding reduzido para gradiente mais sutil
       return {
-        padding: '4px',
+        padding: '1.5px',
         background: `linear-gradient(135deg, ${activeWSColors.join(', ')})`,
-        borderRadius: '24px'
+        borderRadius: '16px'
       };
     }
-    return { border: '2px solid var(--border-color)' };
+    return { border: '1px solid var(--border-color)' };
   };
 
   const wsBorderStyle = getWorkspaceBorderStyle();
@@ -487,7 +487,6 @@ function App() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
-                {workspaces.length === 0 && <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Carregando...</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {workspaces.map(ws => (
@@ -629,39 +628,61 @@ function App() {
                 </div>
               )}
             </div>
-            {isYearSelectorOpen && (
-              <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {Array.from({ length: 16 }, (_, i) => {
-                  const year = currentDate.getFullYear() - 7 + i;
-                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
-                })}
-              </div>
-            )}
           </div>
         </header>
 
         <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
+          
+          {/* VISUALIZAÇÃO ANUAL COM BORDAS SUTIS REPLICADAS */}
           {view === 'year' && (
-            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
-              {Array.from({ length: 12 }, (_, i) => <MiniMonth key={i} monthDate={new Date(currentDate.getFullYear(), i, 1)} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />)}
+            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+              {Array.from({ length: 12 }, (_, i) => {
+                const monthDate = new Date(currentDate.getFullYear(), i, 1);
+                const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
+                
+                return (
+                  <div key={i} style={activeWSForGradient.length > 1 ? { 
+                      background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                      padding: '1.5px',
+                      borderRadius: '16px'
+                    } : {}}>
+                    <div style={{ 
+                        ...wsBorderStyle, 
+                        borderRadius: '14px', 
+                        background: 'var(--bg-primary)', 
+                        height: '100%',
+                        overflow: 'hidden' 
+                    }}>
+                      <MiniMonth 
+                        monthDate={monthDate} 
+                        onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} 
+                        getEventsForDay={getEventsForDay} 
+                        holidays={holidays} 
+                        allUsers={allUsers} 
+                        onEditEvent={handleEditClick} 
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {view === 'month' && (
             <div className="responsive-grid-container">
-              {/* WRAPPER PARA BORDA GRADIENTE DOS WORKSPACES */}
+              {/* WRAPPER COM GRADIENTE ULTRA-FINO (1.5px) */}
               <div style={activeWorkspaces.length > 1 ? { 
                   background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                  padding: '4px',
+                  padding: '1.5px',
                   borderRadius: '24px'
                 } : {}}>
                 <div className="calendar-month-grid" style={{
                   ...wsBorderStyle,
                   background: 'var(--bg-primary)',
-                  borderRadius: '20px'
+                  borderRadius: '22px'
                 }}>
                   {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-                  {generateMonthDays(currentDate).map((day, index) => {
+                  {generateMonthDays(currentDate).map((day) => {
                     const dateStr = format(day, 'yyyy-MM-dd');
                     const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                     const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
@@ -670,7 +691,7 @@ function App() {
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
                           {dayEvents.map(e => (
-                            <DraggableEvent key={e.cr4a1_event_id} event={e}>
+                            <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
                               <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
                                 {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                               </div>
@@ -700,6 +721,7 @@ function App() {
           )}
         </main>
 
+        {/* MODAIS */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -735,6 +757,7 @@ function App() {
             )}
         </div>
 
+        {/* MENU FAB */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
