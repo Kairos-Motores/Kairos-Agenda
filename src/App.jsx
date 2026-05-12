@@ -13,7 +13,7 @@ import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
+import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@nd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
 // --- COMPONENTES AUXILIARES ---
@@ -140,6 +140,7 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+// PALETA EXPANDIDA - 22 CORES
 const materialColors = [
   { id: 'blue', hex: '#1a73e8', label: 'Azul Google' },
   { id: 'cyan', hex: '#00acc1', label: 'Ciano' },
@@ -151,7 +152,18 @@ const materialColors = [
   { id: 'rose', hex: '#d81b60', label: 'Rosa Escuro' },
   { id: 'purple', hex: '#673ab7', label: 'Lavanda' },
   { id: 'indigo', hex: '#3949ab', label: 'Índigo' },
-  { id: 'graphite', hex: '#5f6368', label: 'Grafite' }
+  { id: 'graphite', hex: '#5f6368', label: 'Grafite' },
+  { id: 'red', hex: '#d32f2f', label: 'Vermelho' },
+  { id: 'pink', hex: '#c2185b', label: 'Rosa' },
+  { id: 'lime', hex: '#afb42b', label: 'Lima' },
+  { id: 'light-blue', hex: '#0288d1', label: 'Azul Claro' },
+  { id: 'deep-orange', hex: '#e64a19', label: 'Laranja Profundo' },
+  { id: 'brown', hex: '#5d4037', label: 'Marrom' },
+  { id: 'blue-grey', hex: '#455a64', label: 'Cinza Azulado' },
+  { id: 'violet', hex: '#7b1fa2', label: 'Violeta' },
+  { id: 'emerald', hex: '#2e7d32', label: 'Esmeralda' },
+  { id: 'sky', hex: '#03a9f4', label: 'Céu' },
+  { id: 'gold', hex: '#fbc02d', label: 'Ouro' }
 ];
 
 // --- COMPONENTE PRINCIPAL ---
@@ -181,7 +193,6 @@ function App() {
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   
-  // Workspace Padrão
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
 
   const [clock, setClock] = useState(new Date());
@@ -340,6 +351,7 @@ function App() {
     }
   };
 
+  // MANTÉM A COR DO USUÁRIO NOS EVENTOS
   const getEventColor = (event) => event.cr4a1_cor || (allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login)?.cr4a1_cor || '#3498db');
 
   const handleNavigate = (direction) => {
@@ -369,7 +381,6 @@ function App() {
 
   const handleDragEnd = (e) => { if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); };
 
-  // Lógica de Exibição Baseada no Workspace Padrão
   const getDisplayEvents = () => {
     if (activeWorkspaces.length > 0) return filteredEvents;
     if (defaultWorkspaceId) {
@@ -383,6 +394,31 @@ function App() {
     localStorage.setItem('kairos_default_workspace', id);
     toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
+
+  // CÁLCULO DA BORDA GRADIENTE DOS WORKSPACES
+  const getWorkspaceBorderStyle = () => {
+    const activeWSColors = workspaces
+      .filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))
+      .map(ws => ws.cr4a1_cor_hex || '#3498db');
+
+    if (activeWSColors.length === 0 && defaultWorkspaceId) {
+      const defWS = workspaces.find(w => w.cr4a1_calendarios_workspacesid === defaultWorkspaceId);
+      if (defWS) activeWSColors.push(defWS.cr4a1_cor_hex || '#3498db');
+    }
+
+    if (activeWSColors.length === 1) {
+      return { border: `4px solid ${activeWSColors[0]}` };
+    } else if (activeWSColors.length > 1) {
+      return {
+        padding: '4px',
+        background: `linear-gradient(135deg, ${activeWSColors.join(', ')})`,
+        borderRadius: '24px'
+      };
+    }
+    return { border: '2px solid var(--border-color)' };
+  };
+
+  const wsBorderStyle = getWorkspaceBorderStyle();
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
@@ -398,7 +434,6 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
-        {/* SIDEBAR COM SELEÇÃO DE PADRÃO */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -449,7 +484,6 @@ function App() {
               <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
-            {/* SEÇÃO DE WORKSPACES CORRIGIDA */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
@@ -615,32 +649,43 @@ function App() {
 
           {view === 'month' && (
             <div className="responsive-grid-container">
-              <div className="calendar-month-grid">
-                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-                {generateMonthDays(currentDate).map((day, index) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                  const dayEvents = getEventsForDay(day);
-                  return (
-                    <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
-                        {dayEvents.map(e => (
-                          <DraggableEvent key={e.cr4a1_event_id} event={e}>
-                            <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                              {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                            </div>
-                          </DraggableEvent>
-                        ))}
-                      </div>
-                    </DroppableDay>
-                  );
-                })}
+              {/* WRAPPER PARA BORDA GRADIENTE DOS WORKSPACES */}
+              <div style={activeWorkspaces.length > 1 ? { 
+                  background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                  padding: '4px',
+                  borderRadius: '24px'
+                } : {}}>
+                <div className="calendar-month-grid" style={{
+                  ...wsBorderStyle,
+                  background: 'var(--bg-primary)',
+                  borderRadius: '20px'
+                }}>
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
+                  {generateMonthDays(currentDate).map((day, index) => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
+                    const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
+                    return (
+                      <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
+                          {dayEvents.map(e => (
+                            <DraggableEvent key={e.cr4a1_event_id} event={e}>
+                              <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                                {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                              </div>
+                            </DraggableEvent>
+                          ))}
+                        </div>
+                      </DroppableDay>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
-          {view === 'list' && <ListView events={filteredEvents} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
+          {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
 
           {['day', '3days', 'week'].includes(view) && (
             <DayView
@@ -655,7 +700,6 @@ function App() {
           )}
         </main>
 
-        {/* MODAIS - CAMADA SUPERIOR (zIndex 9999) */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -667,7 +711,7 @@ function App() {
               allUsers={allUsers}
               eventTypes={eventTypes}
               viewedUser={viewedUser}
-              workspaces={workspaces} // ENVIANDO WORKSPACES PARA O DROPDOWN
+              workspaces={workspaces}
             />}
             {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
             {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
@@ -691,7 +735,6 @@ function App() {
             )}
         </div>
 
-        {/* MENU FAB - CAMADA INFERIOR (zIndex 500) */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
