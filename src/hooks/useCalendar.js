@@ -137,7 +137,7 @@ export const useCalendar = () => {
         try {
             // Filtra workspaces onde o usuário é criador ou membro
             const filter = encodeURIComponent(`(cr4a1_criador_login eq '${user}') or (contains(cr4a1_membros_logins, '${user}'))`);
-            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaces&$filter=${filter}`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filter}`);
             const data = await response.json();
             const wsList = data.value || [];
             setWorkspaces(wsList);

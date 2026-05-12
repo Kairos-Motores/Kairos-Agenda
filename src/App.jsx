@@ -181,7 +181,7 @@ function App() {
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   
-  // Workspace Padrão (Default)
+  // Workspace Padrão
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
 
   const [clock, setClock] = useState(new Date());
@@ -369,19 +369,19 @@ function App() {
 
   const handleDragEnd = (e) => { if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); };
 
-  // LÓGICA DE FILTRAGEM POR WORKSPACE PADRÃO
+  // Lógica de Exibição Baseada no Workspace Padrão
   const getDisplayEvents = () => {
     if (activeWorkspaces.length > 0) return filteredEvents;
-    
-    // Se nenhum filtro estiver ativo, busca o default
-    const defaultId = defaultWorkspaceId || (workspaces[0]?.cr4a1_calendarios_workspacesid);
-    return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultId);
+    if (defaultWorkspaceId) {
+      return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId);
+    }
+    return filteredEvents;
   };
 
   const handleSetDefaultWorkspace = (id) => {
     setDefaultWorkspaceId(id);
     localStorage.setItem('kairos_default_workspace', id);
-    toast.success("Workspace padrão atualizado!");
+    toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
 
   return (
@@ -398,6 +398,7 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
+        {/* SIDEBAR COM SELEÇÃO DE PADRÃO */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -448,14 +449,15 @@ function App() {
               <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
+            {/* SEÇÃO DE WORKSPACES CORRIGIDA */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
-                {workspaces.length === 0 && <span style={{ fontSize: '10px', opacity: 0.5 }}>Carregando...</span>}
+                {workspaces.length === 0 && <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Carregando...</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {workspaces.map(ws => (
-                  <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <label style={{
                       flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
                       backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-tertiary)' : 'transparent',
@@ -473,14 +475,14 @@ function App() {
                       </div>
                     </label>
                     <button 
-                        onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
-                        className="icon-btn"
-                        title="Definir como padrão"
-                        style={{ color: defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'var(--text-accent)' : 'var(--border-color)' }}
+                      onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
+                      className="icon-btn"
+                      title="Definir como padrão"
+                      style={{ color: defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'var(--text-accent)' : 'var(--border-color)', background: 'transparent' }}
                     >
-                        <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
-                            {defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'star' : 'star_outline'}
-                        </span>
+                      <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                        {defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'star' : 'star_outline'}
+                      </span>
                     </button>
                   </div>
                 ))}
@@ -653,7 +655,7 @@ function App() {
           )}
         </main>
 
-        {/* MODAIS COM Z-INDEX SUPERIOR */}
+        {/* MODAIS - CAMADA SUPERIOR (zIndex 9999) */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -665,18 +667,11 @@ function App() {
               allUsers={allUsers}
               eventTypes={eventTypes}
               viewedUser={viewedUser}
-              workspaces={workspaces} // CERTIFIQUE-SE QUE WORKSPACES ESTÁ POPULADO
+              workspaces={workspaces} // ENVIANDO WORKSPACES PARA O DROPDOWN
             />}
             {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
             {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-
-            {isWorkspaceModalOpen && (
-              <WorkspaceModal
-                isOpen={isWorkspaceModalOpen}
-                onClose={() => setIsWorkspaceModalOpen(false)}
-                onSave={addWorkspace}
-              />
-            )}
+            {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
             
             {isProfileModalOpen && (
               <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
@@ -690,19 +685,13 @@ function App() {
                       const currentUserData = allUsers.find(u => u.cr4a1_username === user);
                       return currentUserData ? (<WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />) : null;
                     })()}
-                    <div style={{ textAlign: 'center', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Para ativar os alertas, envie um "Oi" para o sistema:</p>
-                      <a href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_ALERT_PHONE || '559885536807'}`} target="_blank" rel="noreferrer" style={{ color: 'var(--text-accent)', textDecoration: 'none', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>chat</span> Iniciar conversa com o Bot
-                      </a>
-                    </div>
                   </div>
                 </div>
               </div>
             )}
         </div>
 
-        {/* MENU FAB COM Z-INDEX INFERIOR AO MODAL */}
+        {/* MENU FAB - CAMADA INFERIOR (zIndex 500) */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
