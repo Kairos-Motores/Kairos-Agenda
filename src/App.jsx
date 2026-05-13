@@ -270,14 +270,6 @@ function App() {
     localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-    }
-  }, []);
-
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
       <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
@@ -302,27 +294,6 @@ function App() {
     const isRightSwipe = distance < -minSwipeDistance;
     if (isRightSwipe && touchStart < 60) setIsSidebarOpen(true);
     if (isLeftSwipe && isSidebarOpen) setIsSidebarOpen(false);
-  };
-
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-      toast.error('Este navegador não suporta notificações.');
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      toast.success('Notificações ativadas!', { icon: '🔔' });
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification('Kairós Agenda', {
-            body: 'As notificações estão funcionando perfeitamente!',
-            icon: '/icon-512.jpg'
-          });
-        });
-      }
-    } else {
-      toast.error('As notificações foram bloqueadas.');
-    }
   };
 
   const handleSaveEvent = async (data) => {
@@ -393,7 +364,6 @@ function App() {
     toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
 
-  // CÁLCULO DA BORDA SUTIL (1px / 1.5px) PARA OS WORKSPACES
   const getWorkspaceBorderStyle = () => {
     const activeWSColors = workspaces
       .filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))
@@ -405,17 +375,16 @@ function App() {
     }
 
     if (activeWSColors.length === 1) {
-      // Borda sólida única, bem fina
-      return { border: `1px solid ${activeWSColors[0]}` };
+      return { border: `1px solid ${activeWSColors[0]}`, overflow: 'visible' };
     } else if (activeWSColors.length > 1) {
-      // Padding reduzido para gradiente mais sutil
       return {
         padding: '1.5px',
         background: `linear-gradient(135deg, ${activeWSColors.join(', ')})`,
-        borderRadius: '16px'
+        borderRadius: '16px',
+        overflow: 'visible'
       };
     }
-    return { border: '1px solid var(--border-color)' };
+    return { border: '1px solid var(--border-color)', overflow: 'visible' };
   };
 
   const wsBorderStyle = getWorkspaceBorderStyle();
@@ -434,6 +403,7 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
+        {/* SIDEBAR COMPLETA */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -613,6 +583,7 @@ function App() {
             </div>
           </nav>
 
+          {/* SELETOR DE ANO E NAVEGAÇÃO SECUNDÁRIA COMPLETA */}
           <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
               <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', textAlign: 'center' }}>
@@ -628,30 +599,43 @@ function App() {
                 </div>
               )}
             </div>
+            
+            {/* DROPDOWN DO SELETOR DE ANO */}
+            {isYearSelectorOpen && (
+              <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {Array.from({ length: 16 }, (_, i) => {
+                  const year = currentDate.getFullYear() - 7 + i;
+                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
+                })}
+              </div>
+            )}
           </div>
         </header>
 
-        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px' }}>
+        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px', overflow: 'visible' }}>
           
-          {/* VISUALIZAÇÃO ANUAL COM BORDAS SUTIS REPLICADAS */}
+          {/* VISUALIZAÇÃO ANUAL COM BORDAS E OVERFLOW VISÍVEL */}
           {view === 'year' && (
-            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', overflow: 'visible' }}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(currentDate.getFullYear(), i, 1);
                 const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                 
                 return (
-                  <div key={i} style={activeWSForGradient.length > 1 ? { 
-                      background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                      padding: '1.5px',
-                      borderRadius: '16px'
-                    } : {}}>
+                  <div key={i} style={{ 
+                      ...(activeWSForGradient.length > 1 ? { 
+                        background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                        padding: '1.5px',
+                        borderRadius: '16px'
+                      } : {}),
+                      overflow: 'visible'
+                  }}>
                     <div style={{ 
-                        ...wsBorderStyle, 
+                        ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
                         borderRadius: '14px', 
                         background: 'var(--bg-primary)', 
                         height: '100%',
-                        overflow: 'hidden' 
+                        overflow: 'visible' 
                     }}>
                       <MiniMonth 
                         monthDate={monthDate} 
@@ -668,18 +652,22 @@ function App() {
             </div>
           )}
 
+          {/* VISUALIZAÇÃO MENSAL COM BORDAS E OVERFLOW VISÍVEL */}
           {view === 'month' && (
-            <div className="responsive-grid-container">
-              {/* WRAPPER COM GRADIENTE ULTRA-FINO (1.5px) */}
-              <div style={activeWorkspaces.length > 1 ? { 
-                  background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                  padding: '1.5px',
-                  borderRadius: '24px'
-                } : {}}>
+            <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
+              <div style={{ 
+                  ...(activeWorkspaces.length > 1 ? { 
+                    background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                    padding: '1.5px',
+                    borderRadius: '24px'
+                  } : {}),
+                  overflow: 'visible'
+                }}>
                 <div className="calendar-month-grid" style={{
-                  ...wsBorderStyle,
+                  ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
                   background: 'var(--bg-primary)',
-                  borderRadius: '22px'
+                  borderRadius: '22px',
+                  overflow: 'visible'
                 }}>
                   {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
                   {generateMonthDays(currentDate).map((day) => {
@@ -721,7 +709,7 @@ function App() {
           )}
         </main>
 
-        {/* MODAIS */}
+        {/* MODAIS COM Z-INDEX SUPERIOR */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -757,7 +745,7 @@ function App() {
             )}
         </div>
 
-        {/* MENU FAB */}
+        {/* MENU FAB COM Z-INDEX AJUSTADO E RÓTULOS */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
