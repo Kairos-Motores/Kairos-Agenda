@@ -135,14 +135,12 @@ export const useCalendar = () => {
     // --- BUSCA DE WORKSPACES ---
     const fetchWorkspaces = useCallback(async () => {
         try {
-            // Filtra workspaces onde o usuário é criador ou membro
             const filter = encodeURIComponent(`(cr4a1_criador_login eq '${user}') or (contains(cr4a1_membros_logins, '${user}'))`);
             const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filter}`);
             const data = await response.json();
             const wsList = data.value || [];
             setWorkspaces(wsList);
 
-            // Ativa todos por padrão na primeira carga
             if (activeWorkspaces.length === 0) {
                 setActiveWorkspaces(wsList.map(w => w.cr4a1_calendarios_workspacesid));
             }
@@ -185,7 +183,6 @@ export const useCalendar = () => {
         try {
             if (!navigator.onLine) throw new Error('Offline');
 
-            // Filtra eventos apenas dos workspaces ativos
             const wsFilter = activeWorkspaces.map(id => `cr4a1_workspace_id eq '${id}'`).join(' or ');
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
@@ -304,7 +301,7 @@ export const useCalendar = () => {
             cr4a1_detalhes: details,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
-            cr4a1_workspace_id: eventData.workspaceId // ENVIA O WORKSPACE
+            cr4a1_workspace_id: eventData.workspaceId 
         };
 
         const optimisticEvent = {
@@ -438,6 +435,27 @@ export const useCalendar = () => {
         }
     };
 
+    // --- NOVA FUNÇÃO DE UNIDADE (CORREÇÃO DO ReferenceError) ---
+    const updateUnit = async (userId, unit) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_unidade: unit })
+            });
+
+            if (response.ok) {
+                setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ? { ...u, cr4a1_unidade: unit } : u));
+                toast.success(`Unidade ${unit} configurada!`);
+            } else {
+                throw new Error('Falha no Dataverse');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao salvar unidade.");
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             const newWS = {
@@ -448,7 +466,6 @@ export const useCalendar = () => {
                 cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros
             };
 
-            // Note o "es" no final da tabela
             const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -459,12 +476,10 @@ export const useCalendar = () => {
                 toast.success("Workspace criado com sucesso!");
                 if (typeof fetchWorkspaces === 'function') await fetchWorkspaces();
             } else {
-                const error = await response.text();
-                console.error("Erro Dataverse:", error);
-                toast.error("Erro ao criar: Nome da tabela ou colunas incorretos.");
+                toast.error("Erro ao criar Workspace.");
             }
         } catch (err) {
-            console.error("Erro de rede:", err);
+            console.error(err);
         }
     };
 
@@ -475,7 +490,8 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace,
-        workspaces, activeWorkspaces, toggleWorkspaceFilter, // EXPOSTOS PARA O APP
+        updateUnit, // EXPOSTA PARA O ONBOARDING
+        workspaces, activeWorkspaces, toggleWorkspaceFilter,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };
