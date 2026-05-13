@@ -732,6 +732,7 @@ function App() {
                   </span>
                 </div>
               </div>
+            </div>
           </nav>
 
           <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
