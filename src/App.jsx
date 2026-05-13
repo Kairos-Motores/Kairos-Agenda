@@ -109,9 +109,9 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
       </div>
 
       {/* BOTÃO DO ROBÔ */}
-      <a 
-        href="https://wa.me/5591933005886" 
-        target="_blank" 
+      <a
+        href="https://wa.me/5591933005886"
+        target="_blank"
         rel="noopener noreferrer"
         style={{
           display: 'flex',
@@ -207,6 +207,27 @@ const materialColors = [
   { id: 'gold', hex: '#fbc02d', label: 'Ouro' }
 ];
 
+const OnboardingModal = ({ user, onSaveUnit }) => {
+  const [selectedUnit, setSelectedUnit] = React.useState('');
+  const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 20000, backgroundColor: 'var(--bg-page)' }}>
+      <div className="modal-content" style={{ maxWidth: '400px', width: '90%', textAlign: 'center', padding: '40px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
+        <span style={{ fontSize: '48px' }}>🏢</span>
+        <h2 style={{ margin: '20px 0 10px', color: 'var(--text-title)' }}>Bem-vindo à Kairós!</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Selecione sua unidade para configurar seu perfil:</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
+          {units.map(unit => (
+            <button key={unit} onClick={() => setSelectedUnit(unit)} style={{ padding: '14px', borderRadius: '12px', border: selectedUnit === unit ? '2px solid var(--text-accent)' : '1px solid var(--border-color)', background: selectedUnit === unit ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: selectedUnit === unit ? '700' : '500' }}>{unit}</button>
+          ))}
+        </div>
+        <button disabled={!selectedUnit} onClick={() => onSaveUnit(selectedUnit)} className="btn-primary" style={{ width: '100%', padding: '16px', opacity: selectedUnit ? 1 : 0.5 }}>Confirmar e Entrar</button>
+      </div>
+    </div>
+  );
+};
+
 // --- COMPONENTE PRINCIPAL ---
 
 function App() {
@@ -233,7 +254,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
-  
+
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
 
   const [clock, setClock] = useState(new Date());
@@ -319,6 +340,11 @@ function App() {
   );
 
   if (!user) return <LoginScreen onLogin={login} />;
+
+  const currentUser = allUsers.find(u => u.cr4a1_username === user);
+  if (currentUser && !currentUser.cr4a1_unidade) {
+    return <OnboardingModal user={user} onSaveUnit={(unit) => updateUnit(currentUser.cr4a1_usuarios_agendaid, unit)} />;
+  }
 
   const onTouchStart = (e) => {
     setTouchEnd(null);
@@ -539,7 +565,7 @@ function App() {
                         <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
                       </div>
                     </label>
-                    <button 
+                    <button
                       onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
                       className="icon-btn"
                       title="Definir como padrão"
@@ -555,12 +581,24 @@ function App() {
             </div>
 
             <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Filtro por Colega</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {allUsers.map(u => (
-                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                    <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)', width: '18px', height: '18px' }} />
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>{u.cr4a1_username}
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
+              <input
+                placeholder="Buscar colega..."
+                value={userSearchTerm}
+                onChange={e => setUserSearchTerm(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+                {allUsers.filter(u => {
+                  const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase());
+                  if (userRole === 'COMUM') return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
+                  return matchesSearch;
+                }).map(u => (
+                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '13px' }}>
+                    <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>
+                    <span style={{ flex: 1 }}>{u.cr4a1_username}</span>
+                    <span style={{ fontSize: '10px', opacity: 0.6 }}>{u.cr4a1_unidade}</span>
                   </label>
                 ))}
               </div>
@@ -577,7 +615,7 @@ function App() {
                 ))}
               </div>
             </div>
-            
+
             {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
               <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
             )}
@@ -672,36 +710,36 @@ function App() {
         </header>
 
         <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px', overflow: 'visible' }}>
-          
+
           {view === 'year' && (
             <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(currentDate.getFullYear(), i, 1);
                 const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
-                
+
                 return (
-                  <div key={i} style={{ 
-                      ...(activeWSForGradient.length > 1 ? { 
-                        background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                        padding: '1.5px',
-                        borderRadius: '16px'
-                      } : {}),
-                      overflow: 'visible'
+                  <div key={i} style={{
+                    ...(activeWSForGradient.length > 1 ? {
+                      background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                      padding: '1.5px',
+                      borderRadius: '16px'
+                    } : {}),
+                    overflow: 'visible'
                   }}>
-                    <div style={{ 
-                        ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                        borderRadius: '14px', 
-                        background: 'var(--bg-primary)', 
-                        height: '100%',
-                        overflow: 'visible' 
+                    <div style={{
+                      ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                      borderRadius: '14px',
+                      background: 'var(--bg-primary)',
+                      height: '100%',
+                      overflow: 'visible'
                     }}>
-                      <MiniMonth 
-                        monthDate={monthDate} 
-                        onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} 
-                        getEventsForDay={getEventsForDay} 
-                        holidays={holidays} 
-                        allUsers={allUsers} 
-                        onEditEvent={handleEditClick} 
+                      <MiniMonth
+                        monthDate={monthDate}
+                        onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
+                        getEventsForDay={getEventsForDay}
+                        holidays={holidays}
+                        allUsers={allUsers}
+                        onEditEvent={handleEditClick}
                       />
                     </div>
                   </div>
@@ -712,14 +750,14 @@ function App() {
 
           {view === 'month' && (
             <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
-              <div style={{ 
-                  ...(activeWorkspaces.length > 1 ? { 
-                    background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                    padding: '1.5px',
-                    borderRadius: '24px'
-                  } : {}),
-                  overflow: 'visible'
-                }}>
+              <div style={{
+                ...(activeWorkspaces.length > 1 ? {
+                  background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                  padding: '1.5px',
+                  borderRadius: '24px'
+                } : {}),
+                overflow: 'visible'
+              }}>
                 <div className="calendar-month-grid" style={{
                   ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
                   background: 'var(--bg-primary)',
@@ -767,39 +805,39 @@ function App() {
         </main>
 
         <div style={{ position: 'relative', zIndex: 9999 }}>
-            {isModalOpen && <EventModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onSave={handleSaveEvent}
-              initialDate={currentDate.toISOString()}
-              editingEvent={editingEvent}
-              userRole={userRole}
-              allUsers={allUsers}
-              eventTypes={eventTypes}
-              viewedUser={viewedUser}
-              workspaces={workspaces}
-            />}
-            {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
-            {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-            {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
-            
-            {isProfileModalOpen && (
-              <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-                {/* TAMANHO DO CONTAINER DO PERFIL AJUSTADO PARA RESPONSIVIDADE */}
-                <div className="modal-content" style={{ maxWidth: '450px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Meu Perfil</h2>
-                    <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}><span className="material-symbols-rounded">close</span></button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {(() => {
-                      const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                      return currentUserData ? (<WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />) : null;
-                    })()}
-                  </div>
+          {isModalOpen && <EventModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSaveEvent}
+            initialDate={currentDate.toISOString()}
+            editingEvent={editingEvent}
+            userRole={userRole}
+            allUsers={allUsers}
+            eventTypes={eventTypes}
+            viewedUser={viewedUser}
+            workspaces={workspaces}
+          />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
+          {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+          {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
+
+          {isProfileModalOpen && (
+            <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
+              {/* TAMANHO DO CONTAINER DO PERFIL AJUSTADO PARA RESPONSIVIDADE */}
+              <div className="modal-content" style={{ maxWidth: '450px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Meu Perfil</h2>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}><span className="material-symbols-rounded">close</span></button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {(() => {
+                    const currentUserData = allUsers.find(u => u.cr4a1_username === user);
+                    return currentUserData ? (<WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />) : null;
+                  })()}
                 </div>
               </div>
-            )}
+            </div>
+          )}
         </div>
 
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
@@ -820,11 +858,11 @@ function App() {
                 </div>
               </div>
             )}
-            <button 
-              className="fab-btn" 
+            <button
+              className="fab-btn"
               onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-              style={{ 
-                width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', 
+              style={{
+                width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)',
                 color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
               }}

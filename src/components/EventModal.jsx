@@ -271,6 +271,22 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                             onClick={async () => {
                                 if (!formData.title) return toast.error('Título obrigatório');
                                 if (!formData.workspaceId) return toast.error('Selecione um Workspace');
+
+                                const selectedWS = workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId);
+
+                                // TRAVA RH: Só RH e ADMIN postam em workspaces institucionais
+                                if (selectedWS?.cr4a1_tipo_workspace === 'RH' && userRole !== 'RH' && userRole !== 'ADMIN') {
+                                    return toast.error('Apenas o RH pode criar eventos neste Workspace.');
+                                }
+
+                                // TRAVA SECRETÁRIA: Só agenda para si ou para Diretoria
+                                if (userRole === 'SECRETARIA') {
+                                    const target = allUsers.find(u => u.cr4a1_username === formData.targetUser);
+                                    if (target?.cr4a1_role !== 'DIRETORIA' && formData.targetUser !== viewedUser) {
+                                        return toast.error('Você só tem permissão para agendar para a Diretoria.');
+                                    }
+                                }
+
                                 setIsSaving(true);
                                 try {
                                     await onSave({ ...formData, cr4a1_privado: isPrivate });
