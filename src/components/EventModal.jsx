@@ -9,12 +9,25 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         targetUser: '', allDay: false,
         workspaceId: '' // NOVO CAMPO
     });
-    
+
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    const commonEmojis = ['📝', '🤝', '🏠', '🔥', '📅', '⏰', '🚀', '⭐', '💡', '✅', '❌', '🏢', '💻', '📞', '✈️', '🚗', '🍴', '🎉', '⚽', '🎨'];
+    const commonEmojis = [
+        // Trabalho e Reuniões
+        '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
+        // Logística e Visitas
+        '🚗', '🏍️', '✈️', '🏨', '📍', '🗺️', '⛽', '🚚', '📦', '🔑', '🏠',
+        // Manutenção e Execução
+        '🛠️', '🏗️', '🔧', '🔨', '⚡', '🔋', '🛡️', '🎨', '🔍', '🧪',
+        // Status e Urgência
+        '⚠️', '✅', '❌', '🚩', '🕒', '⏳', '🔥', '💎', '🎯', '🚀',
+        // Comunicação e Documentos
+        '✉️', '📄', '⚖️', '💰', '💵', '💳', '📈', '📌', '🔔', '📱',
+        // Bem-estar e Pausas
+        '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
+    ];
 
     useEffect(() => {
         if (editingEvent) {
@@ -27,7 +40,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 startHour: editingEvent.cr4a1_hora_inicio || '08:00',
                 endHour: editingEvent.cr4a1_hora_fim || '09:00',
                 type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
-                details: editingEvent.cr4a1_detalhes || '',
+                details: editingEvent.cr4a1_details || '',
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
                 targetUser: editingEvent.cr4a1_user_login || viewedUser,
@@ -91,13 +104,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     };
 
     const inputStyle = {
-        width: '100%', marginBottom: '12px', padding: '12px 16px', boxSizing: 'border-box', 
-        borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', 
+        width: '100%', marginBottom: '12px', padding: '12px 16px', boxSizing: 'border-box',
+        borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
         color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', fontSize: '14px', transition: 'all 0.2s'
     };
 
     const customSelectStyle = {
-        padding: '10px 4px', borderRadius: '10px', border: '1px solid var(--border-color)', 
+        padding: '10px 4px', borderRadius: '10px', border: '1px solid var(--border-color)',
         background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none',
         fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none', boxSizing: 'border-box'
     };
@@ -116,9 +129,9 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                     {/* SELETOR DE WORKSPACE (OBRIGATÓRIO) */}
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>📁 Workspace Destino:</label>
-                        <select 
-                            value={formData.workspaceId} 
-                            style={{ ...inputStyle, border: '2px solid var(--border-color)' }} 
+                        <select
+                            value={formData.workspaceId}
+                            style={{ ...inputStyle, border: '2px solid var(--border-color)' }}
                             onChange={e => setFormData({ ...formData, workspaceId: e.target.value })}
                             required
                         >
@@ -134,9 +147,9 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                     {userRole === 'SECRETARIA' && (
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>👤 Agendar para:</label>
-                            <select 
-                                value={formData.targetUser} 
-                                style={{ ...inputStyle, border: '2px solid var(--text-accent)' }} 
+                            <select
+                                value={formData.targetUser}
+                                style={{ ...inputStyle, border: '2px solid var(--text-accent)' }}
                                 onChange={e => setFormData({ ...formData, targetUser: e.target.value })}
                             >
                                 {allUsers.map(u => (
@@ -149,19 +162,19 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                     )}
 
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', position: 'relative' }}>
-                        <input 
-                            placeholder="Título do compromisso..." 
-                            value={formData.title} 
-                            onChange={e => setFormData({ ...formData, title: e.target.value })} 
-                            style={{ ...inputStyle, flex: 1, minWidth: 0 }} 
+                        <input
+                            placeholder="Título do compromisso..."
+                            value={formData.title}
+                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                            style={{ ...inputStyle, flex: 1, minWidth: 0 }}
                         />
-                        <button 
+                        <button
                             onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
                             style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', fontSize: '20px', height: '45px', width: '45px', flexShrink: 0, cursor: 'pointer', boxSizing: 'border-box' }}
                         >
                             😊
                         </button>
-                        
+
                         {isEmojiPickerOpen && (
                             <div style={{ position: 'absolute', top: '50px', right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px', zIndex: 1100, boxShadow: 'var(--shadow-md)' }}>
                                 {commonEmojis.map(emoji => (
@@ -187,24 +200,24 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                             <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Início</label>
                                 <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                                    <select value={formData.startHour.split(':')[0]} onChange={e => handleStartHourChange(`${e.target.value}:${formData.startHour.split(':')[1]}`)} style={{...customSelectStyle, border: 'none'}}>
+                                    <select value={formData.startHour.split(':')[0]} onChange={e => handleStartHourChange(`${e.target.value}:${formData.startHour.split(':')[1]}`)} style={{ ...customSelectStyle, border: 'none' }}>
                                         {Array.from({ length: 24 }).map((_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}h</option>)}
                                     </select>
                                     <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-secondary)' }}>:</span>
-                                    <select value={formData.startHour.split(':')[1]} onChange={e => handleStartHourChange(`${formData.startHour.split(':')[0]}:${e.target.value}`)} style={{...customSelectStyle, border: 'none'}}>
+                                    <select value={formData.startHour.split(':')[1]} onChange={e => handleStartHourChange(`${formData.startHour.split(':')[0]}:${e.target.value}`)} style={{ ...customSelectStyle, border: 'none' }}>
                                         {Array.from({ length: 12 }).map((_, i) => <option key={i} value={String(i * 5).padStart(2, '0')}>{String(i * 5).padStart(2, '0')}m</option>)}
                                     </select>
                                 </div>
                             </div>
-                            
+
                             <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Hora Fim</label>
                                 <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                                    <select value={formData.endHour.split(':')[0]} onChange={e => setFormData({ ...formData, endHour: `${e.target.value}:${formData.endHour.split(':')[1]}` })} style={{...customSelectStyle, border: 'none'}}>
+                                    <select value={formData.endHour.split(':')[0]} onChange={e => setFormData({ ...formData, endHour: `${e.target.value}:${formData.endHour.split(':')[1]}` })} style={{ ...customSelectStyle, border: 'none' }}>
                                         {Array.from({ length: 24 }).map((_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}h</option>)}
                                     </select>
                                     <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-secondary)' }}>:</span>
-                                    <select value={formData.endHour.split(':')[1]} onChange={e => setFormData({ ...formData, endHour: `${formData.endHour.split(':')[0]}:${e.target.value}` })} style={{...customSelectStyle, border: 'none'}}>
+                                    <select value={formData.endHour.split(':')[1]} onChange={e => setFormData({ ...formData, endHour: `${formData.endHour.split(':')[0]}:${e.target.value}` })} style={{ ...customSelectStyle, border: 'none' }}>
                                         {Array.from({ length: 12 }).map((_, i) => <option key={i} value={String(i * 5).padStart(2, '0')}>{String(i * 5).padStart(2, '0')}m</option>)}
                                     </select>
                                 </div>
@@ -217,7 +230,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                             <input type="checkbox" checked={formData.allDay} onChange={e => setFormData({ ...formData, allDay: e.target.checked })} id="allDay" style={{ cursor: 'pointer' }} />
                             <label htmlFor="allDay" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500', whiteSpace: 'nowrap' }}>🌞 Dia Inteiro</label>
                         </div>
-                        
+
                         <div style={{ flex: '1 1 120px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}>
                             <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} id="isPrivate" style={{ cursor: 'pointer' }} />
                             <label htmlFor="isPrivate" style={{ fontSize: '12px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: '500', whiteSpace: 'nowrap' }}>🔒 Privado</label>
@@ -231,11 +244,11 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </select>
                     </div>
 
-                    <textarea 
-                        placeholder="Adicionar detalhes ou notas..." 
-                        value={formData.details} 
-                        onChange={e => setFormData({ ...formData, details: e.target.value })} 
-                        style={{ ...inputStyle, height: '80px', resize: 'none' }} 
+                    <textarea
+                        placeholder="Adicionar detalhes ou notas..."
+                        value={formData.details}
+                        onChange={e => setFormData({ ...formData, details: e.target.value })}
+                        style={{ ...inputStyle, height: '80px', resize: 'none' }}
                     />
 
                     <div style={{ marginBottom: '20px' }}>
@@ -253,7 +266,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         <button onClick={onClose} disabled={isSaving} className="btn-secondary" style={{ flex: '1 1 100px', boxSizing: 'border-box' }}>Cancelar</button>
-                        <button 
+                        <button
                             disabled={isSaving}
                             onClick={async () => {
                                 if (!formData.title) return toast.error('Título obrigatório');
@@ -261,10 +274,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                 setIsSaving(true);
                                 try {
                                     await onSave({ ...formData, cr4a1_privado: isPrivate });
-                                } catch(e) {
-                                    setIsSaving(false); 
+                                } catch (e) {
+                                    setIsSaving(false);
                                 }
-                            }} 
+                            }}
                             className="btn-primary"
                             style={{ flex: '2 1 160px', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer', boxSizing: 'border-box' }}
                         >

@@ -4,7 +4,23 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const [activeTab, setActiveTab] = useState('users');
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
-    
+    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+    const commonEmojis = [
+        // Trabalho e Reuniões
+        '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
+        // Logística e Visitas
+        '🚗', '🏍️', '✈️', '🏨', '📍', '🗺️', '⛽', '🚚', '📦', '🔑', '🏠',
+        // Manutenção e Execução
+        '🛠️', '🏗️', '🔧', '🔨', '⚡', '🔋', '🛡️', '🎨', '🔍', '🧪',
+        // Status e Urgência
+        '⚠️', '✅', '❌', '🚩', '🕒', '⏳', '🔥', '💎', '🎯', '🚀',
+        // Comunicação e Documentos
+        '✉️', '📄', '⚖️', '💰', '💵', '💳', '📈', '📌', '🔔', '📱',
+        // Bem-estar e Pausas
+        '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
+    ];
+
     if (!isOpen) return null;
 
     const tabStyle = (active) => ({
@@ -44,28 +60,37 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                         </div>
                     ) : (
                         <div>
-                            <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '150px' }}>
-                                    <input 
-                                        value={newTypeEmoji} 
-                                        onChange={e => setNewTypeEmoji(e.target.value)} 
-                                        style={{ width: '45px', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', textAlign: 'center' }} 
-                                        placeholder="Emoji"
-                                    />
+                            <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <button 
+                                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                                            style={{ width: '45px', height: '45px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            {newTypeEmoji}
+                                        </button>
+                                        {isEmojiPickerOpen && (
+                                            <div style={{ position: 'absolute', top: '50px', left: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px', zIndex: 1100, boxShadow: 'var(--shadow-md)', maxHeight: '200px', overflowY: 'auto' }}>
+                                                {commonEmojis.map(emoji => (
+                                                    <button key={emoji} onClick={() => { setNewTypeEmoji(emoji); setIsEmojiPickerOpen(false); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px' }}>{emoji}</button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                     <input 
                                         value={newTypeName} 
                                         onChange={e => setNewTypeName(e.target.value)} 
                                         style={{ flex: 1, padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} 
-                                        placeholder="Novo tipo..."
+                                        placeholder="Nome do novo tipo..."
                                     />
+                                    <button 
+                                        onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji); setNewTypeName(''); } }}
+                                        className="btn-primary"
+                                        style={{ padding: '10px 20px', borderRadius: '12px' }}
+                                    >
+                                        Add
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji); setNewTypeName(''); } }}
-                                    className="btn-primary"
-                                    style={{ padding: '10px 20px', borderRadius: '12px' }}
-                                >
-                                    Add
-                                </button>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
