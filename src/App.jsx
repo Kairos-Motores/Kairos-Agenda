@@ -228,6 +228,43 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
+const compressImage = (file, callback) => {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = (event) => {
+    const img = new Image();
+    img.src = event.target.result;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 400; // Define um tamanho máximo (400px é ótimo para perfil)
+      const MAX_HEIGHT = 400;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Converte para Base64 com qualidade reduzida (0.7 = 70%)
+      const dataurl = canvas.toDataURL('image/jpeg', 0.7);
+      callback(dataurl);
+    };
+  };
+};
+
 // --- COMPONENTE PRINCIPAL ---
 
 function App() {
@@ -672,24 +709,29 @@ function App() {
                 )}
                 <div
                   onClick={() => setIsProfileModalOpen(true)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)' }}
                 >
                   {currentUser?.cr4a1_foto ? (
-                    <img src={currentUser.cr4a1_foto} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <img
+                      src={currentUser.cr4a1_foto}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%', // Faz ficar redondo
+                        objectFit: 'cover', // Não distorce a foto
+                        border: '1px solid var(--border-color)'
+                      }}
+                    />
                   ) : (
-                    <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
+                    <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px' }}>
                       {user?.[0]?.toUpperCase()}
                     </span>
                   )}
-                  <span className="nav-label" style={{ color: 'var(--text-primary)' }}>
+                  <span className="nav-label" style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600' }}>
                     {currentUser?.cr4a1_nome_exibicao || user}
                   </span>
                 </div>
-                <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
-                  <span className="material-symbols-rounded">logout</span>
-                </button>
               </div>
-            </div>
           </nav>
 
           <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
@@ -832,10 +874,18 @@ function App() {
 
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-              <div className="modal-content" style={{ maxWidth: '450px', width: '100%', padding: '28px', borderRadius: '32px' }}>
+              <div className="modal-content" style={{
+                maxWidth: '450px',
+                width: '90%',
+                padding: '28px',
+                borderRadius: '32px',
+                background: 'var(--bg-primary)', // Corrigido: Fundo aplicado
+                border: '1px solid var(--border-color)', // Corrigido: Borda para definição
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+              }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px' }}>Editar Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
+                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Editar Perfil</h2>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
                 </div>
 
                 {(() => {
@@ -844,7 +894,6 @@ function App() {
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {/* SEÇÃO DA FOTO */}
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <div style={{ position: 'relative' }}>
                           {currentUserData.cr4a1_foto ? (
@@ -856,19 +905,28 @@ function App() {
                           )}
                           <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
-                            <input type="file" hidden accept="image/*" onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: reader.result });
-                                reader.readAsDataURL(file);
-                              }
-                            }} />
+                            <input
+                              type="file"
+                              hidden
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  // Chama a função de compressão antes de salvar
+                                  compressImage(file, (compressedBase64) => {
+                                    updateProfile(currentUserData.cr4a1_usuarios_agendaid, {
+                                      ...currentUserData,
+                                      nomeExibicao: currentUserData.cr4a1_nome_exibicao,
+                                      foto: compressedBase64
+                                    });
+                                  });
+                                }
+                              }}
+                            />
                           </label>
                         </div>
                       </div>
 
-                      {/* NOME DE EXIBIÇÃO */}
                       <div>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
@@ -886,11 +944,11 @@ function App() {
                         </div>
                       </div>
 
-                      {/* WHATSAPP (REAPROVEITADO) */}
                       <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
 
-                      <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        📍 Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
+                      <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
+                        Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
                       </div>
                     </div>
                   );
