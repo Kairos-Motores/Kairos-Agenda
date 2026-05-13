@@ -490,13 +490,14 @@ export const useCalendar = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cr4a1_nome_exibicao: profileData.nomeExibicao,
-                    cr4a1_foto: profileData.foto // String Base64
+                    cr4a1_foto: profileData.foto,
+                    cr4a1_aniversario: profileData.aniversario // <-- NOVO CAMPO
                 })
             });
 
             if (response.ok) {
                 setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
-                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto } : u
+                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto, cr4a1_aniversario: profileData.aniversario } : u
                 ));
                 toast.success("Perfil atualizado!");
             }
@@ -512,7 +513,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace,
-        updateUnit, updateProfile, 
+        updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

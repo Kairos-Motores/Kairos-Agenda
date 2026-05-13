@@ -18,6 +18,22 @@ import { applyDynamicTheme } from './utils/themeGenerator';
 
 // --- COMPONENTES AUXILIARES ---
 
+// Novo Componente de Animação de Aniversário
+const BirthdayCelebration = ({ name, onClose }) => (
+  <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
+    <div style={{ textAlign: 'center', padding: '40px' }}>
+      <div className="birthday-float" style={{ fontSize: '80px', marginBottom: '20px' }}>🎂</div>
+      <h1 style={{ color: 'white', fontSize: '32px', margin: '0 0 10px' }}>Parabéns, {name}! 🥳</h1>
+      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', marginBottom: '30px' }}>A equipe Kairós deseja a você um dia incrível!</p>
+      <button onClick={onClose} className="btn-primary" style={{ padding: '12px 32px' }}>Obrigado!</button>
+    </div>
+    <style>{`
+      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
+      .birthday-float { animation: float 3s ease-in-out infinite; }
+    `}</style>
+  </div>
+);
+
 const countryCodes = [
   { code: '+55', flag: '🇧🇷', name: 'Brasil' },
   { code: '+351', flag: '🇵🇹', name: 'Portugal' },
@@ -26,7 +42,6 @@ const countryCodes = [
   { code: '+34', flag: '🇪🇸', name: 'Espanha' }
 ];
 
-// Função de Compressão para evitar que fotos pesadas travem o banco
 const compressImage = (file, callback) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -96,15 +111,8 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
             value={selectedCountry.code}
             onChange={(e) => setSelectedCountry(countryCodes.find(c => c.code === e.target.value))}
             style={{
-              padding: '12px',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              fontSize: '16px',
-              cursor: 'pointer',
-              outline: 'none',
-              flex: '0 0 auto'
+              padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)',
+              background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '16px', outline: 'none', flex: '0 0 auto'
             }}
           >
             {countryCodes.map(c => (
@@ -118,15 +126,8 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
             style={{
-              flex: '1 1 120px',
-              padding: '12px',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              outline: 'none',
-              minWidth: '0'
+              flex: '1 1 120px', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)',
+              background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', minWidth: '0'
             }}
           />
 
@@ -145,19 +146,9 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          padding: '16px',
-          borderRadius: '16px',
-          background: '#25D366',
-          color: 'white',
-          textDecoration: 'none',
-          fontWeight: '700',
-          fontSize: '14px',
-          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)',
-          transition: 'transform 0.2s'
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
+          background: '#25D366', color: 'white', textDecoration: 'none', fontWeight: '700', fontSize: '14px',
+          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)', transition: 'transform 0.2s'
         }}
         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -286,10 +277,9 @@ function App() {
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [showBirthday, setShowBirthday] = useState(false); // NOVO ESTADO
 
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
-
-  const [clock, setClock] = useState(new Date());
   const [isScrolled, setIsScrolled] = useState(false);
 
   const [touchStart, setTouchStart] = useState(null);
@@ -300,6 +290,23 @@ function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
   );
+
+  // LÓGICA DE ANIVERSÁRIO
+  useEffect(() => {
+    if (user && allUsers.length > 0) {
+      const currentUserData = allUsers.find(u => u.cr4a1_username === user);
+      if (currentUserData?.cr4a1_aniversario) {
+        const today = format(new Date(), 'MM-dd');
+        const birthday = currentUserData.cr4a1_aniversario.substring(5, 10); // Formato YYYY-MM-DD
+        const sessionCelebrated = sessionStorage.getItem('kairos_birthday_celebrated');
+
+        if (today === birthday && !sessionCelebrated) {
+          setShowBirthday(true);
+          sessionStorage.setItem('kairos_birthday_celebrated', 'true');
+        }
+      }
+    }
+  }, [user, allUsers]);
 
   useEffect(() => {
     const checkNotifications = () => {
@@ -519,6 +526,9 @@ function App() {
         style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}
       >
         <Toaster position="bottom-center" />
+        
+        {/* CELEBRAÇÃO DE ANIVERSÁRIO */}
+        {showBirthday && <BirthdayCelebration name={currentUser?.cr4a1_nome_exibicao || user} onClose={() => setShowBirthday(false)} />}
 
         {isSidebarOpen && (
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
@@ -701,7 +711,6 @@ function App() {
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
-                {/* Visualização de Perfil no Header */}
                 <div
                   onClick={() => setIsProfileModalOpen(true)}
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
@@ -717,7 +726,6 @@ function App() {
                     {currentUser?.cr4a1_nome_exibicao || user}
                   </span>
                 </div>
-                {/* Botão de Sair Restaurado */}
                 <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
                   <span className="material-symbols-rounded">logout</span>
                 </button>
@@ -763,26 +771,15 @@ function App() {
                   <div key={i} style={{
                     ...(activeWSForGradient.length > 1 ? {
                       background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                      padding: '1.5px',
-                      borderRadius: '16px'
+                      padding: '1.5px', borderRadius: '16px'
                     } : {}),
                     overflow: 'visible'
                   }}>
                     <div style={{
                       ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                      borderRadius: '14px',
-                      background: 'var(--bg-primary)',
-                      height: '100%',
-                      overflow: 'visible'
+                      borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
                     }}>
-                      <MiniMonth
-                        monthDate={monthDate}
-                        onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
-                        getEventsForDay={getEventsForDay}
-                        holidays={holidays}
-                        allUsers={allUsers}
-                        onEditEvent={handleEditClick}
-                      />
+                      <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
                     </div>
                   </div>
                 );
@@ -795,16 +792,13 @@ function App() {
               <div style={{
                 ...(activeWorkspaces.length > 1 ? {
                   background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                  padding: '1.5px',
-                  borderRadius: '24px'
+                  padding: '1.5px', borderRadius: '24px'
                 } : {}),
                 overflow: 'visible'
               }}>
                 <div className="calendar-month-grid" style={{
                   ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                  background: 'var(--bg-primary)',
-                  borderRadius: '22px',
-                  overflow: 'visible'
+                  background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
                 }}>
                   {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
                   {generateMonthDays(currentDate).map((day) => {
@@ -834,47 +828,19 @@ function App() {
           {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
 
           {['day', '3days', 'week'].includes(view) && (
-            <DayView
-              selectedDate={currentDate}
-              viewType={view}
-              getEventsForDay={getEventsForDay}
-              holidays={holidays}
-              allUsers={allUsers}
-              onEdit={handleEditClick}
-              dayViewMode={dayViewMode}
-            />
+            <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
           )}
         </main>
 
         <div style={{ position: 'relative', zIndex: 9999 }}>
-          {isModalOpen && <EventModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            onSave={handleSaveEvent}
-            initialDate={currentDate.toISOString()}
-            editingEvent={editingEvent}
-            userRole={userRole}
-            allUsers={allUsers}
-            eventTypes={eventTypes}
-            viewedUser={viewedUser}
-            workspaces={workspaces}
-          />}
+          {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
 
-          {/* Modal de Perfil */}
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-              <div className="modal-content" style={{ 
-                maxWidth: '450px', 
-                width: '90%', 
-                padding: '28px', 
-                borderRadius: '32px', 
-                background: 'var(--bg-primary)', // Corrigido: Fundo agora é visível
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.3)' 
-              }}>
+              <div className="modal-content" style={{ maxWidth: '450px', width: '90%', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
@@ -901,7 +867,7 @@ function App() {
                               const file = e.target.files[0];
                               if (file) {
                                 compressImage(file, (compressedBase64) => {
-                                  updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64 });
+                                  updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64, aniversario: currentUserData.cr4a1_aniversario });
                                 });
                               }
                             }} />
@@ -912,16 +878,26 @@ function App() {
                       <div>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                          <input
-                            defaultValue={currentUserData.cr4a1_nome_exibicao || user}
-                            id="display-name-input"
-                            style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                          />
+                          <input defaultValue={currentUserData.cr4a1_nome_exibicao || user} id="display-name-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                           <button onClick={() => {
                             const val = document.getElementById('display-name-input').value;
-                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto });
+                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto, aniversario: currentUserData.cr4a1_aniversario });
                           }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
                             <span className="material-symbols-rounded">check</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* NOVO CAMPO: ANIVERSÁRIO */}
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                          <input type="date" defaultValue={currentUserData.cr4a1_aniversario} id="birthday-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                          <button onClick={() => {
+                            const val = document.getElementById('birthday-input').value;
+                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: currentUserData.cr4a1_foto, aniversario: val });
+                          }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
+                            <span className="material-symbols-rounded">save</span>
                           </button>
                         </div>
                       </div>
