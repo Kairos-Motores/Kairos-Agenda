@@ -301,7 +301,7 @@ export const useCalendar = () => {
             cr4a1_detalhes: details,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
-            cr4a1_workspace_id: eventData.workspaceId 
+            cr4a1_workspace_id: eventData.workspaceId
         };
 
         const optimisticEvent = {
@@ -483,6 +483,28 @@ export const useCalendar = () => {
         }
     };
 
+    const updateProfile = async (userId, profileData) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cr4a1_nome_exibicao: profileData.nomeExibicao,
+                    cr4a1_foto: profileData.foto // String Base64
+                })
+            });
+
+            if (response.ok) {
+                setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
+                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto } : u
+                ));
+                toast.success("Perfil atualizado!");
+            }
+        } catch (error) {
+            toast.error("Erro ao atualizar perfil.");
+        }
+    };
+
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
@@ -490,7 +512,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace,
-        updateUnit, // EXPOSTA PARA O ONBOARDING
+        updateUnit, updateProfile, 
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

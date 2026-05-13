@@ -234,7 +234,7 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp, addWorkspace, updateUnit,
+    updateWhatsApp, addWorkspace, updateUnit, updateProfile,
     workspaces, activeWorkspaces, toggleWorkspaceFilter
   } = useCalendar();
 
@@ -674,8 +674,16 @@ function App() {
                   onClick={() => setIsProfileModalOpen(true)}
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '6px 14px 6px 8px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
                 >
-                  <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>{user?.[0]?.toUpperCase()}</span>
-                  <span className="nav-label" style={{ color: 'var(--text-primary)' }}>{user}</span>
+                  {currentUser?.cr4a1_foto ? (
+                    <img src={currentUser.cr4a1_foto} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
+                      {user?.[0]?.toUpperCase()}
+                    </span>
+                  )}
+                  <span className="nav-label" style={{ color: 'var(--text-primary)' }}>
+                    {currentUser?.cr4a1_nome_exibicao || user}
+                  </span>
                 </div>
                 <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
                   <span className="material-symbols-rounded">logout</span>
@@ -823,19 +831,70 @@ function App() {
           {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
 
           {isProfileModalOpen && (
-            <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-              {/* TAMANHO DO CONTAINER DO PERFIL AJUSTADO PARA RESPONSIVIDADE */}
-              <div className="modal-content" style={{ maxWidth: '450px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}><span className="material-symbols-rounded">close</span></button>
+            <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
+              <div className="modal-content" style={{ maxWidth: '450px', width: '100%', padding: '28px', borderRadius: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ margin: 0, fontSize: '22px' }}>Editar Perfil</h2>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {(() => {
-                    const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                    return currentUserData ? (<WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />) : null;
-                  })()}
-                </div>
+
+                {(() => {
+                  const currentUserData = allUsers.find(u => u.cr4a1_username === user);
+                  if (!currentUserData) return null;
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* SEÇÃO DA FOTO */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ position: 'relative' }}>
+                          {currentUserData.cr4a1_foto ? (
+                            <img src={currentUserData.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
+                          ) : (
+                            <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', color: 'var(--text-accent)' }}>
+                              {user[0].toUpperCase()}
+                            </div>
+                          )}
+                          <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
+                            <input type="file" hidden accept="image/*" onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: reader.result });
+                                reader.readAsDataURL(file);
+                              }
+                            }} />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* NOME DE EXIBIÇÃO */}
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                          <input
+                            defaultValue={currentUserData.cr4a1_nome_exibicao || user}
+                            id="display-name-input"
+                            style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                          />
+                          <button onClick={() => {
+                            const val = document.getElementById('display-name-input').value;
+                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto });
+                          }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
+                            <span className="material-symbols-rounded">check</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* WHATSAPP (REAPROVEITADO) */}
+                      <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
+
+                      <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        📍 Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
