@@ -26,6 +26,40 @@ const countryCodes = [
   { code: '+34', flag: '🇪🇸', name: 'Espanha' }
 ];
 
+// Função de Compressão para evitar que fotos pesadas travem o banco
+const compressImage = (file, callback) => {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = (event) => {
+    const img = new Image();
+    img.src = event.target.result;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 400; 
+      const MAX_HEIGHT = 400;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataurl = canvas.toDataURL('image/jpeg', 0.7);
+      callback(dataurl);
+    };
+  };
+};
+
 const WhatsAppInput = ({ initialValue, onSave, userId }) => {
   const [selectedCountry, setSelectedCountry] = useState(countryCodes[0]);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -44,7 +78,6 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-      {/* INSTRUÇÕES DO WHATSAPP */}
       <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
         <p style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-primary)', margin: 0 }}>
           <strong>Para receber alertas no WhatsApp:</strong><br />
@@ -58,7 +91,6 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
           Seu Número
         </label>
-        {/* LAYOUT CORRIGIDO PARA MOBILE */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <select
             value={selectedCountry.code}
@@ -108,7 +140,6 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         </div>
       </div>
 
-      {/* BOTÃO DO ROBÔ */}
       <a
         href="https://wa.me/5591933005886"
         target="_blank"
@@ -226,43 +257,6 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
       </div>
     </div>
   );
-};
-
-const compressImage = (file, callback) => {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = (event) => {
-    const img = new Image();
-    img.src = event.target.result;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 400; // Define um tamanho máximo (400px é ótimo para perfil)
-      const MAX_HEIGHT = 400;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
-        }
-      } else {
-        if (height > MAX_HEIGHT) {
-          width *= MAX_HEIGHT / height;
-          height = MAX_HEIGHT;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Converte para Base64 com qualidade reduzida (0.7 = 70%)
-      const dataurl = canvas.toDataURL('image/jpeg', 0.7);
-      callback(dataurl);
-    };
-  };
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -707,30 +701,26 @@ function App() {
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
+                {/* Visualização de Perfil no Header */}
                 <div
                   onClick={() => setIsProfileModalOpen(true)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)' }}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
                 >
                   {currentUser?.cr4a1_foto ? (
-                    <img
-                      src={currentUser.cr4a1_foto}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%', // Faz ficar redondo
-                        objectFit: 'cover', // Não distorce a foto
-                        border: '1px solid var(--border-color)'
-                      }}
-                    />
+                    <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
                   ) : (
-                    <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px' }}>
+                    <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
                       {user?.[0]?.toUpperCase()}
                     </span>
                   )}
-                  <span className="nav-label" style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600' }}>
+                  <span className="nav-label" style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
                     {currentUser?.cr4a1_nome_exibicao || user}
                   </span>
                 </div>
+                {/* Botão de Sair Restaurado */}
+                <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
+                  <span className="material-symbols-rounded">logout</span>
+                </button>
               </div>
             </div>
           </nav>
@@ -873,19 +863,20 @@ function App() {
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
 
+          {/* Modal de Perfil */}
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-              <div className="modal-content" style={{
-                maxWidth: '450px',
-                width: '90%',
-                padding: '28px',
-                borderRadius: '32px',
-                background: 'var(--bg-primary)', // Corrigido: Fundo aplicado
-                border: '1px solid var(--border-color)', // Corrigido: Borda para definição
-                boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+              <div className="modal-content" style={{ 
+                maxWidth: '450px', 
+                width: '90%', 
+                padding: '28px', 
+                borderRadius: '32px', 
+                background: 'var(--bg-primary)', // Corrigido: Fundo agora é visível
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.3)' 
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Editar Perfil</h2>
+                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
                 </div>
 
@@ -906,24 +897,14 @@ function App() {
                           )}
                           <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
-                            <input
-                              type="file"
-                              hidden
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                  // Chama a função de compressão antes de salvar
-                                  compressImage(file, (compressedBase64) => {
-                                    updateProfile(currentUserData.cr4a1_usuarios_agendaid, {
-                                      ...currentUserData,
-                                      nomeExibicao: currentUserData.cr4a1_nome_exibicao,
-                                      foto: compressedBase64
-                                    });
-                                  });
-                                }
-                              }}
-                            />
+                            <input type="file" hidden accept="image/*" onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                compressImage(file, (compressedBase64) => {
+                                  updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64 });
+                                });
+                              }
+                            }} />
                           </label>
                         </div>
                       </div>
