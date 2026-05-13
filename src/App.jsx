@@ -43,55 +43,97 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
   }, [initialValue]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-      <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
-        WHATSAPP PARA ALERTAS
-      </label>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <select
-          value={selectedCountry.code}
-          onChange={(e) => setSelectedCountry(countryCodes.find(c => c.code === e.target.value))}
-          style={{
-            padding: '12px',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            fontSize: '16px',
-            cursor: 'pointer',
-            outline: 'none'
-          }}
-        >
-          {countryCodes.map(c => (
-            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-          ))}
-        </select>
-
-        <input
-          type="tel"
-          placeholder="Código de área + Número"
-          value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-          style={{
-            flex: 1,
-            padding: '12px',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            fontSize: '14px',
-            outline: 'none'
-          }}
-        />
-
-        <button
-          onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
-          className="icon-btn"
-          style={{ background: 'var(--text-accent)', color: 'white', width: '44px', borderRadius: '12px' }}
-        >
-          <span className="material-symbols-rounded">save</span>
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+      {/* INSTRUÇÕES DO WHATSAPP */}
+      <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+        <p style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-primary)', margin: 0 }}>
+          <strong>Para receber alertas no WhatsApp:</strong><br />
+          1. Salve seu número abaixo.<br />
+          2. Clique no botão verde abaixo para abrir o robô.<br />
+          3. Envie <strong>"Olá"</strong> para iniciar o vínculo.
+        </p>
       </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+          Seu Número
+        </label>
+        {/* LAYOUT CORRIGIDO PARA MOBILE */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <select
+            value={selectedCountry.code}
+            onChange={(e) => setSelectedCountry(countryCodes.find(c => c.code === e.target.value))}
+            style={{
+              padding: '12px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              fontSize: '16px',
+              cursor: 'pointer',
+              outline: 'none',
+              flex: '0 0 auto'
+            }}
+          >
+            {countryCodes.map(c => (
+              <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+            ))}
+          </select>
+
+          <input
+            type="tel"
+            placeholder="98985..."
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+            style={{
+              flex: '1 1 120px',
+              padding: '12px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              fontSize: '14px',
+              outline: 'none',
+              minWidth: '0'
+            }}
+          />
+
+          <button
+            onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
+            className="icon-btn"
+            style={{ background: 'var(--text-accent)', color: 'white', width: '48px', height: '48px', borderRadius: '12px', flex: '0 0 auto' }}
+          >
+            <span className="material-symbols-rounded">save</span>
+          </button>
+        </div>
+      </div>
+
+      {/* BOTÃO DO ROBÔ */}
+      <a 
+        href="https://wa.me/5591933005886" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          padding: '16px',
+          borderRadius: '16px',
+          background: '#25D366',
+          color: 'white',
+          textDecoration: 'none',
+          fontWeight: '700',
+          fontSize: '14px',
+          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)',
+          transition: 'transform 0.2s'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <span className="material-symbols-rounded">smart_toy</span>
+        Falar com Robô Kairós
+      </a>
     </div>
   );
 };
@@ -578,14 +620,12 @@ function App() {
                 </button>
               </div>
               <div className="nav-group">
-                {/* BOTÃO DE NOTIFICAÇÕES RESTAURADO */}
                 <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
                   <span className="material-symbols-rounded">notifications</span>
                 </button>
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
-                {/* BOTÃO DE GERENCIAMENTO RESTAURADO */}
                 {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                   <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                     <span className="material-symbols-rounded">group</span>
@@ -745,7 +785,8 @@ function App() {
             
             {isProfileModalOpen && (
               <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-                <div className="modal-content" style={{ maxWidth: '420px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* TAMANHO DO CONTAINER DO PERFIL AJUSTADO PARA RESPONSIVIDADE */}
+                <div className="modal-content" style={{ maxWidth: '450px', width: '100%', backgroundColor: 'var(--bg-primary)', padding: '28px', borderRadius: '32px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Meu Perfil</h2>
                     <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ background: 'var(--bg-tertiary)', borderRadius: '12px' }}><span className="material-symbols-rounded">close</span></button>
