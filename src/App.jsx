@@ -50,7 +50,7 @@ const compressImage = (file, callback) => {
     img.src = event.target.result;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 400; 
+      const MAX_WIDTH = 400;
       const MAX_HEIGHT = 400;
       let width = img.width;
       let height = img.height;
@@ -526,7 +526,7 @@ function App() {
         style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}
       >
         <Toaster position="bottom-center" />
-        
+
         {/* CELEBRAÇÃO DE ANIVERSÁRIO */}
         {showBirthday && <BirthdayCelebration name={currentUser?.cr4a1_nome_exibicao || user} onClose={() => setShowBirthday(false)} />}
 
@@ -839,9 +839,43 @@ function App() {
           {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
 
           {isProfileModalOpen && (
-            <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}>
-              <div className="modal-content" style={{ maxWidth: '450px', width: '90%', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div className="modal-overlay" style={{
+              zIndex: 10000,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px' // Margem de segurança para o modal não tocar no topo/base da tela
+            }}>
+              <div className="modal-content profile-modal" style={{
+                maxWidth: '450px',
+                width: '100%',
+                maxHeight: 'calc(100vh - 40px)', // Limita a altura para garantir o "respiro"
+                overflowY: 'auto', // Permite rolar o conteúdo se for maior que a tela
+                padding: '28px',
+                borderRadius: '32px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                position: 'relative',
+                scrollbarWidth: 'none', // Esconde scrollbar no Firefox
+                msOverflowStyle: 'none'  // Esconde scrollbar no IE/Edge
+              }}>
+                {/* Estilo para esconder a scrollbar no Chrome/Safari mas manter a função */}
+                <style>{`.profile-modal::-webkit-scrollbar { display: none; }`}</style>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  position: 'sticky', // Mantém o título visível ao rolar
+                  top: 0,
+                  background: 'var(--bg-primary)',
+                  zIndex: 10,
+                  paddingBottom: '10px'
+                }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
                 </div>
@@ -851,7 +885,8 @@ function App() {
                   if (!currentUserData) return null;
 
                   return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      {/* FOTO */}
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <div style={{ position: 'relative' }}>
                           {currentUserData.cr4a1_foto ? (
@@ -875,7 +910,8 @@ function App() {
                         </div>
                       </div>
 
-                      <div>
+                      {/* NOME DE EXIBIÇÃO */}
+                      <div className="input-group">
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                           <input defaultValue={currentUserData.cr4a1_nome_exibicao || user} id="display-name-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
@@ -888,8 +924,8 @@ function App() {
                         </div>
                       </div>
 
-                      {/* NOVO CAMPO: ANIVERSÁRIO */}
-                      <div>
+                      {/* ANIVERSÁRIO */}
+                      <div className="input-group">
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                           <input type="date" defaultValue={currentUserData.cr4a1_aniversario} id="birthday-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
@@ -902,9 +938,21 @@ function App() {
                         </div>
                       </div>
 
+                      {/* WHATSAPP */}
                       <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
 
-                      <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {/* RODAPÉ DO MODAL (Fixado na base do scroll) */}
+                      <div style={{
+                        marginTop: '10px',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        background: 'var(--bg-tertiary)',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
                         <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
                         Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
                       </div>
