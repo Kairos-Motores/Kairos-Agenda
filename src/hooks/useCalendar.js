@@ -159,7 +159,7 @@ export const useCalendar = () => {
 
     const fetchEventTypes = useCallback(async () => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.value && data.value.length > 0) {
@@ -385,7 +385,7 @@ export const useCalendar = () => {
                 return updated;
             });
 
-            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos`, {
+            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
@@ -400,7 +400,7 @@ export const useCalendar = () => {
 
     const deleteEventType = async (id) => {
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventos&id=${id}`, { method: 'DELETE' });
+            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses&id=${id}`, { method: 'DELETE' });
             fetchEventTypes();
         } catch (error) { console.error(error); }
     };
