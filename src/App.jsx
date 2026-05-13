@@ -296,6 +296,27 @@ function App() {
     if (isLeftSwipe && isSidebarOpen) setIsSidebarOpen(false);
   };
 
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Este navegador não suporta notificações.');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      toast.success('Notificações ativadas!', { icon: '🔔' });
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification('Kairós Agenda', {
+            body: 'As notificações estão funcionando perfeitamente!',
+            icon: '/icon-512.jpg'
+          });
+        });
+      }
+    } else {
+      toast.error('As notificações foram bloqueadas.');
+    }
+  };
+
   const handleSaveEvent = async (data) => {
     try {
       if (data.cr4a1_event_id) await updateEvent(data);
@@ -403,7 +424,6 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
-        {/* SIDEBAR COMPLETA */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -515,7 +535,7 @@ function App() {
                 ))}
               </div>
             </div>
-
+            
             {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
               <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
             )}
@@ -558,12 +578,14 @@ function App() {
                 </button>
               </div>
               <div className="nav-group">
+                {/* BOTÃO DE NOTIFICAÇÕES RESTAURADO */}
                 <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
                   <span className="material-symbols-rounded">notifications</span>
                 </button>
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
+                {/* BOTÃO DE GERENCIAMENTO RESTAURADO */}
                 {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
                   <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                     <span className="material-symbols-rounded">group</span>
@@ -583,7 +605,6 @@ function App() {
             </div>
           </nav>
 
-          {/* SELETOR DE ANO E NAVEGAÇÃO SECUNDÁRIA COMPLETA */}
           <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
               <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', textAlign: 'center' }}>
@@ -599,8 +620,6 @@ function App() {
                 </div>
               )}
             </div>
-            
-            {/* DROPDOWN DO SELETOR DE ANO */}
             {isYearSelectorOpen && (
               <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {Array.from({ length: 16 }, (_, i) => {
@@ -614,9 +633,8 @@ function App() {
 
         <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px', overflow: 'visible' }}>
           
-          {/* VISUALIZAÇÃO ANUAL COM BORDAS E OVERFLOW VISÍVEL */}
           {view === 'year' && (
-            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', overflow: 'visible' }}>
+            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(currentDate.getFullYear(), i, 1);
                 const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
@@ -652,7 +670,6 @@ function App() {
             </div>
           )}
 
-          {/* VISUALIZAÇÃO MENSAL COM BORDAS E OVERFLOW VISÍVEL */}
           {view === 'month' && (
             <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
               <div style={{ 
@@ -709,7 +726,6 @@ function App() {
           )}
         </main>
 
-        {/* MODAIS COM Z-INDEX SUPERIOR */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
             {isModalOpen && <EventModal
               isOpen={isModalOpen}
@@ -745,7 +761,6 @@ function App() {
             )}
         </div>
 
-        {/* MENU FAB COM Z-INDEX AJUSTADO E RÓTULOS */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
