@@ -259,6 +259,19 @@ function App() {
     workspaces, activeWorkspaces, toggleWorkspaceFilter
   } = useCalendar();
 
+  const viewsConfig = useMemo(() => [
+    { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
+    { id: 'month', label: 'Mês', icon: 'calendar_month' },
+    { id: 'week', label: 'Semana', icon: 'view_week' },
+    { id: '3days', label: '3 Dias', icon: 'view_timeline' },
+    { id: 'day', label: 'Dia', icon: 'view_day' },
+    { id: 'list', label: 'Fichas', icon: 'view_agenda' }
+  ], []);
+
+  const handleDragEnd = (e) => { 
+    if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); 
+  };
+
   const notifiedRef = useRef(new Set());
 
   const [isModalOpen, setIsModalOpen] = useState(false);
