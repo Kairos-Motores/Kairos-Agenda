@@ -516,6 +516,16 @@ function App() {
 
   const wsBorderStyle = getWorkspaceBorderStyle();
 
+  const toggleFilter = (type, value) => {
+    setFilters(prev => {
+        const currentList = [...prev[type]];
+        const index = currentList.indexOf(value);
+        if (index > -1) currentList.splice(index, 1);
+        else currentList.push(value);
+        return { ...prev, [type]: currentList };
+    });
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
       <div
@@ -550,17 +560,17 @@ function App() {
             </div>
 
             {/* OPÇÕES DE MODO (AGENDA VS TAREFAS) - APENAS MOBILE NO MENU SANDUÍCHE */}
-            {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
+            {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
-                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{
+                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
                 }}>
                   <span className="material-symbols-rounded">calendar_month</span> Agenda
                 </button>
-                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{
+                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
@@ -782,17 +792,16 @@ function App() {
           </div>
         </header>
 
-        {/* ESTRUTURA FLEXÍVEL SIDEBAR DIREITA */}
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
           <main className="main-container" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
-
-            {/* O SEGREDO DA ANIMAÇÃO BIDIRECIONAL ESTÁ NO KEY ABAIXO */}
+            
+            {/* KEY DINÂMICA PARA ANIMAÇÃO BILATERAL */}
             <div key={isTaskView ? 'tasks' : 'calendar'} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {isTaskView ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                  <header style={{ marginBottom: '20px' }}>
-                    <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Desenvolvimento e Inovação</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Tarefas planejadas pela Coordenação</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
+                  <header style={{ marginBottom: '10px' }}>
+                    <h2 style={{ color: 'var(--text-title)', fontSize: '26px', fontWeight: '800' }}>Desenvolvimento e Inovação</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Gerenciamento de sprints e demandas técnicas</p>
                   </header>
 
                   {taskEvents.length === 0 ? (
@@ -801,78 +810,79 @@ function App() {
                       <p>Nenhuma tarefa pendente neste workspace.</p>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                       {taskEvents.map(task => {
-                        // Lógica de cálculo de progresso (Supondo que 'task.cr4a1_subtasks' seja um JSON string)
-                        const subtasks = task.cr4a1_subtasks ? JSON.parse(task.cr4a1_subtasks) : [];
-                        const completedCount = subtasks.filter(s => s.completed).length;
-                        const totalCount = subtasks.length;
-                        const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                        // CÁLCULO DINÂMICO DE PROGRESSO E STATUS
+                        const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
+                        const completed = subtasks.filter(s => s.completed).length;
+                        const total = subtasks.length;
+                        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-                        // Lógica de Perspectiva (Atraso/Adiantamento)
-                        const today = new Date();
+                        const now = new Date();
+                        now.setHours(0,0,0,0);
                         const deadline = new Date(task.cr4a1_data_inicio);
-                        const isDelayed = today > deadline && percentage < 100;
+                        deadline.setHours(0,0,0,0);
+                        
+                        const isDelayed = now > deadline && percentage < 100;
 
                         return (
-                          <div
+                          <div 
                             key={task.cr4a1_agenda_kairosid}
-                            className="task-card-notion"
-                            style={{
-                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px',
-                              border: '1px solid var(--border-color)', marginBottom: '16px',
-                              boxShadow: '0 10px 30px rgba(0,0,0,0.05)', position: 'relative'
+                            style={{ 
+                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px', 
+                              border: `1px solid ${isDelayed ? '#ff4d4d44' : 'var(--border-color)'}`,
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
                             }}
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <div>
-                                <h3 style={{ margin: '0 0 8px', fontSize: '18px' }}>{task.cr4a1_titulo}</h3>
-                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                  {task.cr4a1_descricao || 'Sem descrição detalhada.'}
-                                </p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                  <span style={{ 
+                                    padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800',
+                                    background: isDelayed ? '#fee2e2' : (percentage === 100 ? '#dcfce7' : '#e0f2fe'), 
+                                    color: isDelayed ? '#ef4444' : (percentage === 100 ? '#22c55e' : '#0ea5e9')
+                                  }}>
+                                    {isDelayed ? 'ATRASADO' : (percentage === 100 ? 'CONCLUÍDO' : 'EM DIA')}
+                                  </span>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
+                                  </span>
+                                </div>
+                                <h3 style={{ fontSize: '20px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
                               </div>
-
-                              {/* Gráfico de Progresso Circular */}
-                              <div style={{ position: 'relative', width: '60px', height: '60px' }}>
-                                <svg width="60" height="60" viewBox="0 0 36 36">
-                                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
-                                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--text-accent)" strokeWidth="3" strokeDasharray={`${percentage}, 100`} />
-                                  <text x="18" y="20.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="var(--text-primary)">{percentage}%</text>
+                              
+                              {/* GRÁFICO CIRCULAR DE PROGRESSO */}
+                              <div style={{ position: 'relative', width: '54px', height: '54px', flexShrink: 0 }}>
+                                <svg width="54" height="54" viewBox="0 0 36 36">
+                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
+                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--text-accent)" strokeWidth="3" 
+                                    strokeDasharray={`${percentage}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
+                                  <text x="18" y="21" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--text-primary)">{percentage}%</text>
                                 </svg>
                               </div>
                             </div>
 
-                            {/* Indicador de Status */}
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                              <span style={{
-                                padding: '4px 12px', borderRadius: '100px', fontSize: '11px', fontWeight: '700',
-                                background: isDelayed ? '#fee2e2' : '#dcfce7', color: isDelayed ? '#ef4444' : '#22c55e'
-                              }}>
-                                {isDelayed ? '⚠️ ATRASADO' : (percentage === 100 ? '✅ CONCLUÍDO' : '🚀 NO PRAZO')}
-                              </span>
-                            </div>
+                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrientation: 'vertical', overflow: 'hidden' }}>
+                              {task.cr4a1_descricao || 'Sem descrição adicional.'}
+                            </p>
 
-                            {/* Lista de Subtarefas (Visualização Rápida) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {subtasks.slice(0, 3).map((sub, idx) => (
-                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: sub.completed ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
-                                    {sub.completed ? 'check_box' : 'check_box_outline_blank'}
-                                  </span>
-                                  <span style={{ textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1 }}>
-                                    {sub.text}
-                                  </span>
-                                </div>
-                              ))}
-                              {totalCount > 3 && <span style={{ fontSize: '12px', opacity: 0.5 }}>+ {totalCount - 3} itens...</span>}
-                            </div>
+                            {/* PREVIEW DO CHECKLIST ESTILO NOTION */}
+                            {total > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+                                {subtasks.slice(0, 3).map((s, i) => (
+                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', opacity: s.completed ? 0.6 : 1 }}>
+                                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: s.completed ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
+                                      {s.completed ? 'check_circle' : 'radio_button_unchecked'}
+                                    </span>
+                                    <span style={{ textDecoration: s.completed ? 'line-through' : 'none' }}>{s.text}</span>
+                                  </div>
+                                ))}
+                                {total > 3 && <span style={{ fontSize: '11px', opacity: 0.5, marginLeft: '26px' }}>+ {total - 3} subtarefas</span>}
+                              </div>
+                            )}
 
-                            <button
-                              onClick={() => handleEditClick(task)}
-                              className="btn-secondary"
-                              style={{ width: '100%', marginTop: '20px', borderRadius: '12px' }}
-                            >
-                              Abrir Checklist Completo
+                            <button onClick={() => handleEditClick(task)} className="btn-secondary" style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: '600' }}>
+                              Ver Detalhes e Checklist
                             </button>
                           </div>
                         );
@@ -938,19 +948,19 @@ function App() {
           </main>
 
           {/* BARRA LATERAL (DISCRETA À DIREITA) - APENAS DESKTOP ESTILO GOOGLE */}
-          {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
+          {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
             <aside className="desktop-only nav-sidebar-right" style={{
               width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
               height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
             }}>
-              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{
+              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{ 
                 width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
                 <span className="material-symbols-rounded">calendar_month</span>
               </button>
-              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{
+              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{ 
                 width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
@@ -993,7 +1003,8 @@ function App() {
           )}
         </div>
 
-        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
+        {/* FAB ACESSÍVEL PARA COMUM TAMBÉM (CRIAÇÃO PESSOAL) */}
+        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD' || userRole === 'COMUM') && (
           <div style={{ position: 'fixed', bottom: isTaskView ? '80px' : '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
@@ -1003,6 +1014,7 @@ function App() {
                     <span className="material-symbols-rounded">calendar_add_on</span>
                   </button>
                 </div>
+                {/* APENAS ADMIN/COORD CRIA WORKSPACES GLOBAIS, COMUM CRIA PESSOAL */}
                 <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
                   <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
