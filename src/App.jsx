@@ -713,29 +713,6 @@ function App() {
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
-                {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
-                  <button
-                    onClick={() => setIsTaskView(!isTaskView)}
-                    className="icon-btn"
-                    style={{
-                      background: isTaskView ? 'var(--text-accent)' : 'var(--bg-secondary)',
-                      color: isTaskView ? 'white' : 'var(--text-primary)',
-                      borderRadius: '12px',
-                      padding: '8px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <span className="material-symbols-rounded">
-                      {isTaskView ? 'calendar_today' : 'assignment'}
-                    </span>
-                    <span className="nav-label" style={{ fontSize: '12px', fontWeight: '700' }}>
-                      {isTaskView ? 'VER CALENDÁRIO' : 'MODO TAREFAS'}
-                    </span>
-                  </button>
-                )}
                 <div
                   onClick={() => setIsProfileModalOpen(true)}
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
@@ -784,260 +761,279 @@ function App() {
           </div>
         </header>
 
-        <main className="main-container view-enter" key={isTaskView ? 'tasks' : view} style={{ flex: 1, padding: isTaskView ? '20px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), overflow: 'visible' }}>
-          {isTaskView ? (
-            <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-              <header style={{ marginBottom: '20px' }}>
-                <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Ecossistema de Desenvolvimento</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Tarefas planejadas pela Coordenação</p>
-              </header>
+        {/* NOVO WRAPPER FLEXÍVEL */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'visible' }}>
 
-              {taskEvents.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '48px' }}>inventory_2</span>
-                  <p>Nenhuma tarefa pendente no workspace de Desenvolvimento e Inovação.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {taskEvents.map(task => (
-                    <div 
-                      key={task.cr4a1_agenda_kairosid}
-                      style={{ 
-                        background: 'var(--bg-primary)', 
-                        padding: '20px', 
-                        borderRadius: '24px', 
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                        <div style={{ 
-                          width: '40px', height: '40px', borderRadius: '12px', 
-                          background: 'var(--bg-tertiary)', display: 'flex', 
-                          alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)' 
-                        }}>
-                          <span className="material-symbols-rounded">code</span>
-                        </div>
-                        <div>
-                          <h3 style={{ fontSize: '16px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <button 
-                        onClick={() => handleEditClick(task)}
-                        className="btn-secondary"
-                        style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '13px', fontWeight: '600' }}
+          {/* CONTEÚDO PRINCIPAL (Calendário ou Tarefas) */}
+          <main className="main-container" style={{
+            flex: 1,
+            padding: isTaskView ? '24px' : '16px',
+            minWidth: 0 // Evita que o flex quebre em telas menores
+          }}>
+            {isTaskView ? <TaskView taskEvents={taskEvents} /> : <CalendarViews ... />}
+          </main>
+
+          {/* A NOVA BARRA ESTILO GOOGLE */}
+          <NavigationSidebar
+            isTaskView={isTaskView}
+            setIsTaskView={setIsTaskView}
+            userRole={userRole}
+          />
+
+          <main className="main-container view-enter" key={isTaskView ? 'tasks' : view} style={{ flex: 1, padding: isTaskView ? '20px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), overflow: 'visible' }}>
+            {isTaskView ? (
+              <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                <header style={{ marginBottom: '20px' }}>
+                  <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Ecossistema de Desenvolvimento</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Tarefas planejadas pela Coordenação</p>
+                </header>
+
+                {taskEvents.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '48px' }}>inventory_2</span>
+                    <p>Nenhuma tarefa pendente no workspace de Desenvolvimento e Inovação.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {taskEvents.map(task => (
+                      <div
+                        key={task.cr4a1_agenda_kairosid}
+                        style={{
+                          background: 'var(--bg-primary)',
+                          padding: '20px',
+                          borderRadius: '24px',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                        }}
                       >
-                        Preencher Detalhes
-                      </button>
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                          <div style={{
+                            width: '40px', height: '40px', borderRadius: '12px',
+                            background: 'var(--bg-tertiary)', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)'
+                          }}>
+                            <span className="material-symbols-rounded">code</span>
+                          </div>
+                          <div>
+                            <h3 style={{ fontSize: '16px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                              Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleEditClick(task)}
+                          className="btn-secondary"
+                          style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '13px', fontWeight: '600' }}
+                        >
+                          Preencher Detalhes
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {view === 'year' && (
+                  <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const monthDate = new Date(currentDate.getFullYear(), i, 1);
+                      const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
+
+                      return (
+                        <div key={i} style={{
+                          ...(activeWSForGradient.length > 1 ? {
+                            background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                            padding: '1.5px', borderRadius: '16px'
+                          } : {}),
+                          overflow: 'visible'
+                        }}>
+                          <div style={{
+                            ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                            borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
+                          }}>
+                            <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {view === 'month' && (
+                  <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
+                    <div style={{
+                      ...(activeWorkspaces.length > 1 ? {
+                        background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                        padding: '1.5px', borderRadius: '24px'
+                      } : {}),
+                      overflow: 'visible'
+                    }}>
+                      <div className="calendar-month-grid" style={{
+                        ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                        background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
+                      }}>
+                        {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
+                        {generateMonthDays(currentDate).map((day) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
+                          const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
+                          return (
+                            <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
+                              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
+                                {dayEvents.map(e => (
+                                  <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
+                                    <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                                      {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                    </div>
+                                  </DraggableEvent>
+                                ))}
+                              </div>
+                            </DroppableDay>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {view === 'year' && (
-                <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const monthDate = new Date(currentDate.getFullYear(), i, 1);
-                    const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
+                  </div>
+                )}
+
+                {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
+
+                {['day', '3days', 'week'].includes(view) && (
+                  <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
+                )}
+              </>
+            )}
+          </main>
+
+          <div style={{ position: 'relative', zIndex: 9999 }}>
+            {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
+            {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
+            {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+            {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
+
+            {isProfileModalOpen && (
+              <div className="modal-overlay" style={{
+                zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+              }}>
+                <div className="modal-content profile-modal" style={{
+                  maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none', msOverflowStyle: 'none'
+                }}>
+                  <style>{`.profile-modal::-webkit-scrollbar { display: none; }`}</style>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10, paddingBottom: '10px' }}>
+                    <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
+                    <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
+                  </div>
+
+                  {(() => {
+                    const currentUserData = allUsers.find(u => u.cr4a1_username === user);
+                    if (!currentUserData) return null;
 
                     return (
-                      <div key={i} style={{
-                        ...(activeWSForGradient.length > 1 ? {
-                          background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                          padding: '1.5px', borderRadius: '16px'
-                        } : {}),
-                        overflow: 'visible'
-                      }}>
-                        <div style={{
-                          ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                          borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
-                        }}>
-                          <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ position: 'relative' }}>
+                            {currentUserData.cr4a1_foto ? (
+                              <img src={currentUserData.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
+                            ) : (
+                              <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', color: 'var(--text-accent)' }}>
+                                {user[0].toUpperCase()}
+                              </div>
+                            )}
+                            <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
+                              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
+                              <input type="file" hidden accept="image/*" onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  compressImage(file, (compressedBase64) => {
+                                    updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64, aniversario: currentUserData.cr4a1_aniversario });
+                                  });
+                                }
+                              }} />
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="input-group">
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                            <input defaultValue={currentUserData.cr4a1_nome_exibicao || user} id="display-name-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                            <button onClick={() => {
+                              const val = document.getElementById('display-name-input').value;
+                              updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto, aniversario: currentUserData.cr4a1_aniversario });
+                            }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
+                              <span className="material-symbols-rounded">check</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="input-group">
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                            <input type="date" defaultValue={currentUserData.cr4a1_aniversario} id="birthday-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                            <button onClick={() => {
+                              const val = document.getElementById('birthday-input').value;
+                              updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: currentUserData.cr4a1_foto, aniversario: val });
+                            }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
+                              <span className="material-symbols-rounded">save</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
+
+                        <div style={{ marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
+                          Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
-
-              {view === 'month' && (
-                <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
-                  <div style={{
-                    ...(activeWorkspaces.length > 1 ? {
-                      background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                      padding: '1.5px', borderRadius: '24px'
-                    } : {}),
-                    overflow: 'visible'
-                  }}>
-                    <div className="calendar-month-grid" style={{
-                      ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                      background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
-                    }}>
-                      {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-                      {generateMonthDays(currentDate).map((day) => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                        const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
-                        return (
-                          <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
-                              {dayEvents.map(e => (
-                                <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                  <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                                    {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                                  </div>
-                                </DraggableEvent>
-                              ))}
-                            </div>
-                          </DroppableDay>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
-
-              {['day', '3days', 'week'].includes(view) && (
-                <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
-              )}
-            </>
-          )}
-        </main>
-
-        <div style={{ position: 'relative', zIndex: 9999 }}>
-          {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
-          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
-          {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-          {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
-
-          {isProfileModalOpen && (
-            <div className="modal-overlay" style={{
-              zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-            }}>
-              <div className="modal-content profile-modal" style={{
-                maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none', msOverflowStyle: 'none'
-              }}>
-                <style>{`.profile-modal::-webkit-scrollbar { display: none; }`}</style>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10, paddingBottom: '10px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
-                </div>
-
-                {(() => {
-                  const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                  if (!currentUserData) return null;
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ position: 'relative' }}>
-                          {currentUserData.cr4a1_foto ? (
-                            <img src={currentUserData.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
-                          ) : (
-                            <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', color: 'var(--text-accent)' }}>
-                              {user[0].toUpperCase()}
-                            </div>
-                          )}
-                          <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
-                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
-                            <input type="file" hidden accept="image/*" onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                compressImage(file, (compressedBase64) => {
-                                  updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64, aniversario: currentUserData.cr4a1_aniversario });
-                                });
-                              }
-                            }} />
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="input-group">
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                          <input defaultValue={currentUserData.cr4a1_nome_exibicao || user} id="display-name-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
-                          <button onClick={() => {
-                            const val = document.getElementById('display-name-input').value;
-                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto, aniversario: currentUserData.cr4a1_aniversario });
-                          }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
-                            <span className="material-symbols-rounded">check</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="input-group">
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                          <input type="date" defaultValue={currentUserData.cr4a1_aniversario} id="birthday-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
-                          <button onClick={() => {
-                            const val = document.getElementById('birthday-input').value;
-                            updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: currentUserData.cr4a1_foto, aniversario: val });
-                          }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
-                            <span className="material-symbols-rounded">save</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
-
-                      <div style={{ marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
-                        Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
-          <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
-            {isFabMenuOpen && (
-              <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                    <span className="material-symbols-rounded">calendar_add_on</span>
-                  </button>
-                </div>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                    <span className="material-symbols-rounded">workspaces</span>
-                  </button>
+                  })()}
                 </div>
               </div>
             )}
-            <button
-              className="fab-btn"
-              onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-              style={{
-                width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)',
-                color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
-                {isFabMenuOpen ? 'close' : 'add'}
-              </span>
-            </button>
           </div>
-        )}
-      </div>
+
+          {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
+            <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
+              {isFabMenuOpen && (
+                <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
+                    <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <span className="material-symbols-rounded">calendar_add_on</span>
+                    </button>
+                  </div>
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
+                    <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <span className="material-symbols-rounded">workspaces</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                className="fab-btn"
+                onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
+                style={{
+                  width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)',
+                  color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
+                  {isFabMenuOpen ? 'close' : 'add'}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
     </DndContext>
   );
 }
