@@ -283,6 +283,12 @@ function App() {
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
+  );
+
   const taskEvents = useMemo(() => {
     const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
     if (!devWorkspace) return [];
@@ -290,11 +296,6 @@ function App() {
   }, [events, workspaces]);
 
   const minSwipeDistance = 50;
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
-  );
 
   useEffect(() => {
     if (user && allUsers.length > 0) {
@@ -445,7 +446,7 @@ function App() {
   };
 
   const handleEditClick = (event) => {
-    if (userRole === 'SECRETARIA' || event.cr4a1_user_login === user) {
+    if (userRole === 'SECRETARIA' || userRole === 'COORD' || userRole === 'ADMIN' || event.cr4a1_user_login === user) {
       setEditingEvent(event); setIsModalOpen(true);
     } else {
       toast.error("Acesso Negado.", { icon: '🚫' });
@@ -462,24 +463,6 @@ function App() {
     else if (view === 'day') setCurrentDate(isNext ? addDays(currentDate, 1) : subDays(currentDate, 1));
     else setCurrentDate(isNext ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
   };
-
-  const viewsConfig = [
-    { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
-    { id: 'month', label: 'Mês', icon: 'calendar_month' },
-    { id: 'week', label: 'Semana', icon: 'view_week' },
-    { id: '3days', label: '3 Dias', icon: 'view_timeline' },
-    { id: 'day', label: 'Dia', icon: 'view_day' },
-    { id: 'list', label: 'Fichas', icon: 'view_agenda' }
-  ];
-
-  const toggleFilter = (type, val) => {
-    setFilters(prev => {
-      const current = prev[type];
-      return { ...prev, [type]: current.includes(val) ? current.filter(item => item !== val) : [...current, val] };
-    });
-  };
-
-  const handleDragEnd = (e) => { if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id); };
 
   const getDisplayEvents = () => {
     if (activeWorkspaces.length > 0) return filteredEvents;
@@ -536,6 +519,7 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
+        {/* SIDEBAR ESQUERDA (MENU) */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -666,6 +650,7 @@ function App() {
           </div>
         </div>
 
+        {/* HEADER */}
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
           <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -691,8 +676,8 @@ function App() {
               </select>
             </div>
 
-            <div className="nav-right">
-              <div className="nav-group">
+            <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+              <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={() => handleNavigate('prev')} className="icon-btn">
                   <span className="material-symbols-rounded">chevron_left</span>
                 </button>
@@ -701,7 +686,7 @@ function App() {
                   <span className="material-symbols-rounded">chevron_right</span>
                 </button>
               </div>
-              <div className="nav-group">
+              <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
                   <span className="material-symbols-rounded">notifications</span>
                 </button>
@@ -761,47 +746,30 @@ function App() {
           </div>
         </header>
 
-        {/* NOVO WRAPPER FLEXÍVEL */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'visible' }}>
-
-          {/* CONTEÚDO PRINCIPAL (Calendário ou Tarefas) */}
-          <main className="main-container" style={{
-            flex: 1,
-            padding: isTaskView ? '24px' : '16px',
-            minWidth: 0 // Evita que o flex quebre em telas menores
-          }}>
-            {isTaskView ? <TaskView taskEvents={taskEvents} /> : <CalendarViews ... />}
-          </main>
-
-          {/* A NOVA BARRA ESTILO GOOGLE */}
-          <NavigationSidebar
-            isTaskView={isTaskView}
-            setIsTaskView={setIsTaskView}
-            userRole={userRole}
-          />
-
-          <main className="main-container view-enter" key={isTaskView ? 'tasks' : view} style={{ flex: 1, padding: isTaskView ? '20px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), overflow: 'visible' }}>
+        {/* NOVO CONTEÚDO COM SIDEBAR LATERAL ESTILO GOOGLE */}
+        <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
+          <main className="main-container view-enter" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
             {isTaskView ? (
               <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                 <header style={{ marginBottom: '20px' }}>
-                  <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Ecossistema de Desenvolvimento</h2>
+                  <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Desenvolvimento e Inovação</h2>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Tarefas planejadas pela Coordenação</p>
                 </header>
 
                 {taskEvents.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
                     <span className="material-symbols-rounded" style={{ fontSize: '48px' }}>inventory_2</span>
-                    <p>Nenhuma tarefa pendente no workspace de Desenvolvimento e Inovação.</p>
+                    <p>Nenhuma tarefa pendente neste workspace.</p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {taskEvents.map(task => (
-                      <div
+                      <div 
                         key={task.cr4a1_agenda_kairosid}
-                        style={{
-                          background: 'var(--bg-primary)',
-                          padding: '20px',
-                          borderRadius: '24px',
+                        style={{ 
+                          background: 'var(--bg-primary)', 
+                          padding: '20px', 
+                          borderRadius: '24px', 
                           border: '1px solid var(--border-color)',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -810,28 +778,21 @@ function App() {
                         }}
                       >
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                          <div style={{
-                            width: '40px', height: '40px', borderRadius: '12px',
-                            background: 'var(--bg-tertiary)', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)'
+                          <div style={{ 
+                            width: '40px', height: '40px', borderRadius: '12px', 
+                            background: 'var(--bg-tertiary)', display: 'flex', 
+                            alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)' 
                           }}>
                             <span className="material-symbols-rounded">code</span>
                           </div>
                           <div>
                             <h3 style={{ fontSize: '16px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                              Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
+                              Prazo: {format(new Date(task.cr4a1_data_inicio), "dd/MM")}
                             </span>
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => handleEditClick(task)}
-                          className="btn-secondary"
-                          style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '13px', fontWeight: '600' }}
-                        >
-                          Preencher Detalhes
-                        </button>
+                        <button onClick={() => handleEditClick(task)} className="btn-secondary" style={{ borderRadius: '12px', padding: '8px 16px' }}>Detalhes</button>
                       </div>
                     ))}
                   </div>
@@ -844,19 +805,9 @@ function App() {
                     {Array.from({ length: 12 }, (_, i) => {
                       const monthDate = new Date(currentDate.getFullYear(), i, 1);
                       const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
-
                       return (
-                        <div key={i} style={{
-                          ...(activeWSForGradient.length > 1 ? {
-                            background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                            padding: '1.5px', borderRadius: '16px'
-                          } : {}),
-                          overflow: 'visible'
-                        }}>
-                          <div style={{
-                            ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                            borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
-                          }}>
+                        <div key={i} style={{ ...(activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
+                          <div style={{ ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
                             <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
                           </div>
                         </div>
@@ -867,17 +818,8 @@ function App() {
 
                 {view === 'month' && (
                   <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
-                    <div style={{
-                      ...(activeWorkspaces.length > 1 ? {
-                        background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                        padding: '1.5px', borderRadius: '24px'
-                      } : {}),
-                      overflow: 'visible'
-                    }}>
-                      <div className="calendar-month-grid" style={{
-                        ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                        background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
-                      }}>
+                    <div style={{ ...(activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), overflow: 'visible' }}>
+                      <div className="calendar-month-grid" style={{ ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }), background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible' }}>
                         {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
                         {generateMonthDays(currentDate).map((day) => {
                           const dateStr = format(day, 'yyyy-MM-dd');
@@ -912,128 +854,103 @@ function App() {
             )}
           </main>
 
-          <div style={{ position: 'relative', zIndex: 9999 }}>
-            {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
-            {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
-            {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-            {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
-
-            {isProfileModalOpen && (
-              <div className="modal-overlay" style={{
-                zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          {/* BARRA LATERAL E INFERIOR (NAVIGATION) */}
+          {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
+            <>
+              {/* DESKTOP SIDEBAR */}
+              <aside className="desktop-only" style={{
+                width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
+                height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
               }}>
-                <div className="modal-content profile-modal" style={{
-                  maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none', msOverflowStyle: 'none'
-                }}>
-                  <style>{`.profile-modal::-webkit-scrollbar { display: none; }`}</style>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10, paddingBottom: '10px' }}>
-                    <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
-                    <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
-                  </div>
+                <button onClick={() => setIsTaskView(false)} title="Agenda" style={{ width: '40px', height: '40px', borderRadius: '12px', border: 'none', background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-rounded">calendar_month</span>
+                </button>
+                <button onClick={() => setIsTaskView(true)} title="Tarefas" style={{ width: '40px', height: '40px', borderRadius: '12px', border: 'none', background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-rounded">assignment</span>
+                </button>
+              </aside>
 
-                  {(() => {
-                    const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-                    if (!currentUserData) return null;
+              {/* MOBILE BOTTOM NAV */}
+              <nav className="mobile-only" style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, height: '64px', background: 'var(--bg-primary)',
+                borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 5000, paddingBottom: 'env(safe-area-inset-bottom)'
+              }}>
+                <button onClick={() => setIsTaskView(false)} style={{ background: 'none', border: 'none', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-symbols-rounded">calendar_month</span>
+                  <span style={{ fontSize: '10px', fontWeight: '700' }}>Agenda</span>
+                </button>
+                <button onClick={() => setIsTaskView(true)} style={{ background: 'none', border: 'none', color: isTaskView ? 'var(--text-accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-symbols-rounded">assignment</span>
+                  <span style={{ fontSize: '10px', fontWeight: '700' }}>Tarefas</span>
+                </button>
+              </nav>
 
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ position: 'relative' }}>
-                            {currentUserData.cr4a1_foto ? (
-                              <img src={currentUserData.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
-                            ) : (
-                              <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', color: 'var(--text-accent)' }}>
-                                {user[0].toUpperCase()}
-                              </div>
-                            )}
-                            <label style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--text-accent)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--bg-primary)' }}>
-                              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
-                              <input type="file" hidden accept="image/*" onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                  compressImage(file, (compressedBase64) => {
-                                    updateProfile(currentUserData.cr4a1_usuarios_agendaid, { ...currentUserData, nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: compressedBase64, aniversario: currentUserData.cr4a1_aniversario });
-                                  });
-                                }
-                              }} />
-                            </label>
-                          </div>
-                        </div>
+              <style>{`
+                @media (max-width: 768px) { .desktop-only { display: none !important; } }
+                @media (min-width: 769px) { .mobile-only { display: none !important; } }
+              `}</style>
+            </>
+          )}
+        </div>
 
-                        <div className="input-group">
-                          <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                            <input defaultValue={currentUserData.cr4a1_nome_exibicao || user} id="display-name-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
-                            <button onClick={() => {
-                              const val = document.getElementById('display-name-input').value;
-                              updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: val, foto: currentUserData.cr4a1_foto, aniversario: currentUserData.cr4a1_aniversario });
-                            }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
-                              <span className="material-symbols-rounded">check</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="input-group">
-                          <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                            <input type="date" defaultValue={currentUserData.cr4a1_aniversario} id="birthday-input" style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
-                            <button onClick={() => {
-                              const val = document.getElementById('birthday-input').value;
-                              updateProfile(currentUserData.cr4a1_usuarios_agendaid, { nomeExibicao: currentUserData.cr4a1_nome_exibicao, foto: currentUserData.cr4a1_foto, aniversario: val });
-                            }} className="icon-btn" style={{ background: 'var(--text-accent)', color: 'white' }}>
-                              <span className="material-symbols-rounded">save</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
-
-                        <div style={{ marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
-                          Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
-                        </div>
-                      </div>
-                    );
-                  })()}
+        {/* MODAIS E COMPONENTES FIXOS */}
+        <div style={{ position: 'relative', zIndex: 9999 }}>
+          {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
+          {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
+          {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
+          {isProfileModalOpen && (
+            <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10 }}>
+                  <h2 style={{ margin: 0, fontSize: '22px' }}>Meu Perfil</h2>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
                 </div>
+                {currentUser && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <img src={currentUser.cr4a1_foto || ''} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
+                      <br /><button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '8px' }}>Trocar Foto</button>
+                      <input type="file" id="p-up" hidden accept="image/*" onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, foto: res }))} />
+                    </div>
+                    <div className="input-group">
+                      <label>Aniversário</label>
+                      <input type="date" defaultValue={currentUser.cr4a1_aniversario} id="b-up" style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                      <button onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, aniversario: document.getElementById('b-up').value })} className="btn-primary" style={{ marginTop: '8px', width: '100%' }}>Salvar</button>
+                    </div>
+                    <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
-            <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
-              {isFabMenuOpen && (
-                <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
-                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                    <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                      <span className="material-symbols-rounded">calendar_add_on</span>
-                    </button>
-                  </div>
-                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                    <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                      <span className="material-symbols-rounded">workspaces</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button
-                className="fab-btn"
-                onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-                style={{
-                  width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)',
-                  color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>
-                  {isFabMenuOpen ? 'close' : 'add'}
-                </span>
-              </button>
             </div>
           )}
         </div>
+
+        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
+          <div style={{ position: 'fixed', bottom: isTaskView ? '80px' : '24px', right: '24px', zIndex: 500 }}>
+            {isFabMenuOpen && (
+              <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
+                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
+                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    <span className="material-symbols-rounded">calendar_add_on</span>
+                  </button>
+                </div>
+                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
+                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    <span className="material-symbols-rounded">workspaces</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            <button className="fab-btn" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
+            </button>
+          </div>
+        )}
+      </div>
     </DndContext>
   );
 }
