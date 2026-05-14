@@ -283,6 +283,12 @@ function App() {
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const taskEvents = useMemo(() => {
+    const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
+    if (!devWorkspace) return [];
+    return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
+  }, [events, workspaces]);
+
   const minSwipeDistance = 50;
 
   const sensors = useSensors(
@@ -511,12 +517,6 @@ function App() {
     }
     return { border: '1px solid var(--border-color)', overflow: 'visible' };
   };
-
-  const taskEvents = useMemo(() => {
-    const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
-    if (!devWorkspace) return [];
-    return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
-  }, [events, workspaces]);
 
   const wsBorderStyle = getWorkspaceBorderStyle();
 
