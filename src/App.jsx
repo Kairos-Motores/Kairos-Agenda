@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
@@ -18,7 +18,6 @@ import { applyDynamicTheme } from './utils/themeGenerator';
 
 // --- COMPONENTES AUXILIARES ---
 
-// Novo Componente de Animação de Aniversário
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
     <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -267,7 +266,6 @@ function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
-  const [hoveredMonthDay, setHoveredMonthDay] = useState(null);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dayViewMode, setDayViewMode] = useState('timeline');
@@ -277,7 +275,8 @@ function App() {
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [showBirthday, setShowBirthday] = useState(false); // NOVO ESTADO
+  const [showBirthday, setShowBirthday] = useState(false);
+  const [isTaskView, setIsTaskView] = useState(false);
 
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
   const [isScrolled, setIsScrolled] = useState(false);
@@ -291,15 +290,13 @@ function App() {
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
   );
 
-  // LÓGICA DE ANIVERSÁRIO
   useEffect(() => {
     if (user && allUsers.length > 0) {
       const currentUserData = allUsers.find(u => u.cr4a1_username === user);
       if (currentUserData?.cr4a1_aniversario) {
         const today = format(new Date(), 'MM-dd');
-        const birthday = currentUserData.cr4a1_aniversario.substring(5, 10); // Formato YYYY-MM-DD
+        const birthday = currentUserData.cr4a1_aniversario.substring(5, 10);
         const sessionCelebrated = sessionStorage.getItem('kairos_birthday_celebrated');
-
         if (today === birthday && !sessionCelebrated) {
           setShowBirthday(true);
           sessionStorage.setItem('kairos_birthday_celebrated', 'true');
@@ -515,6 +512,12 @@ function App() {
     return { border: '1px solid var(--border-color)', overflow: 'visible' };
   };
 
+  const taskEvents = useMemo(() => {
+    const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
+    if (!devWorkspace) return [];
+    return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
+  }, [events, workspaces]);
+
   const wsBorderStyle = getWorkspaceBorderStyle();
 
   return (
@@ -527,7 +530,6 @@ function App() {
       >
         <Toaster position="bottom-center" />
 
-        {/* CELEBRAÇÃO DE ANIVERSÁRIO */}
         {showBirthday && <BirthdayCelebration name={currentUser?.cr4a1_nome_exibicao || user} onClose={() => setShowBirthday(false)} />}
 
         {isSidebarOpen && (
@@ -551,9 +553,9 @@ function App() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); }} className="nav-pill" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                  fontWeight: view === v.id ? '700' : '500', backgroundColor: view === v.id ? 'var(--bg-tertiary)' : 'transparent', color: view === v.id ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
+                  fontWeight: (view === v.id && !isTaskView) ? '700' : '500', backgroundColor: (view === v.id && !isTaskView) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
@@ -670,13 +672,13 @@ function App() {
               <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
               </button>
-              <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); setIsTaskView(false); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
                 <span className="nav-label">Kairós</span>
               </h1>
               <select
                 value={view}
-                onChange={(e) => setView(e.target.value)}
+                onChange={(e) => { setView(e.target.value); setIsTaskView(false); }}
                 style={{
                   appearance: 'none', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '6px 30px 6px 14px', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer',
                   backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235f6368%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
@@ -711,6 +713,29 @@ function App() {
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
+                {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
+                  <button
+                    onClick={() => setIsTaskView(!isTaskView)}
+                    className="icon-btn"
+                    style={{
+                      background: isTaskView ? 'var(--text-accent)' : 'var(--bg-secondary)',
+                      color: isTaskView ? 'white' : 'var(--text-primary)',
+                      borderRadius: '12px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <span className="material-symbols-rounded">
+                      {isTaskView ? 'calendar_today' : 'assignment'}
+                    </span>
+                    <span className="nav-label" style={{ fontSize: '12px', fontWeight: '700' }}>
+                      {isTaskView ? 'VER CALENDÁRIO' : 'MODO TAREFAS'}
+                    </span>
+                  </button>
+                )}
                 <div
                   onClick={() => setIsProfileModalOpen(true)}
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
@@ -741,7 +766,7 @@ function App() {
               <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
                 {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
               </span>
-              {view === 'day' && (
+              {!isTaskView && view === 'day' && (
                 <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
                   <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
                   <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
@@ -759,76 +784,135 @@ function App() {
           </div>
         </header>
 
-        <main className="main-container view-enter" key={view} style={{ flex: 1, padding: ['day', '3days', 'week'].includes(view) ? '0' : '16px', overflow: 'visible' }}>
+        <main className="main-container view-enter" key={isTaskView ? 'tasks' : view} style={{ flex: 1, padding: isTaskView ? '20px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), overflow: 'visible' }}>
+          {isTaskView ? (
+            <div className="view-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+              <header style={{ marginBottom: '20px' }}>
+                <h2 style={{ color: 'var(--text-title)', fontSize: '24px', fontWeight: '700' }}>Ecossistema de Desenvolvimento</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Tarefas planejadas pela Coordenação</p>
+              </header>
 
-          {view === 'year' && (
-            <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
-              {Array.from({ length: 12 }, (_, i) => {
-                const monthDate = new Date(currentDate.getFullYear(), i, 1);
-                const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
-
-                return (
-                  <div key={i} style={{
-                    ...(activeWSForGradient.length > 1 ? {
-                      background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                      padding: '1.5px', borderRadius: '16px'
-                    } : {}),
-                    overflow: 'visible'
-                  }}>
-                    <div style={{
-                      ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                      borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
-                    }}>
-                      <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {view === 'month' && (
-            <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
-              <div style={{
-                ...(activeWorkspaces.length > 1 ? {
-                  background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
-                  padding: '1.5px', borderRadius: '24px'
-                } : {}),
-                overflow: 'visible'
-              }}>
-                <div className="calendar-month-grid" style={{
-                  ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                  background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
-                }}>
-                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-                  {generateMonthDays(currentDate).map((day) => {
-                    const dateStr = format(day, 'yyyy-MM-dd');
-                    const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                    const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
-                    return (
-                      <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
-                          {dayEvents.map(e => (
-                            <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                              <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                                {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                              </div>
-                            </DraggableEvent>
-                          ))}
+              {taskEvents.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '48px' }}>inventory_2</span>
+                  <p>Nenhuma tarefa pendente no workspace de Desenvolvimento e Inovação.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {taskEvents.map(task => (
+                    <div 
+                      key={task.cr4a1_agenda_kairosid}
+                      style={{ 
+                        background: 'var(--bg-primary)', 
+                        padding: '20px', 
+                        borderRadius: '24px', 
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                        <div style={{ 
+                          width: '40px', height: '40px', borderRadius: '12px', 
+                          background: 'var(--bg-tertiary)', display: 'flex', 
+                          alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)' 
+                        }}>
+                          <span className="material-symbols-rounded">code</span>
                         </div>
-                      </DroppableDay>
+                        <div>
+                          <h3 style={{ fontSize: '16px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleEditClick(task)}
+                        className="btn-secondary"
+                        style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '13px', fontWeight: '600' }}
+                      >
+                        Preencher Detalhes
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {view === 'year' && (
+                <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthDate = new Date(currentDate.getFullYear(), i, 1);
+                    const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
+
+                    return (
+                      <div key={i} style={{
+                        ...(activeWSForGradient.length > 1 ? {
+                          background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                          padding: '1.5px', borderRadius: '16px'
+                        } : {}),
+                        overflow: 'visible'
+                      }}>
+                        <div style={{
+                          ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                          borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible'
+                        }}>
+                          <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
+              {view === 'month' && (
+                <div className="responsive-grid-container" style={{ overflow: 'visible' }}>
+                  <div style={{
+                    ...(activeWorkspaces.length > 1 ? {
+                      background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`,
+                      padding: '1.5px', borderRadius: '24px'
+                    } : {}),
+                    overflow: 'visible'
+                  }}>
+                    <div className="calendar-month-grid" style={{
+                      ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                      background: 'var(--bg-primary)', borderRadius: '22px', overflow: 'visible'
+                    }}>
+                      {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
+                      {generateMonthDays(currentDate).map((day) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
+                        const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
+                        return (
+                          <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px' }}>
+                              {dayEvents.map(e => (
+                                <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
+                                  <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                                    {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                  </div>
+                                </DraggableEvent>
+                              ))}
+                            </div>
+                          </DroppableDay>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-          {['day', '3days', 'week'].includes(view) && (
-            <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
+              {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} />}
+
+              {['day', '3days', 'week'].includes(view) && (
+                <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
+              )}
+            </>
           )}
         </main>
 
@@ -840,42 +924,13 @@ function App() {
 
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{
-              zIndex: 10000,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(6px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '20px' // Margem de segurança para o modal não tocar no topo/base da tela
+              zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
             }}>
               <div className="modal-content profile-modal" style={{
-                maxWidth: '450px',
-                width: '100%',
-                maxHeight: 'calc(100vh - 40px)', // Limita a altura para garantir o "respiro"
-                overflowY: 'auto', // Permite rolar o conteúdo se for maior que a tela
-                padding: '28px',
-                borderRadius: '32px',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                position: 'relative',
-                scrollbarWidth: 'none', // Esconde scrollbar no Firefox
-                msOverflowStyle: 'none'  // Esconde scrollbar no IE/Edge
+                maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none', msOverflowStyle: 'none'
               }}>
-                {/* Estilo para esconder a scrollbar no Chrome/Safari mas manter a função */}
                 <style>{`.profile-modal::-webkit-scrollbar { display: none; }`}</style>
-
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '24px',
-                  position: 'sticky', // Mantém o título visível ao rolar
-                  top: 0,
-                  background: 'var(--bg-primary)',
-                  zIndex: 10,
-                  paddingBottom: '10px'
-                }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10, paddingBottom: '10px' }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>✕</button>
                 </div>
@@ -886,7 +941,6 @@ function App() {
 
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      {/* FOTO */}
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <div style={{ position: 'relative' }}>
                           {currentUserData.cr4a1_foto ? (
@@ -910,7 +964,6 @@ function App() {
                         </div>
                       </div>
 
-                      {/* NOME DE EXIBIÇÃO */}
                       <div className="input-group">
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Como você quer ser chamado?</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
@@ -924,7 +977,6 @@ function App() {
                         </div>
                       </div>
 
-                      {/* ANIVERSÁRIO */}
                       <div className="input-group">
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Seu Aniversário</label>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
@@ -938,21 +990,9 @@ function App() {
                         </div>
                       </div>
 
-                      {/* WHATSAPP */}
                       <WhatsAppInput userId={currentUserData.cr4a1_usuarios_agendaid} initialValue={currentUserData.cr4a1_whatsapp} onSave={updateWhatsApp} />
 
-                      {/* RODAPÉ DO MODAL (Fixado na base do scroll) */}
-                      <div style={{
-                        marginTop: '10px',
-                        padding: '12px',
-                        borderRadius: '12px',
-                        background: 'var(--bg-tertiary)',
-                        fontSize: '12px',
-                        color: 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
+                      <div style={{ marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span>
                         Unidade: <strong>{currentUserData.cr4a1_unidade}</strong>
                       </div>
@@ -964,7 +1004,7 @@ function App() {
           )}
         </div>
 
-        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA') && (
+        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD') && (
           <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
