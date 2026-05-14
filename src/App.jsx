@@ -532,7 +532,7 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 3000, backdropFilter: 'blur(4px)', transition: 'opacity 0.3s' }} />
         )}
 
-        {/* SIDEBAR ESQUERDA (MENU) */}
+        {/* SIDEBAR ESQUERDA (HAMBURGER MENU) */}
         <div style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
@@ -540,7 +540,7 @@ function App() {
           borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
         }}>
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
               </h1>
@@ -548,7 +548,30 @@ function App() {
                 <span className="material-symbols-rounded">close</span>
               </button>
             </div>
+
+            {/* OPÇÕES DE MODO (AGENDA VS TAREFAS) - APENAS MOBILE NO MENU SANDUÍCHE */}
+            {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
+              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
+                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                  justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                  backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
+                  color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded">calendar_month</span> Agenda
+                </button>
+                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                  justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                  backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
+                  color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded">assignment</span> Tarefas
+                </button>
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
                 <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
@@ -759,7 +782,7 @@ function App() {
           </div>
         </header>
 
-        {/* NOVO CONTEÚDO COM SIDEBAR LATERAL ESTILO GOOGLE */}
+        {/* ESTRUTURA FLEXÍVEL SIDEBAR DIREITA */}
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
           <main className="main-container view-enter" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
             {isTaskView ? (
@@ -867,43 +890,26 @@ function App() {
             )}
           </main>
 
-          {/* BARRA LATERAL E INFERIOR (NAVIGATION) */}
+          {/* BARRA LATERAL (DISCRETA À DIREITA) - APENAS DESKTOP ESTILO GOOGLE */}
           {['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole) && (
-            <>
-              {/* DESKTOP SIDEBAR */}
-              <aside className="desktop-only" style={{
-                width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
-                height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
+            <aside className="desktop-only nav-sidebar-right" style={{
+              width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
+              height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
+            }}>
+              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{ 
+                width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
-                <button onClick={() => setIsTaskView(false)} title="Agenda" style={{ width: '40px', height: '40px', borderRadius: '12px', border: 'none', background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-rounded">calendar_month</span>
-                </button>
-                <button onClick={() => setIsTaskView(true)} title="Tarefas" style={{ width: '40px', height: '40px', borderRadius: '12px', border: 'none', background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-rounded">assignment</span>
-                </button>
-              </aside>
-
-              {/* MOBILE BOTTOM NAV */}
-              <nav className="mobile-only" style={{
-                position: 'fixed', bottom: 0, left: 0, right: 0, height: '64px', background: 'var(--bg-primary)',
-                borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 5000, paddingBottom: 'env(safe-area-inset-bottom)'
+                <span className="material-symbols-rounded">calendar_month</span>
+              </button>
+              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{ 
+                width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
-                <button onClick={() => setIsTaskView(false)} style={{ background: 'none', border: 'none', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span className="material-symbols-rounded">calendar_month</span>
-                  <span style={{ fontSize: '10px', fontWeight: '700' }}>Agenda</span>
-                </button>
-                <button onClick={() => setIsTaskView(true)} style={{ background: 'none', border: 'none', color: isTaskView ? 'var(--text-accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <span className="material-symbols-rounded">assignment</span>
-                  <span style={{ fontSize: '10px', fontWeight: '700' }}>Tarefas</span>
-                </button>
-              </nav>
-
-              <style>{`
-                @media (max-width: 768px) { .desktop-only { display: none !important; } }
-                @media (min-width: 769px) { .mobile-only { display: none !important; } }
-              `}</style>
-            </>
+                <span className="material-symbols-rounded">assignment</span>
+              </button>
+            </aside>
           )}
         </div>
 
@@ -964,6 +970,18 @@ function App() {
           </div>
         )}
       </div>
+      <style>{`
+        @media (max-width: 768px) { 
+          .desktop-only { display: none !important; } 
+          .mobile-only { display: flex !important; }
+        }
+        @media (min-width: 769px) { 
+          .mobile-only { display: none !important; } 
+          .desktop-only { display: flex !important; }
+        }
+        .nav-sidebar-right button.active { background: var(--bg-tertiary); color: var(--text-accent); }
+        .nav-sidebar-right button:hover { background: var(--bg-secondary); }
+      `}</style>
     </DndContext>
   );
 }
