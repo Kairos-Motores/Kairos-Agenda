@@ -17,7 +17,7 @@ export const useCalendar = () => {
 
     // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
-    const [activeWorkspaces, setActiveWorkspaces] = useState([]); // IDs selecionados
+    const [activeWorkspaces, setActiveWorkspaces] = useState([]); 
 
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -132,7 +132,6 @@ export const useCalendar = () => {
         }
     };
 
-    // --- BUSCA DE WORKSPACES ---
     const fetchWorkspaces = useCallback(async () => {
         try {
             const filter = encodeURIComponent(`(cr4a1_criador_login eq '${user}') or (contains(cr4a1_membros_logins, '${user}'))`);
@@ -198,7 +197,9 @@ export const useCalendar = () => {
                     ...e,
                     cr4a1_data_inicio: localStart,
                     cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
-                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim(),
+                    // MAPEAMENTO DAS SUBTASKS NO CARREGAMENTO
+                    cr4a1_subtasks: e.cr4a1_subtasks || "[]"
                 };
             });
             setEvents(mapped);
@@ -209,6 +210,7 @@ export const useCalendar = () => {
     }, [activeWorkspaces, user]);
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
+    
     useEffect(() => {
         if (user) {
             fetchUsers();
@@ -251,7 +253,8 @@ export const useCalendar = () => {
             allDay: event.cr4a1_dia_inteiro,
             details: event.cr4a1_detalhes,
             targetUser: event.cr4a1_user_login,
-            workspaceId: event.cr4a1_workspace_id
+            workspaceId: event.cr4a1_workspace_id,
+            cr4a1_subtasks: event.cr4a1_subtasks // Garante que as subtasks não se percam ao arrastar
         });
     };
 
@@ -299,6 +302,8 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: details,
+            // INCLUSÃO DAS SUBTASKS NO ENVIO
+            cr4a1_subtasks: eventData.cr4a1_subtasks,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
@@ -336,8 +341,12 @@ export const useCalendar = () => {
             cr4a1_data_inicio: utcStartDate, cr4a1_data_fim: utcEndDate,
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
-            cr4a1_tipo: eventData.type, cr4a1_detalhes: details,
-            cr4a1_privado: eventData.cr4a1_privado, cr4a1_arquivos: JSON.stringify(eventData.files || []),
+            cr4a1_tipo: eventData.type, 
+            cr4a1_detalhes: details,
+            // INCLUSÃO DAS SUBTASKS NO UPDATE
+            cr4a1_subtasks: eventData.cr4a1_subtasks,
+            cr4a1_privado: eventData.cr4a1_privado, 
+            cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
         };
 
@@ -435,7 +444,6 @@ export const useCalendar = () => {
         }
     };
 
-    // --- NOVA FUNÇÃO DE UNIDADE (CORREÇÃO DO ReferenceError) ---
     const updateUnit = async (userId, unit) => {
         try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
@@ -491,7 +499,7 @@ export const useCalendar = () => {
                 body: JSON.stringify({
                     cr4a1_nome_exibicao: profileData.nomeExibicao,
                     cr4a1_foto: profileData.foto,
-                    cr4a1_aniversario: profileData.aniversario // <-- NOVO CAMPO
+                    cr4a1_aniversario: profileData.aniversario
                 })
             });
 
