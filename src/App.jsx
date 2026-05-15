@@ -162,14 +162,12 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 const DraggableEvent = ({ event, children }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
-  // Corrigimos o DraggableEvent para respeitar os limites de tamanho (minWidth: 0, width: '100%')
   return <div ref={setNodeRef} style={{...style, minWidth: 0, width: '100%', boxSizing: 'border-box'}} {...listeners} {...attributes}>{children}</div>;
 };
 
 const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });
   return (
-    // Adicionado overflow hidden e minWidth 0 para impedir que os textos estiquem a tabela
     <div ref={setNodeRef} onClick={onClick} className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`} style={{ overflow: 'hidden', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       {children}
     </div>
@@ -309,6 +307,38 @@ function App() {
     if (!devWorkspace) return [];
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
+
+  // --- NOVA FUNÇÃO: MARCAR SUBTASK DIRETO NO CARD ---
+  const handleToggleSubtask = async (task, index) => {
+    try {
+        const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
+        const updatedSubtasks = [...subtasks];
+        updatedSubtasks[index].completed = !updatedSubtasks[index].completed;
+
+        // Persistência imediata no Dataverse
+        await updateEvent({
+            ...task,
+            cr4a1_subtasks: JSON.stringify(updatedSubtasks),
+            // Mapeamentos necessários para o Hook useCalendar processar o envio
+            title: task.cr4a1_titulo,
+            details: task.cr4a1_detalhes,
+            startDate: task.cr4a1_data_inicio,
+            endDate: task.cr4a1_data_fim,
+            startHour: task.cr4a1_hora_inicio,
+            endHour: task.cr4a1_hora_fim,
+            allDay: task.cr4a1_dia_inteiro,
+            targetUser: task.cr4a1_user_login,
+            workspaceId: task.cr4a1_workspace_id
+        });
+
+        if (updatedSubtasks[index].completed) {
+            toast.success(`Check! ${updatedSubtasks[index].text} concluído.`, { icon: '✅' });
+        }
+    } catch (error) {
+        toast.error("Erro ao atualizar subtarefa.");
+        console.error(error);
+    }
+  };
 
   const minSwipeDistance = 50;
 
@@ -813,14 +843,13 @@ function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                       {taskEvents.map(task => {
                         const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
-                        const completed = subtasks.filter(s => s.completed).length;
-                        const total = subtasks.length;
-                        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+                        const completedCount = subtasks.filter(s => s.completed).length;
+                        const totalSubtasks = subtasks.length;
+                        const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
 
                         const now = new Date();
                         now.setHours(0,0,0,0);
                         
-                        // FIX DA TAREFA: Usar data_fim (ou o fallback para data_inicio se não houver)
                         const deadlineDateStr = task.cr4a1_data_fim || task.cr4a1_data_inicio;
                         const deadline = new Date(deadlineDateStr);
                         deadline.setHours(0,0,0,0);
@@ -867,22 +896,26 @@ function App() {
                               {task.cr4a1_descricao || task.cr4a1_detalhes || 'Sem descrição adicional.'}
                             </p>
 
-                            {total > 0 && (
+                            {/* CHECKLIST INTERATIVO NO CARD */}
+                            {totalSubtasks > 0 && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-                                {subtasks.slice(0, 3).map((s, i) => (
-                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', opacity: s.completed ? 0.6 : 1 }}>
-                                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: s.completed ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
+                                {subtasks.map((s, i) => (
+                                  <div 
+                                    key={i} 
+                                    onClick={(e) => { e.stopPropagation(); handleToggleSubtask(task, i); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', opacity: s.completed ? 0.5 : 1, transition: 'opacity 0.2s' }}
+                                  >
+                                    <span className="material-symbols-rounded" style={{ fontSize: '20px', color: s.completed ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
                                       {s.completed ? 'check_circle' : 'radio_button_unchecked'}
                                     </span>
-                                    <span style={{ textDecoration: s.completed ? 'line-through' : 'none' }}>{s.text}</span>
+                                    <span style={{ textDecoration: s.completed ? 'line-through' : 'none', color: 'var(--text-primary)' }}>{s.text}</span>
                                   </div>
                                 ))}
-                                {total > 3 && <span style={{ fontSize: '11px', opacity: 0.5, marginLeft: '26px' }}>+ {total - 3} subtarefas</span>}
                               </div>
                             )}
 
                             <button onClick={() => handleEditClick(task)} className="btn-secondary" style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: '600' }}>
-                              Ver Detalhes e Checklist
+                              Ver Detalhes Completos
                             </button>
                           </div>
                         );
@@ -918,14 +951,11 @@ function App() {
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                             const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio && e.cr4a1_data_inicio.split('T')[0] === dateStr);
                             return (
-                              // FIX DO MÊS: Adicionado overflow hidden e minWidth 0 no DroppableDay
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
-                                {/* FIX DO MÊS: Adicionado minWidth: 0 e width: '100%' no wrapper dos eventos */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      {/* FIX DO MÊS: Adicionado width: '100%' e boxSizing: 'border-box' na tira (badge) */}
                                       <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
                                         {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                                       </div>
