@@ -332,7 +332,7 @@ function App() {
       const milestones = [30, 15, 5, 0];
       events.forEach(event => {
         if (event.cr4a1_dia_inteiro || !event.cr4a1_hora_inicio) return;
-        const [year, month, day] = event.cr4a1_data_inicio.split('-').map(Number);
+        const [year, month, day] = event.cr4a1_data_inicio.split('T')[0].split('-').map(Number);
         const [hours, minutes] = event.cr4a1_hora_inicio.split(':').map(Number);
         const eventDate = new Date(year, month - 1, day, hours, minutes, 0);
         const diffMs = eventDate - now;
@@ -817,10 +817,11 @@ function App() {
                         const total = subtasks.length;
                         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-                        // CORREÇÃO DO BUG DA DATA (FUSO HORÁRIO)
+                        // CORREÇÃO DO BUG DA DATA (FUSO HORÁRIO NATIVO)
                         const now = new Date();
                         now.setHours(0,0,0,0);
-                        const deadline = new Date(task.cr4a1_data_inicio + 'T00:00:00');
+                        const safeDateStr = task.cr4a1_data_inicio?.includes('T') ? task.cr4a1_data_inicio : (task.cr4a1_data_inicio + 'T12:00:00');
+                        const deadline = new Date(safeDateStr);
                         deadline.setHours(0,0,0,0);
                         
                         const isDelayed = now > deadline && percentage < 100;
@@ -862,7 +863,7 @@ function App() {
                             </div>
 
                             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrientation: 'vertical', overflow: 'hidden' }}>
-                              {task.cr4a1_descricao || 'Sem descrição adicional.'}
+                              {task.cr4a1_novacoluna || task.cr4a1_descricao || task.cr4a1_detalhes || 'Sem descrição adicional.'}
                             </p>
 
                             {total > 0 && (
@@ -914,7 +915,10 @@ function App() {
                           {generateMonthDays(currentDate).map((day) => {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                            const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio === dateStr);
+                            
+                            // Ajuste na leitura (Evita que o "T" quebre a checagem no Month View)
+                            const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio && e.cr4a1_data_inicio.split('T')[0] === dateStr);
+                            
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>

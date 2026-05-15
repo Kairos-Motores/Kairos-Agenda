@@ -49,7 +49,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 startHour: editingEvent.cr4a1_hora_inicio || '08:00',
                 endHour: editingEvent.cr4a1_hora_fim || '09:00',
                 type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
-                details: editingEvent.cr4a1_descricao || '', // MAPEAMENTO PARA cr4a1_descricao
+                details: editingEvent.cr4a1_novacoluna || editingEvent.cr4a1_descricao || '', // MAPEAMENTO PARA cr4a1_novacoluna
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
                 targetUser: editingEvent.cr4a1_user_login || viewedUser,
@@ -382,13 +382,17 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                                 setIsSaving(true);
                                 try {
-                                    // MAPEAMENTO FINAL PARA O DATAVERSE (CORREÇÃO DE PERSISTÊNCIA)
+                                    // MAPEAMENTO FINAL PARA O DATAVERSE COM AJUSTE DE FUSO E NOME DE COLUNA
                                     await onSave({ 
                                         ...formData, 
                                         cr4a1_titulo: formData.title,
-                                        cr4a1_descricao: formData.details, // Salva na coluna de descrição
+                                        cr4a1_novacoluna: formData.details, // Utilizando a coluna corrigida para Dataverse
                                         cr4a1_subtasks: JSON.stringify(subtasks), // Salva o checklist como JSON
-                                        cr4a1_privado: isPrivate 
+                                        cr4a1_privado: isPrivate,
+                                        cr4a1_dia_inteiro: formData.allDay,
+                                        // SOLUÇÃO DO FUSO HORÁRIO PARA EVENTOS DE DIA INTEIRO: Adiciona T12:00:00
+                                        cr4a1_data_inicio: formData.allDay ? `${formData.startDate}T12:00:00` : `${formData.startDate}T${formData.startHour}:00`,
+                                        cr4a1_data_fim: formData.allDay ? `${formData.endDate}T12:00:00` : `${formData.endDate}T${formData.endHour}:00`
                                     });
                                 } catch (e) {
                                     setIsSaving(false);
