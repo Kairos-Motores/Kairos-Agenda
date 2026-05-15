@@ -162,7 +162,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 const DraggableEvent = ({ event, children }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
-  return <div ref={setNodeRef} style={{...style, minWidth: 0, width: '100%', boxSizing: 'border-box'}} {...listeners} {...attributes}>{children}</div>;
+  return <div ref={setNodeRef} style={{ ...style, minWidth: 0, width: '100%', boxSizing: 'border-box' }} {...listeners} {...attributes}>{children}</div>;
 };
 
 const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
@@ -311,32 +311,40 @@ function App() {
   // --- NOVA FUNÇÃO: MARCAR SUBTASK DIRETO NO CARD ---
   const handleToggleSubtask = async (task, index) => {
     try {
-        const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
-        const updatedSubtasks = [...subtasks];
-        updatedSubtasks[index].completed = !updatedSubtasks[index].completed;
+      const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
+      const updatedSubtasks = [...subtasks];
+      updatedSubtasks[index].completed = !updatedSubtasks[index].completed;
 
-        // Persistência imediata no Dataverse
-        await updateEvent({
-            ...task,
-            cr4a1_subtasks: JSON.stringify(updatedSubtasks),
-            // Mapeamentos necessários para o Hook useCalendar processar o envio
-            title: task.cr4a1_titulo,
-            details: task.cr4a1_detalhes,
-            startDate: task.cr4a1_data_inicio,
-            endDate: task.cr4a1_data_fim,
-            startHour: task.cr4a1_hora_inicio,
-            endHour: task.cr4a1_hora_fim,
-            allDay: task.cr4a1_dia_inteiro,
-            targetUser: task.cr4a1_user_login,
-            workspaceId: task.cr4a1_workspace_id
+      // RESOLUÇÃO DO RangeError: Extraímos apenas a parte da data (YYYY-MM-DD)
+      // Isso evita que o Hook receba "2026-05-15T12:00:00T08:00", o que quebra o Date.toISOString()
+      const cleanStartDate = task.cr4a1_data_inicio ? task.cr4a1_data_inicio.split('T')[0] : '';
+      const cleanEndDate = task.cr4a1_data_fim ? task.cr4a1_data_fim.split('T')[0] : cleanStartDate;
+
+      // Persistência imediata no Dataverse
+      await updateEvent({
+        ...task,
+        cr4a1_subtasks: JSON.stringify(updatedSubtasks),
+        // Mapeamentos obrigatórios que o Hook useCalendar espera receber:
+        title: task.cr4a1_titulo,
+        details: task.cr4a1_detalhes || task.cr4a1_descricao || '',
+        startDate: cleanStartDate,
+        endDate: cleanEndDate,
+        startHour: task.cr4a1_hora_inicio || '08:00',
+        endHour: task.cr4a1_hora_fim || '09:00',
+        allDay: task.cr4a1_dia_inteiro,
+        targetUser: task.cr4a1_user_login,
+        workspaceId: task.cr4a1_workspace_id
+      });
+
+      if (updatedSubtasks[index].completed) {
+        toast.success(`Concluído: ${updatedSubtasks[index].text}`, {
+          icon: '✅',
+          style: { borderRadius: '16px', background: 'var(--bg-primary)', color: 'var(--text-primary)' }
         });
-
-        if (updatedSubtasks[index].completed) {
-            toast.success(`Check! ${updatedSubtasks[index].text} concluído.`, { icon: '✅' });
-        }
+      }
     } catch (error) {
-        toast.error("Erro ao atualizar subtarefa.");
-        console.error(error);
+      toast.error("Erro ao atualizar tarefa.");
+      console.error("Erro ao toggle subtask:", error);
     }
   };
 
@@ -550,11 +558,11 @@ function App() {
 
   const toggleFilter = (type, value) => {
     setFilters(prev => {
-        const currentList = [...prev[type]];
-        const index = currentList.indexOf(value);
-        if (index > -1) currentList.splice(index, 1);
-        else currentList.push(value);
-        return { ...prev, [type]: currentList };
+      const currentList = [...prev[type]];
+      const index = currentList.indexOf(value);
+      if (index > -1) currentList.splice(index, 1);
+      else currentList.push(value);
+      return { ...prev, [type]: currentList };
     });
   };
 
@@ -594,14 +602,14 @@ function App() {
             {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
-                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
                 }}>
                   <span className="material-symbols-rounded">calendar_month</span> Agenda
                 </button>
-                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
@@ -825,7 +833,7 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
           <main className="main-container" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
-            
+
             <div key={isTaskView ? 'tasks' : 'calendar'} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {isTaskView ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
@@ -848,19 +856,19 @@ function App() {
                         const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
 
                         const now = new Date();
-                        now.setHours(0,0,0,0);
-                        
+                        now.setHours(0, 0, 0, 0);
+
                         const deadlineDateStr = task.cr4a1_data_fim || task.cr4a1_data_inicio;
                         const deadline = new Date(deadlineDateStr);
-                        deadline.setHours(0,0,0,0);
-                        
+                        deadline.setHours(0, 0, 0, 0);
+
                         const isDelayed = now > deadline && percentage < 100;
 
                         return (
-                          <div 
+                          <div
                             key={task.cr4a1_agenda_kairosid}
-                            style={{ 
-                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px', 
+                            style={{
+                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px',
                               border: `1px solid ${isDelayed ? '#ff4d4d44' : 'var(--border-color)'}`,
                               boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
                             }}
@@ -868,9 +876,9 @@ function App() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                  <span style={{ 
+                                  <span style={{
                                     padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800',
-                                    background: isDelayed ? '#fee2e2' : (percentage === 100 ? '#dcfce7' : '#e0f2fe'), 
+                                    background: isDelayed ? '#fee2e2' : (percentage === 100 ? '#dcfce7' : '#e0f2fe'),
                                     color: isDelayed ? '#ef4444' : (percentage === 100 ? '#22c55e' : '#0ea5e9')
                                   }}>
                                     {isDelayed ? 'ATRASADO' : (percentage === 100 ? 'CONCLUÍDO' : 'EM DIA')}
@@ -881,11 +889,11 @@ function App() {
                                 </div>
                                 <h3 style={{ fontSize: '20px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
                               </div>
-                              
+
                               <div style={{ position: 'relative', width: '54px', height: '54px', flexShrink: 0 }}>
                                 <svg width="54" height="54" viewBox="0 0 36 36">
                                   <circle cx="18" cy="18" r="16" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
-                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--text-accent)" strokeWidth="3" 
+                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--text-accent)" strokeWidth="3"
                                     strokeDasharray={`${percentage}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
                                   <text x="18" y="21" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--text-primary)">{percentage}%</text>
                                 </svg>
@@ -900,8 +908,8 @@ function App() {
                             {totalSubtasks > 0 && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
                                 {subtasks.map((s, i) => (
-                                  <div 
-                                    key={i} 
+                                  <div
+                                    key={i}
                                     onClick={(e) => { e.stopPropagation(); handleToggleSubtask(task, i); }}
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', opacity: s.completed ? 0.5 : 1, transition: 'opacity 0.2s' }}
                                   >
@@ -987,13 +995,13 @@ function App() {
               display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
               height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
             }}>
-              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{ 
+              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{
                 width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
                 <span className="material-symbols-rounded">calendar_month</span>
               </button>
-              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{ 
+              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{
                 width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
