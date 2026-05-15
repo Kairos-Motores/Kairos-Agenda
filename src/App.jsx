@@ -812,15 +812,15 @@ function App() {
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                       {taskEvents.map(task => {
-                        // CÁLCULO DINÂMICO DE PROGRESSO E STATUS
                         const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
                         const completed = subtasks.filter(s => s.completed).length;
                         const total = subtasks.length;
                         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+                        // CORREÇÃO DO BUG DA DATA (FUSO HORÁRIO)
                         const now = new Date();
                         now.setHours(0,0,0,0);
-                        const deadline = new Date(task.cr4a1_data_inicio);
+                        const deadline = new Date(task.cr4a1_data_inicio + 'T00:00:00');
                         deadline.setHours(0,0,0,0);
                         
                         const isDelayed = now > deadline && percentage < 100;
@@ -845,13 +845,12 @@ function App() {
                                     {isDelayed ? 'ATRASADO' : (percentage === 100 ? 'CONCLUÍDO' : 'EM DIA')}
                                   </span>
                                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                    Prazo: {format(new Date(task.cr4a1_data_inicio), "dd 'de' MMM", { locale: ptBR })}
+                                    Prazo: {format(deadline, "dd 'de' MMM", { locale: ptBR })}
                                   </span>
                                 </div>
                                 <h3 style={{ fontSize: '20px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
                               </div>
                               
-                              {/* GRÁFICO CIRCULAR DE PROGRESSO */}
                               <div style={{ position: 'relative', width: '54px', height: '54px', flexShrink: 0 }}>
                                 <svg width="54" height="54" viewBox="0 0 36 36">
                                   <circle cx="18" cy="18" r="16" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
@@ -866,7 +865,6 @@ function App() {
                               {task.cr4a1_descricao || 'Sem descrição adicional.'}
                             </p>
 
-                            {/* PREVIEW DO CHECKLIST ESTILO NOTION */}
                             {total > 0 && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
                                 {subtasks.slice(0, 3).map((s, i) => (

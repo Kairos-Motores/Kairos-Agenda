@@ -43,12 +43,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 cr4a1_agenda_kairosid: editingEvent.cr4a1_agenda_kairosid,
                 cr4a1_event_id: editingEvent.cr4a1_event_id,
                 title: editingEvent.cr4a1_titulo || '',
+                // CORREÇÃO DO BUG DA DATA: Trata como string pura YYYY-MM-DD
                 startDate: editingEvent.cr4a1_data_inicio ? editingEvent.cr4a1_data_inicio.split('T')[0] : '',
                 endDate: editingEvent.cr4a1_data_fim ? editingEvent.cr4a1_data_fim.split('T')[0] : '',
                 startHour: editingEvent.cr4a1_hora_inicio || '08:00',
                 endHour: editingEvent.cr4a1_hora_fim || '09:00',
                 type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
-                details: editingEvent.cr4a1_details || '',
+                details: editingEvent.cr4a1_descricao || '', // MAPEAMENTO PARA cr4a1_descricao
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
                 targetUser: editingEvent.cr4a1_user_login || viewedUser,
@@ -56,7 +57,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
             });
             setIsPrivate(editingEvent.cr4a1_privado || false);
 
-            // Carrega as subtarefas do banco de dados
+            // Carrega as subtarefas do banco de dados (JSON)
             try {
                 setSubtasks(editingEvent.cr4a1_subtasks ? JSON.parse(editingEvent.cr4a1_subtasks) : []);
             } catch (e) {
@@ -85,7 +86,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         const title = "Kairós Inovação";
         const options = {
             body: `Etapa concluída: ${taskName}`,
-            icon: '/icon-192.png', // Caminho do seu ícone de PWA
+            icon: '/icon-192.png',
             vibrate: [200, 100, 200]
         };
 
@@ -120,7 +121,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         updated[index].completed = !wasCompleted;
         setSubtasks(updated);
 
-        // Dispara notificação apenas se estiver sendo marcado como concluído agora
+        // Dispara notificação ao marcar como concluído
         if (!wasCompleted) {
             triggerTaskNotification(updated[index].text);
         }
@@ -168,7 +169,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none', boxSizing: 'border-box'
     };
 
-    // Cálculo da porcentagem para exibição dinâmica
     const completedCount = subtasks.filter(s => s.completed).length;
     const progressPercentage = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
 
@@ -183,7 +183,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 </div>
 
                 <div className="modal-body" style={{ boxSizing: 'border-box' }}>
-                    {/* SELETOR DE WORKSPACE (OBRIGATÓRIO) */}
+                    {/* SELETOR DE WORKSPACE */}
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'block' }}>📁 Workspace Destino:</label>
                         <select
@@ -241,7 +241,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         )}
                     </div>
 
-                    {/* SEÇÃO DE CHECKLIST (Aparece apenas no Workspace de Inovação) */}
+                    {/* SEÇÃO DE CHECKLIST (Aparece apenas em Desenvolvimento e Inovação) */}
                     {isDevWorkspace && (
                         <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '16px', marginBottom: '16px', border: '1px solid var(--text-accent)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -382,12 +382,12 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                                 setIsSaving(true);
                                 try {
-                                    // Mapeamento correto para persistência no Dataverse
+                                    // MAPEAMENTO FINAL PARA O DATAVERSE (CORREÇÃO DE PERSISTÊNCIA)
                                     await onSave({ 
                                         ...formData, 
                                         cr4a1_titulo: formData.title,
-                                        cr4a1_details: formData.details, // Salva em cr4a1_details
-                                        cr4a1_subtasks: JSON.stringify(subtasks), // Salva o checklist como string JSON
+                                        cr4a1_descricao: formData.details, // Salva na coluna de descrição
+                                        cr4a1_subtasks: JSON.stringify(subtasks), // Salva o checklist como JSON
                                         cr4a1_privado: isPrivate 
                                     });
                                 } catch (e) {
