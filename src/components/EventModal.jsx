@@ -10,6 +10,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         workspaceId: '' // NOVO CAMPO
     });
 
+    // Estados para o Checklist do Workspace de Inovação
+    const [subtasks, setSubtasks] = useState([]);
+    const [newSubtask, setNewSubtask] = useState('');
+
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -29,6 +33,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
     ];
 
+    // Identifica se estamos no Workspace de Inovação para mostrar o checklist
+    const selectedWS = workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId);
+    const isDevWorkspace = selectedWS?.cr4a1_nome === "Desenvolvimento e Inovação";
+
     useEffect(() => {
         if (editingEvent) {
             setFormData({
@@ -47,6 +55,13 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 workspaceId: editingEvent.cr4a1_workspace_id || (workspaces[0]?.cr4a1_calendarios_workspacesid || '')
             });
             setIsPrivate(editingEvent.cr4a1_privado || false);
+
+            // Carrega as subtarefas do banco de dados
+            try {
+                setSubtasks(editingEvent.cr4a1_subtasks ? JSON.parse(editingEvent.cr4a1_subtasks) : []);
+            } catch (e) {
+                setSubtasks([]);
+            }
         }
         else {
             const cleanInitialDate = initialDate ? initialDate.split('T')[0] : '';
@@ -57,12 +72,28 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 targetUser: viewedUser || '', allDay: false,
                 workspaceId: workspaces[0]?.cr4a1_calendarios_workspacesid || ''
             });
+            setSubtasks([]);
             setIsPrivate(false);
         }
         setIsSaving(false);
     }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
 
     if (!isOpen) return null;
+
+    // Função de Notificação (Browser/Smartphone e Toast)
+    const triggerTaskNotification = (taskName) => {
+        const title = "Kairós Inovação";
+        const options = {
+            body: `Etapa concluída: ${taskName}`,
+            icon: '/icon-192.png', // Caminho do seu ícone de PWA
+            vibrate: [200, 100, 200]
+        };
+
+        if (Notification.permission === "granted") {
+            new Notification(title, options);
+        }
+        toast.success(`Check! ${taskName} concluído.`, { icon: '✅', position: 'top-right' });
+    };
 
     const handleEmojiClick = (emoji) => {
         setFormData(prev => ({ ...prev, title: prev.title + emoji }));
@@ -75,6 +106,28 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
             const endH = String((parseInt(h) + 1) % 24).padStart(2, '0');
             return { ...prev, startHour: newTime, endHour: `${endH}:${m}` };
         });
+    };
+
+    const addSubtask = () => {
+        if (!newSubtask.trim()) return;
+        setSubtasks([...subtasks, { text: newSubtask, completed: false }]);
+        setNewSubtask('');
+    };
+
+    const toggleSubtask = (index) => {
+        const updated = [...subtasks];
+        const wasCompleted = updated[index].completed;
+        updated[index].completed = !wasCompleted;
+        setSubtasks(updated);
+
+        // Dispara notificação apenas se estiver sendo marcado como concluído agora
+        if (!wasCompleted) {
+            triggerTaskNotification(updated[index].text);
+        }
+    };
+
+    const removeSubtask = (index) => {
+        setSubtasks(subtasks.filter((_, i) => i !== index));
     };
 
     const handleFileChange = (e) => {
@@ -115,12 +168,16 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         fontSize: '15px', flex: 1, textAlign: 'center', cursor: 'pointer', appearance: 'none', boxSizing: 'border-box'
     };
 
+    // Cálculo da porcentagem para exibição dinâmica
+    const completedCount = subtasks.filter(s => s.completed).length;
+    const progressPercentage = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
+
     return (
         <div className="modal-overlay">
             <div className="modal-container" style={{ maxWidth: '450px', width: '90%', boxSizing: 'border-box' }}>
                 <div className="modal-header">
                     <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>
-                        {editingEvent ? '📝 Editar' : '✨ Novo'} Agendamento
+                        {isDevWorkspace ? '🚀 Gestão de Tarefa' : (editingEvent ? '📝 Editar' : '✨ Novo') + ' Agendamento'}
                     </h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-secondary)' }}>✕</button>
                 </div>
@@ -184,13 +241,51 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         )}
                     </div>
 
+                    {/* SEÇÃO DE CHECKLIST (Aparece apenas no Workspace de Inovação) */}
+                    {isDevWorkspace && (
+                        <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '16px', marginBottom: '16px', border: '1px solid var(--text-accent)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-accent)', fontWeight: '800', textTransform: 'uppercase' }}>📝 Checklist de Progresso:</label>
+                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{progressPercentage}%</span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                <input 
+                                    placeholder="Nova subtarefa..." 
+                                    value={newSubtask} 
+                                    onChange={e => setNewSubtask(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && addSubtask()}
+                                    style={{ ...inputStyle, marginBottom: 0, flex: 1 }} 
+                                />
+                                <button onClick={addSubtask} style={{ background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '10px', padding: '0 12px', cursor: 'pointer' }}>+</button>
+                            </div>
+
+                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                                {subtasks.map((st, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', padding: '4px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={st.completed} 
+                                            onChange={() => toggleSubtask(i)} 
+                                            style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                                        />
+                                        <span style={{ flex: 1, fontSize: '13px', textDecoration: st.completed ? 'line-through' : 'none', opacity: st.completed ? 0.6 : 1 }}>
+                                            {st.text}
+                                        </span>
+                                        <button onClick={() => removeSubtask(i)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                             <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Início</label>
                             <input type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} style={inputStyle} />
                         </div>
                         <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Fim</label>
+                            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Fim (Prazo)</label>
                             <input type="date" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={inputStyle} />
                         </div>
                     </div>
@@ -272,8 +367,6 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                 if (!formData.title) return toast.error('Título obrigatório');
                                 if (!formData.workspaceId) return toast.error('Selecione um Workspace');
 
-                                const selectedWS = workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId);
-
                                 // TRAVA RH: Só RH e ADMIN postam em workspaces institucionais
                                 if (selectedWS?.cr4a1_tipo_workspace === 'RH' && userRole !== 'RH' && userRole !== 'ADMIN') {
                                     return toast.error('Apenas o RH pode criar eventos neste Workspace.');
@@ -289,7 +382,14 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                                 setIsSaving(true);
                                 try {
-                                    await onSave({ ...formData, cr4a1_privado: isPrivate });
+                                    // Mapeamento correto para persistência no Dataverse
+                                    await onSave({ 
+                                        ...formData, 
+                                        cr4a1_titulo: formData.title,
+                                        cr4a1_details: formData.details, // Salva em cr4a1_details
+                                        cr4a1_subtasks: JSON.stringify(subtasks), // Salva o checklist como string JSON
+                                        cr4a1_privado: isPrivate 
+                                    });
                                 } catch (e) {
                                     setIsSaving(false);
                                 }
