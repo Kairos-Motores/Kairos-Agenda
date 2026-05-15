@@ -23,7 +23,7 @@ const BirthdayCelebration = ({ name, onClose }) => (
     <div style={{ textAlign: 'center', padding: '40px' }}>
       <div className="birthday-float" style={{ fontSize: '80px', marginBottom: '20px' }}>🎂</div>
       <h1 style={{ color: 'white', fontSize: '32px', margin: '0 0 10px' }}>Parabéns, {name}! 🥳</h1>
-      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', marginBottom: '30px' }}>A equipa Kairós deseja-te um dia incrível!</p>
+      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', marginBottom: '30px' }}>A equipe Kairós deseja a você um dia incrível!</p>
       <button onClick={onClose} className="btn-primary" style={{ padding: '12px 32px' }}>Obrigado!</button>
     </div>
     <style>{`
@@ -95,15 +95,15 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
       <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
         <p style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-primary)', margin: 0 }}>
           <strong>Para receber alertas no WhatsApp:</strong><br />
-          1. Guarda o teu número abaixo.<br />
-          2. Clica no botão verde abaixo para abrir o robô.<br />
-          3. Envia <strong>"Olá"</strong> para iniciar o vínculo.
+          1. Salve seu número abaixo.<br />
+          2. Clique no botão verde abaixo para abrir o robô.<br />
+          3. Envie <strong>"Olá"</strong> para iniciar o vínculo.
         </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-          O Teu Número
+          Seu Número
         </label>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <select
@@ -184,7 +184,7 @@ const LoginScreen = ({ onLogin }) => {
     setIsAuthenticating(true);
     const result = await onLogin(username, password);
     if (!result.success) {
-      toast.error(result.reason === 'connection_error' ? 'Erro de conexão.' : 'Utilizador ou senha inválidos.', { style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' } });
+      toast.error(result.reason === 'connection_error' ? 'Erro de conexão.' : 'Usuário ou senha inválidos.', { style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' } });
       setIsAuthenticating(false);
     }
   };
@@ -193,10 +193,10 @@ const LoginScreen = ({ onLogin }) => {
     <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)' }}>
       <form onSubmit={handleSubmit} style={{ padding: '40px', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: 'var(--shadow-hover)', width: '350px' }}>
         <h2 style={{ textAlign: 'center', color: 'var(--text-title)', marginBottom: '30px', fontWeight: '600' }}>Kairós Agenda</h2>
-        <input type="text" placeholder="Utilizador" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
+        <input type="text" placeholder="Usuário" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
         <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '25px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
         <button type="submit" disabled={isAuthenticating} style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
-          {isAuthenticating ? 'A validar...' : 'Entrar'}
+          {isAuthenticating ? 'Validando...' : 'Entrar'}
         </button>
       </form>
     </div>
@@ -237,7 +237,7 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
       <div className="modal-content" style={{ maxWidth: '400px', width: '90%', textAlign: 'center', padding: '40px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
         <span style={{ fontSize: '48px' }}>🏢</span>
         <h2 style={{ margin: '20px 0 10px', color: 'var(--text-title)' }}>Bem-vindo à Kairós!</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Seleciona a tua unidade para configurares o teu perfil:</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Selecione sua unidade para configurar seu perfil:</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
           {units.map(unit => (
             <button key={unit} onClick={() => setSelectedUnit(unit)} style={{ padding: '14px', borderRadius: '12px', border: selectedUnit === unit ? '2px solid var(--text-accent)' : '1px solid var(--border-color)', background: selectedUnit === unit ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: selectedUnit === unit ? '700' : '500' }}>{unit}</button>
@@ -343,7 +343,7 @@ function App() {
           if (!notifiedRef.current.has(notificationKey)) {
             const title = `📌 ${event.cr4a1_titulo}`;
             const options = {
-              body: diffMin === 0 ? "A começar agora!" : `Em ${diffMin} minutos.`,
+              body: diffMin === 0 ? "Começando agora!" : `Em ${diffMin} minutos.`,
               icon: '/icon-512.jpg',
               tag: event.cr4a1_agenda_kairosid,
               badge: '/icon-512.jpg',
@@ -391,7 +391,7 @@ function App() {
 
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
-      <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>A verificar sessão...</p>
+      <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>Verificando sessão...</p>
     </div>
   );
 
@@ -431,7 +431,7 @@ function App() {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           registration.showNotification('Kairós Agenda', {
-            body: 'As notificações estão a funcionar perfeitamente!',
+            body: 'As notificações estão funcionando perfeitamente!',
             icon: '/icon-512.jpg'
           });
         });
@@ -445,17 +445,17 @@ function App() {
     try {
       if (data.cr4a1_event_id) await updateEvent(data);
       else await addEvent(data);
-      toast.success("Guardado com sucesso!");
+      toast.success("Salvo com sucesso!");
       setIsModalOpen(false);
-    } catch (err) { toast.error("Falha ao guardar."); throw err; }
+    } catch (err) { toast.error("Falha ao salvar."); throw err; }
   };
 
   const confirmDelete = async () => {
     if (!eventToDelete) return;
     try {
       await deleteEvent(eventToDelete.cr4a1_agenda_kairosid, eventToDelete.cr4a1_user_login);
-      toast.success("Eliminado."); setIsDeleteModalOpen(false); setEventToDelete(null);
-    } catch (err) { toast.error("Falha ao eliminar."); }
+      toast.success("Excluído."); setIsDeleteModalOpen(false); setEventToDelete(null);
+    } catch (err) { toast.error("Falha ao excluir."); }
   };
 
   const handleEditClick = (event) => {
@@ -559,6 +559,7 @@ function App() {
               </button>
             </div>
 
+            {/* OPÇÕES DE MODO (AGENDA VS TAREFAS) - APENAS MOBILE NO MENU SANDUÍCHE */}
             {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
@@ -612,7 +613,7 @@ function App() {
 
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
-              <input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
+              <input placeholder="Buscar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
             </div>
 
             <div>
@@ -656,7 +657,7 @@ function App() {
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
               <input
-                placeholder="Procurar colega..."
+                placeholder="Buscar colega..."
                 value={userSearchTerm}
                 onChange={e => setUserSearchTerm(e.target.value)}
                 style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
@@ -739,7 +740,7 @@ function App() {
                   <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
                 </button>
                 {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
-                  <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerir Utilizadores">
+                  <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerenciar Usuários">
                     <span className="material-symbols-rounded">group</span>
                   </button>
                 )}
@@ -794,12 +795,13 @@ function App() {
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
           <main className="main-container" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
             
+            {/* KEY DINÂMICA PARA ANIMAÇÃO BILATERAL */}
             <div key={isTaskView ? 'tasks' : 'calendar'} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {isTaskView ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
                   <header style={{ marginBottom: '10px' }}>
                     <h2 style={{ color: 'var(--text-title)', fontSize: '26px', fontWeight: '800' }}>Desenvolvimento e Inovação</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Gestão de sprints e pedidos técnicos</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Gerenciamento de sprints e demandas técnicas</p>
                   </header>
 
                   {taskEvents.length === 0 ? (
@@ -815,9 +817,11 @@ function App() {
                         const total = subtasks.length;
                         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+                        // CORREÇÃO DO BUG DA DATA (FUSO HORÁRIO NATIVO)
                         const now = new Date();
                         now.setHours(0,0,0,0);
-                        const deadline = new Date(task.cr4a1_data_inicio);
+                        const safeDateStr = task.cr4a1_data_inicio?.includes('T') ? task.cr4a1_data_inicio : (task.cr4a1_data_inicio + 'T12:00:00');
+                        const deadline = new Date(safeDateStr);
                         deadline.setHours(0,0,0,0);
                         
                         const isDelayed = now > deadline && percentage < 100;
@@ -858,8 +862,8 @@ function App() {
                               </div>
                             </div>
 
-                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                              {task.cr4a1_descricao || task.cr4a1_detalhes || 'Sem descrição adicional.'}
+                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrientation: 'vertical', overflow: 'hidden' }}>
+                              {task.cr4a1_novacoluna || task.cr4a1_descricao || task.cr4a1_detalhes || 'Sem descrição adicional.'}
                             </p>
 
                             {total > 0 && (
@@ -911,7 +915,10 @@ function App() {
                           {generateMonthDays(currentDate).map((day) => {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
+                            
+                            // Ajuste na leitura (Evita que o "T" quebre a checagem no Month View)
                             const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio && e.cr4a1_data_inicio.split('T')[0] === dateStr);
+                            
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px' }}>{format(day, 'd')}</div>
@@ -942,7 +949,7 @@ function App() {
             </div>
           </main>
 
-          {/* BARRA LATERAL DIREITA (DESKTOP) */}
+          {/* BARRA LATERAL (DISCRETA À DIREITA) - APENAS DESKTOP ESTILO GOOGLE */}
           {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
             <aside className="desktop-only nav-sidebar-right" style={{
               width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
@@ -973,22 +980,22 @@ function App() {
           {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-              <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px' }}>O Meu Perfil</h2>
+              <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative', scrollbarWidth: 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 10 }}>
+                  <h2 style={{ margin: 0, fontSize: '22px' }}>Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
                 </div>
                 {currentUser && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div style={{ textAlign: 'center' }}>
                       <img src={currentUser.cr4a1_foto || ''} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
-                      <br /><button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '8px' }}>Mudar Foto</button>
+                      <br /><button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '8px' }}>Trocar Foto</button>
                       <input type="file" id="p-up" hidden accept="image/*" onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, foto: res }))} />
                     </div>
                     <div className="input-group">
                       <label>Aniversário</label>
                       <input type="date" defaultValue={currentUser.cr4a1_aniversario} id="b-up" style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
-                      <button onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, aniversario: document.getElementById('b-up').value })} className="btn-primary" style={{ marginTop: '8px', width: '100%' }}>Guardar</button>
+                      <button onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, aniversario: document.getElementById('b-up').value })} className="btn-primary" style={{ marginTop: '8px', width: '100%' }}>Salvar</button>
                     </div>
                     <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
                   </div>
@@ -998,7 +1005,7 @@ function App() {
           )}
         </div>
 
-        {/* FAB */}
+        {/* FAB ACESSÍVEL PARA COMUM TAMBÉM (CRIAÇÃO PESSOAL) */}
         {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD' || userRole === 'COMUM') && (
           <div style={{ position: 'fixed', bottom: isTaskView ? '80px' : '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
@@ -1009,6 +1016,7 @@ function App() {
                     <span className="material-symbols-rounded">calendar_add_on</span>
                   </button>
                 </div>
+                {/* APENAS ADMIN/COORD CRIA WORKSPACES GLOBAIS, COMUM CRIA PESSOAL */}
                 <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
                   <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -1024,11 +1032,23 @@ function App() {
         )}
       </div>
       <style>{`
-        @keyframes viewSlideIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
-        .view-enter { animation: viewSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        @media (max-width: 768px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
-        @media (min-width: 769px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
+        @keyframes viewSlideIn {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .view-enter {
+          animation: viewSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        @media (max-width: 768px) { 
+          .desktop-only { display: none !important; } 
+          .mobile-only { display: flex !important; }
+        }
+        @media (min-width: 769px) { 
+          .mobile-only { display: none !important; } 
+          .desktop-only { display: flex !important; }
+        }
         .nav-sidebar-right button.active { background: var(--bg-tertiary); color: var(--text-accent); }
+        .nav-sidebar-right button:hover { background: var(--bg-secondary); }
       `}</style>
     </DndContext>
   );
