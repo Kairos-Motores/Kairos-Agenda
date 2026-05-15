@@ -17,7 +17,7 @@ export const useCalendar = () => {
 
     // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
-    const [activeWorkspaces, setActiveWorkspaces] = useState([]); 
+    const [activeWorkspaces, setActiveWorkspaces] = useState([]);
 
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
@@ -210,7 +210,7 @@ export const useCalendar = () => {
     }, [activeWorkspaces, user]);
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
-    
+
     useEffect(() => {
         if (user) {
             fetchUsers();
@@ -280,9 +280,12 @@ export const useCalendar = () => {
         }
     };
 
+    // Altere estas funções no seu useCalendar.js
+
     const addEvent = async (eventData) => {
         const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
-        const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
+        // Mantendo o padrão do teu app de concatenar o [DIA_INTEIRO] na descrição
+        const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
 
         let utcStartDate = eventData.startDate;
@@ -294,39 +297,56 @@ export const useCalendar = () => {
 
         const newEventDB = {
             cr4a1_event_id: generatedId,
-            cr4a1_titulo: eventData.title,
+            cr4a1_titulo: eventData.cr4a1_titulo,
             cr4a1_user_login: targetUser,
             cr4a1_data_inicio: utcStartDate,
             cr4a1_data_fim: utcEndDate,
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
-            cr4a1_detalhes: details,
-            // INCLUSÃO DAS SUBTASKS NO ENVIO
-            cr4a1_subtasks: eventData.cr4a1_subtasks,
+            cr4a1_detalhes: detailsField,
+            cr4a1_subtasks: eventData.cr4a1_subtasks, // Aqui sobem as subtasks
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
         };
 
+        // Update otimista da UI
         const optimisticEvent = {
-            ...newEventDB, cr4a1_agenda_kairosid: generatedId,
-            cr4a1_data_inicio: eventData.startDate, cr4a1_data_fim: eventData.endDate,
-            cr4a1_dia_inteiro: eventData.allDay, cr4a1_detalhes: eventData.details
+            ...newEventDB,
+            cr4a1_agenda_kairosid: generatedId,
+            cr4a1_data_inicio: eventData.startDate,
+            cr4a1_data_fim: eventData.endDate,
+            cr4a1_dia_inteiro: eventData.allDay
         };
         setEvents(prev => [...prev, optimisticEvent]);
 
         if (!isOnline) { addToQueue({ method: 'POST', body: newEventDB }); return; }
 
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newEventDB) });
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newEventDB)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'Erro ao salvar no Dataverse');
+            }
+
             fetchEvents();
-        } catch (error) { addToQueue({ method: 'POST', body: newEventDB }); }
+        } catch (error) {
+            toast.error(`Erro ao salvar: Verifique se o texto não é muito longo.`);
+            console.error("Erro detalhado:", error);
+            // Remove o evento otimista se falhar
+            setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== generatedId));
+        }
     };
 
     const updateEvent = async (eventData) => {
         const id = eventData.cr4a1_agenda_kairosid;
-        const details = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
+        const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
 
         let utcStartDate = eventData.startDate;
         let utcEndDate = eventData.endDate;
@@ -336,32 +356,36 @@ export const useCalendar = () => {
         }
 
         const updatedEventDB = {
-            cr4a1_titulo: eventData.title,
+            cr4a1_titulo: eventData.cr4a1_titulo,
             cr4a1_user_login: eventData.targetUser,
-            cr4a1_data_inicio: utcStartDate, cr4a1_data_fim: utcEndDate,
+            cr4a1_data_inicio: utcStartDate,
+            cr4a1_data_fim: utcEndDate,
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
-            cr4a1_tipo: eventData.type, 
-            cr4a1_detalhes: details,
-            // INCLUSÃO DAS SUBTASKS NO UPDATE
-            cr4a1_subtasks: eventData.cr4a1_subtasks,
-            cr4a1_privado: eventData.cr4a1_privado, 
+            cr4a1_tipo: eventData.type,
+            cr4a1_detalhes: detailsField,
+            cr4a1_subtasks: eventData.cr4a1_subtasks, // Crucial para salvar múltiplas
+            cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
         };
 
-        setEvents(prev => prev.map(e => e.cr4a1_agenda_kairosid === id ? {
-            ...e, ...updatedEventDB,
-            cr4a1_data_inicio: eventData.startDate, cr4a1_data_fim: eventData.endDate,
-            cr4a1_dia_inteiro: eventData.allDay, cr4a1_detalhes: eventData.details
-        } : e));
-
         if (!isOnline) { addToQueue({ method: 'PATCH', id: id, body: updatedEventDB }); return; }
 
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedEventDB) });
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedEventDB)
+            });
+
+            if (!response.ok) throw new Error('Falha na resposta do servidor');
+
             fetchEvents();
-        } catch (error) { addToQueue({ method: 'PATCH', id: id, body: updatedEventDB }); }
+        } catch (error) {
+            toast.error("Erro ao atualizar. O texto pode estar excedendo o limite da coluna.");
+            addToQueue({ method: 'PATCH', id: id, body: updatedEventDB });
+        }
     };
 
     const deleteEvent = async (id, owner) => {
