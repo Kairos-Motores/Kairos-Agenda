@@ -1,91 +1,90 @@
 import React from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-export const ListView = ({ events, allUsers = [], eventTypes = [], onEdit, onDelete }) => {
-    if (!events) return <p>Carregando eventos...</p>;
-
-    const userColorMap = allUsers.reduce((acc, u) => {
-        acc[u.cr4a1_username] = u.cr4a1_cor || '#3498db';
-        return acc;
-    }, {});
-
-    // Apenas ordena, porque a filtragem já veio pronta do Hook global
-    const sortedEvents = [...events].sort((a, b) => {
-        const dateA = a.cr4a1_data_inicio || "";
-        const dateB = b.cr4a1_data_inicio || "";
-        return dateA.localeCompare(dateB);
-    });
+export const ListView = ({ events, allUsers, eventTypes, onEdit, onDelete, workspaces = [] }) => {
+    // Localiza dinamicamente o ID do Workspace técnico da Kairós
+    const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
+    const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
 
     return (
-        <div className="view-enter">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {sortedEvents.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', borderRadius: '32px' }}>
-                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-                        <p style={{ fontSize: '16px', fontWeight: '500' }}>Nenhum evento encontrado para estes filtros.</p>
-                    </div>
-                )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px', padding: '10px 0' }}>
+            {events.map(event => {
+                const isDevWorkspace = event.cr4a1_workspace_id === devWorkspaceId;
+                
+                // Tratamento e cálculo seguro do JSON de subtasks
+                const subtasks = event.cr4a1_subtasks 
+                    ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks) 
+                    : [];
+                const completedCount = subtasks.filter(s => s.completed).length;
+                const totalSubtasks = subtasks.length;
+                const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
 
-                {sortedEvents.map(event => {
-                    const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
-                    const eventType = eventTypes.find(t => t.name === event.cr4a1_tipo);
-                    const emoji = eventType?.emoji || "📝";
+                // Captura do criador do evento para fins visuais
+                const eventOwner = allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login);
 
-                    return (
-                        <div key={event.cr4a1_agenda_kairosid || Math.random()} className="list-event-card" style={{ borderLeft: `8px solid ${userColor}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <div style={{ fontSize: '11px', fontWeight: '800', color: userColor, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        👤 {event.cr4a1_user_login}
+                return (
+                    <div 
+                        key={event.cr4a1_agenda_kairosid} 
+                        style={{ 
+                            background: 'var(--bg-primary)', border: '1px solid var(--border-color)', 
+                            borderRadius: '20px', padding: '20px', display: 'flex', flexDirection: 'column', 
+                            justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', position: 'relative'
+                        }}
+                    >
+                        <div>
+                            {/* METADADOS SUPERIORES */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                                    {event.cr4a1_data_inicio ? format(new Date(event.cr4a1_data_inicio.split('T')[0] + 'T12:00:00'), "dd 'de' MMM", { locale: ptBR }) : ''}
+                                </span>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-accent)', padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px' }}>
+                                    {event.cr4a1_tipo || 'Compromisso'}
+                                </span>
+                            </div>
+
+                            {/* TÍTULO E CORPO */}
+                            <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '17px', fontWeight: '700' }}>
+                                {event.cr4a1_titulo}
+                            </h4>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+                                {event.cr4a1_detalhes || event.cr4a1_descricao || 'Sem descrição cadastrada.'}
+                            </p>
+                        </div>
+
+                        {/* INDICADOR DE PORCENTAGEM E CONTADOR DE SUBTASKS (REQUISITO) */}
+                        {isDevWorkspace && totalSubtasks > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: percentage === 100 ? '#22c55e' : 'var(--text-accent)' }}>
+                                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>
+                                            {percentage === 100 ? 'task_alt' : 'inventory'}
+                                        </span>
+                                        <span>{percentage}% concluído</span>
                                     </div>
-                                    <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '18px', fontWeight: '700' }}>
-                                        {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo || "SEM TÍTULO"}
-                                    </h3>
-                                    <span style={{
-                                        backgroundColor: userColor,
-                                        color: 'white',
-                                        padding: '4px 12px',
-                                        borderRadius: '20px',
-                                        fontSize: '11px',
-                                        fontWeight: '700'
-                                    }}>
-                                        {emoji} {event.cr4a1_tipo || "TASK"}
+                                    <span style={{ color: 'var(--text-secondary)', opacity: 0.8 }}>
+                                        {completedCount}/{totalSubtasks} subtasks
                                     </span>
                                 </div>
-
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={() => onEdit(event)} className="nav-pill" style={{ backgroundColor: 'var(--bg-secondary)' }}>✏️ Editar</button>
-                                    <button onClick={() => onDelete(event)} className="icon-btn" style={{ color: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)' }}>🗑️</button>
-                                </div>
                             </div>
+                        )}
 
-                            <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', margin: '8px 0' }}>
-                                <span>📅 <strong>Data:</strong> {event.cr4a1_data_inicio} até {event.cr4a1_data_fim}</span>
-                                <span>🕒 <strong>Horário:</strong> {event.cr4a1_dia_inteiro ? <span style={{ color: 'var(--text-accent)', fontWeight: '700' }}>🌞 Dia Inteiro</span> : `${event.cr4a1_hora_inicio} - ${event.cr4a1_hora_fim}`}</span>
-                            </div>
-
-                            {event.cr4a1_detalhes && (
-                                <div style={{ backgroundColor: 'var(--bg-page)', padding: '16px', borderRadius: '16px', fontSize: '14px', color: 'var(--text-primary)', borderLeft: '3px solid var(--border-color)', fontStyle: 'italic', lineHeight: '1.6' }}>
-                                    {event.cr4a1_detalhes}
-                                </div>
-                            )}
-
-                            {event.cr4a1_arquivos && (
-                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
-                                    {JSON.parse(event.cr4a1_arquivos || "[]").map((file, idx) => (
-                                        <div key={idx} className="file-preview-pill" style={{ transition: 'var(--transition-elastic)' }}>
-                                            {file.startsWith('data:image') ? (
-                                                <img src={file} alt="Anexo" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }} />
-                                            ) : (
-                                                <div style={{ padding: '8px 16px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '12px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>📄 Documento</div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        {/* BOTÕES DE CONTROLE DO CARD */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: 'auto' }}>
+                            <button onClick={() => onEdit(event)} className="btn-secondary" style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '10px' }}>
+                                Editar Ficha
+                            </button>
+                            <button 
+                                onClick={() => onDelete(event)} 
+                                className="icon-btn" 
+                                style={{ width: '38px', height: '38px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: '#e74c3c' }}
+                            >
+                                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                            </button>
                         </div>
-                    );
-                })}
-            </div>
+                    </div>
+                );
+            })}
         </div>
     );
 };
