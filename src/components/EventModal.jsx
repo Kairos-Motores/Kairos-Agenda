@@ -18,9 +18,15 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     const [isPrivate, setIsPrivate] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Seletores Flutuantes MD3
+    // Controlo de Estados dos Menus MD3 Customizados
     const [activePicker, setActivePicker] = useState(null); // 'startDate', 'endDate', 'startTime', 'endTime'
+    const [openDropdown, setOpenDropdown] = useState(null); // 'workspace', 'type', 'targetUser'
     const [pickerMonth, setPickerMonth] = useState(new Date());
+
+    // Refs para monitorizar fecho de dropdowns customizados
+    const workspaceRef = useRef(null);
+    const typeRef = useRef(null);
+    const targetUserRef = useRef(null);
 
     const commonEmojis = [
         '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
@@ -64,6 +70,17 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         setIsSaving(false);
     }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
 
+    // Fechar dropdowns ao clicar fora
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (openDropdown === 'workspace' && workspaceRef.current && !workspaceRef.current.contains(e.target)) setOpenDropdown(null);
+            if (openDropdown === 'type' && typeRef.current && !typeRef.current.contains(e.target)) setOpenDropdown(null);
+            if (openDropdown === 'targetUser' && targetUserRef.current && !targetUserRef.current.contains(e.target)) setOpenDropdown(null);
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [openDropdown]);
+
     if (!isOpen) return null;
 
     const safeFormatDate = (dateStr, pattern = "EEE, d 'de' MMM") => {
@@ -97,30 +114,88 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
     };
 
-    // Card de Input Suave (Estilo Container de Superfície Amigável)
-    const MD3Field = ({ label, icon, onClick, children, value }) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-            <div 
-                onClick={onClick}
-                style={{
-                    display: 'flex', alignItems: 'center', minHeight: '58px', padding: '0 16px',
-                    borderRadius: '20px', border: '1px solid var(--border-color)', 
-                    background: 'var(--bg-secondary)', cursor: onClick ? 'pointer' : 'text', 
-                    boxSizing: 'border-box', transition: 'all 0.2s ease'
-                }}
-                className="input-field-hover"
-            >
-                <label style={{
-                    position: 'absolute', left: '16px', top: '-9px', background: 'var(--bg-primary)',
-                    padding: '0 6px', fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700', letterSpacing: '0.3px'
-                }}>
-                    {label}
-                </label>
-                {icon && <span className="material-symbols-rounded" style={{ marginRight: '12px', color: 'var(--text-accent)', fontSize: '20px', opacity: 0.8 }}>{icon}</span>}
-                <div style={{ flex: 1, fontSize: '15px', color: 'var(--text-primary)', fontWeight: '500' }}>
-                    {children || value}
+    // Estilos de Cores Dinâmicas baseados no Accent Color (Material You Tonal Mappings)
+    const tintColor = 'var(--text-accent)';
+    const surfaceVariant = `${tintColor}0d`; // 5% de opacidade para fundo suave
+    const activeItemBg = `${tintColor}1c`; // 11% de opacidade para itens ativos
+
+    // COMPONENTE CUSTOMIZADO: Campo de Seleção Estilo MD3 (Sem Dropdown Nativo)
+    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey }) => {
+        const isDropdownOpen = openDropdown === dropdownKey;
+        return (
+            <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+                <div 
+                    onClick={() => setOpenDropdown(isDropdownOpen ? null : dropdownKey)}
+                    style={{
+                        display: 'flex', flexDirection: 'column', padding: '10px 16px', minHeight: '62px',
+                        borderRadius: '20px', border: isDropdownOpen ? `2px solid ${tintColor}` : '1px solid var(--border-color)',
+                        background: 'var(--bg-secondary)', cursor: 'pointer', boxSizing: 'border-box',
+                        justifyContent: 'center', transition: 'all 0.2s ease-in-out'
+                    }}
+                >
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '2px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                        {label}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>{icon}</span>}
+                            <span>{displayValue}</span>
+                        </div>
+                        <span className="material-symbols-rounded" style={{ transition: 'transform 0.2s', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', color: 'var(--text-secondary)', fontSize: '20px' }}>expand_more</span>
+                    </div>
                 </div>
-                {onClick && <span className="material-symbols-rounded" style={{ opacity: 0.4, fontSize: '20px' }}>expand_more</span>}
+
+                {isDropdownOpen && (
+                    <div style={{
+                        position: 'absolute', top: '68px', left: 0, right: 0, zIndex: 12600,
+                        background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                        borderRadius: '20px', padding: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                        maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px'
+                    }}>
+                        {options.map(opt => {
+                            const isSelected = opt.id === value;
+                            return (
+                                <div
+                                    key={opt.id}
+                                    onClick={() => { onSelect(opt.id); setOpenDropdown(null); }}
+                                    style={{
+                                        padding: '12px 14px', borderRadius: '14px', fontSize: '14px', fontWeight: isSelected ? '700' : '500',
+                                        color: isSelected ? tintColor : 'var(--text-primary)',
+                                        background: isSelected ? activeItemBg : 'transparent',
+                                        cursor: 'pointer', transition: 'background 0.15s ease', display: 'flex', alignItems: 'center', gap: '8px'
+                                    }}
+                                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                                    onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    {opt.emoji && <span>{opt.emoji}</span>}
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.name}</span>
+                                    {isSelected && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', fontSize: '16px' }}>check</span>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // COMPONENTE CUSTOMIZADO: Campo de Data/Hora Integrado
+    const MD3InputField = ({ label, value, icon, onClick }) => (
+        <div 
+            onClick={onClick}
+            style={{
+                display: 'flex', flexDirection: 'column', padding: '10px 16px', minHeight: '62px',
+                borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
+                cursor: 'pointer', boxSizing: 'border-box', justifyHeight: 'center', justifyContent: 'center', transition: 'all 0.2s'
+            }}
+            className="md3-input-hover"
+        >
+            <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '2px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                {label}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>{icon}</span>}
+                <span>{value}</span>
             </div>
         </div>
     );
@@ -129,32 +204,32 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
         <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '6px 0' }}>
             <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-title)' }}>{label}</span>
             <div onClick={() => onChange(!checked)} style={{
-                width: '52px', height: '30px', borderRadius: '100px', padding: '3px',
-                background: checked ? 'var(--text-accent)' : 'var(--bg-tertiary)',
-                position: 'relative', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box'
+                width: '50px', height: '28px', borderRadius: '100px', padding: '2px',
+                background: checked ? tintColor : 'var(--bg-tertiary)',
+                position: 'relative', transition: 'all 0.2s ease', boxSizing: 'border-box'
             }}>
                 <div style={{
                     width: '24px', height: '24px', borderRadius: '50%', background: '#ffffff',
-                    position: 'absolute', left: checked ? '24px' : '4px', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                    position: 'absolute', left: checked ? '24px' : '2px', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
                 }}>
-                    {checked && <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--text-accent)', fontWeight: '900' }}>check</span>}
+                    {checked && <span className="material-symbols-rounded" style={{ fontSize: '14px', color: tintColor, fontWeight: '900' }}>check</span>}
                 </div>
             </div>
         </label>
     );
 
     return (
-        <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div className="modal-content view-enter" style={{ maxWidth: '520px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '32px', padding: '28px', position: 'relative', border: '1px solid var(--border-color)', boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }}>
+        <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div className="modal-content view-enter" style={{ maxWidth: '520px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '32px', padding: '26px', position: 'relative', border: '1px solid var(--border-color)', boxShadow: '0 24px 60px rgba(0,0,0,0.15)' }}>
                 
-                {/* BARRA SUPERIOR DE AÇÕES */}
+                {/* BARRA DE AÇÕES SUPERIOR */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <button onClick={onClose} className="icon-btn" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '38px', height: '38px' }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span>
+                    <button onClick={onClose} className="icon-btn" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                     </button>
-                    <h2 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: 'var(--text-title)' }}>
-                        {editingEvent ? 'Editar Ficha' : 'Criar Nova Ficha'}
+                    <h2 style={{ fontSize: '17px', fontWeight: '700', margin: 0, color: 'var(--text-title)' }}>
+                        {editingEvent ? 'Editar Ficha' : 'Nova Ficha'}
                     </h2>
                     <button 
                         disabled={isSaving}
@@ -171,33 +246,33 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                 });
                             } catch (e) { setIsSaving(false); }
                         }}
-                        style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-accent)', fontWeight: '700', cursor: 'pointer', fontSize: '13px', padding: '8px 18px', borderRadius: '100px', letterSpacing: '0.3px' }}
+                        style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: 'pointer', fontSize: '13px', padding: '8px 20px', borderRadius: '100px', letterSpacing: '0.2px' }}
                     >
                         {isSaving ? 'A GUARDAR...' : 'SALVAR'}
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                     
-                    {/* INPUT DE TÍTULO PRINCIPAL */}
+                    {/* ENTRADA DE TÍTULO */}
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-secondary)', padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', position: 'relative' }}>
                         <input 
                             placeholder="Nome do Evento ou Tarefa..."
                             value={formData.title}
                             onChange={e => setFormData({...formData, title: e.target.value})}
-                            style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '18px', padding: '8px 0', outline: 'none', color: 'var(--text-primary)', fontWeight: '500' }}
+                            style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '17px', padding: '8px 0', outline: 'none', color: 'var(--text-primary)', fontWeight: '600' }}
                         />
                         <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn" style={{ background: 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: '1px solid var(--border-color)' }}>
-                            <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-accent)' }}>mood</span>
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>mood</span>
                         </button>
 
                         {isEmojiPickerOpen && (
-                            <div style={{ position: 'absolute', right: '12px', top: '58px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '14px', zIndex: 12000, maxWidth: '230px', display: 'flex', flexWrap: 'wrap', gap: '8px', boxShadow: '0 12px 32px rgba(0,0,0,0.15)' }}>
+                            <div style={{ position: 'absolute', right: '12px', top: '58px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '12px', zIndex: 12000, maxWidth: '230px', display: 'flex', flexWrap: 'wrap', gap: '6px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}>
                                 {commonEmojis.map(emoji => (
                                     <span 
                                         key={emoji} 
                                         onClick={() => { setFormData({ ...formData, title: emoji + ' ' + formData.title }); setIsEmojiPickerOpen(false); }} 
-                                        style={{ fontSize: '20px', cursor: 'pointer', padding: '4px', borderRadius: '10px', transition: 'transform 0.1s' }}
+                                        style={{ fontSize: '19px', cursor: 'pointer', padding: '4px', borderRadius: '8px', transition: 'transform 0.1s' }}
                                         onMouseEnter={e => e.target.style.transform = 'scale(1.2)'}
                                         onMouseLeave={e => e.target.style.transform = 'scale(1)'}
                                     >
@@ -208,74 +283,91 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         )}
                     </div>
 
-                    {/* SELETORES DE DATA CARD */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                        <MD3Field label="Data de Início" value={safeFormatDate(formData.startDate)} icon="calendar_month" onClick={() => setActivePicker('startDate')} />
-                        <MD3Field label="Data de Término" value={safeFormatDate(formData.endDate)} icon="event_upcoming" onClick={() => setActivePicker('endDate')} />
+                    {/* SELETORES DE DATA INTEGRADOS */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <MD3InputField label="Data Inicial" value={safeFormatDate(formData.startDate)} icon="calendar_month" onClick={() => setActivePicker('startDate')} />
+                        <MD3InputField label="Data Final" value={safeFormatDate(formData.endDate)} icon="event_upcoming" onClick={() => setActivePicker('endDate')} />
                     </div>
 
-                    {/* SELETORES DE HORÁRIO */}
+                    {/* SELETORES DE HORÁRIO INTEGRADOS */}
                     {!formData.allDay && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                            <MD3Field label="Hora de Início" value={formData.startHour} icon="schedule" onClick={() => setActivePicker('startTime')} />
-                            <MD3Field label="Hora de Término" value={formData.endHour} icon="history" onClick={() => setActivePicker('endTime')} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <MD3InputField label="Hora de Início" value={formData.startHour} icon="schedule" onClick={() => setActivePicker('startTime')} />
+                            <MD3InputField label="Hora de Término" value={formData.endHour} icon="history" onClick={() => setActivePicker('endTime')} />
                         </div>
                     )}
 
-                    {/* SWITCHES OVALADOS */}
-                    <div style={{ background: 'var(--bg-tertiary)', padding: '10px 18px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* SWITCHES OVALADOS CONTRASTANTES */}
+                    <div style={{ background: surfaceVariant, padding: '10px 18px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '4px', border: `1px solid ${tintColor}15` }}>
                         <MD3Switch label="Compromisso de Dia Inteiro" checked={formData.allDay} onChange={val => setFormData({...formData, allDay: val})} />
                         <MD3Switch label="Restringir Visibilidade (Privado 🔒)" checked={isPrivate} onChange={setIsPrivate} />
                     </div>
 
-                    {/* MENU DE SELEÇÃO FLUIDA */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '14px' }}>
-                        <MD3Field label="Workspace Vinculado">
-                            <select value={formData.workspaceId} onChange={e => setFormData({...formData, workspaceId: e.target.value})} style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-                                {workspaces.map(ws => <option key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>{ws.cr4a1_nome}</option>)}
-                            </select>
-                        </MD3Field>
+                    {/* DROPDOWNS REFORMULADOS MD3 CUSTOMIZADOS */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                        <MD3DropdownField 
+                            label="Workspace Vinculado" 
+                            icon="workspaces"
+                            dropdownKey="workspace"
+                            containerRef={workspaceRef}
+                            value={formData.workspaceId}
+                            displayValue={workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome || 'Selecione'}
+                            options={workspaces.map(w => ({ id: w.cr4a1_calendarios_workspacesid, name: w.cr4a1_nome }))}
+                            onSelect={val => setFormData({...formData, workspaceId: val})}
+                        />
                         
-                        <MD3Field label="Categoria/Tipo">
-                            <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-                                {eventTypes.map(t => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}
-                            </select>
-                        </MD3Field>
+                        <MD3DropdownField 
+                            label="Categoria / Tipo" 
+                            icon="bookmarks"
+                            dropdownKey="type"
+                            containerRef={typeRef}
+                            value={formData.type}
+                            displayValue={formData.type || 'Selecione'}
+                            options={eventTypes.map(t => ({ id: t.name, name: t.name, emoji: t.emoji }))}
+                            onSelect={val => setFormData({...formData, type: val})}
+                        />
 
                         {['SECRETARIA', 'COORD', 'ADMIN', 'DIRETORIA'].includes(userRole) && (
-                            <MD3Field label="Responsável">
-                                <select value={formData.targetUser} onChange={e => setFormData({...formData, targetUser: e.target.value})} style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-                                    {allUsers.map(u => <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</option>)}
-                                </select>
-                            </MD3Field>
+                            <MD3DropdownField 
+                                label="Responsável" 
+                                icon="person"
+                                dropdownKey="targetUser"
+                                containerRef={targetUserRef}
+                                value={formData.targetUser}
+                                displayValue={allUsers.find(u => u.cr4a1_username === formData.targetUser)?.cr4a1_nome_exibicao || formData.targetUser || 'Selecione'}
+                                options={allUsers.map(u => ({ id: u.cr4a1_username, name: u.cr4a1_nome_exibicao || u.cr4a1_username }))}
+                                onSelect={val => setFormData({...formData, targetUser: val})}
+                            />
                         )}
                     </div>
 
-                    {/* CORPO DA DESCRIÇÃO */}
-                    <div style={{ position: 'relative', width: '100%' }}>
+                    {/* CORPO DA DESCRIÇÃO INTEGRADO */}
+                    <div style={{ display: 'flex', flexDirection: 'column', padding: '10px 16px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', boxSizing: 'border-box' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '6px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                            Descrição Detalhada
+                        </span>
                         <textarea 
                             rows={3}
-                            placeholder="O que será debatido ou feito neste compromisso?"
+                            placeholder="Adicione as pautas ou informações da entrega..."
                             value={formData.details}
                             onChange={e => setFormData({...formData, details: e.target.value})}
-                            style={{ width: '100%', padding: '16px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', resize: 'none', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: '1.5' }}
+                            style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', resize: 'none', fontSize: '14px', fontFamily: 'inherit', lineHeight: '1.5', padding: 0 }}
                         />
-                        <label style={{ position: 'absolute', left: '16px', top: '-9px', background: 'var(--bg-primary)', padding: '0 6px', fontSize: '11px', color: 'var(--text-accent)', fontWeight: '700' }}>Descrição Detalhada</label>
                     </div>
 
                     {/* SPRINT SUBTASKS (CHECKLIST DINÂMICO) */}
                     {workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome === "Desenvolvimento e Inovação" && (
                         <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-                            <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-accent)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', letterSpacing: '0.3px' }}>Sprint Checklist (Subtasks)</label>
+                            <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', display: 'block', marginBottom: '8px', letterSpacing: '0.3px' }}>Sprint Checklist (Subtasks)</label>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                                 <input type="text" placeholder="Adicionar sub-item técnico..." value={newSubtask} onChange={e => setNewSubtask(e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
-                                <button onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }} className="btn-primary" style={{ padding: '0 16px', borderRadius: '14px', fontSize: '13px' }}>Incluir</button>
+                                <button onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }} className="btn-primary" style={{ padding: '0 16px', borderRadius: '14px', fontSize: '13px', background: tintColor }}>Incluir</button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {subtasks.map((task, index) => (
                                     <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                                            <input type="checkbox" checked={task.completed} onChange={e => { const updated = [...subtasks]; updated[index].completed = e.target.checked; setSubtasks(updated); }} style={{ accentColor: 'var(--text-accent)', width: '16px', height: '16px' }} />
+                                            <input type="checkbox" checked={task.completed} onChange={e => { const updated = [...subtasks]; updated[index].completed = e.target.checked; setSubtasks(updated); }} style={{ accentColor: tintColor, width: '16px', height: '16px' }} />
                                             <span style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: '500' }}>{task.text}</span>
                                         </div>
                                         <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} style={{ border: 'none', background: 'transparent', color: '#e74c3c', cursor: 'pointer', display: 'flex' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
@@ -285,10 +377,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                         </div>
                     )}
 
-                    {/* COMPONENTE DE ANEXOS / DOCUMENTOS */}
+                    {/* DOCUMENTAÇÃO E ANEXOS */}
                     <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-accent)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Documentação Técnica</label>
+                            <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Documentação Técnica</label>
                             <button onClick={() => document.getElementById('modal-file-attach').click()} className="btn-secondary" style={{ padding: '6px 14px', borderRadius: '100px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>upload_file</span> Carregar
                             </button>
@@ -301,7 +393,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {formData.files.map((file, i) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                        <a href={file.base64} download={file.name} style={{ fontSize: '13px', color: 'var(--text-accent)', textDecoration: 'none', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>
+                                        <a href={file.base64} download={file.name} style={{ fontSize: '13px', color: tintColor, textDecoration: 'none', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>
                                             📄 {file.name} <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '400' }}>({Math.round(file.size / 1024)} KB)</span>
                                         </a>
                                         <button onClick={() => removeFile(i)} style={{ border: 'none', background: 'transparent', color: '#e74c3c', cursor: 'pointer', display: 'flex' }}>
@@ -315,12 +407,12 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
 
                 </div>
 
-                {/* --- DIÁLOGO DA DATA (DATE PICKER OVERLAY) --- */}
+                {/* --- DIÁLOGO FIXED DE ESCOLA DE DATAS --- */}
                 {(activePicker === 'startDate' || activePicker === 'endDate') && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 13000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ width: '320px', background: 'var(--bg-primary)', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', padding: '16px' }}>
+                        <div style={{ width: '310px', background: 'var(--bg-primary)', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', padding: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <span style={{ fontWeight: '700', textTransform: 'capitalize', fontSize: '15px', color: 'var(--text-title)' }}>{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
+                                <span style={{ fontWeight: '700', textTransform: 'capitalize', fontSize: '14px', color: 'var(--text-title)' }}>{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                     <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn"><span className="material-symbols-rounded">chevron_left</span></button>
                                     <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn"><span className="material-symbols-rounded">chevron_right</span></button>
@@ -339,10 +431,10 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                             key={i} 
                                             onClick={() => handleSelectDate(day)}
                                             style={{
-                                                width: '36px', height: '36px', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', fontWeight: '700',
-                                                background: isSelected ? 'var(--text-accent)' : 'transparent',
+                                                width: '34px', height: '34px', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', fontWeight: '700',
+                                                background: isSelected ? tintColor : 'transparent',
                                                 color: isSelected ? '#ffffff' : (isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                                opacity: isCurrentMonth ? 1 : 0.35
+                                                opacity: isCurrentMonth ? 1 : 0.3
                                             }}
                                         >
                                             {format(day, 'd')}
@@ -350,48 +442,45 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                                     );
                                 })}
                             </div>
+                            <button onClick={() => setActivePicker(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', width: '100%', textAlign: 'right', marginTop: '12px', paddingRight: '8px' }}>CANCELAR</button>
                         </div>
                     </div>
                 )}
 
-                {/* --- DIÁLOGO DA HORA CORRIGIDO (TIME PICKER OVERLAY COMPACTO E AMIGÁVEL) --- */}
+                {/* --- DIÁLOGO FIXED DE ESCOLHA DE HORÁRIO --- */}
                 {(activePicker === 'startTime' || activePicker === 'endTime') && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 13000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '32px', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', width: '260px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '18px', color: 'var(--text-accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Definir Horário</span>
+                        <div style={{ padding: '20px', background: 'var(--bg-primary)', borderRadius: '32px', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', width: '240px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '16px', color: tintColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Definir Horário</span>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '22px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
                                 <input 
                                     type="text" 
                                     maxLength={2}
-                                    placeholder="08"
                                     defaultValue={formData[activePicker === 'startTime' ? 'startHour' : 'endHour'].split(':')[0]} 
                                     id="h-picker"
-                                    style={{ width: '74px', height: '68px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '32px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
+                                    style={{ width: '68px', height: '64px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '28px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
                                 />
-                                <span style={{ fontSize: '32px', fontWeight: '300', color: 'var(--text-secondary)' }}>:</span>
+                                <span style={{ fontSize: '28px', fontWeight: '300', color: 'var(--text-secondary)' }}>:</span>
                                 <input 
                                     type="text" 
                                     maxLength={2}
-                                    placeholder="00"
                                     defaultValue={formData[activePicker === 'startTime' ? 'startHour' : 'endHour'].split(':')[1]} 
                                     id="m-picker"
-                                    style={{ width: '74px', height: '68px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '32px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
+                                    style={{ width: '68px', height: '64px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '28px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
                                 />
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                                <button onClick={() => setActivePicker(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '13px', padding: '6px 12px' }}>CANCELAR</button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button onClick={() => setActivePicker(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 10px' }}>CANCELAR</button>
                                 <button 
                                     onClick={() => {
                                         const hInput = document.getElementById('h-picker').value || '00';
                                         const mInput = document.getElementById('m-picker').value || '00';
-                                        const h = hInput.padStart(2, '0');
-                                        const m = mInput.padStart(2, '0');
-                                        setFormData(prev => ({ ...prev, [activePicker === 'startTime' ? 'startHour' : 'endHour']: `${h}:${m}` }));
+                                        setFormData(prev => ({ ...prev, [activePicker === 'startTime' ? 'startHour' : 'endHour']: `${hInput.padStart(2, '0')}:${mInput.padStart(2, '0')}` }));
                                         setActivePicker(null);
                                     }}
-                                    style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-accent)', fontWeight: '700', cursor: 'pointer', fontSize: '13px', padding: '6px 16px', borderRadius: '100px' }}
+                                    style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 14px', borderRadius: '100px' }}
                                 >OK</button>
                             </div>
                         </div>
@@ -399,7 +488,7 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 )}
             </div>
             <style>{`
-                .input-field-hover:hover { background: var(--bg-tertiary) !important; border-color: var(--text-accent) !important; }
+                .md3-input-hover:hover { background: var(--bg-tertiary) !important; border-color: var(--text-accent) !important; }
             `}</style>
         </div>
     );
