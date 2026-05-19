@@ -38,46 +38,49 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
     const isDevWorkspace = selectedWS?.cr4a1_nome === "Desenvolvimento e Inovação";
 
     useEffect(() => {
-        if (editingEvent) {
-            setFormData({
-                cr4a1_agenda_kairosid: editingEvent.cr4a1_agenda_kairosid,
-                cr4a1_event_id: editingEvent.cr4a1_event_id,
-                title: editingEvent.cr4a1_titulo || '',
-                // CORREÇÃO DO BUG DA DATA: Trata como string pura YYYY-MM-DD
-                startDate: editingEvent.cr4a1_data_inicio ? editingEvent.cr4a1_data_inicio.split('T')[0] : '',
-                endDate: editingEvent.cr4a1_data_fim ? editingEvent.cr4a1_data_fim.split('T')[0] : '',
-                startHour: editingEvent.cr4a1_hora_inicio || '08:00',
-                endHour: editingEvent.cr4a1_hora_fim || '09:00',
-                type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
-                details: editingEvent.cr4a1_novacoluna || editingEvent.cr4a1_descricao || '', // MAPEAMENTO PARA cr4a1_novacoluna
-                allDay: editingEvent.cr4a1_dia_inteiro || false,
-                files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
-                targetUser: editingEvent.cr4a1_user_login || viewedUser,
-                workspaceId: editingEvent.cr4a1_workspace_id || (workspaces[0]?.cr4a1_calendarios_workspacesid || '')
-            });
-            setIsPrivate(editingEvent.cr4a1_privado || false);
+    if (editingEvent) {
+        setFormData({
+            cr4a1_agenda_kairosid: editingEvent.cr4a1_agenda_kairosid,
+            cr4a1_event_id: editingEvent.cr4a1_event_id,
+            title: editingEvent.cr4a1_titulo || '',
+            // Trata como string pura YYYY-MM-DD
+            startDate: editingEvent.cr4a1_data_inicio ? editingEvent.cr4a1_data_inicio.split('T')[0] : '',
+            endDate: editingEvent.cr4a1_data_fim ? editingEvent.cr4a1_data_fim.split('T')[0] : '',
+            startHour: editingEvent.cr4a1_hora_inicio || '08:00',
+            endHour: editingEvent.cr4a1_hora_fim || '09:00',
+            type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
+            
+            // CORREÇÃO AQUI: Resgata o valor correto da coluna cr4a1_detalhes
+            details: editingEvent.cr4a1_detalhes || editingEvent.cr4a1_descricao || '', 
+            
+            allDay: editingEvent.cr4a1_dia_inteiro || false,
+            files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
+            targetUser: editingEvent.cr4a1_user_login || viewedUser,
+            workspaceId: editingEvent.cr4a1_workspace_id || (workspaces[0]?.cr4a1_calendarios_workspacesid || '')
+        });
+        setIsPrivate(editingEvent.cr4a1_privado || false);
 
-            // Carrega as subtarefas do banco de dados (JSON)
-            try {
-                setSubtasks(editingEvent.cr4a1_subtasks ? JSON.parse(editingEvent.cr4a1_subtasks) : []);
-            } catch (e) {
-                setSubtasks([]);
-            }
-        }
-        else {
-            const cleanInitialDate = initialDate ? initialDate.split('T')[0] : '';
-            setFormData({
-                title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
-                startHour: '08:00', endHour: '09:00',
-                details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
-                targetUser: viewedUser || '', allDay: false,
-                workspaceId: workspaces[0]?.cr4a1_calendarios_workspacesid || ''
-            });
+        // Carrega as subtarefas do banco de dados (JSON)
+        try {
+            setSubtasks(editingEvent.cr4a1_subtasks ? (typeof editingEvent.cr4a1_subtasks === 'string' ? JSON.parse(editingEvent.cr4a1_subtasks) : editingEvent.cr4a1_subtasks) : []);
+        } catch (e) {
             setSubtasks([]);
-            setIsPrivate(false);
         }
-        setIsSaving(false);
-    }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
+    }
+    else {
+        const cleanInitialDate = initialDate ? initialDate.split('T')[0] : '';
+        setFormData({
+            title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
+            startHour: '08:00', endHour: '09:00',
+            details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
+            targetUser: viewedUser || '', allDay: false,
+            workspaceId: workspaces[0]?.cr4a1_calendarios_workspacesid || ''
+        });
+        setSubtasks([]);
+        setIsPrivate(false);
+    }
+    setIsSaving(false);
+}, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
 
     if (!isOpen) return null;
 

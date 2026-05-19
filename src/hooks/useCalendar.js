@@ -517,24 +517,30 @@ export const useCalendar = () => {
 
     const updateProfile = async (userId, profileData) => {
         try {
+            // CORREÇÃO DE PERSISTÊNCIA: Formata a data para ISO válido aceito pelo Dataverse ou envia null se vazia
+            const formattedBirthday = profileData.aniversario ? `${profileData.aniversario}T12:00:00Z` : null;
+
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cr4a1_nome_exibicao: profileData.nomeExibicao,
                     cr4a1_foto: profileData.foto,
-                    cr4a1_aniversario: profileData.aniversario
+                    cr4a1_aniversario: formattedBirthday // Passa o campo tratado
                 })
             });
 
             if (response.ok) {
                 setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
-                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto, cr4a1_aniversario: profileData.aniversario } : u
+                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto, cr4a1_aniversario: formattedBirthday } : u
                 ));
                 toast.success("Perfil atualizado!");
+            } else {
+                throw new Error("Erro na API Gateway");
             }
         } catch (error) {
             toast.error("Erro ao atualizar perfil.");
+            console.error(error);
         }
     };
 

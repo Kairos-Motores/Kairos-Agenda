@@ -1026,7 +1026,7 @@ function App() {
                 </div>
                 {currentUser && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    
+
                     {/* FOTO DE PERFIL */}
                     <div style={{ textAlign: 'center', marginBottom: '10px' }}>
                       {currentUser.cr4a1_foto ? (
@@ -1038,49 +1038,49 @@ function App() {
                       )}
                       <br />
                       <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
-                      <input 
-                        type="file" 
-                        id="p-up" 
-                        hidden 
-                        accept="image/*" 
+                      <input
+                        type="file"
+                        id="p-up"
+                        hidden
+                        accept="image/*"
                         onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                           nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
                           aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
                           foto: res
-                        }))} 
+                        }))}
                       />
                     </div>
 
                     {/* NOME DE EXIBIÇÃO */}
                     <div className="input-group">
                       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Nome de Exibição</label>
-                      <input 
-                        type="text" 
-                        defaultValue={currentUser.cr4a1_nome_exibicao || user} 
-                        id="n-up" 
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
+                      <input
+                        type="text"
+                        defaultValue={currentUser.cr4a1_nome_exibicao || user}
+                        id="n-up"
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
                       />
                     </div>
 
                     {/* ANIVERSÁRIO */}
                     <div className="input-group">
                       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Aniversário</label>
-                      <input 
-                        type="date" 
-                        defaultValue={currentUser.cr4a1_aniversario} 
-                        id="b-up" 
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
+                      <input
+                        type="date"
+                        defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''}
+                        id="b-up"
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
                       />
                     </div>
 
                     {/* BOTÃO SALVAR PERFIL */}
-                    <button 
+                    <button
                       onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                         nomeExibicao: document.getElementById('n-up').value,
                         aniversario: document.getElementById('b-up').value,
                         foto: currentUser.cr4a1_foto
-                      })} 
-                      className="btn-primary" 
+                      })}
+                      className="btn-primary"
                       style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '600', marginTop: '4px' }}
                     >
                       Salvar Dados do Perfil
