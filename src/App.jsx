@@ -1021,21 +1021,74 @@ function App() {
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
               <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px' }}>O Meu Perfil</h2>
+                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>O Meu Perfil</h2>
                   <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
                 </div>
                 {currentUser && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <img src={currentUser.cr4a1_foto || ''} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
-                      <br /><button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '8px' }}>Mudar Foto</button>
-                      <input type="file" id="p-up" hidden accept="image/*" onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, foto: res }))} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    {/* FOTO DE PERFIL */}
+                    <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                      {currentUser.cr4a1_foto ? (
+                        <img src={currentUser.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
+                      ) : (
+                        <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--text-accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', margin: '0 auto' }}>
+                          {user?.[0]?.toUpperCase()}
+                        </div>
+                      )}
+                      <br />
+                      <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
+                      <input 
+                        type="file" 
+                        id="p-up" 
+                        hidden 
+                        accept="image/*" 
+                        onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
+                          nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
+                          aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
+                          foto: res
+                        }))} 
+                      />
                     </div>
+
+                    {/* NOME DE EXIBIÇÃO */}
                     <div className="input-group">
-                      <label>Aniversário</label>
-                      <input type="date" defaultValue={currentUser.cr4a1_aniversario} id="b-up" style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
-                      <button onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, { ...currentUser, aniversario: document.getElementById('b-up').value })} className="btn-primary" style={{ marginTop: '8px', width: '100%' }}>Guardar</button>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Nome de Exibição</label>
+                      <input 
+                        type="text" 
+                        defaultValue={currentUser.cr4a1_nome_exibicao || user} 
+                        id="n-up" 
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
+                      />
                     </div>
+
+                    {/* ANIVERSÁRIO */}
+                    <div className="input-group">
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Aniversário</label>
+                      <input 
+                        type="date" 
+                        defaultValue={currentUser.cr4a1_aniversario} 
+                        id="b-up" 
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
+                      />
+                    </div>
+
+                    {/* BOTÃO SALVAR PERFIL */}
+                    <button 
+                      onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
+                        nomeExibicao: document.getElementById('n-up').value,
+                        aniversario: document.getElementById('b-up').value,
+                        foto: currentUser.cr4a1_foto
+                      })} 
+                      className="btn-primary" 
+                      style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '600', marginTop: '4px' }}
+                    >
+                      Salvar Dados do Perfil
+                    </button>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '10px 0' }} />
+
+                    {/* WHATSAPP */}
                     <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
                   </div>
                 )}
