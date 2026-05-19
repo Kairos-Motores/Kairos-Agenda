@@ -168,7 +168,18 @@ const DraggableEvent = ({ event, children }) => {
 const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });
   return (
-    <div ref={setNodeRef} onClick={onClick} className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`} style={{ overflow: 'hidden', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <div 
+      ref={setNodeRef} 
+      onClick={onClick} 
+      className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`} 
+      style={{ 
+        overflow: 'hidden', 
+        minWidth: 0, 
+        display: 'flex', 
+        flexDirection: 'column',
+        opacity: 1 // Garante que o card do dia fique 100% visível
+      }}
+    >
       {children}
     </div>
   );
