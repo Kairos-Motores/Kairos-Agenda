@@ -703,25 +703,56 @@ function App() {
               </div>
             </div>
 
+            {/* LISTAGEM DE COLEGAS ATUALIZADA */}
             <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
               <input
                 placeholder="Procurar colega..."
                 value={userSearchTerm}
                 onChange={e => setUserSearchTerm(e.target.value)}
                 style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
               />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                 {allUsers.filter(u => {
-                  const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase());
+                  // Ajuste fino: A busca agora valida tanto o username quanto o nome de exibição
+                  const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                    (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
+
                   if (userRole === 'COMUM') return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
                   return matchesSearch;
                 }).map(u => (
-                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '13px' }}>
-                    <input type="checkbox" checked={filters.users.includes(u.cr4a1_username)} onChange={() => toggleFilter('users', u.cr4a1_username)} style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }}></div>
-                    <span style={{ flex: 1 }}>{u.cr4a1_username}</span>
-                    <span style={{ fontSize: '10px', opacity: 0.6 }}>{u.cr4a1_unidade}</span>
+                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={filters.users.includes(u.cr4a1_username)}
+                      onChange={() => toggleFilter('users', u.cr4a1_username)}
+                      style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }}
+                    />
+
+                    {/* AVATAR DINÂMICO: Renderiza a foto se existir, senão mantém a bolinha com tamanho idêntico */}
+                    {u.cr4a1_foto ? (
+                      <img
+                        src={u.cr4a1_foto}
+                        alt={u.cr4a1_username}
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
+                      />
+                    ) : (
+                      <div
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '10px', fontWeight: '700' }}
+                      >
+                        {/* Exibe discretamente a inicial dentro da bolinha caso queira um visual tipo Google, ou remova a linha abaixo se preferir a bolinha 100% lisa */}
+                        {u.cr4a1_username?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+
+                    {/* TEXTO: Exibe o nome de exibição como prioridade */}
+                    <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                    </span>
+
+                    <span style={{ fontSize: '10px', opacity: 0.6, backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+                      {u.cr4a1_unidade}
+                    </span>
                   </label>
                 ))}
               </div>
