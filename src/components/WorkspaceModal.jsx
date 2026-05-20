@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRole }) => {
+export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRole, editingWorkspace = null }) => {
     const [formData, setFormData] = useState({
         nome: '',
         tipo: 'COMPARTILHADO',
         cor: '#1a73e8',
         membros: ''
     });
+
+    useEffect(() => {
+        if (editingWorkspace) {
+            setFormData({
+                nome: editingWorkspace.cr4a1_nome || '',
+                tipo: editingWorkspace.cr4a1_tipo_workspace || 'COMPARTILHADO',
+                cor: editingWorkspace.cr4a1_cor_hex || '#1a73e8',
+                membros: editingWorkspace.cr4a1_membros_logins || ''
+            });
+        } else {
+            setFormData({
+                nome: '',
+                tipo: 'COMPARTILHADO',
+                cor: '#1a73e8',
+                membros: ''
+            });
+        }
+    }, [editingWorkspace, isOpen]);
 
     if (!isOpen) return null;
 
@@ -28,7 +46,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         <div className="modal-overlay" style={{ zIndex: 10000 }}>
             <div className="modal-container" style={{ maxWidth: '400px', width: '90%' }}>
                 <div className="modal-header">
-                    <h3 style={{ margin: 0 }}>🚀 Novo Workspace</h3>
+                    <h3 style={{ margin: 0 }}>{editingWorkspace ? '🚀 Editar Workspace' : '🚀 Novo Workspace'}</h3>
                     <button onClick={onClose} className="icon-btn">
                         <span className="material-symbols-rounded">close</span>
                     </button>
@@ -106,7 +124,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                             onClose();
                         }}
                     >
-                        Criar Workspace
+                        {editingWorkspace ? 'Guardar Alterações' : 'Criar Workspace'}
                     </button>
                 </div>
             </div>

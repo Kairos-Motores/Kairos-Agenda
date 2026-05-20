@@ -259,7 +259,7 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp, addWorkspace, updateUnit, updateProfile,
+    updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile,
     workspaces, activeWorkspaces, toggleWorkspaceFilter
   } = useCalendar();
 
@@ -289,6 +289,12 @@ function App() {
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
+
+  const handleEditWorkspaceClick = (ws) => {
+    setEditingWorkspace(ws);
+    setIsWorkspaceModalOpen(true);
+  };
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [showBirthday, setShowBirthday] = useState(false);
@@ -678,6 +684,16 @@ function App() {
                         <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
                       </div>
                     </label>
+                    {(ws.cr4a1_criador_login === user || userRole === 'ADMIN') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditWorkspaceClick(ws); }}
+                        className="icon-btn boing-effect"
+                        title="Editar Workspace"
+                        style={{ color: 'var(--text-secondary)', background: 'transparent', padding: '4px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                      >
+                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
                       className="icon-btn boing-effect"
@@ -1095,7 +1111,16 @@ function App() {
           {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
-          {isWorkspaceModalOpen && <WorkspaceModal isOpen={isWorkspaceModalOpen} onClose={() => setIsWorkspaceModalOpen(false)} onSave={addWorkspace} />}
+          {isWorkspaceModalOpen && (
+            <WorkspaceModal
+              isOpen={isWorkspaceModalOpen}
+              onClose={() => { setIsWorkspaceModalOpen(false); setEditingWorkspace(null); }}
+              onSave={editingWorkspace ? (data) => updateWorkspace(editingWorkspace.cr4a1_calendarios_workspacesid, data) : addWorkspace}
+              allUsers={allUsers}
+              userRole={userRole}
+              editingWorkspace={editingWorkspace}
+            />
+          )}
           {isProfileModalOpen && (
             <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
               <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
@@ -1183,7 +1208,7 @@ function App() {
                 </div>
                 <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                     <span className="material-symbols-rounded">workspaces</span>
                   </button>
                 </div>

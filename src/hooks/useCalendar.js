@@ -173,7 +173,7 @@ export const useCalendar = () => {
     }, []);
 
     const fetchEvents = useCallback(async () => {
-        if (activeWorkspaces.length === 0) {
+        if (workspaces.length === 0) {
             setEvents([]);
             return;
         }
@@ -182,7 +182,7 @@ export const useCalendar = () => {
         try {
             if (!navigator.onLine) throw new Error('Offline');
 
-            const wsFilter = activeWorkspaces.map(id => `cr4a1_workspace_id eq '${id}'`).join(' or ');
+            const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
 
@@ -207,7 +207,7 @@ export const useCalendar = () => {
         } catch (error) {
             setEvents(JSON.parse(localStorage.getItem('kairos_events_cache') || '[]'));
         } finally { setLoading(false); }
-    }, [activeWorkspaces, user]);
+    }, [workspaces, user]);
 
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
 
@@ -220,19 +220,21 @@ export const useCalendar = () => {
     }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces]);
 
     useEffect(() => {
-        if (user && activeWorkspaces.length >= 0) {
+        if (user && workspaces.length > 0) {
             fetchEvents();
         }
-    }, [fetchEvents, activeWorkspaces]);
+    }, [fetchEvents, workspaces]);
 
     const filteredEvents = useMemo(() => {
+        if (activeWorkspaces.length === 0) return [];
         return events.filter(event => {
+            const matchesWorkspace = activeWorkspaces.includes(event.cr4a1_workspace_id);
             const matchesText = !filters.text || (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) || (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
             const matchesUser = filters.users.length === 0 || filters.users.includes(event.cr4a1_user_login);
             const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
-            return matchesText && matchesUser && matchesType;
+            return matchesWorkspace && matchesText && matchesUser && matchesType;
         });
-    }, [events, filters]);
+    }, [events, filters, activeWorkspaces]);
 
     const toggleWorkspaceFilter = (wsId) => {
         setActiveWorkspaces(prev =>
@@ -515,6 +517,33 @@ export const useCalendar = () => {
         }
     };
 
+    const updateWorkspace = async (wsId, wsData) => {
+        try {
+            const updatedWS = {
+                cr4a1_nome: wsData.nome,
+                cr4a1_tipo_workspace: wsData.tipo,
+                cr4a1_cor_hex: wsData.cor,
+                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros
+            };
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${wsId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedWS)
+            });
+
+            if (response.ok) {
+                toast.success("Workspace atualizado com sucesso!");
+                if (typeof fetchWorkspaces === 'function') await fetchWorkspaces();
+            } else {
+                toast.error("Erro ao atualizar Workspace.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Erro ao atualizar Workspace.");
+        }
+    };
+
     const updateProfile = async (userId, profileData) => {
         try {
             // CORREÇÃO DE PERSISTÊNCIA: Formata a data para ISO válido aceito pelo Dataverse ou envia null se vazia
@@ -550,7 +579,7 @@ export const useCalendar = () => {
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
         filters, setFilters, filteredEvents,
-        isOnline, isSyncing, updateWhatsApp, addWorkspace,
+        isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
