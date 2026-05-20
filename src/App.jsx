@@ -24,7 +24,7 @@ const BirthdayCelebration = ({ name, onClose }) => (
       <div className="birthday-float" style={{ fontSize: '80px', marginBottom: '20px' }}>🎂</div>
       <h1 style={{ color: 'white', fontSize: '32px', margin: '0 0 10px' }}>Parabéns, {name}! 🥳</h1>
       <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', marginBottom: '30px' }}>A equipa Kairós deseja-te um dia incrível!</p>
-      <button onClick={onClose} className="btn-primary" style={{ padding: '12px 32px' }}>Obrigado!</button>
+      <button onClick={onClose} className="btn-primary boing-effect" style={{ padding: '12px 32px' }}>Obrigado!</button>
     </div>
     <style>{`
       @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
@@ -132,7 +132,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 
           <button
             onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
-            className="icon-btn"
+            className="icon-btn boing-effect"
             style={{ background: 'var(--text-accent)', color: 'white', width: '48px', height: '48px', borderRadius: '12px', flex: '0 0 auto' }}
           >
             <span className="material-symbols-rounded">save</span>
@@ -144,13 +144,12 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         href="https://wa.me/5591933005886"
         target="_blank"
         rel="noopener noreferrer"
+        className="boing-effect"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
           background: '#25D366', color: 'white', textDecoration: 'none', fontWeight: '700', fontSize: '14px',
-          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)', transition: 'transform 0.2s'
+          boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
         <span className="material-symbols-rounded">smart_toy</span>
         Falar com Robô Kairós
@@ -200,7 +199,7 @@ const LoginScreen = ({ onLogin }) => {
         <h2 style={{ textAlign: 'center', color: 'var(--text-title)', marginBottom: '30px', fontWeight: '600' }}>Kairós Agenda</h2>
         <input type="text" placeholder="Utilizador" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
         <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', marginBottom: '25px', borderRadius: '8px', border: '1px solid var(--border-strong)', boxSizing: 'border-box', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }} />
-        <button type="submit" disabled={isAuthenticating} style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
+        <button type="submit" disabled={isAuthenticating} className="boing-effect" style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
           {isAuthenticating ? 'A validar...' : 'Entrar'}
         </button>
       </form>
@@ -245,10 +244,10 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
         <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Seleciona a tua unidade para configurares o teu perfil:</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
           {units.map(unit => (
-            <button key={unit} onClick={() => setSelectedUnit(unit)} style={{ padding: '14px', borderRadius: '12px', border: selectedUnit === unit ? '2px solid var(--text-accent)' : '1px solid var(--border-color)', background: selectedUnit === unit ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: selectedUnit === unit ? '700' : '500' }}>{unit}</button>
+            <button key={unit} onClick={() => setSelectedUnit(unit)} className="boing-effect" style={{ padding: '14px', borderRadius: '12px', border: selectedUnit === unit ? '2px solid var(--text-accent)' : '1px solid var(--border-color)', background: selectedUnit === unit ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: selectedUnit === unit ? '700' : '500' }}>{unit}</button>
           ))}
         </div>
-        <button disabled={!selectedUnit} onClick={() => onSaveUnit(selectedUnit)} className="btn-primary" style={{ width: '100%', padding: '16px', opacity: selectedUnit ? 1 : 0.5 }}>Confirmar e Entrar</button>
+        <button disabled={!selectedUnit} onClick={() => onSaveUnit(selectedUnit)} className="btn-primary boing-effect" style={{ width: '100%', padding: '16px', opacity: selectedUnit ? 1 : 0.5 }}>Confirmar e Entrar</button>
       </div>
     </div>
   );
@@ -410,8 +409,8 @@ function App() {
   }, [accentColor, theme]);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -598,14 +597,14 @@ function App() {
             {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
-                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
                 }}>
                   <span className="material-symbols-rounded">calendar_month</span> Agenda
                 </button>
-                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill" style={{ 
+                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
@@ -618,14 +617,14 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill boing-effect" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
                   fontWeight: (view === v.id && !isTaskView) ? '700' : '500', backgroundColor: (view === v.id && !isTaskView) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
               ))}
-              <button onClick={() => { setView('list'); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill" style={{
+              <button onClick={() => { setView('list'); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill boing-effect" style={{
                 display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
                 fontWeight: (view === 'list' && !isTaskView) ? '700' : '500', backgroundColor: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
               }}>
@@ -639,11 +638,10 @@ function App() {
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
                 {materialColors.map(c => (
-                  <div key={c.id} onClick={() => setAccentColor(c.hex)} style={{
+                  <div key={c.id} onClick={() => setAccentColor(c.hex)} className="boing-effect" style={{
                     width: '36px', height: '36px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer', margin: 'auto',
                     border: accentColor === c.hex ? '3px solid var(--bg-primary)' : 'none',
                     boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
-                    transition: 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s',
                     transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
                   }}
                     title={c.label}
@@ -682,7 +680,7 @@ function App() {
                     </label>
                     <button
                       onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
-                      className="icon-btn"
+                      className="icon-btn boing-effect"
                       title="Definir como padrão"
                       style={{ color: defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'var(--text-accent)' : 'var(--border-color)', background: 'transparent' }}
                     >
@@ -695,7 +693,6 @@ function App() {
               </div>
             </div>
 
-            {/* LISTAGEM DE COLEGAS ATUALIZADA */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
               <input
@@ -759,121 +756,115 @@ function App() {
             </div>
 
             {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-              <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
+              <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary boing-effect" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
             )}
           </div>
         </div>
 
-        {/* HEADER ATUALIZADO */}
-        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
-          {/* LINHA SUPERIOR */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
-              </button>
-              <h1 className="logo" onClick={() => { setView('month'); setCurrentDate(new Date()); setIsTaskView(false); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
-                <span className="nav-label">Kairós</span>
-              </h1>
-              
-              <div style={{
-                display: 'inline-flex',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '100px',
-                padding: '4px',
-                alignItems: 'center',
-                gap: '2px',
-                boxSizing: 'border-box'
-              }}>
-                {viewsConfig.map(v => {
-                  const isActive = view === v.id && !isTaskView;
-                  return (
-                    <button
-                      key={v.id}
-                      onClick={() => { setView(v.id); setIsTaskView(false); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
-                        background: isActive ? 'var(--text-accent)' : 'transparent',
-                        color: isActive ? '#ffffff' : 'var(--text-primary)',
-                        fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)', whiteSpace: 'nowrap'
-                      }}
-                    >
-                      <span className="material-symbols-rounded" style={{ fontSize: '18px', color: isActive ? '#ffffff' : 'inherit' }}>{v.icon}</span>
-                      <span className="nav-label">{v.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => { setView('list'); setIsTaskView(false); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                  border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
-                  background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                  color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)',
-                  fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
-                }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
-                <span className="nav-label">Fichas</span>
-              </button>
+        {/* HEADER FLEXÍVEL E INTELIGENTE */}
+        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
+          
+          <div className="header-left">
+            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
+            </button>
+            <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setIsTaskView(false); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
+              <span className="nav-label-collapse">Kairós</span>
+            </h1>
+            
+            <div className="segmented-views" style={{
+              display: 'inline-flex', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+              borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
+            }}>
+              {viewsConfig.map(v => {
+                const isActive = view === v.id && !isTaskView;
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => { setView(v.id); setIsTaskView(false); }}
+                    className="boing-effect"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
+                      background: isActive ? 'var(--text-accent)' : 'transparent',
+                      color: isActive ? '#ffffff' : 'var(--text-primary)',
+                      fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: isActive ? '#ffffff' : 'inherit' }}>{v.icon}</span>
+                    <span className="nav-label-collapse">{v.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                onClick={() => setIsProfileModalOpen(true)}
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
-              >
-                {currentUser?.cr4a1_foto ? (
-                  <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-                ) : (
-                  <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
-                    {user?.[0]?.toUpperCase()}
-                  </span>
-                )}
-                <span className="nav-label" style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
-                  {currentUser?.cr4a1_nome_exibicao || user}
-                </span>
-              </div>
-              <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c' }}>
-                <span className="material-symbols-rounded">logout</span>
-              </button>
-            </div>
+            <button
+              onClick={() => { setView('list'); setIsTaskView(false); }}
+              className="boing-effect"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
+                border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
+                background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)',
+                fontSize: '13px', fontWeight: '600', cursor: 'pointer'
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
+              <span className="nav-label-collapse">Fichas</span>
+            </button>
           </div>
 
-          {/* LINHA INFERIOR (CENTRALIZADA) */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '16px', position: 'relative', width: '100%' }}>
-            <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => handleNavigate('prev')} className="icon-btn">
+          <div className="header-profile">
+            <div
+              onClick={() => setIsProfileModalOpen(true)}
+              className="boing-effect"
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
+            >
+              {currentUser?.cr4a1_foto ? (
+                <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+              ) : (
+                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
+                  {user?.[0]?.toUpperCase()}
+                </span>
+              )}
+              <span style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                {currentUser?.cr4a1_nome_exibicao || user}
+              </span>
+            </div>
+            <button onClick={logout} className="icon-btn boing-effect" title="Sair do sistema" style={{ color: '#e74c3c' }}>
+              <span className="material-symbols-rounded">logout</span>
+            </button>
+          </div>
+
+          <div className="header-bottom">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect">
                 <span className="material-symbols-rounded">chevron_left</span>
               </button>
-              <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn">
+              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect"><span>Hoje</span></button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect">
                 <span className="material-symbols-rounded">chevron_right</span>
               </button>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', textAlign: 'center' }}>
+              <span style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
                 {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
               </span>
-              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
-                {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
+              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
               </span>
             </div>
 
-            <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={requestNotificationPermission} className="icon-btn boing-effect" title="Ativar Notificações">
                 <span className="material-symbols-rounded">notifications</span>
               </button>
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect">
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
               </button>
               {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
-                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerir Utilizadores">
+                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn boing-effect" title="Gerir Utilizadores">
                   <span className="material-symbols-rounded">group</span>
                 </button>
               )}
@@ -881,16 +872,16 @@ function App() {
 
             {!isTaskView && view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
-                <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
-                <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
+                <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
+                <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
               </div>
             )}
-
+            
             {isYearSelectorOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {Array.from({ length: 16 }, (_, i) => {
                   const year = currentDate.getFullYear() - 7 + i;
-                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
+                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
                 })}
               </div>
             )}
@@ -976,7 +967,8 @@ function App() {
                                   <div 
                                     key={i} 
                                     onClick={(e) => { e.stopPropagation(); handleToggleSubtask(task, i); }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', opacity: s.completed ? 0.5 : 1, transition: 'opacity 0.2s' }}
+                                    className="boing-effect"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', opacity: s.completed ? 0.5 : 1 }}
                                   >
                                     <span className="material-symbols-rounded" style={{ fontSize: '20px', color: s.completed ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
                                       {s.completed ? 'check_circle' : 'radio_button_unchecked'}
@@ -987,7 +979,7 @@ function App() {
                               </div>
                             )}
 
-                            <button onClick={() => handleEditClick(task)} className="btn-secondary" style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: '600' }}>
+                            <button onClick={() => handleEditClick(task)} className="btn-secondary boing-effect" style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: '600' }}>
                               Ver Detalhes Completos
                             </button>
                           </div>
@@ -1062,24 +1054,37 @@ function App() {
             </div>
           </main>
 
-          {/* BARRA LATERAL DIREITA (DESKTOP) */}
+          {/* BARRA LATERAL DIREITA FIXA (DESKTOP) - FLUTUANTE */}
           {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
-            <aside className="desktop-only nav-sidebar-right" style={{
-              width: '56px', borderLeft: '1px solid var(--border-color)', background: 'var(--bg-primary)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '20px',
-              height: 'calc(100vh - 64px)', position: 'sticky', top: '64px'
+            <aside className="desktop-only" style={{
+              position: 'fixed',
+              right: '0',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '64px',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRight: 'none',
+              borderRadius: '24px 0 0 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '24px 0',
+              gap: '24px',
+              boxShadow: '-4px 0 24px rgba(0,0,0,0.06)',
+              zIndex: 1000
             }}>
-              <button onClick={() => setIsTaskView(false)} className={!isTaskView ? 'active' : ''} title="Agenda" style={{ 
-                width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <button onClick={() => setIsTaskView(false)} className={`boing-effect ${!isTaskView ? 'active' : ''}`} title="Agenda" style={{ 
+                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
-                <span className="material-symbols-rounded">calendar_month</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
               </button>
-              <button onClick={() => setIsTaskView(true)} className={isTaskView ? 'active' : ''} title="Tarefas" style={{ 
-                width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <button onClick={() => setIsTaskView(true)} className={`boing-effect ${isTaskView ? 'active' : ''}`} title="Tarefas" style={{ 
+                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
-                <span className="material-symbols-rounded">assignment</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>assignment</span>
               </button>
             </aside>
           )}
@@ -1096,7 +1101,7 @@ function App() {
               <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>O Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn">✕</button>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect">✕</button>
                 </div>
                 {currentUser && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1109,7 +1114,7 @@ function App() {
                         </div>
                       )}
                       <br />
-                      <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
+                      <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary boing-effect" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
                       <input 
                         type="file" 
                         id="p-up" 
@@ -1149,7 +1154,7 @@ function App() {
                         aniversario: document.getElementById('b-up').value,
                         foto: currentUser.cr4a1_foto
                       })} 
-                      className="btn-primary" 
+                      className="btn-primary boing-effect" 
                       style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '600', marginTop: '4px' }}
                     >
                       Salvar Dados do Perfil
@@ -1172,30 +1177,141 @@ function App() {
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
                 <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                     <span className="material-symbols-rounded">calendar_add_on</span>
                   </button>
                 </div>
                 <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <button onClick={() => { setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                     <span className="material-symbols-rounded">workspaces</span>
                   </button>
                 </div>
               </div>
             )}
-            <button className="fab-btn" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
+            <button className="fab-btn boing-effect" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
         )}
       </div>
+
+      {/* BLOCO DE ESTILOS CSS INJETADO */}
       <style>{`
         @keyframes viewSlideIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
         .view-enter { animation: viewSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        @media (max-width: 768px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
-        @media (min-width: 769px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
-        .nav-sidebar-right button.active { background: var(--bg-tertiary); color: var(--text-accent); }
+        
+        @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
+        @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
+        
+        /* EFEITO BOING (MOLA ELÁSTICA) */
+        .boing-effect {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+        }
+        .boing-effect:active {
+            transform: scale(0.85) !important;
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* LÓGICA DO CABEÇALHO (SMART HEADER) */
+        .app-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 24px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+            transition: padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s;
+        }
+        
+        .app-header.scrolled {
+            padding: 10px 24px;
+            gap: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+            background: rgba(var(--bg-primary-rgb, 255, 255, 255), 0.98);
+            backdrop-filter: blur(12px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            order: 1;
+            flex-wrap: nowrap;
+        }
+
+        .header-profile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            order: 2;
+            margin-left: auto;
+            transition: all 0.4s ease;
+        }
+
+        .header-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            order: 3;
+            flex-basis: 100%; /* Força para a linha de baixo */
+            flex-wrap: wrap;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* O GRANDE TRUQUE: QUANDO ROLA A PÁGINA */
+        .app-header.scrolled .header-bottom {
+            order: 2; /* Sobe para o meio */
+            flex-basis: auto; /* Perde a largura total para se alinhar */
+            margin-left: 16px;
+            margin-right: auto;
+            justify-content: flex-start;
+        }
+        .app-header.scrolled .header-profile {
+            order: 3;
+            margin-left: 0;
+        }
+
+        /* ENCOLHIMENTO SUAVE DAS ETIQUETAS */
+        .nav-label-collapse {
+            display: inline-block;
+            transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+            max-width: 150px;
+            opacity: 1;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .app-header.scrolled .nav-label-collapse {
+            max-width: 0px;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* COMPORTAMENTO MOBILE */
+        @media (max-width: 900px) {
+            .app-header { padding: 12px 16px; gap: 12px; }
+            .app-header.scrolled { padding: 8px 16px; }
+            
+            .header-left { width: 100%; justify-content: space-between; }
+            .segmented-views { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+            .segmented-views::-webkit-scrollbar { display: none; }
+            
+            .header-profile { order: 1; position: absolute; right: 16px; top: 12px; margin-left: 0; }
+            
+            .header-bottom { order: 3; flex-basis: 100%; justify-content: space-between; margin-top: 4px; }
+            .app-header.scrolled .header-bottom { order: 3; flex-basis: 100%; margin-left: 0; justify-content: space-between; }
+            .app-header.scrolled .header-profile { position: absolute; right: 16px; top: 8px; order: 1; }
+            
+            /* No mobile as etiquetas somem por padrão nos views para caber */
+            .segmented-views .nav-label-collapse { max-width: 0; opacity: 0; margin: 0; }
+        }
       `}</style>
     </DndContext>
   );
