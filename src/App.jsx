@@ -761,130 +761,71 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER FLEXÍVEL E INTELIGENTE */}
-        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
+        {/* HEADER ATUALIZADO MOBILE-FIRST */}
+        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`} style={{ 
+          display: 'flex', flexDirection: 'column', padding: '12px', borderBottom: '1px solid var(--border-color)', 
+          background: 'var(--bg-primary)', gap: '10px' 
+        }}>
           
-          <div className="header-left">
+          {/* LINHA 1: Menu, Perfil e Logout */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
+              <span className="material-symbols-rounded">menu</span>
             </button>
-            <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setIsTaskView(false); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
-              <span className="nav-label-collapse">Kairós</span>
-            </h1>
             
-            <div className="segmented-views" style={{
-              display: 'inline-flex', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-              borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div onClick={() => setIsProfileModalOpen(true)} className="boing-effect" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '2px 8px 2px 2px', border: '1px solid var(--border-color)' }}>
+                {currentUser?.cr4a1_foto ? (
+                  <img src={currentUser.cr4a1_foto} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700' }}>
+                    {user?.[0]?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <button onClick={logout} className="icon-btn boing-effect" style={{ color: '#e74c3c' }}>
+                <span className="material-symbols-rounded">logout</span>
+              </button>
+            </div>
+          </div>
+
+          {/* LINHA 2: Alternância de Visualizações (Calendário/Fichas) */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', width: '100%', flexWrap: 'wrap' }}>
+            <div className="segmented-views" style={{ display: 'inline-flex', background: 'var(--bg-secondary)', borderRadius: '100px', padding: '2px', alignItems: 'center' }}>
               {viewsConfig.map(v => {
                 const isActive = view === v.id && !isTaskView;
                 return (
-                  <button
-                    key={v.id}
-                    onClick={() => { setView(v.id); setIsTaskView(false); }}
-                    className="boing-effect"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
-                      background: isActive ? 'var(--text-accent)' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-primary)',
-                      fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: isActive ? '#ffffff' : 'inherit' }}>{v.icon}</span>
-                    <span className="nav-label-collapse">{v.label}</span>
+                  <button key={v.id} onClick={() => { setView(v.id); setIsTaskView(false); }} className="boing-effect" style={{ 
+                    padding: '6px 12px', borderRadius: '100px', border: 'none', background: isActive ? 'var(--text-accent)' : 'transparent', color: isActive ? '#fff' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600' 
+                  }}>
+                    {v.label}
                   </button>
                 );
               })}
             </div>
-
-            <button
-              onClick={() => { setView('list'); setIsTaskView(false); }}
-              className="boing-effect"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
-                background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)',
-                fontSize: '13px', fontWeight: '600', cursor: 'pointer'
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
-              <span className="nav-label-collapse">Fichas</span>
+            <button onClick={() => { setView('list'); setIsTaskView(false); }} className="boing-effect" style={{ 
+              padding: '6px 12px', borderRadius: '100px', border: '1px solid var(--border-color)', background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: '600' 
+            }}>
+              Fichas
             </button>
           </div>
 
-          <div className="header-profile">
-            <div
-              onClick={() => setIsProfileModalOpen(true)}
-              className="boing-effect"
-              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
-            >
-              {currentUser?.cr4a1_foto ? (
-                <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-              ) : (
-                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
-                  {user?.[0]?.toUpperCase()}
-                </span>
-              )}
-              <span style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                {currentUser?.cr4a1_nome_exibicao || user}
-              </span>
+          {/* LINHA 3: Botões de navegação, Data e Notificações */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_left</span></button>
+              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect" style={{ fontSize: '12px', padding: '4px 8px' }}>Hoje</button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_right</span></button>
             </div>
-            <button onClick={logout} className="icon-btn boing-effect" title="Sair do sistema" style={{ color: '#e74c3c' }}>
-              <span className="material-symbols-rounded">logout</span>
-            </button>
-          </div>
-
-          <div className="header-bottom">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect">
-                <span className="material-symbols-rounded">chevron_left</span>
-              </button>
-              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect">
-                <span className="material-symbols-rounded">chevron_right</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
-              </span>
-              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={requestNotificationPermission} className="icon-btn boing-effect" title="Ativar Notificações">
-                <span className="material-symbols-rounded">notifications</span>
-              </button>
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect">
-                <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-              </button>
-              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
-                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn boing-effect" title="Gerir Utilizadores">
-                  <span className="material-symbols-rounded">group</span>
-                </button>
-              )}
-            </div>
-
-            {!isTaskView && view === 'day' && (
-              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
-                <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
-                <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
-              </div>
-            )}
             
-            {isYearSelectorOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {Array.from({ length: 16 }, (_, i) => {
-                  const year = currentDate.getFullYear() - 7 + i;
-                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
-                })}
-              </div>
-            )}
+            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-title)' }}>
+              {format(currentDate, 'MMM yyyy', { locale: ptBR })}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={requestNotificationPermission} className="icon-btn boing-effect"><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>notifications</span></button>
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect"><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{theme === 'light' ? 'dark_mode' : 'light_mode'}</span></button>
+            </div>
           </div>
         </header>
 
