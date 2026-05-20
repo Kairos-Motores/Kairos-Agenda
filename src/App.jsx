@@ -764,10 +764,11 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER */}
-        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-          <nav className="nav-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* HEADER ATUALIZADO */}
+        <header className={`app-header ${isScrolled ? 'scrolled' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+          {/* LINHA SUPERIOR */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <button onClick={() => setIsSidebarOpen(true)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
               </button>
@@ -776,7 +777,6 @@ function App() {
                 <span className="nav-label">Kairós</span>
               </h1>
               
-              {/* NOVO: MATERIAL DESIGN 3 / ANDROID 17 SEGMENTED BUTTONS GROUP */}
               <div style={{
                 display: 'inline-flex',
                 background: 'var(--bg-secondary)',
@@ -794,19 +794,10 @@ function App() {
                       key={v.id}
                       onClick={() => { setView(v.id); setIsTaskView(false); }}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 14px',
-                        borderRadius: '100px',
-                        border: 'none',
+                        display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
                         background: isActive ? 'var(--text-accent)' : 'transparent',
                         color: isActive ? '#ffffff' : 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: isActive ? '700' : '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                        whiteSpace: 'nowrap'
+                        fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)', whiteSpace: 'nowrap'
                       }}
                     >
                       <span className="material-symbols-rounded" style={{ fontSize: '18px', color: isActive ? '#ffffff' : 'inherit' }}>{v.icon}</span>
@@ -816,22 +807,14 @@ function App() {
                 })}
               </div>
 
-              {/* BOTÃO INDEPENDENTE DE FICHAS - ALINHADO AO PADRÃO MATERIAL */}
               <button
                 onClick={() => { setView('list'); setIsTaskView(false); }}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '10px 16px',
-                  borderRadius: '100px',
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
                   border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
                   background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
                   color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s'
                 }}
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
@@ -839,67 +822,72 @@ function App() {
               </button>
             </div>
 
-            <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-              <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button onClick={() => handleNavigate('prev')} className="icon-btn">
-                  <span className="material-symbols-rounded">chevron_left</span>
-                </button>
-                <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
-                <button onClick={() => handleNavigate('next')} className="icon-btn">
-                  <span className="material-symbols-rounded">chevron_right</span>
-                </button>
-              </div>
-              <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
-                  <span className="material-symbols-rounded">notifications</span>
-                </button>
-                <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
-                  <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-                </button>
-                {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
-                  <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerir Utilizadores">
-                    <span className="material-symbols-rounded">group</span>
-                  </button>
-                )}
-                <div
-                  onClick={() => setIsProfileModalOpen(true)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
-                >
-                  {currentUser?.cr4a1_foto ? (
-                    <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-                  ) : (
-                    <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
-                      {user?.[0]?.toUpperCase()}
-                    </span>
-                  )}
-                  <span className="nav-label" style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
-                    {currentUser?.cr4a1_nome_exibicao || user}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                onClick={() => setIsProfileModalOpen(true)}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '32px', padding: '4px 12px 4px 4px', border: '1px solid var(--border-color)', fontSize: '13px', fontWeight: '500' }}
+              >
+                {currentUser?.cr4a1_foto ? (
+                  <img src={currentUser.cr4a1_foto} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                ) : (
+                  <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
+                    {user?.[0]?.toUpperCase()}
                   </span>
-                </div>
-                <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c', marginLeft: '4px' }}>
-                  <span className="material-symbols-rounded">logout</span>
-                </button>
+                )}
+                <span className="nav-label" style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
+                  {currentUser?.cr4a1_nome_exibicao || user}
+                </span>
               </div>
+              <button onClick={logout} className="icon-btn" title="Sair do sistema" style={{ color: '#e74c3c' }}>
+                <span className="material-symbols-rounded">logout</span>
+              </button>
             </div>
-          </nav>
+          </div>
 
-          <div className="header-secondary-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '10px', position: 'relative', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+          {/* LINHA INFERIOR (CENTRALIZADA) */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '16px', position: 'relative', width: '100%' }}>
+            <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => handleNavigate('prev')} className="icon-btn">
+                <span className="material-symbols-rounded">chevron_left</span>
+              </button>
+              <button onClick={() => setCurrentDate(new Date())} className="nav-pill"><span>Hoje</span></button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn">
+                <span className="material-symbols-rounded">chevron_right</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="month-name" style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', textAlign: 'center' }}>
                 {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
               </span>
               <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} className="year-pill" style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)' }}>
                 {format(currentDate, 'yyyy')} <span style={{ fontSize: '12px', opacity: 0.5 }}>▼</span>
               </span>
-              {!isTaskView && view === 'day' && (
-                <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', marginLeft: '12px', border: '1px solid var(--border-color)' }}>
-                  <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
-                  <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
-                </div>
+            </div>
+
+            <div className="nav-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={requestNotificationPermission} className="icon-btn" title="Ativar Notificações">
+                <span className="material-symbols-rounded">notifications</span>
+              </button>
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn">
+                <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+              </button>
+              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
+                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn" title="Gerir Utilizadores">
+                  <span className="material-symbols-rounded">group</span>
+                </button>
               )}
             </div>
+
+            {!isTaskView && view === 'day' && (
+              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                <button onClick={() => setDayViewMode('timeline')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Linhas</button>
+                <button onClick={() => setDayViewMode('cards')} style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}>Cartões</button>
+              </div>
+            )}
+
             {isYearSelectorOpen && (
-              <div style={{ position: 'absolute', top: '40px', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {Array.from({ length: 16 }, (_, i) => {
                   const year = currentDate.getFullYear() - 7 + i;
                   return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
