@@ -783,7 +783,7 @@ function App() {
                   <button
                     key={v.id}
                     onClick={() => { setView(v.id); setIsTaskView(false); }}
-                    className="boing-effect"
+                    className={`boing-effect ${isActive ? 'active' : ''}`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
                       background: isActive ? 'var(--text-accent)' : 'transparent',
@@ -800,7 +800,7 @@ function App() {
 
             <button
               onClick={() => { setView('list'); setIsTaskView(false); }}
-              className="boing-effect"
+              className={`boing-effect ${view === 'list' && !isTaskView ? 'active' : ''}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
                 border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
@@ -827,7 +827,7 @@ function App() {
                   {user?.[0]?.toUpperCase()}
                 </span>
               )}
-              <span style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+              <span className="profile-name" style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
                 {currentUser?.cr4a1_nome_exibicao || user}
               </span>
             </div>
@@ -1294,23 +1294,269 @@ function App() {
             padding: 0;
         }
 
-        /* COMPORTAMENTO MOBILE */
+        /* COMPORTAMENTO MOBILE OTIMIZADO & LUXUOSO */
         @media (max-width: 900px) {
-            .app-header { padding: 12px 16px; gap: 12px; }
-            .app-header.scrolled { padding: 8px 16px; }
+            .app-header {
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 12px 16px !important;
+                gap: 12px !important;
+                background: var(--bg-primary) !important;
+                border-bottom: 1px solid var(--border-color) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+                backdrop-filter: blur(12px) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            .app-header.scrolled {
+                padding: 8px 12px !important;
+                gap: 8px !important;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+            }
+            [data-theme='dark'] .app-header {
+                background: rgba(30, 30, 30, 0.8) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
+            }
+
+            /* Linha 1 (Topo): Menu e Perfil */
+            .header-left {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                width: 100% !important;
+                gap: 8px !important;
+                justify-content: flex-start !important;
+            }
             
-            .header-left { width: 100%; justify-content: space-between; }
-            .segmented-views { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
-            .segmented-views::-webkit-scrollbar { display: none; }
+            .header-left > button:first-of-type {
+                order: 1 !important;
+            }
             
-            .header-profile { order: 1; position: absolute; right: 16px; top: 12px; margin-left: 0; }
+            /* Ocultar texto do logo "Kairós" para libertar espaço precioso */
+            .header-left .logo {
+                order: 2 !important;
+                gap: 4px !important;
+            }
+            .header-left .logo .nav-label-collapse {
+                display: none !important;
+            }
+
+            /* Perfil fixo no topo direito */
+            .header-profile {
+                order: 1 !important;
+                position: absolute !important;
+                right: 16px !important;
+                top: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                margin-left: 0 !important;
+                z-index: 10 !important;
+            }
+            .app-header.scrolled .header-profile {
+                top: 8px !important;
+            }
+            .header-profile .profile-name {
+                display: none !important;
+            }
+            .header-profile > div {
+                padding: 2px !important;
+                border-radius: 50% !important;
+                background: var(--bg-secondary) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border: 1px solid var(--border-color) !important;
+                height: 36px !important;
+                width: 36px !important;
+                box-sizing: border-box !important;
+            }
+            .header-profile > div img {
+                width: 30px !important;
+                height: 30px !important;
+            }
+            .header-profile .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+            }
+
+            /* Linha 2 (Seletor de Vistas) */
+            .segmented-views {
+                order: 3 !important;
+                flex: 1 !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                background: var(--bg-secondary) !important;
+                border-radius: 16px !important;
+                padding: 4px !important;
+                border: 1px solid var(--border-color) !important;
+                width: calc(100% - 46px) !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+            }
+            .segmented-views button {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 6px 0 !important;
+                height: 30px !important;
+                border-radius: 12px !important;
+                font-size: 12px !important;
+                border: none !important;
+                background: transparent !important;
+                color: var(--text-secondary) !important;
+            }
+            .segmented-views button.active {
+                background: var(--text-accent) !important;
+                color: white !important;
+                font-weight: 700 !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
+            }
+            .segmented-views .nav-label-collapse {
+                display: none !important;
+            }
+
+            /* Botão Fichas alinhado perfeitamente na Linha 2 */
+            .header-left > button:last-of-type {
+                order: 4 !important;
+                height: 38px !important;
+                width: 38px !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 12px !important;
+                border: 1px solid var(--border-color) !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                margin-left: auto !important;
+                box-sizing: border-box !important;
+            }
+            .header-left > button:last-of-type.active {
+                border-color: var(--text-accent) !important;
+                background: var(--bg-tertiary) !important;
+                color: var(--text-accent) !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
+            }
+            .header-left > button:last-of-type .nav-label-collapse {
+                display: none !important;
+            }
+
+            /* Linha 3 (Controle de Datas e Utilidades) */
+            .header-bottom {
+                order: 3 !important;
+                display: grid !important;
+                grid-template-columns: 1fr auto !important;
+                grid-template-rows: auto auto !important;
+                gap: 10px 8px !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-top: 4px !important;
+                position: relative !important;
+                flex-basis: auto !important;
+            }
+            .app-header.scrolled .header-bottom {
+                order: 3 !important;
+                flex-basis: auto !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+
+            /* Controle de Data (Mês / Ano) - Row 1, Col 1 */
+            .header-bottom > div:nth-child(2) {
+                grid-row: 1 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(2) span {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: var(--text-title) !important;
+                text-transform: capitalize !important;
+            }
+            .header-bottom > div:nth-child(2) span:first-of-type {
+                max-width: 120px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
+
+            /* Chevrons Navegação - Row 1, Col 2 */
+            .header-bottom > div:nth-child(1) {
+                grid-row: 1 !important;
+                grid-column: 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(1) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+            .header-bottom > div:nth-child(1) .nav-pill {
+                height: 36px !important;
+                padding: 0 12px !important;
+                font-size: 12px !important;
+                font-weight: 600 !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                border: 1px solid var(--border-color) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* Utilidades (Tema, Notificações) - Row 2, Col 2 por padrão */
+            .header-bottom > div:nth-child(3) {
+                grid-row: 2 !important;
+                grid-column: 1 / span 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+            }
+            .header-bottom > div:nth-child(3) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+
+            /* Modo Visualização de Dia (Linha/Cartões) - Row 2, Col 1 */
+            .header-bottom > div:nth-child(4) {
+                grid-row: 2 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+            }
             
-            .header-bottom { order: 3; flex-basis: 100%; justify-content: space-between; margin-top: 4px; }
-            .app-header.scrolled .header-bottom { order: 3; flex-basis: 100%; margin-left: 0; justify-content: space-between; }
-            .app-header.scrolled .header-profile { position: absolute; right: 16px; top: 8px; order: 1; }
-            
-            /* No mobile as etiquetas somem por padrão nos views para caber */
-            .segmented-views .nav-label-collapse { max-width: 0; opacity: 0; margin: 0; }
+            /* Ajuste condicional das utilidades se o seletor diário estiver ativo */
+            .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
+                grid-column: 2 !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .app-header {
+                padding: 8px 12px !important;
+                gap: 10px !important;
+            }
+            .header-bottom > div:nth-child(2) span {
+                font-size: 15px !important;
+            }
+            .header-bottom > div:nth-child(1) .nav-pill {
+                padding: 0 8px !important;
+                font-size: 11px !important;
+            }
         }
       `}</style>
     </DndContext>
