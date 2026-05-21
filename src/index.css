@@ -175,6 +175,8 @@ body {
 .icon-btn {
   width: 44px;
   padding: 0;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .nav-pill {
@@ -238,7 +240,13 @@ body {
 .app-header.scrolled {
   padding: 8px 0;
   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  background-color: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+[data-theme='dark'] .app-header.scrolled {
+  background-color: rgba(30, 30, 30, 0.88);
 }
 
 .app-header .header-secondary-row {
