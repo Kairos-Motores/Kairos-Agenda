@@ -177,7 +177,7 @@ export const ListView = ({
               transition: 'background 0.15s',
               cursor: 'pointer',
             }}
-            onClick={() => onEdit(event)} // ou abrir detalhes
+            onClick={() => onEdit(event)}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 2 }}>
               <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-title)' }}>
@@ -249,6 +249,7 @@ export const ListView = ({
     return (
       <div style={{ padding: '10px 0' }}>
         <div
+          className="carousel-container"
           style={{
             display: 'flex',
             overflowX: 'auto',
@@ -261,7 +262,7 @@ export const ListView = ({
             <div
               key={tipo}
               style={{
-                flex: '0 0 85%',  // largura do slide (ajuste conforme necessário)
+                flex: '0 0 85%',  // largura do slide
                 scrollSnapAlign: 'start',
                 background: 'var(--bg-secondary)',
                 borderRadius: '16px',
@@ -274,7 +275,7 @@ export const ListView = ({
               </h4>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gridTemplateColumns: 'repeat(2, 1fr)',  // EXATAMENTE 2 COLUNAS
                 gap: '16px'
               }}>
                 {grouped[tipo].map(event => renderCard(event))}
@@ -282,7 +283,7 @@ export const ListView = ({
             </div>
           ))}
         </div>
-        {/* Controles de navegação simples (opcionais) */}
+        {/* Controles de navegação */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
           <button
             onClick={() => {
