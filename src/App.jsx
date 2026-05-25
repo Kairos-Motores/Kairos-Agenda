@@ -161,16 +161,16 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 const DraggableEvent = ({ event, children }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
-  return <div ref={setNodeRef} style={{ ...style, minWidth: 0, width: '100%', boxSizing: 'border-box' }} {...listeners} {...attributes}>{children}</div>;
+  return <div ref={setNodeRef} style={{...style, minWidth: 0, width: '100%', boxSizing: 'border-box'}} {...listeners} {...attributes}>{children}</div>;
 };
 
 const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id: dateStr });
   return (
-    <div
-      ref={setNodeRef}
-      onClick={onClick}
-      className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}
+    <div 
+      ref={setNodeRef} 
+      onClick={onClick} 
+      className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`} 
       style={{ overflow: 'hidden', minWidth: 0, display: 'flex', flexDirection: 'column', opacity: 1 }}
     >
       {children}
@@ -320,33 +320,33 @@ function App() {
 
   const handleToggleSubtask = async (task, index) => {
     try {
-      const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
-      const updatedSubtasks = [...subtasks];
-      updatedSubtasks[index].completed = !updatedSubtasks[index].completed;
+        const subtasks = task.cr4a1_subtasks ? (typeof task.cr4a1_subtasks === 'string' ? JSON.parse(task.cr4a1_subtasks) : task.cr4a1_subtasks) : [];
+        const updatedSubtasks = [...subtasks];
+        updatedSubtasks[index].completed = !updatedSubtasks[index].completed;
 
-      const cleanStartDate = task.cr4a1_data_inicio ? task.cr4a1_data_inicio.split('T')[0] : '';
-      const cleanEndDate = task.cr4a1_data_fim ? task.cr4a1_data_fim.split('T')[0] : cleanStartDate;
+        const cleanStartDate = task.cr4a1_data_inicio ? task.cr4a1_data_inicio.split('T')[0] : '';
+        const cleanEndDate = task.cr4a1_data_fim ? task.cr4a1_data_fim.split('T')[0] : cleanStartDate;
 
-      await updateEvent({
-        ...task,
-        cr4a1_subtasks: JSON.stringify(updatedSubtasks),
-        title: task.cr4a1_titulo,
-        details: task.cr4a1_detalhes || task.cr4a1_descricao || '',
-        startDate: cleanStartDate,
-        endDate: cleanEndDate,
-        startHour: task.cr4a1_hora_inicio || '08:00',
-        endHour: task.cr4a1_hora_fim || '09:00',
-        allDay: task.cr4a1_dia_inteiro,
-        targetUser: task.cr4a1_user_login,
-        workspaceId: task.cr4a1_workspace_id
-      });
+        await updateEvent({
+            ...task,
+            cr4a1_subtasks: JSON.stringify(updatedSubtasks),
+            title: task.cr4a1_titulo,
+            details: task.cr4a1_detalhes || task.cr4a1_descricao || '',
+            startDate: cleanStartDate,
+            endDate: cleanEndDate,
+            startHour: task.cr4a1_hora_inicio || '08:00',
+            endHour: task.cr4a1_hora_fim || '09:00',
+            allDay: task.cr4a1_dia_inteiro,
+            targetUser: task.cr4a1_user_login,
+            workspaceId: task.cr4a1_workspace_id
+        });
 
-      if (updatedSubtasks[index].completed) {
-        toast.success(`Check! ${updatedSubtasks[index].text} concluído.`, { icon: '✅' });
-      }
+        if (updatedSubtasks[index].completed) {
+            toast.success(`Check! ${updatedSubtasks[index].text} concluído.`, { icon: '✅' });
+        }
     } catch (error) {
-      toast.error("Erro ao atualizar subtarefa.");
-      console.error(error);
+        toast.error("Erro ao atualizar subtarefa.");
+        console.error(error);
     }
   };
 
@@ -560,11 +560,11 @@ function App() {
 
   const toggleFilter = (type, value) => {
     setFilters(prev => {
-      const currentList = [...prev[type]];
-      const index = currentList.indexOf(value);
-      if (index > -1) currentList.splice(index, 1);
-      else currentList.push(value);
-      return { ...prev, [type]: currentList };
+        const currentList = [...prev[type]];
+        const index = currentList.indexOf(value);
+        if (index > -1) currentList.splice(index, 1);
+        else currentList.push(value);
+        return { ...prev, [type]: currentList };
     });
   };
 
@@ -604,14 +604,14 @@ function App() {
             {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
-                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
+                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
                 }}>
                   <span className="material-symbols-rounded">calendar_month</span> Agenda
                 </button>
-                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
+                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
                   color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
@@ -721,37 +721,37 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                 {allUsers.filter(u => {
                   const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                    (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
-
+                                        (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
+                  
                   if (userRole === 'COMUM') return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
                   return matchesSearch;
                 }).map(u => (
                   <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={filters.users.includes(u.cr4a1_username)}
-                      onChange={() => toggleFilter('users', u.cr4a1_username)}
-                      style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }}
+                    <input 
+                      type="checkbox" 
+                      checked={filters.users.includes(u.cr4a1_username)} 
+                      onChange={() => toggleFilter('users', u.cr4a1_username)} 
+                      style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} 
                     />
-
+                    
                     {u.cr4a1_foto ? (
-                      <img
-                        src={u.cr4a1_foto}
+                      <img 
+                        src={u.cr4a1_foto} 
                         alt={u.cr4a1_username}
-                        style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }}
+                        style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} 
                       />
                     ) : (
-                      <div
+                      <div 
                         style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '10px', fontWeight: '700' }}
                       >
                         {u.cr4a1_username?.[0]?.toUpperCase()}
                       </div>
                     )}
-
+                    
                     <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {u.cr4a1_nome_exibicao || u.cr4a1_username}
                     </span>
-
+                    
                     <span style={{ fontSize: '10px', opacity: 0.6, backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
                       {u.cr4a1_unidade}
                     </span>
@@ -780,7 +780,7 @@ function App() {
 
         {/* HEADER FLEXÍVEL E INTELIGENTE */}
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-
+          
           <div className="header-left">
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
@@ -789,7 +789,7 @@ function App() {
               <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
               <span className="nav-label-collapse">Kairós</span>
             </h1>
-
+            
             <div className="segmented-views" style={{
               display: 'inline-flex', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
               borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
@@ -893,7 +893,7 @@ function App() {
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
               </div>
             )}
-
+            
             {isYearSelectorOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {Array.from({ length: 16 }, (_, i) => {
@@ -907,7 +907,7 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
           <main className="main-container" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
-
+            
             <div key={isTaskView ? 'tasks' : 'calendar'} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {isTaskView ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
@@ -930,19 +930,19 @@ function App() {
                         const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
 
                         const now = new Date();
-                        now.setHours(0, 0, 0, 0);
-
+                        now.setHours(0,0,0,0);
+                        
                         const deadlineDateStr = task.cr4a1_data_fim || task.cr4a1_data_inicio;
                         const deadline = new Date(deadlineDateStr);
-                        deadline.setHours(0, 0, 0, 0);
-
+                        deadline.setHours(0,0,0,0);
+                        
                         const isDelayed = now > deadline && percentage < 100;
 
                         return (
-                          <div
+                          <div 
                             key={task.cr4a1_agenda_kairosid}
-                            style={{
-                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px',
+                            style={{ 
+                              background: 'var(--bg-primary)', padding: '24px', borderRadius: '24px', 
                               border: `1px solid ${isDelayed ? '#ff4d4d44' : 'var(--border-color)'}`,
                               boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
                             }}
@@ -950,9 +950,9 @@ function App() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                  <span style={{
+                                  <span style={{ 
                                     padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800',
-                                    background: isDelayed ? '#fee2e2' : (percentage === 100 ? '#dcfce7' : '#e0f2fe'),
+                                    background: isDelayed ? '#fee2e2' : (percentage === 100 ? '#dcfce7' : '#e0f2fe'), 
                                     color: isDelayed ? '#ef4444' : (percentage === 100 ? '#22c55e' : '#0ea5e9')
                                   }}>
                                     {isDelayed ? 'ATRASADO' : (percentage === 100 ? 'CONCLUÍDO' : 'EM DIA')}
@@ -963,11 +963,11 @@ function App() {
                                 </div>
                                 <h3 style={{ fontSize: '20px', margin: 0, color: 'var(--text-title)' }}>{task.cr4a1_titulo}</h3>
                               </div>
-
+                              
                               <div style={{ position: 'relative', width: '54px', height: '54px', flexShrink: 0 }}>
                                 <svg width="54" height="54" viewBox="0 0 36 36">
                                   <circle cx="18" cy="18" r="16" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
-                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--text-accent)" strokeWidth="3"
+                                  <circle cx="18" cy="18" r="16" fill="none" stroke="var(--text-accent)" strokeWidth="3" 
                                     strokeDasharray={`${percentage}, 100`} strokeLinecap="round" transform="rotate(-90 18 18)" />
                                   <text x="18" y="21" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--text-primary)">{percentage}%</text>
                                 </svg>
@@ -981,8 +981,8 @@ function App() {
                             {totalSubtasks > 0 && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
                                 {subtasks.map((s, i) => (
-                                  <div
-                                    key={i}
+                                  <div 
+                                    key={i} 
                                     onClick={(e) => { e.stopPropagation(); handleToggleSubtask(task, i); }}
                                     className="boing-effect"
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', opacity: s.completed ? 0.5 : 1 }}
@@ -1026,12 +1026,12 @@ function App() {
                   {view === 'month' && (
                     <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
                       <div style={{ ...(activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), overflow: 'visible', opacity: 1 }}>
-                        <div
-                          className="calendar-month-grid"
-                          style={{
-                            ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                            background: 'var(--bg-primary)',
-                            borderRadius: '22px',
+                        <div 
+                          className="calendar-month-grid" 
+                          style={{ 
+                            ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }), 
+                            background: 'var(--bg-primary)', 
+                            borderRadius: '22px', 
                             overflow: 'visible',
                             opacity: 1
                           }}
@@ -1092,13 +1092,13 @@ function App() {
               boxShadow: '-4px 0 24px rgba(0,0,0,0.06)',
               zIndex: 1000
             }}>
-              <button onClick={() => setIsTaskView(false)} className={`boing-effect ${!isTaskView ? 'active' : ''}`} title="Agenda" style={{
+              <button onClick={() => setIsTaskView(false)} className={`boing-effect ${!isTaskView ? 'active' : ''}`} title="Agenda" style={{ 
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
               </button>
-              <button onClick={() => setIsTaskView(true)} className={`boing-effect ${isTaskView ? 'active' : ''}`} title="Tarefas" style={{
+              <button onClick={() => setIsTaskView(true)} className={`boing-effect ${isTaskView ? 'active' : ''}`} title="Tarefas" style={{ 
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
@@ -1142,46 +1142,46 @@ function App() {
                       )}
                       <br />
                       <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary boing-effect" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
-                      <input
-                        type="file"
-                        id="p-up"
-                        hidden
-                        accept="image/*"
+                      <input 
+                        type="file" 
+                        id="p-up" 
+                        hidden 
+                        accept="image/*" 
                         onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                           nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
                           aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
                           foto: res
-                        }))}
+                        }))} 
                       />
                     </div>
 
                     <div className="input-group">
                       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Nome de Exibição</label>
-                      <input
-                        type="text"
-                        defaultValue={currentUser.cr4a1_nome_exibicao || user}
-                        id="n-up"
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
+                      <input 
+                        type="text" 
+                        defaultValue={currentUser.cr4a1_nome_exibicao || user} 
+                        id="n-up" 
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
                       />
                     </div>
 
                     <div className="input-group">
                       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Aniversário</label>
-                      <input
-                        type="date"
-                        defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''}
-                        id="b-up"
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
+                      <input 
+                        type="date" 
+                        defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''} 
+                        id="b-up" 
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }} 
                       />
                     </div>
 
-                    <button
+                    <button 
                       onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                         nomeExibicao: document.getElementById('n-up').value,
                         aniversario: document.getElementById('b-up').value,
                         foto: currentUser.cr4a1_foto
-                      })}
-                      className="btn-primary boing-effect"
+                      })} 
+                      className="btn-primary boing-effect" 
                       style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '600', marginTop: '4px' }}
                     >
                       Salvar Dados do Perfil
@@ -1322,10 +1322,7 @@ function App() {
         }
 
         /* COMPORTAMENTO MOBILE OTIMIZADO & LUXUOSO */
-        /* ============================================================
-   COMPORTAMENTO MOBILE OTIMIZADO & LUXUOSO (CORRIGIDO)
-   ============================================================ */
-@media (max-width: 900px) {
+        @media (max-width: 900px) {
     .app-header {
         display: flex !important;
         flex-direction: column !important;
@@ -1347,10 +1344,47 @@ function App() {
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
     }
 
-    /* Linha 1 (Topo): Menu e Perfil */
-    .header-left {
+    /* NOVA LINHA 0: Perfil e Logout no topo direito */
+    .header-profile {
+        order: 0 !important;
+        width: 100% !important;
         display: flex !important;
-        flex-wrap: nowrap !important;      /* <-- TUDO NA MESMA LINHA */
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+        position: static !important;   /* remove o absolute */
+        margin: 0 0 4px 0 !important;  /* pequeno respiro inferior */
+    }
+    .header-profile .profile-name {
+        display: none !important;
+    }
+    .header-profile > div {
+        padding: 2px !important;
+        border-radius: 50% !important;
+        background: var(--bg-secondary) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid var(--border-color) !important;
+        height: 36px !important;
+        width: 36px !important;
+        box-sizing: border-box !important;
+        cursor: pointer !important;
+    }
+    .header-profile > div img {
+        width: 30px !important;
+        height: 30px !important;
+    }
+    .header-profile .icon-btn {
+        height: 36px !important;
+        width: 36px !important;
+    }
+
+    /* Linha 1 (abaixo do perfil): Menu, Logo, Seletor de Vistas e Fichas */
+    .header-left {
+        order: 1 !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
         width: 100% !important;
         gap: 8px !important;
@@ -1371,50 +1405,11 @@ function App() {
         display: none !important;
     }
 
-    /* Perfil fixo no topo direito */
-    .header-profile {
-        order: 1 !important;
-        position: absolute !important;
-        right: 16px !important;
-        top: 12px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-        margin-left: 0 !important;
-        z-index: 10 !important;
-    }
-    .app-header.scrolled .header-profile {
-        top: 8px !important;
-    }
-    .header-profile .profile-name {
-        display: none !important;
-    }
-    .header-profile > div {
-        padding: 2px !important;
-        border-radius: 50% !important;
-        background: var(--bg-secondary) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border: 1px solid var(--border-color) !important;
-        height: 36px !important;
-        width: 36px !important;
-        box-sizing: border-box !important;
-    }
-    .header-profile > div img {
-        width: 30px !important;
-        height: 30px !important;
-    }
-    .header-profile .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-    }
-
-    /* Linha 2 (Seletor de Vistas + Fichas) */
+    /* Seletor de Vistas (segmented-views) */
     .segmented-views {
         order: 3 !important;
-        flex: 1 1 0% !important;          /* ocupa o espaço restante */
-        min-width: 0 !important;          /* permite encolher */
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
         display: flex !important;
         justify-content: space-between !important;
         background: var(--bg-secondary) !important;
@@ -1422,7 +1417,7 @@ function App() {
         padding: 4px !important;
         border: 1px solid var(--border-color) !important;
         box-sizing: border-box !important;
-        overflow: hidden !important;      /* evita vazamentos */
+        overflow: hidden !important;
     }
     .segmented-views button {
         flex: 1 1 0% !important;
@@ -1431,7 +1426,7 @@ function App() {
         padding: 6px 2px !important;
         height: 30px !important;
         border-radius: 12px !important;
-        font-size: 11px !important;       /* texto enxuto */
+        font-size: 11px !important;
         border: none !important;
         background: transparent !important;
         color: var(--text-secondary) !important;
@@ -1449,10 +1444,10 @@ function App() {
         display: none !important;
     }
 
-    /* Botão Fichas – tamanho fixo, sem empurrar */
+    /* Botão Fichas */
     .header-left > button:last-of-type {
         order: 4 !important;
-        flex: 0 0 auto !important;        /* tamanho fixo */
+        flex: 0 0 auto !important;
         height: 38px !important;
         width: 38px !important;
         padding: 0 !important;
@@ -1463,7 +1458,7 @@ function App() {
         border: 1px solid var(--border-color) !important;
         background: var(--bg-secondary) !important;
         color: var(--text-primary) !important;
-        margin-left: 8px !important;      /* respiro do segmented-views */
+        margin-left: 8px !important;
         box-sizing: border-box !important;
     }
     .header-left > button:last-of-type.active {
@@ -1478,7 +1473,7 @@ function App() {
 
     /* Linha 3 (Controle de Datas e Utilidades) */
     .header-bottom {
-        order: 3 !important;
+        order: 2 !important;
         display: grid !important;
         grid-template-columns: 1fr auto !important;
         grid-template-rows: auto auto !important;
@@ -1490,7 +1485,7 @@ function App() {
         flex-basis: auto !important;
     }
     .app-header.scrolled .header-bottom {
-        order: 3 !important;
+        order: 2 !important;
         flex-basis: auto !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
@@ -1573,21 +1568,6 @@ function App() {
 
     .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
         grid-column: 2 !important;
-    }
-}
-
-/* Pequeno ajuste extra para telas muito pequenas */
-@media (max-width: 480px) {
-    .app-header {
-        padding: 8px 12px !important;
-        gap: 10px !important;
-    }
-    .header-bottom > div:nth-child(2) span {
-        font-size: 15px !important;
-    }
-    .header-bottom > div:nth-child(1) .nav-pill {
-        padding: 0 8px !important;
-        font-size: 11px !important;
     }
 }
       `}</style>
