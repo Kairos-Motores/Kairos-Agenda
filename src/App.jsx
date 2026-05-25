@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES (mantidos exatamente como estavam) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -305,6 +305,7 @@ function App() {
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const [listViewMode, setListViewMode] = useState('grid'); // Alterado: viewMode -> listViewMode
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1060,7 +1061,8 @@ function App() {
                     </div>
                   )}
 
-                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={workspaces} />}
+                  {/* ALTERAÇÃO PRINCIPAL AQUI: props viewMode e onViewModeChange adicionadas */}
+                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
                   {['day', '3days', 'week'].includes(view) && (
                     <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
