@@ -8,11 +8,9 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         membros: ''
     });
 
-    // Modo de seleção: 'text' (digitar) ou 'visual' (lista de checkboxes)
     const [memberMode, setMemberMode] = useState('text');
     const [userFilter, setUserFilter] = useState('');
 
-    // Sincroniza o formulário quando o modal abre ou o workspace em edição muda
     useEffect(() => {
         if (editingWorkspace) {
             setFormData({
@@ -33,13 +31,11 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         setUserFilter('');
     }, [editingWorkspace, isOpen]);
 
-    // Lista de logins já selecionados (a partir da string de membros)
     const selectedMembers = useMemo(() => {
         if (!formData.membros) return [];
         return formData.membros.split(',').map(s => s.trim()).filter(Boolean);
     }, [formData.membros]);
 
-    // Função auxiliar para adicionar/remover um login da lista
     const toggleMember = (login) => {
         const current = [...selectedMembers];
         const index = current.indexOf(login);
@@ -51,7 +47,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         setFormData({ ...formData, membros: current.join(',') });
     };
 
-    // Adiciona todos os usuários (disponível apenas para ADMIN/RH)
     const handleAddAll = () => {
         if (userRole !== 'ADMIN' && userRole !== 'RH') return;
         const allLogins = allUsers.map(u => u.cr4a1_username);
@@ -59,14 +54,12 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         setFormData({ ...formData, membros: merged.join(',') });
     };
 
-    // Adiciona todos os usuários de uma determinada unidade
     const handleAddUnit = (unit) => {
         const unitLogins = allUsers.filter(u => u.cr4a1_unidade === unit).map(u => u.cr4a1_username);
         const merged = [...new Set([...selectedMembers, ...unitLogins])];
         setFormData({ ...formData, membros: merged.join(',') });
     };
 
-    // Filtra os usuários para exibição no modo visual
     const filteredUsers = useMemo(() => {
         if (!userFilter) return allUsers;
         const lower = userFilter.toLowerCase();
@@ -79,7 +72,15 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
     if (!isOpen) return null;
 
-    const colors = ['#1a73e8', '#d93025', '#f9ab00', '#188038', '#af5cf7', '#00acc1', '#ff6d00'];
+    // Paleta expandida para 25 cores
+    const colors = [
+        '#1a73e8', '#d93025', '#f9ab00', '#188038', '#af5cf7',
+        '#00acc1', '#ff6d00', '#e91e63', '#607d8b', '#3f51b5',
+        '#009688', '#8bc34a', '#ff9800', '#795548', '#9c27b0',
+        '#2196f3', '#4caf50', '#ff5722', '#673ab7', '#00bcd4',
+        '#cddc39', '#ffeb3b', '#9e9e9e', '#b71c1c', '#0d47a1'
+    ];
+
     const unidades = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
     return (
@@ -92,7 +93,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                     </button>
                 </div>
                 <div className="modal-body">
-                    {/* Nome */}
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>NOME DO AMBIENTE</label>
                         <input
@@ -103,7 +103,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         />
                     </div>
 
-                    {/* Tipo */}
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>TIPO</label>
                         <select
@@ -117,13 +116,10 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         </select>
                     </div>
 
-                    {/* Seção de membros (apenas para workspaces não pessoais) */}
                     {formData.tipo !== 'PESSOAL' && (
                         <div style={{ marginBottom: '16px' }}>
-                            {/* Botões rápidos de grupo */}
                             <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>ADICIONAR POR GRUPO</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                                {/* Toda a Kairós – apenas ADMIN e RH */}
                                 {(userRole === 'ADMIN' || userRole === 'RH') && (
                                     <button type="button" onClick={handleAddAll} style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', background: 'var(--text-accent)', color: 'white', border: 'none', cursor: 'pointer' }}>🌐 Toda a Kairós</button>
                                 )}
@@ -132,7 +128,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                 ))}
                             </div>
 
-                            {/* Alternador entre modo texto e visual */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <span style={{ fontSize: '11px', fontWeight: '700' }}>MEMBROS ({selectedMembers.length})</span>
                                 <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)' }}>
@@ -161,7 +156,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                 </div>
                             </div>
 
-                            {/* Conteúdo condicional conforme o modo */}
                             {memberMode === 'text' ? (
                                 <div>
                                     <textarea
@@ -214,7 +208,6 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         </div>
                     )}
 
-                    {/* Cor */}
                     <div style={{ marginBottom: '24px' }}>
                         <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>COR DE IDENTIFICAÇÃO</label>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
