@@ -1350,7 +1350,7 @@ function App() {
     /* Linha 1 (Topo): Menu e Perfil */
     .header-left {
         display: flex !important;
-        flex-wrap: nowrap !important;      /* impede quebra dos botões na primeira linha */
+        flex-wrap: nowrap !important;      /* <-- TUDO NA MESMA LINHA */
         align-items: center !important;
         width: 100% !important;
         gap: 8px !important;
@@ -1359,6 +1359,7 @@ function App() {
 
     .header-left > button:first-of-type {
         order: 1 !important;
+        flex: 0 0 auto !important;
     }
 
     .header-left .logo {
@@ -1409,11 +1410,11 @@ function App() {
         width: 36px !important;
     }
 
-    /* Linha 2 (Seletor de Vistas + Fichas) – CORRIGIDO */
+    /* Linha 2 (Seletor de Vistas + Fichas) */
     .segmented-views {
         order: 3 !important;
-        flex: 1 1 0% !important;          /* cresce e encolhe conforme o espaço */
-        min-width: 0 !important;          /* permite encolher abaixo do conteúdo */
+        flex: 1 1 0% !important;          /* ocupa o espaço restante */
+        min-width: 0 !important;          /* permite encolher */
         display: flex !important;
         justify-content: space-between !important;
         background: var(--bg-secondary) !important;
@@ -1421,16 +1422,16 @@ function App() {
         padding: 4px !important;
         border: 1px solid var(--border-color) !important;
         box-sizing: border-box !important;
-        overflow: hidden !important;      /* evita vazamento de conteúdo */
+        overflow: hidden !important;      /* evita vazamentos */
     }
     .segmented-views button {
         flex: 1 1 0% !important;
-        min-width: 0 !important;          /* permite encolher */
+        min-width: 0 !important;
         justify-content: center !important;
         padding: 6px 2px !important;
         height: 30px !important;
         border-radius: 12px !important;
-        font-size: 11px !important;       /* ligeiramente menor para caber */
+        font-size: 11px !important;       /* texto enxuto */
         border: none !important;
         background: transparent !important;
         color: var(--text-secondary) !important;
@@ -1448,7 +1449,7 @@ function App() {
         display: none !important;
     }
 
-    /* Botão Fichas – tamanho fixo, sem empurrar os outros */
+    /* Botão Fichas – tamanho fixo, sem empurrar */
     .header-left > button:last-of-type {
         order: 4 !important;
         flex: 0 0 auto !important;        /* tamanho fixo */
@@ -1462,7 +1463,7 @@ function App() {
         border: 1px solid var(--border-color) !important;
         background: var(--bg-secondary) !important;
         color: var(--text-primary) !important;
-        margin-left: 8px !important;      /* espaçamento do segmented-views */
+        margin-left: 8px !important;      /* respiro do segmented-views */
         box-sizing: border-box !important;
     }
     .header-left > button:last-of-type.active {
@@ -1475,7 +1476,7 @@ function App() {
         display: none !important;
     }
 
-    /* Linha 3 (Controle de Datas e Utilidades) – mantida */
+    /* Linha 3 (Controle de Datas e Utilidades) */
     .header-bottom {
         order: 3 !important;
         display: grid !important;
@@ -1574,20 +1575,21 @@ function App() {
         grid-column: 2 !important;
     }
 }
-        
-        @media (max-width: 480px) {
-            .app-header {
-                padding: 8px 12px !important;
-                gap: 10px !important;
-            }
-            .header-bottom > div:nth-child(2) span {
-                font-size: 15px !important;
-            }
-            .header-bottom > div:nth-child(1) .nav-pill {
-                padding: 0 8px !important;
-                font-size: 11px !important;
-            }
-        }
+
+/* Pequeno ajuste extra para telas muito pequenas */
+@media (max-width: 480px) {
+    .app-header {
+        padding: 8px 12px !important;
+        gap: 10px !important;
+    }
+    .header-bottom > div:nth-child(2) span {
+        font-size: 15px !important;
+    }
+    .header-bottom > div:nth-child(1) .nav-pill {
+        padding: 0 8px !important;
+        font-size: 11px !important;
+    }
+}
       `}</style>
     </DndContext>
   );
