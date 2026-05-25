@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -27,42 +27,46 @@ export const ListView = ({
   const viewMode = externalViewMode ?? internalViewMode;
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  const setViewMode = (mode) => {
+  const setViewMode = useCallback((mode) => {
     if (onViewModeChange) onViewModeChange(mode);
     else setInternalViewMode(mode);
-  };
+  }, [onViewModeChange]);
 
   const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
   const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
 
-  // ===== Hooks do carrossel (agora no escopo do componente) =====
+  // ───── Hooks do carrossel (agora no escopo do componente) ─────
   const [activeIndex, setActiveIndex] = useState(0);
   const carouselRef = useRef(null);
+  const isMobileRef = useRef(isMobile);  // para evitar dependência em useEffect
+  useEffect(() => { isMobileRef.current = isMobile; }, [isMobile]);
 
-  // Efeito para detectar scroll e atualizar slide ativo
+  // Atualiza o slide ativo com base no scroll
   useEffect(() => {
     const container = carouselRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      const scrollLeft = container.scrollLeft;
-      const slideWidth = container.clientWidth * (isMobile ? 0.95 : 0.85) + 24; // gap
+      const { scrollLeft, clientWidth } = container;
+      const gap = 24;
+      const slideWidth = clientWidth * (isMobileRef.current ? 0.95 : 0.85) + gap;
       const index = Math.round(scrollLeft / slideWidth);
       setActiveIndex(index);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  }, []);  // o listener é registrado uma vez; isMobile é capturado via ref
 
-  // Função para scroll programático (setas + dots)
   const scrollToSlide = (index) => {
-    if (!carouselRef.current) return;
-    const slideWidth = carouselRef.current.clientWidth * (isMobile ? 0.95 : 0.85) + 24;
-    carouselRef.current.scrollTo({ left: index * slideWidth, behavior: 'smooth' });
+    const container = carouselRef.current;
+    if (!container) return;
+    const gap = 24;
+    const slideWidth = container.clientWidth * (isMobile ? 0.95 : 0.85) + gap;
+    container.scrollTo({ left: index * slideWidth, behavior: 'smooth' });
   };
 
-  // ===== Renderizadores =====
+  // ───── Renderizadores puros (SEM hooks dentro deles) ─────
   const renderCard = (event) => {
     const currentWorkspace = workspaces.find(
       ws => ws.cr4a1_calendarios_workspacesid === event.cr4a1_workspace_id
@@ -288,6 +292,7 @@ export const ListView = ({
     </div>
   );
 
+  // Carrossel – agora só renderiza JSX, sem hooks
   const renderCarousel = () => {
     const grouped = events.reduce((acc, event) => {
       const tipo = event.cr4a1_tipo || 'Sem tipo';
@@ -342,7 +347,6 @@ export const ListView = ({
           ))}
         </div>
 
-        {/* Controles + indicadores */}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
           <button
             onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
