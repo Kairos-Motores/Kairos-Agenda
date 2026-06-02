@@ -253,7 +253,7 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
-// --- COMPONENTE DE VISITAS (MODAL CORRIGIDO E BUSCÁVEL) ---
+// --- COMPONENTE DE VISITAS (COMBOBOX INTELIGENTE BUSCÁVEL COM LISTA INTEGRADA) ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
   const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
@@ -265,13 +265,15 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
 
+  // Filtro Inteligente: Se searchOrg for idêntico ao cliente selecionado, exibe tudo (comportamento de lista suspensa pura)
   const filteredOrgs = useMemo(() => {
     return organizacoes.filter(org => {
       const matchesUnit = !org.cr4a1_filial_origem || org.cr4a1_filial_origem === currentUser?.cr4a1_unidade;
-      const matchesSearch = !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
+      const isDropdownMode = searchOrg === cliente;
+      const matchesSearch = isDropdownMode || !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
       return matchesUnit && matchesSearch;
     });
-  }, [organizacoes, searchOrg, currentUser]);
+  }, [organizacoes, searchOrg, cliente, currentUser]);
 
   if (!isOpen) return null;
 
@@ -335,21 +337,39 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* COMBOBOX (BUSCA + SETA DE DROPDOWN) */}
           <div className="input-group" style={{ position: 'relative' }}>
             <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cliente</label>
-            <input 
-              type="text" 
-              value={searchOrg} 
-              onChange={e => {
-                setSearchOrg(e.target.value);
-                setCliente(e.target.value);
-                setIsOpenDropdown(true);
-              }}
-              onFocus={() => setIsOpenDropdown(true)}
-              onBlur={() => setTimeout(() => setIsOpenDropdown(false), 250)}
-              placeholder="Escreva para pesquisar cliente..." 
-              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }} 
-            />
+            <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: '100%' }}>
+              <input 
+                type="text" 
+                value={searchOrg} 
+                onChange={e => {
+                  setSearchOrg(e.target.value);
+                  setCliente(e.target.value);
+                  setIsOpenDropdown(true);
+                }}
+                onFocus={() => setIsOpenDropdown(true)}
+                onBlur={() => setTimeout(() => setIsOpenDropdown(false), 200)}
+                placeholder="Selecione ou pesquise o cliente..." 
+                style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }} 
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsOpenDropdown(!isOpenDropdown);
+                }}
+                style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                  {isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}
+                </span>
+              </button>
+            </div>
+            
             {isOpenDropdown && filteredOrgs.length > 0 && (
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
                 {filteredOrgs.map(org => (
@@ -506,7 +526,7 @@ function App() {
     return filteredEvents;
   };
 
-  // INTERCEPTADOR EXCLUSIVO DE DATAS: Filtra estritamente os eventos da vista dependendo do appMode ativo
+  // INTERCEPTADOR EXCLUSIVO DE DATAS: Filtra estritamente os eventos dependendo do plano ativo (Garante isolamento total das visitas)
   const handleGetEventsForDay = (day) => {
     const targetDate = format(day, 'yyyy-MM-dd');
     return getDisplayEvents().filter(event => {
@@ -514,6 +534,23 @@ function App() {
       const endDate = event.cr4a1_data_fim?.split('T')[0] || startDate;
       return targetDate >= startDate && targetDate <= endDate;
     });
+  };
+
+  // TOAST INTEGRAÇÃO COMPLETA: Alertas fluidos com promessas de sincronismo com o Dataverse
+  const handleSaveVisitaData = async (visitasArray) => {
+    const loadingToast = toast.loading("A processar agendamento no Dataverse...");
+    try {
+      if (editingVisita) {
+        await updateVisitas(visitasArray[0]);
+        toast.success("Visita comercial atualizada com sucesso!", { id: loadingToast });
+      } else {
+        await addVisitas(visitasArray);
+        toast.success(`${visitasArray.length} visita(s) agendada(s) com sucesso!`, { id: loadingToast });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Falha ao registar agendamento. Verifique a ligação.", { id: loadingToast });
+    }
   };
 
   const handleToggleSubtask = async (task, index) => {
@@ -688,14 +725,6 @@ function App() {
     } catch (err) { toast.error("Falha ao guardar."); throw err; }
   };
 
-  const handleSaveVisitaData = async (visitasArray) => {
-    try {
-      if (editingVisita) await updateVisitas(visitasArray[0]); 
-      else await addVisitas(visitasArray);
-      toast.success("Visita(s) guardada(s) com sucesso!");
-    } catch (error) { toast.error("Falha ao processar visitas."); }
-  };
-
   const confirmDelete = async () => {
     if (!eventToDelete) return;
     try {
@@ -734,7 +763,7 @@ function App() {
   const handleSetDefaultWorkspace = (id) => {
     setDefaultWorkspaceId(id);
     localStorage.setItem('kairos_default_workspace', id);
-    toast.success("Workspace padrão updated!", { icon: '⭐' });
+    toast.success("Workspace padrão atualizado!", { icon: '⭐' });
   };
 
   const getWorkspaceBorderStyle = () => {
@@ -1263,7 +1292,7 @@ function App() {
                           {generateMonthDays(currentDate).map((day) => {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                            const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio && e.cr4a1_data_inicio.split('T')[0] === dateStr);
+                            const dayEvents = handleGetEventsForDay(day);
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
@@ -1538,15 +1567,14 @@ function App() {
             justify-content: center;
             gap: 16px;
             order: 3;
-            flex-basis: 100%; /* Força para a linha de baixo */
+            flex-basis: 100%; 
             flex-wrap: wrap;
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* O GRANDE TRUQUE: QUANDO ROLA A PÁGINA */
         .app-header.scrolled .header-bottom {
-            order: 2; /* Sobe para o meio */
-            flex-basis: auto; /* Perde a largura total para se alinhar */
+            order: 2; 
+            flex-basis: auto; 
             margin-left: 16px;
             margin-right: auto;
             justify-content: flex-start;
@@ -1556,7 +1584,6 @@ function App() {
             margin-left: 0;
         }
 
-        /* ENCOLHIMENTO SUAVE DAS ETIQUETAS */
         .nav-label-collapse {
             display: inline-block;
             transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
@@ -1601,7 +1628,6 @@ function App() {
         grid-template-columns: 1fr !important;
     }
 
-    /* NOVA LINHA 0: Perfil e Logout no topo direito */
     .header-profile {
         order: 0 !important;
         width: 100% !important;
@@ -1609,8 +1635,8 @@ function App() {
         align-items: center !important;
         justify-content: flex-end !important;
         gap: 8px !important;
-        position: static !important;   /* remove o absolute */
-        margin: 0 0 4px 0 !important;  /* pequeno respiro inferior */
+        position: static !important;   
+        margin: 0 0 4px 0 !important;  
     }
     .header-profile .profile-name {
         display: none !important;
@@ -1637,7 +1663,6 @@ function App() {
         width: 36px !important;
     }
 
-    /* Linha 1 (abaixo do perfil): Menu, Logo, Seletor de Vistas e Fichas */
     .header-left {
         order: 1 !important;
         display: flex !important;
@@ -1662,7 +1687,6 @@ function App() {
         display: none !important;
     }
 
-    /* Seletor de Vistas (segmented-views) */
     .segmented-views {
         order: 3 !important;
         flex: 1 1 0% !important;
@@ -1701,7 +1725,6 @@ function App() {
         display: none !important;
     }
 
-    /* Botão Fichas */
     .header-left > button:last-of-type {
         order: 4 !important;
         flex: 0 0 auto !important;
@@ -1728,7 +1751,6 @@ function App() {
         display: none !important;
     }
 
-    /* Linha 3 (Controle de Datas e Utilidades) */
     .header-bottom {
         order: 2 !important;
         display: grid !important;
