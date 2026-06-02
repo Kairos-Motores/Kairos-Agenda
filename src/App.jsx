@@ -595,18 +595,16 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
-  // Mapeamento de visitas COM intervalos entre elas
+  // --- MAPEAMENTO CORRIGIDO DAS VISITAS (EXIBE SEMPRE, COM INTERVALOS COLORIDOS) ---
   const mappedVisitas = useMemo(() => {
-    if (!visitas.length) return [];
+    if (!visitas || visitas.length === 0) return [];
 
-    // Filtrar visitas conforme o papel do usuário
-    const visitasFiltradas = visitas.filter(v =>
-      hasRole('ADMIN') || hasRole('COORD COMERCIAL')
-        ? v.cr4a1_filial === currentUser?.cr4a1_unidade
-        : v.cr4a1_visitante === currentUser?.cr4a1_username
-    );
+    // ADMIN e COORD COMERCIAL veem todas as visitas; outros veem apenas as próprias
+    const visitasFiltradas = (hasRole('ADMIN') || hasRole('COORD COMERCIAL'))
+      ? visitas
+      : visitas.filter(v => v.cr4a1_visitante === currentUser?.cr4a1_username);
 
-    // Ordenar por data
+    // Ordena por data
     const sorted = [...visitasFiltradas].sort((a, b) =>
       (a.cr4a1_data_visita || '').localeCompare(b.cr4a1_data_visita || '')
     );
