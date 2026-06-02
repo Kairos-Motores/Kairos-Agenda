@@ -14,6 +14,10 @@ export const useCalendar = () => {
     const [notification, setNotification] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    // --- ESTADOS COMERCIAIS ---
+    const [organizacoes, setOrganizacoes] = useState([]);
+    const [visitas, setVisitas] = useState([]);
 
     // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
@@ -172,6 +176,20 @@ export const useCalendar = () => {
         } catch (error) { console.log("Usando tipos locais"); }
     }, []);
 
+    const fetchDadosComerciais = useCallback(async () => {
+        try {
+            const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoes`);
+            const dataOrgs = await resOrgs.json();
+            setOrganizacoes(dataOrgs.value || []);
+
+            const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitas`);
+            const dataVisitas = await resVisitas.json();
+            setVisitas(dataVisitas.value || []);
+        } catch (error) {
+            console.error("Erro ao carregar dados comerciais:", error);
+        }
+    }, []);
+
     const fetchEvents = useCallback(async () => {
         if (workspaces.length === 0) {
             setEvents([]);
@@ -198,7 +216,6 @@ export const useCalendar = () => {
                     cr4a1_data_inicio: localStart,
                     cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
                     cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim(),
-                    // MAPEAMENTO DAS SUBTASKS NO CARREGAMENTO
                     cr4a1_subtasks: e.cr4a1_subtasks || "[]"
                 };
             });
@@ -216,8 +233,9 @@ export const useCalendar = () => {
             fetchUsers();
             fetchEventTypes();
             fetchWorkspaces();
+            fetchDadosComerciais(); // <-- Adicionado para carregar visitas e clientes ao logar
         }
-    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces]);
+    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais]);
 
     useEffect(() => {
         if (user && workspaces.length > 0) {
@@ -256,7 +274,7 @@ export const useCalendar = () => {
             details: event.cr4a1_detalhes,
             targetUser: event.cr4a1_user_login,
             workspaceId: event.cr4a1_workspace_id,
-            cr4a1_subtasks: event.cr4a1_subtasks // Garante que as subtasks não se percam ao arrastar
+            cr4a1_subtasks: event.cr4a1_subtasks
         });
     };
 
@@ -266,13 +284,16 @@ export const useCalendar = () => {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json();
+            
+            // Lógica unificada para papéis baseada na resposta da sua API
+            const permissoesUsuario = data.value?.[0]?.cr4a1_role || 'COMUM';
 
             if (data.value && data.value.length === 1) {
                 const userData = data.value[0];
                 localStorage.setItem('kairos_logged_user', username);
-                localStorage.setItem('kairos_user_role', userData.cr4a1_role);
+                localStorage.setItem('kairos_user_role', permissoesUsuario);
                 setUser(username);
-                setUserRole(userData.cr4a1_role);
+                setUserRole(permissoesUsuario);
                 setViewedUser(username);
                 return { success: true };
             }
@@ -282,11 +303,8 @@ export const useCalendar = () => {
         }
     };
 
-    // Altere estas funções no seu useCalendar.js
-
     const addEvent = async (eventData) => {
         const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
-        // Mantendo o padrão do teu app de concatenar o [DIA_INTEIRO] na descrição
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
 
@@ -307,13 +325,12 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: detailsField,
-            cr4a1_subtasks: eventData.cr4a1_subtasks, // Aqui sobem as subtasks
+            cr4a1_subtasks: eventData.cr4a1_subtasks,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
         };
 
-        // Update otimista da UI
         const optimisticEvent = {
             ...newEventDB,
             cr4a1_agenda_kairosid: generatedId,
@@ -341,7 +358,6 @@ export const useCalendar = () => {
         } catch (error) {
             toast.error(`Erro ao salvar: Verifique se o texto não é muito longo.`);
             console.error("Erro detalhado:", error);
-            // Remove o evento otimista se falhar
             setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== generatedId));
         }
     };
@@ -366,7 +382,7 @@ export const useCalendar = () => {
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
             cr4a1_detalhes: detailsField,
-            cr4a1_subtasks: eventData.cr4a1_subtasks, // Crucial para salvar múltiplas
+            cr4a1_subtasks: eventData.cr4a1_subtasks,
             cr4a1_privado: eventData.cr4a1_privado,
             cr4a1_arquivos: JSON.stringify(eventData.files || []),
             cr4a1_workspace_id: eventData.workspaceId
@@ -546,7 +562,6 @@ export const useCalendar = () => {
 
     const updateProfile = async (userId, profileData) => {
         try {
-            // CORREÇÃO DE PERSISTÊNCIA: Formata a data para ISO válido aceito pelo Dataverse ou envia null se vazia
             const formattedBirthday = profileData.aniversario ? `${profileData.aniversario}T12:00:00Z` : null;
 
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
@@ -555,7 +570,7 @@ export const useCalendar = () => {
                 body: JSON.stringify({
                     cr4a1_nome_exibicao: profileData.nomeExibicao,
                     cr4a1_foto: profileData.foto,
-                    cr4a1_aniversario: formattedBirthday // Passa o campo tratado
+                    cr4a1_aniversario: formattedBirthday
                 })
             });
 
@@ -573,6 +588,41 @@ export const useCalendar = () => {
         }
     };
 
+    const addVisitas = async (visitasArray) => {
+        try {
+            const requests = visitasArray.map(visita =>
+                fetch(`${API_PROXY}?table=cr4a1_echoe_visitas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(visita)
+                })
+            );
+            await Promise.all(requests);
+            await fetchDadosComerciais();
+        } catch (error) {
+            console.error("Erro ao gravar lote de visitas:", error);
+            throw error;
+        }
+    };
+
+    const updateVisitas = async (visitaData) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_echoe_visitas&id=${visitaData.cr4a1_visita_id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(visitaData)
+            });
+            setVisitas(prevVisitas =>
+                prevVisitas.map(v =>
+                    v.cr4a1_visita_id === visitaData.cr4a1_visita_id ? visitaData : v
+                )
+            );
+        } catch (error) {
+            console.error("Erro ao atualizar visita:", error);
+            throw error;
+        }
+    };
+
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
@@ -582,6 +632,7 @@ export const useCalendar = () => {
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
+        organizacoes, visitas, addVisitas, updateVisitas,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };
