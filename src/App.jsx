@@ -1164,29 +1164,29 @@ function App() {
             </button>
 
             {/* Botão Filial Temporária (mantido na header-left, mas será movido no mobile via CSS) */}
-            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
+            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
-              <button 
-                onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect filial-temp-btn"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  padding: '8px 16px', 
-                  borderRadius: '100px', 
-                  border: '1px solid var(--border-color)', 
-                  background: 'var(--bg-secondary)', 
-                  color: 'var(--text-primary)', 
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                <span>Filial Temporária</span>
-              </button>
-            )}
+                <button
+                  onClick={() => setIsFilialTemporariaOpen(true)}
+                  className="btn-secondary boing-effect filial-temp-btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '100px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                  <span>Filial Temporária</span>
+                </button>
+              )}
           </div>
 
           <div className="header-profile">
@@ -1776,15 +1776,25 @@ function App() {
                 width: 36px !important;
             }
 
-            /* Botão Filial Temporária - absoluto, ao lado do perfil */
+                        /* Botão Filial Temporária – mobile */
             .filial-temp-btn {
                 position: absolute !important;
-                top: 12px !important;          /* alinhado com o topo do header */
-                right: 96px !important;        /* distância da borda direita = avatar (36) + logout (36) + gap (8) + folga (16) */
+                top: 12px !important;
+                right: 110px !important;        /* espaço maior antes do avatar+logout */
                 z-index: 15 !important;
                 white-space: nowrap !important;
-                padding: 8px 16px !important;
+                padding: 8px 12px !important;   /* mais compacto para o emoji */
                 font-size: 13px !important;
+            }
+            /* Esconde ícone e texto originais */
+            .filial-temp-btn .filial-temp-icon,
+            .filial-temp-btn .filial-temp-text {
+                display: none !important;
+            }
+            /* Exibe o emoji como conteúdo pseudo-elemento */
+            .filial-temp-btn::before {
+                content: "🔄";
+                font-size: 18px;
             }
 
             /* Linha 1: Menu, Logo, Seletor de Vistas e Fichas */
