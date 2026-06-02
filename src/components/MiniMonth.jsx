@@ -35,7 +35,12 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           const hasContent = isCurrentMonth && (dayEvents.length > 0 || holiday);
           const isFirstRow = index < 7;
           
-          const uniqueUsersOnDay = [...new Set(dayEvents.map(e => e.cr4a1_user_login))];
+          // *** ÚNICA ALTERAÇÃO: ignorar eventos com isIntervalo para pintura de fundo ***
+          const uniqueUsersOnDay = [...new Set(
+            dayEvents
+              .filter(e => !e.isIntervalo)
+              .map(e => e.cr4a1_user_login)
+          )];
           const colorsForDay = uniqueUsersOnDay.map(username => userColorMap[username]).filter(Boolean);
 
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
@@ -64,7 +69,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
               }}
               className="mini-day-cell"
             >
-              {/* FUNDO COLORIDO (RESTALRADO) */}
+              {/* FUNDO COLORIDO (apenas para visitas principais, não para intervalos) */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
                 {isCurrentMonth && colorsForDay.map((color, idx) => (
                   <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.3 }} />
@@ -82,14 +87,23 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 {format(day, 'd')}
               </span>
 
-              {/* PONTOS DE EVENTO (MANTIDOS) */}
+              {/* PONTOS DE EVENTO (todos os eventos, incluindo intervalos) */}
               <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
-                {isCurrentMonth && colorsForDay.slice(0, 3).map((color, idx) => (
-                  <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
-                ))}
+                {isCurrentMonth && dayEvents
+                  .filter(e => {
+                    // Inclui eventos com user_login definido (visitas e intervalos)
+                    return e.cr4a1_user_login;
+                  })
+                  .map(e => userColorMap[e.cr4a1_user_login])
+                  .filter((color, idx, arr) => color && arr.indexOf(color) === idx) // cores únicas
+                  .slice(0, 3)
+                  .map((color, idx) => (
+                    <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
+                  ))
+                }
               </div>
 
-              {/* TOOLTIP CUSTOMIZADO INTERATIVO */}
+              {/* TOOLTIP CUSTOMIZADO INTERATIVO (INALTERADO) */}
               {hoveredDay === dateStr && hasContent && (
                 <div 
                   onClick={(e) => e.stopPropagation()}
@@ -114,7 +128,9 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                     )}
   
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {dayEvents.map((ev, idx) => (
+                      {dayEvents
+                        .filter(e => e.cr4a1_user_login) // garante que tem usuário
+                        .map((ev, idx) => (
                         <div 
                           key={idx} 
                           onClick={() => onEditEvent(ev)}
