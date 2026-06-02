@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES (mantidos exatamente como estavam) ---
+// --- COMPONENTES AUXILIARES ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -253,6 +253,127 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
+// --- COMPONENTE DE VISITAS (MODAL) ---
+const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
+  const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
+  const [motivo, setMotivo] = useState(editingVisita?.cr4a1_motivo || '');
+  const [visitante, setVisitante] = useState(editingVisita?.cr4a1_visitante || currentUser?.cr4a1_username);
+  const [dataVisita, setDataVisita] = useState(editingVisita?.cr4a1_data_visita ? editingVisita.cr4a1_data_visita.split('T')[0] : '');
+  const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
+
+  if (!isOpen) return null;
+
+  const filteredOrgs = organizacoes.filter(org => org.cr4a1_filial_origem === currentUser?.cr4a1_unidade && org.cr4a1_visita_recorrente === true);
+  const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
+
+  const getNextBusinessDay = (startDate, intervalDays) => {
+    let date = new Date(startDate);
+    let daysAdded = 0;
+    while (daysAdded < intervalDays) {
+      date.setDate(date.getDate() + 1);
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dateString = date.toISOString().split('T')[0];
+      const isHoliday = holidays.some(h => h.date === dateString);
+      if (!isWeekend && !isHoliday) daysAdded++;
+    }
+    return date;
+  };
+
+  const handleSave = () => {
+    if (!cliente || !dataVisita || !motivo) {
+      toast.error("Preencha cliente, data e motivo.");
+      return;
+    }
+
+    const baseVisita = {
+      cr4a1_visita_id: editingVisita?.cr4a1_visita_id,
+      cr4a1_cliente: cliente,
+      cr4a1_motivo: motivo,
+      cr4a1_visitante: visitante,
+      cr4a1_filial: currentUser?.cr4a1_unidade,
+      cr4a1_data_visita: dataVisita,
+      cr4a1_periodo_visita: parseInt(periodo, 10) || 0
+    };
+
+    if (editingVisita) {
+      onSave([baseVisita]); 
+    } else {
+      let visitasToCreate = [baseVisita];
+      let interval = parseInt(periodo, 10) || 0;
+      
+      if (interval > 0) {
+        let currentDate = new Date(dataVisita);
+        for (let i = 0; i < 5; i++) {
+          currentDate = getNextBusinessDay(currentDate, interval);
+          visitasToCreate.push({
+            ...baseVisita,
+            cr4a1_data_visita: currentDate.toISOString().split('T')[0]
+          });
+        }
+      }
+      onSave(visitasToCreate);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '500px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+        <h2 style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>location_on</span>
+          {editingVisita ? 'Editar Visita' : 'Agendar Visita'}
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="input-group">
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cliente</label>
+            <select value={cliente} onChange={e => setCliente(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}>
+              <option value="">Selecione um cliente...</option>
+              {filteredOrgs.map(org => (
+                <option key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna} value={org.cr4a1_novacoluna}>{org.cr4a1_novacoluna}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Motivo da Visita</label>
+            <input type="text" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex: Apresentação de propostas" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div className="input-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Data Inicial</label>
+              <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+            </div>
+            
+            <div className="input-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Úteis)</label>
+              <input type="number" min="0" value={periodo} onChange={e => setPeriodo(e.target.value)} disabled={!!editingVisita} placeholder="0 = Única" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', opacity: editingVisita ? 0.6 : 1 }} />
+            </div>
+          </div>
+
+          {canAssign && (
+            <div className="input-group">
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Delegar Visitante</label>
+              <select value={visitante} onChange={e => setVisitante(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}>
+                {allUsers.map(u => (
+                  <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '32px' }}>
+          <button onClick={onClose} className="btn-secondary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px' }}>Cancelar</button>
+          <button onClick={handleSave} className="btn-primary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px' }}>Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- COMPONENTE PRINCIPAL ---
 
 function App() {
@@ -260,8 +381,13 @@ function App() {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile,
-    workspaces, activeWorkspaces, toggleWorkspaceFilter
+    workspaces, activeWorkspaces, toggleWorkspaceFilter,
+    organizacoes = [], visitas = [], addVisitas, updateVisitas
   } = useCalendar();
+
+  // Tratamento de Roles: Suporta arrays ou strings separadas por vírgula
+  const roles = useMemo(() => Array.isArray(userRole) ? userRole : (typeof userRole === 'string' ? userRole.split(',').map(r => r.trim()) : []), [userRole]);
+  const hasRole = (role) => roles.includes('ADMIN') || roles.includes(role);
 
   const viewsConfig = useMemo(() => [
     { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
@@ -277,8 +403,13 @@ function App() {
 
   const notifiedRef = useRef(new Set());
 
+  // Substitui isTaskView por appMode ('calendar', 'tasks', 'visitas')
+  const [appMode, setAppMode] = useState('calendar');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isVisitaModalOpen, setIsVisitaModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [editingVisita, setEditingVisita] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
@@ -298,25 +429,42 @@ function App() {
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [showBirthday, setShowBirthday] = useState(false);
-  const [isTaskView, setIsTaskView] = useState(false);
 
   const [defaultWorkspaceId, setDefaultWorkspaceId] = useState(() => localStorage.getItem('kairos_default_workspace'));
   const [isScrolled, setIsScrolled] = useState(false);
 
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const [listViewMode, setListViewMode] = useState('grid'); // Alterado: viewMode -> listViewMode
+  const [listViewMode, setListViewMode] = useState('grid');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
   );
 
+  const currentUser = allUsers.find(u => u.cr4a1_username === user);
+
   const taskEvents = useMemo(() => {
     const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
     if (!devWorkspace) return [];
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
+
+  // Conversão de visitas para o formato de eventos de calendário
+  const mappedVisitas = useMemo(() => {
+    return visitas
+      .filter(v => hasRole('ADMIN') || hasRole('COORD COMERCIAL') ? v.cr4a1_filial === currentUser?.cr4a1_unidade : v.cr4a1_visitante === currentUser?.cr4a1_username)
+      .map(v => ({
+        cr4a1_agenda_kairosid: v.cr4a1_visita_id,
+        cr4a1_titulo: `Visita: ${v.cr4a1_cliente}`,
+        cr4a1_data_inicio: v.cr4a1_data_visita,
+        cr4a1_hora_inicio: '08:00',
+        cr4a1_cor: '#f57c00', // Laranja Comercial
+        cr4a1_dia_inteiro: true,
+        isVisita: true,
+        originalData: v
+      }));
+  }, [visitas, currentUser, roles]);
 
   const handleToggleSubtask = async (task, index) => {
     try {
@@ -354,10 +502,9 @@ function App() {
 
   useEffect(() => {
     if (user && allUsers.length > 0) {
-      const currentUserData = allUsers.find(u => u.cr4a1_username === user);
-      if (currentUserData?.cr4a1_aniversario) {
+      if (currentUser?.cr4a1_aniversario) {
         const today = format(new Date(), 'MM-dd');
-        const birthday = currentUserData.cr4a1_aniversario.substring(5, 10);
+        const birthday = currentUser.cr4a1_aniversario.substring(5, 10);
         const sessionCelebrated = sessionStorage.getItem('kairos_birthday_celebrated');
         if (today === birthday && !sessionCelebrated) {
           setShowBirthday(true);
@@ -365,7 +512,7 @@ function App() {
         }
       }
     }
-  }, [user, allUsers]);
+  }, [user, allUsers, currentUser]);
 
   useEffect(() => {
     const checkNotifications = () => {
@@ -439,7 +586,6 @@ function App() {
 
   if (!user) return <LoginScreen onLogin={login} />;
 
-  const currentUser = allUsers.find(u => u.cr4a1_username === user);
   if (currentUser && !currentUser.cr4a1_unidade) {
     return <OnboardingModal user={user} onSaveUnit={(unit) => updateUnit(currentUser.cr4a1_usuarios_agendaid, unit)} />;
   }
@@ -492,6 +638,14 @@ function App() {
     } catch (err) { toast.error("Falha ao guardar."); throw err; }
   };
 
+  const handleSaveVisitaData = async (visitasArray) => {
+    try {
+      if (editingVisita) await updateVisitas(visitasArray[0]); 
+      else await addVisitas(visitasArray);
+      toast.success("Visita(s) guardada(s) com sucesso!");
+    } catch (error) { toast.error("Falha ao processar visitas."); }
+  };
+
   const confirmDelete = async () => {
     if (!eventToDelete) return;
     try {
@@ -501,7 +655,15 @@ function App() {
   };
 
   const handleEditClick = (event) => {
-    if (userRole === 'SECRETARIA' || userRole === 'COORD' || userRole === 'ADMIN' || event.cr4a1_user_login === user) {
+    if (event.isVisita) {
+      if (hasRole('ADMIN') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL')) {
+        setEditingVisita(event.originalData);
+        setIsVisitaModalOpen(true);
+      }
+      return;
+    }
+
+    if (hasRole('SECRETARIA') || hasRole('COORD') || hasRole('ADMIN') || event.cr4a1_user_login === user) {
       setEditingEvent(event); setIsModalOpen(true);
     } else {
       toast.error("Acesso Negado.", { icon: '🚫' });
@@ -520,6 +682,7 @@ function App() {
   };
 
   const getDisplayEvents = () => {
+    if (appMode === 'visitas') return mappedVisitas;
     if (activeWorkspaces.length > 0) return filteredEvents;
     if (defaultWorkspaceId) {
       return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId);
@@ -534,6 +697,8 @@ function App() {
   };
 
   const getWorkspaceBorderStyle = () => {
+    if (appMode === 'visitas') return { border: '1px solid var(--border-color)', overflow: 'visible' };
+
     const activeWSColors = workspaces
       .filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))
       .map(ws => ws.cr4a1_cor_hex || '#3498db');
@@ -601,39 +766,50 @@ function App() {
               </button>
             </div>
 
-            {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
-              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
-                <button onClick={() => { setIsTaskView(false); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
+            <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
+              <button onClick={() => { setAppMode('calendar'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
+                justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                backgroundColor: appMode === 'calendar' ? 'var(--bg-tertiary)' : 'transparent',
+                color: appMode === 'calendar' ? 'var(--text-accent)' : 'var(--text-primary)'
+              }}>
+                <span className="material-symbols-rounded">calendar_month</span> Agenda
+              </button>
+              
+              {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA')) && (
+                <button onClick={() => { setAppMode('tasks'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
-                  backgroundColor: !isTaskView ? 'var(--bg-tertiary)' : 'transparent',
-                  color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
-                }}>
-                  <span className="material-symbols-rounded">calendar_month</span> Agenda
-                </button>
-                <button onClick={() => { setIsTaskView(true); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
-                  justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
-                  backgroundColor: isTaskView ? 'var(--bg-tertiary)' : 'transparent',
-                  color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
+                  backgroundColor: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent',
+                  color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
                 }}>
                   <span className="material-symbols-rounded">assignment</span> Tarefas
                 </button>
-              </div>
-            )}
+              )}
+              
+              {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+                <button onClick={() => { setAppMode('visitas'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ 
+                  justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                  backgroundColor: appMode === 'visitas' ? '#fff3e0' : 'transparent',
+                  color: appMode === 'visitas' ? '#f57c00' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded">location_on</span> Visitas
+                </button>
+              )}
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill boing-effect" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if(appMode === 'tasks') setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                  fontWeight: (view === v.id && !isTaskView) ? '700' : '500', backgroundColor: (view === v.id && !isTaskView) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
+                  fontWeight: (view === v.id && appMode !== 'tasks') ? '700' : '500', backgroundColor: (view === v.id && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
               ))}
-              <button onClick={() => { setView('list'); setIsSidebarOpen(false); setIsTaskView(false); }} className="nav-pill boing-effect" style={{
+              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if(appMode === 'tasks') setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                 display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                fontWeight: (view === 'list' && !isTaskView) ? '700' : '500', backgroundColor: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)', transition: 'all 0.2s'
+                fontWeight: (view === 'list' && appMode !== 'tasks') ? '700' : '500', backgroundColor: (view === 'list' && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>view_agenda</span> Fichas
               </button>
@@ -657,123 +833,127 @@ function App() {
               </div>
             </div>
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
-              <input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
-            </div>
+            {appMode !== 'visitas' && (
+              <>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
+                  <input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
+                </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {workspaces.map(ws => (
-                  <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <label style={{
-                      flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
-                      backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-tertiary)' : 'transparent',
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)}
-                        onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
-                        style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }}
-                      />
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ color: 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
-                      </div>
-                    </label>
-                    {(ws.cr4a1_criador_login === user || userRole === 'ADMIN') && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleEditWorkspaceClick(ws); }}
-                        className="icon-btn boing-effect"
-                        title="Editar Workspace"
-                        style={{ color: 'var(--text-secondary)', background: 'transparent', padding: '4px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                      >
-                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
-                      className="icon-btn boing-effect"
-                      title="Definir como padrão"
-                      style={{ color: defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'var(--text-accent)' : 'var(--border-color)', background: 'transparent' }}
-                    >
-                      <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
-                        {defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'star' : 'star_outline'}
-                      </span>
-                    </button>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
-              <input
-                placeholder="Procurar colega..."
-                value={userSearchTerm}
-                onChange={e => setUserSearchTerm(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
-                {allUsers.filter(u => {
-                  const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                                        (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
-                  
-                  if (userRole === 'COMUM') return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
-                  return matchesSearch;
-                }).map(u => (
-                  <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={filters.users.includes(u.cr4a1_username)} 
-                      onChange={() => toggleFilter('users', u.cr4a1_username)} 
-                      style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} 
-                    />
-                    
-                    {u.cr4a1_foto ? (
-                      <img 
-                        src={u.cr4a1_foto} 
-                        alt={u.cr4a1_username}
-                        style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} 
-                      />
-                    ) : (
-                      <div 
-                        style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '10px', fontWeight: '700' }}
-                      >
-                        {u.cr4a1_username?.[0]?.toUpperCase()}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {workspaces.map(ws => (
+                      <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <label style={{
+                          flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
+                          backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-tertiary)' : 'transparent',
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)}
+                            onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
+                            style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }}
+                          />
+                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ color: 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
+                          </div>
+                        </label>
+                        {(ws.cr4a1_criador_login === user || hasRole('ADMIN')) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleEditWorkspaceClick(ws); }}
+                            className="icon-btn boing-effect"
+                            title="Editar Workspace"
+                            style={{ color: 'var(--text-secondary)', background: 'transparent', padding: '4px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                          >
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleSetDefaultWorkspace(ws.cr4a1_calendarios_workspacesid)}
+                          className="icon-btn boing-effect"
+                          title="Definir como padrão"
+                          style={{ color: defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'var(--text-accent)' : 'var(--border-color)', background: 'transparent' }}
+                        >
+                          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                            {defaultWorkspaceId === ws.cr4a1_calendarios_workspacesid ? 'star' : 'star_outline'}
+                          </span>
+                        </button>
                       </div>
-                    )}
-                    
-                    <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {u.cr4a1_nome_exibicao || u.cr4a1_username}
-                    </span>
-                    
-                    <span style={{ fontSize: '10px', opacity: 0.6, backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
-                      {u.cr4a1_unidade}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {eventTypes.map(t => (
-                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                    <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
-                    <span>{t.emoji} {t.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
+                  <input
+                    placeholder="Procurar colega..."
+                    value={userSearchTerm}
+                    onChange={e => setUserSearchTerm(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {allUsers.filter(u => {
+                      const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                            (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
+                      
+                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
+                      return matchesSearch;
+                    }).map(u => (
+                      <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={filters.users.includes(u.cr4a1_username)} 
+                          onChange={() => toggleFilter('users', u.cr4a1_username)} 
+                          style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }} 
+                        />
+                        
+                        {u.cr4a1_foto ? (
+                          <img 
+                            src={u.cr4a1_foto} 
+                            alt={u.cr4a1_username}
+                            style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} 
+                          />
+                        ) : (
+                          <div 
+                            style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '10px', fontWeight: '700' }}
+                          >
+                            {u.cr4a1_username?.[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        
+                        <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                        </span>
+                        
+                        <span style={{ fontSize: '10px', opacity: 0.6, backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+                          {u.cr4a1_unidade}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
-            {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-              <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary boing-effect" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Tipos de Eventos</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {eventTypes.map(t => (
+                      <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+                        <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
+                        <span>{t.emoji} {t.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
+                  <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary boing-effect" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -785,9 +965,11 @@ function App() {
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
             </button>
-            <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setIsTaskView(false); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '28px' }}>calendar_month</span>
-              <span className="nav-label-collapse">Kairós</span>
+            <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)', fontSize: '28px' }}>
+                {appMode === 'visitas' ? 'location_on' : 'calendar_month'}
+              </span>
+              <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : 'Kairós'}</span>
             </h1>
             
             <div className="segmented-views" style={{
@@ -795,15 +977,15 @@ function App() {
               borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
             }}>
               {viewsConfig.map(v => {
-                const isActive = view === v.id && !isTaskView;
+                const isActive = view === v.id && appMode !== 'tasks';
                 return (
                   <button
                     key={v.id}
-                    onClick={() => { setView(v.id); setIsTaskView(false); }}
+                    onClick={() => { setView(v.id); if(appMode === 'tasks') setAppMode('calendar'); }}
                     className={`boing-effect ${isActive ? 'active' : ''}`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
-                      background: isActive ? 'var(--text-accent)' : 'transparent',
+                      background: isActive ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent',
                       color: isActive ? '#ffffff' : 'var(--text-primary)',
                       fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', whiteSpace: 'nowrap'
                     }}
@@ -816,13 +998,13 @@ function App() {
             </div>
 
             <button
-              onClick={() => { setView('list'); setIsTaskView(false); }}
-              className={`boing-effect ${view === 'list' && !isTaskView ? 'active' : ''}`}
+              onClick={() => { setView('list'); if(appMode === 'tasks') setAppMode('calendar'); }}
+              className={`boing-effect ${view === 'list' && appMode !== 'tasks' ? 'active' : ''}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                border: (view === 'list' && !isTaskView) ? '1px solid var(--text-accent)' : '1px solid var(--border-color)',
-                background: (view === 'list' && !isTaskView) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                color: (view === 'list' && !isTaskView) ? 'var(--text-accent)' : 'var(--text-primary)',
+                border: (view === 'list' && appMode !== 'tasks') ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
+                background: (view === 'list' && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                color: (view === 'list' && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer'
               }}
             >
@@ -880,14 +1062,14 @@ function App() {
               <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect">
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
               </button>
-              {(userRole === 'ADMIN' || userRole === 'SECRETARIA') && (
+              {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
                 <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn boing-effect" title="Gerir Utilizadores">
                   <span className="material-symbols-rounded">group</span>
                 </button>
               )}
             </div>
 
-            {!isTaskView && view === 'day' && (
+            {appMode !== 'tasks' && view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
                 <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
@@ -906,10 +1088,10 @@ function App() {
         </header>
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
-          <main className="main-container" style={{ flex: 1, padding: isTaskView ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
+          <main className="main-container" style={{ flex: 1, padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
             
-            <div key={isTaskView ? 'tasks' : 'calendar'} className="view-enter" style={{ width: '100%', height: '100%' }}>
-              {isTaskView ? (
+            <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
+              {appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
                   <header style={{ marginBottom: '10px' }}>
                     <h2 style={{ color: 'var(--text-title)', fontSize: '26px', fontWeight: '800' }}>Desenvolvimento e Inovação</h2>
@@ -1008,13 +1190,13 @@ function App() {
               ) : (
                 <>
                   {view === 'year' && (
-                    <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
+                    <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
                       {Array.from({ length: 12 }, (_, i) => {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                         return (
-                          <div key={i} style={{ ...(activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
-                            <div style={{ ...(activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
+                          <div key={i} style={{ ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
+                            <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
                               <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
                             </div>
                           </div>
@@ -1025,11 +1207,11 @@ function App() {
 
                   {view === 'month' && (
                     <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
-                      <div style={{ ...(activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), overflow: 'visible', opacity: 1 }}>
+                      <div style={{ ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), overflow: 'visible', opacity: 1 }}>
                         <div 
                           className="calendar-month-grid" 
                           style={{ 
-                            ...(activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }), 
+                            ...(appMode !== 'visitas' && activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }), 
                             background: 'var(--bg-primary)', 
                             borderRadius: '22px', 
                             overflow: 'visible',
@@ -1043,11 +1225,11 @@ function App() {
                             const dayEvents = getDisplayEvents().filter(e => e.cr4a1_data_inicio && e.cr4a1_data_inicio.split('T')[0] === dateStr);
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      <div className="event-badge" style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
+                                      <div className="event-badge boing-effect" onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
                                         {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                                       </div>
                                     </DraggableEvent>
@@ -1061,8 +1243,7 @@ function App() {
                     </div>
                   )}
 
-                  {/* ALTERAÇÃO PRINCIPAL AQUI: props viewMode e onViewModeChange adicionadas */}
-                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
+                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
                   {['day', '3days', 'week'].includes(view) && (
                     <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
@@ -1073,44 +1254,55 @@ function App() {
           </main>
 
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) - FLUTUANTE */}
-          {['DIRETORIA', 'ADMIN', 'COORD', 'SECRETARIA'].includes(userRole) && (
-            <aside className="desktop-only" style={{
-              position: 'fixed',
-              right: '0',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: '64px',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
-              borderRight: 'none',
-              borderRadius: '24px 0 0 24px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '24px 0',
-              gap: '24px',
-              boxShadow: '-4px 0 24px rgba(0,0,0,0.06)',
-              zIndex: 1000
+          <aside className="desktop-only" style={{
+            position: 'fixed',
+            right: '0',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '64px',
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            borderRight: 'none',
+            borderRadius: '24px 0 0 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '24px 0',
+            gap: '24px',
+            boxShadow: '-4px 0 24px rgba(0,0,0,0.06)',
+            zIndex: 1000
+          }}>
+            <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{ 
+              width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: appMode === 'calendar' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'calendar' ? 'var(--text-accent)' : 'var(--text-primary)'
             }}>
-              <button onClick={() => setIsTaskView(false)} className={`boing-effect ${!isTaskView ? 'active' : ''}`} title="Agenda" style={{ 
+              <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
+            </button>
+            
+            {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA')) && (
+              <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{ 
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: !isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: !isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
-              }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
-              </button>
-              <button onClick={() => setIsTaskView(true)} className={`boing-effect ${isTaskView ? 'active' : ''}`} title="Tarefas" style={{ 
-                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isTaskView ? 'var(--bg-tertiary)' : 'transparent', color: isTaskView ? 'var(--text-accent)' : 'var(--text-primary)'
+                background: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>assignment</span>
               </button>
-            </aside>
-          )}
+            )}
+
+            {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+              <button onClick={() => setAppMode('visitas')} className={`boing-effect ${appMode === 'visitas' ? 'active' : ''}`} title="Visitas Comerciais" style={{ 
+                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: appMode === 'visitas' ? '#fff3e0' : 'transparent', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-primary)'
+              }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>location_on</span>
+              </button>
+            )}
+          </aside>
         </div>
 
         {/* MODAIS E COMPONENTES FIXOS */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
           {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
+          {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => {setIsVisitaModalOpen(false); setEditingVisita(null);}} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && (
@@ -1198,25 +1390,40 @@ function App() {
         </div>
 
         {/* FAB */}
-        {(userRole === 'ADMIN' || userRole === 'SECRETARIA' || userRole === 'DIRETORIA' || userRole === 'COORD' || userRole === 'COMUM') && (
-          <div style={{ position: 'fixed', bottom: isTaskView ? '80px' : '24px', right: '24px', zIndex: 500 }}>
+        {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL')) && (
+          <div style={{ position: 'fixed', bottom: appMode === 'tasks' ? '80px' : '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                  <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                    <span className="material-symbols-rounded">calendar_add_on</span>
-                  </button>
-                </div>
-                <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
-                  <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                    <span className="material-symbols-rounded">workspaces</span>
-                  </button>
-                </div>
+                
+                {appMode !== 'visitas' && (
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
+                    <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <span className="material-symbols-rounded">calendar_add_on</span>
+                    </button>
+                  </div>
+                )}
+
+                {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Visita</span>
+                    <button onClick={() => { setEditingVisita(null); setIsVisitaModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: '#f57c00', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <span className="material-symbols-rounded">location_on</span>
+                    </button>
+                  </div>
+                )}
+
+                {(hasRole('ADMIN') || hasRole('RH')) && appMode !== 'visitas' && (
+                  <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
+                    <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <span className="material-symbols-rounded">workspaces</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            <button className="fab-btn boing-effect" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button className="fab-btn boing-effect" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'), color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
