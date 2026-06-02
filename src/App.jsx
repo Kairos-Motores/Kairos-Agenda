@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES (inalterados) ---
+// --- COMPONENTES AUXILIARES ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -265,7 +265,6 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
 
-  // REGRA 1: Filtra estritamente os usuários que possuem a role "COMERCIAL"
   const usuariosComerciais = useMemo(() => {
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
@@ -429,8 +428,8 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   );
 };
 
-// --- COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
-const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
+// --- COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA (CORRIGIDO PARA RH VER TODOS) ---
+const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos = false }) => {
   const [selectedUser, setSelectedUser] = useState('');
   const [unidade, setUnidade] = useState('');
   const [inicio, setInicio] = useState('');
@@ -438,12 +437,14 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
 
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
-  const comerciais = useMemo(() => {
+  // Se mostrarTodos (ADMIN/RH), exibe todos os usuários; senão, apenas COMERCIAL
+  const usuariosDisponiveis = useMemo(() => {
+    if (mostrarTodos) return allUsers;
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
       return userRoles.includes('COMERCIAL');
     });
-  }, [allUsers]);
+  }, [allUsers, mostrarTodos]);
 
   if (!isOpen) return null;
 
@@ -467,16 +468,24 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
       <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '450px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)' }}>
         <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>swap_horiz</span>
-          Filial Temporária (Comercial)
+          Filial Temporária {mostrarTodos ? '(Todos)' : '(Comercial)'}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="input-group">
-            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Selecionar Comercial</label>
-            <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+              Selecionar {mostrarTodos ? 'Funcionário' : 'Comercial'}
+            </label>
+            <select
+              value={selectedUser}
+              onChange={e => setSelectedUser(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+            >
               <option value="">Selecione um profissional...</option>
-              {comerciais.map(u => (
-                <option key={u.cr4a1_usuarios_agendaid} value={u.cr4a1_usuarios_agendaid}>{u.cr4a1_nome_exibicao || u.cr4a1_username} (Origem: {u.cr4a1_unidade})</option>
+              {usuariosDisponiveis.map(u => (
+                <option key={u.cr4a1_usuarios_agendaid} value={u.cr4a1_usuarios_agendaid}>
+                  {u.cr4a1_nome_exibicao || u.cr4a1_username} ({u.cr4a1_unidade || 'Sem unidade'})
+                </option>
               ))}
             </select>
           </div>
@@ -1483,6 +1492,7 @@ function App() {
               onClose={() => setIsFilialTemporariaOpen(false)}
               allUsers={allUsers}
               onSave={atualizarFilialTemporaria}
+              mostrarTodos={hasRole('ADMIN') || hasRole('RH')}
             />
           )}
           {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
