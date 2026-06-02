@@ -591,7 +591,7 @@ export const useCalendar = () => {
     const addVisitas = async (visitasArray) => {
         try {
             const requests = visitasArray.map(visita =>
-                fetch(`${API_PROXY}?table=cr4a1_echoe_visitas`, {
+                fetch(`${API_PROXY}?table=cr4a1_echoe_visitases`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(visita)
@@ -607,7 +607,7 @@ export const useCalendar = () => {
 
     const updateVisitas = async (visitaData) => {
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_echoe_visitas&id=${visitaData.cr4a1_visita_id}`, {
+            await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaData.cr4a1_visita_id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(visitaData)
