@@ -1742,6 +1742,7 @@ function App() {
         grid-template-columns: 1fr !important;
     }
 
+    /* LINHA 0: Perfil + Logout + Filial Temporária (canto superior direito) */
     .header-profile {
         order: 0 !important;
         width: 100% !important;
@@ -1749,8 +1750,8 @@ function App() {
         align-items: center !important;
         justify-content: flex-end !important;
         gap: 8px !important;
-        position: static !important;   
-        margin: 0 0 4px 0 !important;  
+        position: relative !important;   /* para referência do absoluto */
+        margin: 0 0 4px 0 !important;
     }
     .header-profile .profile-name {
         display: none !important;
@@ -1777,6 +1778,17 @@ function App() {
         width: 36px !important;
     }
 
+    /* Botão Filial Temporária – posicionado ao lado do perfil (absoluto) */
+    .filial-temp-btn {
+        position: absolute !important;
+        right: 100px !important;   /* espaço para o avatar + logout (36+8+36 = 80px) + folga */
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        z-index: 11 !important;
+        white-space: nowrap !important;
+    }
+
+    /* LINHA 1: Menu, Logo, Seletor de Vistas e Fichas */
     .header-left {
         order: 1 !important;
         display: flex !important;
@@ -1865,6 +1877,7 @@ function App() {
         display: none !important;
     }
 
+    /* LINHA 3: Controle de Datas e Utilidades */
     .header-bottom {
         order: 2 !important;
         display: grid !important;
