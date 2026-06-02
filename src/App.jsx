@@ -253,18 +253,27 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
-// --- COMPONENTE DE VISITAS (MODAL) ---
+// --- COMPONENTE DE VISITAS (MODAL CORRIGIDO E BUSCÁVEL) ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
+  const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
+  const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [motivo, setMotivo] = useState(editingVisita?.cr4a1_motivo || '');
   const [visitante, setVisitante] = useState(editingVisita?.cr4a1_visitante || currentUser?.cr4a1_username);
   const [dataVisita, setDataVisita] = useState(editingVisita?.cr4a1_data_visita ? editingVisita.cr4a1_data_visita.split('T')[0] : '');
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
 
-  if (!isOpen) return null;
-
-  const filteredOrgs = organizacoes.filter(org => org.cr4a1_filial_origem === currentUser?.cr4a1_unidade && org.cr4a1_visita_recorrente === true);
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
+
+  const filteredOrgs = useMemo(() => {
+    return organizacoes.filter(org => {
+      const matchesUnit = !org.cr4a1_filial_origem || org.cr4a1_filial_origem === currentUser?.cr4a1_unidade;
+      const matchesSearch = !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
+      return matchesUnit && matchesSearch;
+    });
+  }, [organizacoes, searchOrg, currentUser]);
+
+  if (!isOpen) return null;
 
   const getNextBusinessDay = (startDate, intervalDays) => {
     let date = new Date(startDate);
@@ -321,19 +330,44 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
     <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
       <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '500px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
         <h2 style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>location_on</span>
+          <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>location_on</span>
           {editingVisita ? 'Editar Visita' : 'Agendar Visita'}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="input-group">
+          <div className="input-group" style={{ position: 'relative' }}>
             <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cliente</label>
-            <select value={cliente} onChange={e => setCliente(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}>
-              <option value="">Selecione um cliente...</option>
-              {filteredOrgs.map(org => (
-                <option key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna} value={org.cr4a1_novacoluna}>{org.cr4a1_novacoluna}</option>
-              ))}
-            </select>
+            <input 
+              type="text" 
+              value={searchOrg} 
+              onChange={e => {
+                setSearchOrg(e.target.value);
+                setCliente(e.target.value);
+                setIsOpenDropdown(true);
+              }}
+              onFocus={() => setIsOpenDropdown(true)}
+              onBlur={() => setTimeout(() => setIsOpenDropdown(false), 250)}
+              placeholder="Escreva para pesquisar cliente..." 
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }} 
+            />
+            {isOpenDropdown && filteredOrgs.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
+                {filteredOrgs.map(org => (
+                  <div 
+                    key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
+                    onMouseDown={() => {
+                      setSearchOrg(org.cr4a1_novacoluna);
+                      setCliente(org.cr4a1_novacoluna);
+                      setIsOpenDropdown(false);
+                    }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }}
+                    className="dropdown-item-select"
+                  >
+                    {org.cr4a1_novacoluna}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="input-group">
@@ -367,7 +401,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '32px' }}>
           <button onClick={onClose} className="btn-secondary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px' }}>Cancelar</button>
-          <button onClick={handleSave} className="btn-primary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px' }}>Guardar</button>
+          <button onClick={handleSave} className="btn-primary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px', background: '#f57c00', color: 'white' }}>Guardar</button>
         </div>
       </div>
     </div>
@@ -385,7 +419,6 @@ function App() {
     organizacoes = [], visitas = [], addVisitas, updateVisitas
   } = useCalendar();
 
-  // Tratamento de Roles: Suporta arrays ou strings separadas por vírgula
   const roles = useMemo(() => Array.isArray(userRole) ? userRole : (typeof userRole === 'string' ? userRole.split(',').map(r => r.trim()) : []), [userRole]);
   const hasRole = (role) => roles.includes('ADMIN') || roles.includes(role);
 
@@ -402,8 +435,6 @@ function App() {
   };
 
   const notifiedRef = useRef(new Set());
-
-  // Substitui isTaskView por appMode ('calendar', 'tasks', 'visitas')
   const [appMode, setAppMode] = useState('calendar');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -450,7 +481,6 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
-  // Conversão de visitas para o formato de eventos de calendário
   const mappedVisitas = useMemo(() => {
     return visitas
       .filter(v => hasRole('ADMIN') || hasRole('COORD COMERCIAL') ? v.cr4a1_filial === currentUser?.cr4a1_unidade : v.cr4a1_visitante === currentUser?.cr4a1_username)
@@ -458,13 +488,33 @@ function App() {
         cr4a1_agenda_kairosid: v.cr4a1_visita_id,
         cr4a1_titulo: `Visita: ${v.cr4a1_cliente}`,
         cr4a1_data_inicio: v.cr4a1_data_visita,
+        cr4a1_data_fim: v.cr4a1_data_visita,
         cr4a1_hora_inicio: '08:00',
-        cr4a1_cor: '#f57c00', // Laranja Comercial
+        cr4a1_cor: '#f57c00', 
         cr4a1_dia_inteiro: true,
         isVisita: true,
         originalData: v
       }));
   }, [visitas, currentUser, roles]);
+
+  const getDisplayEvents = () => {
+    if (appMode === 'visitas') return mappedVisitas;
+    if (activeWorkspaces.length > 0) return filteredEvents;
+    if (defaultWorkspaceId) {
+      return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId);
+    }
+    return filteredEvents;
+  };
+
+  // INTERCEPTADOR EXCLUSIVO DE DATAS: Filtra estritamente os eventos da vista dependendo do appMode ativo
+  const handleGetEventsForDay = (day) => {
+    const targetDate = format(day, 'yyyy-MM-dd');
+    return getDisplayEvents().filter(event => {
+      const startDate = event.cr4a1_data_inicio?.split('T')[0];
+      const endDate = event.cr4a1_data_fim?.split('T')[0] || startDate;
+      return targetDate >= startDate && targetDate <= endDate;
+    });
+  };
 
   const handleToggleSubtask = async (task, index) => {
     try {
@@ -681,19 +731,10 @@ function App() {
     else setCurrentDate(isNext ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
   };
 
-  const getDisplayEvents = () => {
-    if (appMode === 'visitas') return mappedVisitas;
-    if (activeWorkspaces.length > 0) return filteredEvents;
-    if (defaultWorkspaceId) {
-      return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId);
-    }
-    return filteredEvents;
-  };
-
   const handleSetDefaultWorkspace = (id) => {
     setDefaultWorkspaceId(id);
     localStorage.setItem('kairos_default_workspace', id);
-    toast.success("Workspace padrão atualizado!", { icon: '⭐' });
+    toast.success("Workspace padrão updated!", { icon: '⭐' });
   };
 
   const getWorkspaceBorderStyle = () => {
@@ -1197,7 +1238,7 @@ function App() {
                         return (
                           <div key={i} style={{ ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
                             <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
-                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
                             </div>
                           </div>
                         );
@@ -1246,7 +1287,7 @@ function App() {
                   {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
                   {['day', '3days', 'week'].includes(view) && (
-                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={getEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
+                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
                   )}
                 </>
               )}
@@ -1435,6 +1476,10 @@ function App() {
         @keyframes viewSlideIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
         .view-enter { animation: viewSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         
+        .dropdown-item-select:hover {
+            background-color: var(--bg-secondary) !important;
+        }
+
         @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
         @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
         
@@ -1549,6 +1594,11 @@ function App() {
     [data-theme='dark'] .app-header {
         background: rgba(30, 30, 30, 0.8) !important;
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* FORÇAR EXATAMENTE UM MÊS POR LINHA NA VISUALIZAÇÃO ANUAL MOBILE */
+    .mini-month-grid {
+        grid-template-columns: 1fr !important;
     }
 
     /* NOVA LINHA 0: Perfil e Logout no topo direito */
