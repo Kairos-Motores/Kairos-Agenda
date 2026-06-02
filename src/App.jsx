@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES (inalterados) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -303,6 +303,9 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       return;
     }
 
+    // CORREÇÃO: cr4a1_periodo_visita deve ser string (Dataverse espera Single Line of Text)
+    const periodoString = String(parseInt(periodo, 10) || 0);
+
     const baseVisita = {
       cr4a1_visita_id: editingVisita?.cr4a1_visita_id,
       cr4a1_cliente: cliente,
@@ -310,11 +313,13 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       cr4a1_visitante: visitante,
       cr4a1_filial: currentUser?.cr4a1_unidade,
       cr4a1_data_visita: dataVisita,
-      cr4a1_periodo_visita: parseInt(periodo, 10) || 0
+      cr4a1_periodo_visita: periodoString
     };
 
     if (editingVisita) {
-      onSave([baseVisita]);
+      // Remove campo de ID automático, se existir
+      const { cr4a1_id, ...visitaLimpa } = baseVisita;
+      onSave([visitaLimpa]);
     } else {
       let visitasToCreate = [baseVisita];
       let interval = parseInt(periodo, 10) || 0;
@@ -437,7 +442,6 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
-  // Se mostrarTodos (ADMIN/RH), exibe todos os usuários; senão, apenas COMERCIAL
   const usuariosDisponiveis = useMemo(() => {
     if (mostrarTodos) return allUsers;
     return allUsers.filter(u => {
@@ -632,7 +636,7 @@ function App() {
     try {
       if (editingVisita) {
         await updateVisitas(visitasArray[0]);
-        toast.success("Visita comercial updated com sucesso!", { id: loadingToast });
+        toast.success("Visita comercial atualizada com sucesso!", { id: loadingToast });
       } else {
         await addVisitas(visitasArray);
         toast.success(`${visitasArray.length} visita(s) agendada(s) com sucesso!`, { id: loadingToast });
