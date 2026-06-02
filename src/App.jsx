@@ -595,7 +595,7 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
-  // --- MAPEAMENTO CORRIGIDO DAS VISITAS COM DESTAQUE PARA VISITAS PRINCIPAIS ---
+  // --- MAPEAMENTO CORRIGIDO DAS VISITAS COM DIFERENCIAÇÃO CLARA ---
   const mappedVisitas = useMemo(() => {
     if (!visitas || visitas.length === 0) return [];
 
@@ -617,7 +617,7 @@ function App() {
       const usuario = allUsers.find(u => u.cr4a1_username === visita.cr4a1_visitante);
       const corUsuario = usuario?.cr4a1_cor || '#f57c00';
 
-      // Evento principal da visita – destaque com emoji e cor sólida
+      // Evento principal da visita – fundo colorido + emoji
       resultado.push({
         cr4a1_agenda_kairosid: visita.cr4a1_visita_id,
         cr4a1_titulo: `📍 Visita: ${visita.cr4a1_cliente}`,
@@ -632,7 +632,7 @@ function App() {
         originalData: visita,
       });
 
-      // Intervalo até a próxima visita – cor pastel sem emoji
+      // Intervalo até a próxima visita – apenas bolinhas (sem fundo)
       const proximaData = i + 1 < sorted.length
         ? sorted[i + 1].cr4a1_data_visita?.split('T')[0]
         : null;
@@ -646,11 +646,11 @@ function App() {
           const dateStr = format(current, 'yyyy-MM-dd');
           resultado.push({
             cr4a1_agenda_kairosid: `intervalo_${dateStr}`,
-            cr4a1_titulo: 'Período entre visitas',
+            cr4a1_titulo: '', // título vazio para não poluir
             cr4a1_data_inicio: dateStr,
             cr4a1_data_fim: dateStr,
             cr4a1_hora_inicio: '00:00',
-            cr4a1_cor: corUsuario + '33', // tom mais suave
+            cr4a1_cor: corUsuario, // cor será usada para os dots
             cr4a1_user_login: visita.cr4a1_visitante,
             cr4a1_dia_inteiro: true,
             isIntervalo: true,
@@ -1489,24 +1489,28 @@ function App() {
                                         className="event-badge boing-effect" 
                                         onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} 
                                         style={{ 
-                                          background: e.cr4a1_cor || getEventColor(e), 
-                                          color: e.isVisitaPrincipal ? '#fff' : 'white', 
+                                          background: e.isVisitaPrincipal ? (e.cr4a1_cor || getEventColor(e)) : 'transparent',
+                                          color: e.isVisitaPrincipal ? '#fff' : 'transparent',
                                           borderRadius: '4px', 
-                                          padding: e.isVisitaPrincipal ? '3px 5px' : '2px 4px',
+                                          padding: e.isVisitaPrincipal ? '3px 5px' : '0',
                                           display: 'block', 
                                           overflow: 'hidden', 
                                           textOverflow: 'ellipsis', 
                                           whiteSpace: 'nowrap', 
-                                          fontSize: e.isVisitaPrincipal ? '11px' : '10px', 
+                                          fontSize: e.isVisitaPrincipal ? '11px' : '0',
                                           fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
                                           width: '100%', 
                                           boxSizing: 'border-box',
-                                          opacity: e.isIntervalo ? 0.7 : 1,
+                                          opacity: e.isIntervalo ? 0 : 1,
                                           border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
                                         }}
                                       >
-                                        {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
-                                        {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                        {e.isVisitaPrincipal && (
+                                          <>
+                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
+                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                          </>
+                                        )}
                                       </div>
                                     </DraggableEvent>
                                   ))}
