@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES (inalterados) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -992,7 +992,7 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1163,12 +1163,12 @@ function App() {
               <span className="nav-label-collapse">Fichas</span>
             </button>
 
-            {/* REGRA 3 COM INTEGRAÇÃO RH: Botão de Transferência visível no cabeçalho em Visitas para COORD COMERCIAL/ADMIN E no modo Calendário para ADMIN/RH */}
+            {/* Botão Filial Temporária (mantido na header-left, mas será movido no mobile via CSS) */}
             {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
               <button 
                 onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect"
+                className="btn-secondary boing-effect filial-temp-btn"
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1402,7 +1402,7 @@ function App() {
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
-                                <div style={{ display: 'hidden', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
                                       <div className="event-badge boing-effect" onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
@@ -1626,7 +1626,6 @@ function App() {
         @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
         @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
         
-        /* EFEITO BOING (MOLA ELÁSTICA) */
         .boing-effect {
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
         }
@@ -1635,7 +1634,6 @@ function App() {
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
 
-        /* LÓGICA DO CABEÇALHO (SMART HEADER) */
         .app-header {
             display: flex;
             flex-wrap: wrap;
@@ -1714,268 +1712,269 @@ function App() {
             padding: 0;
         }
 
-        /* COMPORTAMENTO MOBILE OTIMIZADO & LUXUOSO */
+        /* COMPORTAMENTO MOBILE OTIMIZADO */
         @media (max-width: 900px) {
-    .app-header {
-        display: flex !important;
-        flex-direction: column !important;
-        padding: 12px 16px !important;
-        gap: 12px !important;
-        background: var(--bg-primary) !important;
-        border-bottom: 1px solid var(--border-color) !important;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
-        backdrop-filter: blur(12px) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-    .app-header.scrolled {
-        padding: 8px 12px !important;
-        gap: 8px !important;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
-    }
-    [data-theme='dark'] .app-header {
-        background: rgba(30, 30, 30, 0.8) !important;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
-    }
+            .app-header {
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 12px 16px !important;
+                gap: 12px !important;
+                background: var(--bg-primary) !important;
+                border-bottom: 1px solid var(--border-color) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+                backdrop-filter: blur(12px) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                position: relative; /* necessário para o posicionamento absoluto do botão filial */
+            }
+            .app-header.scrolled {
+                padding: 8px 12px !important;
+                gap: 8px !important;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+            }
+            [data-theme='dark'] .app-header {
+                background: rgba(30, 30, 30, 0.8) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
+            }
 
-    /* FORÇAR EXATAMENTE UM MÊS POR LINHA NA VISUALIZAÇÃO ANUAL MOBILE */
-    .mini-month-grid {
-        grid-template-columns: 1fr !important;
-    }
+            .mini-month-grid {
+                grid-template-columns: 1fr !important;
+            }
 
-    /* LINHA 0: Perfil + Logout + Filial Temporária (canto superior direito) */
-    .header-profile {
-        order: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-end !important;
-        gap: 8px !important;
-        position: relative !important;   /* para referência do absoluto */
-        margin: 0 0 4px 0 !important;
-    }
-    .header-profile .profile-name {
-        display: none !important;
-    }
-    .header-profile > div {
-        padding: 2px !important;
-        border-radius: 50% !important;
-        background: var(--bg-secondary) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border: 1px solid var(--border-color) !important;
-        height: 36px !important;
-        width: 36px !important;
-        box-sizing: border-box !important;
-        cursor: pointer !important;
-    }
-    .header-profile > div img {
-        width: 30px !important;
-        height: 30px !important;
-    }
-    .header-profile .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-    }
+            /* Linha 0: Perfil + Logout (topo direito) */
+            .header-profile {
+                order: 0 !important;
+                width: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 8px !important;
+                position: static !important;   
+                margin: 0 0 4px 0 !important;  
+            }
+            .header-profile .profile-name {
+                display: none !important;
+            }
+            .header-profile > div {
+                padding: 2px !important;
+                border-radius: 50% !important;
+                background: var(--bg-secondary) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border: 1px solid var(--border-color) !important;
+                height: 36px !important;
+                width: 36px !important;
+                box-sizing: border-box !important;
+                cursor: pointer !important;
+            }
+            .header-profile > div img {
+                width: 30px !important;
+                height: 30px !important;
+            }
+            .header-profile .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+            }
 
-    /* Botão Filial Temporária – posicionado ao lado do perfil (absoluto) */
-    .filial-temp-btn {
-        position: absolute !important;
-        right: 100px !important;   /* espaço para o avatar + logout (36+8+36 = 80px) + folga */
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        z-index: 11 !important;
-        white-space: nowrap !important;
-    }
+            /* Botão Filial Temporária - absoluto, ao lado do perfil */
+            .filial-temp-btn {
+                position: absolute !important;
+                top: 12px !important;          /* alinhado com o topo do header */
+                right: 96px !important;        /* distância da borda direita = avatar (36) + logout (36) + gap (8) + folga (16) */
+                z-index: 15 !important;
+                white-space: nowrap !important;
+                padding: 8px 16px !important;
+                font-size: 13px !important;
+            }
 
-    /* LINHA 1: Menu, Logo, Seletor de Vistas e Fichas */
-    .header-left {
-        order: 1 !important;
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        width: 100% !important;
-        gap: 8px !important;
-        justify-content: flex-start !important;
-    }
+            /* Linha 1: Menu, Logo, Seletor de Vistas e Fichas */
+            .header-left {
+                order: 1 !important;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                width: 100% !important;
+                gap: 8px !important;
+                justify-content: flex-start !important;
+            }
 
-    .header-left > button:first-of-type {
-        order: 1 !important;
-        flex: 0 0 auto !important;
-    }
+            .header-left > button:first-of-type {
+                order: 1 !important;
+                flex: 0 0 auto !important;
+            }
 
-    .header-left .logo {
-        order: 2 !important;
-        gap: 4px !important;
-        flex: 0 0 auto !important;
-    }
-    .header-left .logo .nav-label-collapse {
-        display: none !important;
-    }
+            .header-left .logo {
+                order: 2 !important;
+                gap: 4px !important;
+                flex: 0 0 auto !important;
+            }
+            .header-left .logo .nav-label-collapse {
+                display: none !important;
+            }
 
-    .segmented-views {
-        order: 3 !important;
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        background: var(--bg-secondary) !important;
-        border-radius: 16px !important;
-        padding: 4px !important;
-        border: 1px solid var(--border-color) !important;
-        box-sizing: border-box !important;
-        overflow: hidden !important;
-    }
-    .segmented-views button {
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-        justify-content: center !important;
-        padding: 6px 2px !important;
-        height: 30px !important;
-        border-radius: 12px !important;
-        font-size: 11px !important;
-        border: none !important;
-        background: transparent !important;
-        color: var(--text-secondary) !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    .segmented-views button.active {
-        background: var(--text-accent) !important;
-        color: white !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
-    }
-    .segmented-views .nav-label-collapse {
-        display: none !important;
-    }
+            .segmented-views {
+                order: 3 !important;
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                background: var(--bg-secondary) !important;
+                border-radius: 16px !important;
+                padding: 4px !important;
+                border: 1px solid var(--border-color) !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
+            .segmented-views button {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                justify-content: center !important;
+                padding: 6px 2px !important;
+                height: 30px !important;
+                border-radius: 12px !important;
+                font-size: 11px !important;
+                border: none !important;
+                background: transparent !important;
+                color: var(--text-secondary) !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            .segmented-views button.active {
+                background: var(--text-accent) !important;
+                color: white !important;
+                font-weight: 700 !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
+            }
+            .segmented-views .nav-label-collapse {
+                display: none !important;
+            }
 
-    .header-left > button:last-of-type {
-        order: 4 !important;
-        flex: 0 0 auto !important;
-        height: 38px !important;
-        width: 38px !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 12px !important;
-        border: 1px solid var(--border-color) !important;
-        background: var(--bg-secondary) !important;
-        color: var(--text-primary) !important;
-        margin-left: 8px !important;
-        box-sizing: border-box !important;
-    }
-    .header-left > button:last-of-type.active {
-        border-color: var(--text-accent) !important;
-        background: var(--bg-tertiary) !important;
-        color: var(--text-accent) !important;
-        box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
-    }
-    .header-left > button:last-of-type .nav-label-collapse {
-        display: none !important;
-    }
+            .header-left > button:last-of-type {
+                order: 4 !important;
+                flex: 0 0 auto !important;
+                height: 38px !important;
+                width: 38px !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 12px !important;
+                border: 1px solid var(--border-color) !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                margin-left: 8px !important;
+                box-sizing: border-box !important;
+            }
+            .header-left > button:last-of-type.active {
+                border-color: var(--text-accent) !important;
+                background: var(--bg-tertiary) !important;
+                color: var(--text-accent) !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
+            }
+            .header-left > button:last-of-type .nav-label-collapse {
+                display: none !important;
+            }
 
-    /* LINHA 3: Controle de Datas e Utilidades */
-    .header-bottom {
-        order: 2 !important;
-        display: grid !important;
-        grid-template-columns: 1fr auto !important;
-        grid-template-rows: auto auto !important;
-        gap: 10px 8px !important;
-        align-items: center !important;
-        width: 100% !important;
-        margin-top: 4px !important;
-        position: relative !important;
-        flex-basis: auto !important;
-    }
-    .app-header.scrolled .header-bottom {
-        order: 2 !important;
-        flex-basis: auto !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
+            /* Linha 3: Controle de Datas e Utilidades */
+            .header-bottom {
+                order: 2 !important;
+                display: grid !important;
+                grid-template-columns: 1fr auto !important;
+                grid-template-rows: auto auto !important;
+                gap: 10px 8px !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-top: 4px !important;
+                position: relative !important;
+                flex-basis: auto !important;
+            }
+            .app-header.scrolled .header-bottom {
+                order: 2 !important;
+                flex-basis: auto !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
 
-    .header-bottom > div:nth-child(2) {
-        grid-row: 1 !important;
-        grid-column: 1 !important;
-        justify-self: start !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-    }
-    .header-bottom > div:nth-child(2) span {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        color: var(--text-title) !important;
-        text-transform: capitalize !important;
-    }
-    .header-bottom > div:nth-child(2) span:first-of-type {
-        max-width: 120px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-    }
+            .header-bottom > div:nth-child(2) {
+                grid-row: 1 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(2) span {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: var(--text-title) !important;
+                text-transform: capitalize !important;
+            }
+            .header-bottom > div:nth-child(2) span:first-of-type {
+                max-width: 120px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
 
-    .header-bottom > div:nth-child(1) {
-        grid-row: 1 !important;
-        grid-column: 2 !important;
-        justify-self: end !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-    }
-    .header-bottom > div:nth-child(1) .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-    }
-    .header-bottom > div:nth-child(1) .nav-pill {
-        height: 36px !important;
-        padding: 0 12px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-        background: var(--bg-secondary) !important;
-        color: var(--text-primary) !important;
-        border: 1px solid var(--border-color) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
+            .header-bottom > div:nth-child(1) {
+                grid-row: 1 !important;
+                grid-column: 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(1) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+            .header-bottom > div:nth-child(1) .nav-pill {
+                height: 36px !important;
+                padding: 0 12px !important;
+                font-size: 12px !important;
+                font-weight: 600 !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                border: 1px solid var(--border-color) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
 
-    .header-bottom > div:nth-child(3) {
-        grid-row: 2 !important;
-        grid-column: 1 / span 2 !important;
-        justify-self: end !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-    }
-    .header-bottom > div:nth-child(3) .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-    }
+            .header-bottom > div:nth-child(3) {
+                grid-row: 2 !important;
+                grid-column: 1 / span 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+            }
+            .header-bottom > div:nth-child(3) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
 
-    .header-bottom > div:nth-child(4) {
-        grid-row: 2 !important;
-        grid-column: 1 !important;
-        justify-self: start !important;
-    }
+            .header-bottom > div:nth-child(4) {
+                grid-row: 2 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+            }
 
-    .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
-        grid-column: 2 !important;
-    }
-}
+            .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
+                grid-column: 2 !important;
+            }
+        }
       `}</style>
     </DndContext>
   );
