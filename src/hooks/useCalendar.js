@@ -587,6 +587,7 @@ export const useCalendar = () => {
         }
     };
 
+    // --- FUNÇÕES COMERCIAIS CORRIGIDAS ---
     const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {
         try {
             const filter = encodeURIComponent(`cr4a1_novacoluna eq '${nomeCliente}'`);
@@ -596,30 +597,51 @@ export const useCalendar = () => {
             if (data.value && data.value.length > 0) {
                 const orgId = data.value[0].cr4a1_echoe_organizacoesid;
                 
-                await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&id=${orgId}`, {
+                const patchRes = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&id=${orgId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cr4a1_visita_recorrente: 'Sim' })
                 });
+                if (!patchRes.ok) {
+                    console.warn("Falha ao marcar organização como recorrente, mas as visitas foram salvas.");
+                }
             }
         } catch (error) {
-            console.error("Erro ao atualizar coluna cr4a1_visita_recorrente:", error);
+            console.error("Erro ao atualizar coluna cr4a1_visita_recorrente (não crítico):", error);
         }
     };
 
     const addVisitas = async (visitasArray) => {
         try {
-            const requests = visitasArray.map(visita =>
+            // Remove campos que não devem ser enviados na criação (ID automático e visita_id opcional)
+            const visitasParaEnviar = visitasArray.map(({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => ({
+                ...resto,
+                // Garante que a data seja enviada como DateTime completo (UTC)
+                cr4a1_data_visita: cr4a1_data_visita 
+                    ? new Date(cr4a1_data_visita + 'T00:00:00').toISOString() 
+                    : null
+            }));
+
+            const requests = visitasParaEnviar.map(visita =>
                 fetch(`${API_PROXY}?table=cr4a1_echoe_visitases`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(visita)
                 })
             );
-            await Promise.all(requests);
-            
-            if (visitasArray.length > 0) {
-                await marcarOrganizacaoComRecorrencia(visitasArray[0].cr4a1_cliente);
+            const responses = await Promise.all(requests);
+
+            for (const resp of responses) {
+                if (!resp.ok) {
+                    const errorBody = await resp.text();
+                    console.error("Erro ao criar visita:", errorBody);
+                    throw new Error(`Erro ${resp.status}: ${errorBody}`);
+                }
+            }
+
+            // Tenta marcar a organização como recorrente, mas não bloqueia se falhar
+            if (visitasArray.length > 0 && visitasArray[0].cr4a1_cliente) {
+                marcarOrganizacaoComRecorrencia(visitasArray[0].cr4a1_cliente).catch(() => {});
             }
 
             await fetchDadosComerciais();
@@ -631,13 +653,30 @@ export const useCalendar = () => {
 
     const updateVisitas = async (visitaData) => {
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaData.cr4a1_visita_id}`, {
+            // Para atualização, mantém o ID da visita, mas também corrige a data
+            const payload = {
+                ...visitaData,
+                cr4a1_data_visita: visitaData.cr4a1_data_visita 
+                    ? new Date(visitaData.cr4a1_data_visita + 'T00:00:00').toISOString() 
+                    : null
+            };
+            // Remove campos que não devem ser enviados (caso existam)
+            delete payload.cr4a1_id;
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaData.cr4a1_visita_id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(visitaData)
+                body: JSON.stringify(payload)
             });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Erro ${response.status}: ${err}`);
+            }
             
-            await marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente);
+            if (visitaData.cr4a1_cliente) {
+                marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente).catch(() => {});
+            }
 
             setVisitas(prevVisitas =>
                 prevVisitas.map(v =>
