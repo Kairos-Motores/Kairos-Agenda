@@ -616,20 +616,25 @@ function App() {
       const dataVisita = visita.cr4a1_data_visita?.split('T')[0];
       if (!dataVisita) continue;
 
-      // Evento da visita (cor forte)
+      // Busca a cor do usuário visitante
+      const usuario = allUsers.find(u => u.cr4a1_username === visita.cr4a1_visitante);
+      const corUsuario = usuario?.cr4a1_cor || '#f57c00';
+
+      // Evento da visita (cor do usuário)
       resultado.push({
         cr4a1_agenda_kairosid: visita.cr4a1_visita_id,
         cr4a1_titulo: `Visita: ${visita.cr4a1_cliente}`,
         cr4a1_data_inicio: dataVisita,
         cr4a1_data_fim: dataVisita,
         cr4a1_hora_inicio: '08:00',
-        cr4a1_cor: '#f57c00',
+        cr4a1_cor: corUsuario,
+        cr4a1_user_login: visita.cr4a1_visitante, // <-- ESSENCIAL para o MiniMonth
         cr4a1_dia_inteiro: true,
         isVisita: true,
         originalData: visita,
       });
 
-      // Intervalo até a próxima visita (ou até o fim do mês seguinte)
+      // Intervalo até a próxima visita (cor pastel baseada na cor do usuário)
       const proximaData = i + 1 < sorted.length
         ? sorted[i + 1].cr4a1_data_visita?.split('T')[0]
         : null;
@@ -647,7 +652,8 @@ function App() {
             cr4a1_data_inicio: dateStr,
             cr4a1_data_fim: dateStr,
             cr4a1_hora_inicio: '00:00',
-            cr4a1_cor: '#fde0c8',   // tom pastel
+            cr4a1_cor: corUsuario + '55', // tom mais suave (hex com opacidade)
+            cr4a1_user_login: visita.cr4a1_visitante,
             cr4a1_dia_inteiro: true,
             isIntervalo: true,
           });
@@ -656,7 +662,7 @@ function App() {
       }
     }
     return resultado;
-  }, [visitas, currentUser, roles]);
+  }, [visitas, currentUser, allUsers, roles]);
 
   const getDisplayEvents = () => {
     if (appMode === 'visitas') return mappedVisitas;
@@ -1467,7 +1473,6 @@ function App() {
                             borderRadius: '22px',
                             overflow: 'visible',
                             opacity: 1,
-                            // Aumentar altura das células no modo visitas
                             gridTemplateRows: appMode === 'visitas' ? 'repeat(auto-fill, minmax(120px, 1fr))' : undefined,
                           }}
                         >
