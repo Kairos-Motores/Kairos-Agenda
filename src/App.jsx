@@ -595,16 +595,14 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
-  // --- MAPEAMENTO CORRIGIDO DAS VISITAS (EXIBE SEMPRE, COM INTERVALOS COLORIDOS) ---
+  // --- MAPEAMENTO CORRIGIDO DAS VISITAS COM DESTAQUE PARA VISITAS PRINCIPAIS ---
   const mappedVisitas = useMemo(() => {
     if (!visitas || visitas.length === 0) return [];
 
-    // ADMIN e COORD COMERCIAL veem todas as visitas; outros veem apenas as próprias
     const visitasFiltradas = (hasRole('ADMIN') || hasRole('COORD COMERCIAL'))
       ? visitas
       : visitas.filter(v => v.cr4a1_visitante === currentUser?.cr4a1_username);
 
-    // Ordena por data
     const sorted = [...visitasFiltradas].sort((a, b) =>
       (a.cr4a1_data_visita || '').localeCompare(b.cr4a1_data_visita || '')
     );
@@ -616,25 +614,25 @@ function App() {
       const dataVisita = visita.cr4a1_data_visita?.split('T')[0];
       if (!dataVisita) continue;
 
-      // Busca a cor do usuário visitante
       const usuario = allUsers.find(u => u.cr4a1_username === visita.cr4a1_visitante);
       const corUsuario = usuario?.cr4a1_cor || '#f57c00';
 
-      // Evento da visita (cor do usuário)
+      // Evento principal da visita – destaque com emoji e cor sólida
       resultado.push({
         cr4a1_agenda_kairosid: visita.cr4a1_visita_id,
-        cr4a1_titulo: `Visita: ${visita.cr4a1_cliente}`,
+        cr4a1_titulo: `📍 Visita: ${visita.cr4a1_cliente}`,
         cr4a1_data_inicio: dataVisita,
         cr4a1_data_fim: dataVisita,
         cr4a1_hora_inicio: '08:00',
         cr4a1_cor: corUsuario,
-        cr4a1_user_login: visita.cr4a1_visitante, // <-- ESSENCIAL para o MiniMonth
+        cr4a1_user_login: visita.cr4a1_visitante,
         cr4a1_dia_inteiro: true,
+        isVisitaPrincipal: true,
         isVisita: true,
         originalData: visita,
       });
 
-      // Intervalo até a próxima visita (cor pastel baseada na cor do usuário)
+      // Intervalo até a próxima visita – cor pastel sem emoji
       const proximaData = i + 1 < sorted.length
         ? sorted[i + 1].cr4a1_data_visita?.split('T')[0]
         : null;
@@ -652,7 +650,7 @@ function App() {
             cr4a1_data_inicio: dateStr,
             cr4a1_data_fim: dateStr,
             cr4a1_hora_inicio: '00:00',
-            cr4a1_cor: corUsuario + '55', // tom mais suave (hex com opacidade)
+            cr4a1_cor: corUsuario + '33', // tom mais suave
             cr4a1_user_login: visita.cr4a1_visitante,
             cr4a1_dia_inteiro: true,
             isIntervalo: true,
@@ -879,7 +877,7 @@ function App() {
   };
 
   const handleEditClick = (event) => {
-    if (event.isVisita) {
+    if (event.isVisitaPrincipal) {
       if (hasRole('ADMIN') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL')) {
         setEditingVisita(event.originalData);
         setIsVisitaModalOpen(true);
@@ -1492,17 +1490,19 @@ function App() {
                                         onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} 
                                         style={{ 
                                           background: e.cr4a1_cor || getEventColor(e), 
-                                          color: 'white', 
+                                          color: e.isVisitaPrincipal ? '#fff' : 'white', 
                                           borderRadius: '4px', 
-                                          padding: '2px 4px', 
+                                          padding: e.isVisitaPrincipal ? '3px 5px' : '2px 4px',
                                           display: 'block', 
                                           overflow: 'hidden', 
                                           textOverflow: 'ellipsis', 
                                           whiteSpace: 'nowrap', 
-                                          fontSize: '10px', 
+                                          fontSize: e.isVisitaPrincipal ? '11px' : '10px', 
+                                          fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
                                           width: '100%', 
                                           boxSizing: 'border-box',
-                                          opacity: e.isIntervalo ? 0.7 : 1
+                                          opacity: e.isIntervalo ? 0.7 : 1,
+                                          border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
                                         }}
                                       >
                                         {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
