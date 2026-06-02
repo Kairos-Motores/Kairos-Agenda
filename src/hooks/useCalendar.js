@@ -233,7 +233,7 @@ export const useCalendar = () => {
             fetchUsers();
             fetchEventTypes();
             fetchWorkspaces();
-            fetchDadosComerciais(); // <-- Adicionado para carregar visitas e clientes ao logar
+            fetchDadosComerciais();
         }
     }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais]);
 
@@ -285,7 +285,6 @@ export const useCalendar = () => {
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json();
             
-            // Lógica unificada para papéis baseada na resposta da sua API
             const permissoesUsuario = data.value?.[0]?.cr4a1_role || 'COMUM';
 
             if (data.value && data.value.length === 1) {
@@ -479,7 +478,7 @@ export const useCalendar = () => {
                 body: JSON.stringify({ cr4a1_whatsapp: cleanPhone })
             });
 
-            toast.success("WhatsApp atualizado!");
+            toast.success("WhatsApp updated!");
             fetchUsers();
         } catch (error) {
             toast.error("Erro ao atualizar WhatsApp");
@@ -588,6 +587,26 @@ export const useCalendar = () => {
         }
     };
 
+    const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {
+        try {
+            const filter = encodeURIComponent(`cr4a1_novacoluna eq '${nomeCliente}'`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&$filter=${filter}`);
+            const data = await response.json();
+            
+            if (data.value && data.value.length > 0) {
+                const orgId = data.value[0].cr4a1_echoe_organizacoesid;
+                
+                await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&id=${orgId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_visita_recorrente: 'Sim' })
+                });
+            }
+        } catch (error) {
+            console.error("Erro ao atualizar coluna cr4a1_visita_recorrente:", error);
+        }
+    };
+
     const addVisitas = async (visitasArray) => {
         try {
             const requests = visitasArray.map(visita =>
@@ -598,6 +617,11 @@ export const useCalendar = () => {
                 })
             );
             await Promise.all(requests);
+            
+            if (visitasArray.length > 0) {
+                await marcarOrganizacaoComRecorrencia(visitasArray[0].cr4a1_cliente);
+            }
+
             await fetchDadosComerciais();
         } catch (error) {
             console.error("Erro ao gravar lote de visitas:", error);
@@ -612,6 +636,9 @@ export const useCalendar = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(visitaData)
             });
+            
+            await marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente);
+
             setVisitas(prevVisitas =>
                 prevVisitas.map(v =>
                     v.cr4a1_visita_id === visitaData.cr4a1_visita_id ? visitaData : v
@@ -620,6 +647,29 @@ export const useCalendar = () => {
         } catch (error) {
             console.error("Erro ao atualizar visita:", error);
             throw error;
+        }
+    };
+
+    const atualizarFilialTemporaria = async (userId, dadosFilial) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cr4a1_unidade_temporaria: dadosFilial.unidade,
+                    cr4a1_inicio_temporario: dadosFilial.inicio ? `${dadosFilial.inicio}T00:00:00Z` : null,
+                    cr4a1_fim_temporario: dadosFilial.fim ? `${dadosFilial.fim}T23:59:59Z` : null
+                })
+            });
+
+            if (response.ok) {
+                fetchUsers();
+                return { success: true };
+            }
+            throw new Error("Erro na API Gateway");
+        } catch (error) {
+            console.error("Erro ao aplicar filial temporária:", error);
+            return { success: false };
         }
     };
 
@@ -632,7 +682,7 @@ export const useCalendar = () => {
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
-        organizacoes, visitas, addVisitas, updateVisitas,
+        organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };
