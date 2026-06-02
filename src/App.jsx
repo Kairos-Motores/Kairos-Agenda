@@ -1163,30 +1163,30 @@ function App() {
               <span className="nav-label-collapse">Fichas</span>
             </button>
 
-            {/* Botão Filial Temporária (mantido na header-left, mas será movido no mobile via CSS) */}
-            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
+            {/* Botão Filial Temporária com classes para controle mobile */}
+            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
-                <button
-                  onClick={() => setIsFilialTemporariaOpen(true)}
-                  className="btn-secondary boing-effect filial-temp-btn"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    borderRadius: '100px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                  <span>Filial Temporária</span>
-                </button>
-              )}
+              <button 
+                onClick={() => setIsFilialTemporariaOpen(true)}
+                className="btn-secondary boing-effect filial-temp-btn"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '8px 16px', 
+                  borderRadius: '100px', 
+                  border: '1px solid var(--border-color)', 
+                  background: 'var(--bg-secondary)', 
+                  color: 'var(--text-primary)', 
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                <span className="filial-temp-text">Filial Temporária</span>
+              </button>
+            )}
           </div>
 
           <div className="header-profile">
@@ -1724,7 +1724,7 @@ function App() {
                 box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
                 backdrop-filter: blur(12px) !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                position: relative; /* necessário para o posicionamento absoluto do botão filial */
+                position: relative;
             }
             .app-header.scrolled {
                 padding: 8px 12px !important;
@@ -1776,22 +1776,20 @@ function App() {
                 width: 36px !important;
             }
 
-                        /* Botão Filial Temporária – mobile */
+            /* Botão Filial Temporária – mobile: emoji + mais espaço */
             .filial-temp-btn {
                 position: absolute !important;
                 top: 12px !important;
-                right: 110px !important;        /* espaço maior antes do avatar+logout */
+                right: 120px !important;        /* espaço maior antes do avatar+logout */
                 z-index: 15 !important;
                 white-space: nowrap !important;
                 padding: 8px 12px !important;   /* mais compacto para o emoji */
                 font-size: 13px !important;
             }
-            /* Esconde ícone e texto originais */
             .filial-temp-btn .filial-temp-icon,
             .filial-temp-btn .filial-temp-text {
                 display: none !important;
             }
-            /* Exibe o emoji como conteúdo pseudo-elemento */
             .filial-temp-btn::before {
                 content: "🔄";
                 font-size: 18px;
