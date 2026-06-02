@@ -178,11 +178,11 @@ export const useCalendar = () => {
 
     const fetchDadosComerciais = useCallback(async () => {
         try {
-            const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoes`);
+            const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses`);
             const dataOrgs = await resOrgs.json();
             setOrganizacoes(dataOrgs.value || []);
 
-            const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitas`);
+            const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases`);
             const dataVisitas = await resVisitas.json();
             setVisitas(dataVisitas.value || []);
         } catch (error) {
