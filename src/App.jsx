@@ -254,7 +254,6 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
 };
 
 // --- COMPONENTE DE VISITAS (COMBOBOX INTELIGENTE BUSCÁVEL COM LISTA INTEGRADA) ---
-// --- COMPONENTE DE VISITAS ATUALIZADO (REGRAS 1 E 2) ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
   const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
@@ -430,7 +429,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   );
 };
 
-// --- NOVO COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA (REGRA 3) ---
+// --- COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
 const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
   const [selectedUser, setSelectedUser] = useState('');
   const [unidade, setUnidade] = useState('');
@@ -439,7 +438,6 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
 
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
-  // Exibe apenas usuários comerciais na listagem para o coordenador comercial
   const comerciais = useMemo(() => {
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
@@ -611,7 +609,6 @@ function App() {
     return filteredEvents;
   };
 
-  // INTERCEPTADOR EXCLUSIVO DE DATAS: Filtra estritamente os eventos dependendo do plano ativo (Garante isolamento total das visitas)
   const handleGetEventsForDay = (day) => {
     const targetDate = format(day, 'yyyy-MM-dd');
     return getDisplayEvents().filter(event => {
@@ -621,13 +618,12 @@ function App() {
     });
   };
 
-  // TOAST INTEGRAÇÃO COMPLETA: Alertas fluidos com promessas de sincronismo com o Dataverse
   const handleSaveVisitaData = async (visitasArray) => {
     const loadingToast = toast.loading("A processar agendamento no Dataverse...");
     try {
       if (editingVisita) {
         await updateVisitas(visitasArray[0]);
-        toast.success("Visita comercial atualizada com sucesso!", { id: loadingToast });
+        toast.success("Visita comercial updated com sucesso!", { id: loadingToast });
       } else {
         await addVisitas(visitasArray);
         toast.success(`${visitasArray.length} visita(s) agendada(s) com sucesso!`, { id: loadingToast });
@@ -931,7 +927,7 @@ function App() {
                 <span className="material-symbols-rounded">calendar_month</span> Agenda
               </button>
 
-              {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA')) && (
+              {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
                 <button onClick={() => { setAppMode('tasks'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent',
@@ -996,7 +992,7 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1166,6 +1162,31 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
               <span className="nav-label-collapse">Fichas</span>
             </button>
+
+            {/* REGRA 3 COM INTEGRAÇÃO RH: Botão de Transferência visível no cabeçalho em Visitas para COORD COMERCIAL/ADMIN E no modo Calendário para ADMIN/RH */}
+            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
+              (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
+              <button 
+                onClick={() => setIsFilialTemporariaOpen(true)}
+                className="btn-secondary boing-effect"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '8px 16px', 
+                  borderRadius: '100px', 
+                  border: '1px solid var(--border-color)', 
+                  background: 'var(--bg-secondary)', 
+                  color: 'var(--text-primary)', 
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                <span>Filial Temporária</span>
+              </button>
+            )}
           </div>
 
           <div className="header-profile">
@@ -1240,30 +1261,6 @@ function App() {
               </div>
             )}
           </div>
-          {/* Injetar logo abaixo do cabeçalho de título do modo Visitas */}
-          {appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
-            <div style={{ display: 'flex', padding: '10px 16px', alignItems: 'center', gap: '12px' }}>
-              <button
-                onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 18px',
-                  borderRadius: '100px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '20px', color: 'var(--text-accent)' }}>swap_horiz</span>
-                <span>Transferência Temporária</span>
-              </button>
-            </div>
-          )}
         </header>
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
@@ -1276,18 +1273,6 @@ function App() {
                     <h2 style={{ color: 'var(--text-title)', fontSize: '26px', fontWeight: '800' }}>Desenvolvimento e Inovação</h2>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Gestão de sprints e pedidos técnicos</p>
                   </header>
-
-                  {/* Botão de Transferência visível apenas no Modo Visitas para COORD COMERCIAL e ADMIN */}
-                  {appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
-                    <button
-                      onClick={() => setIsFilialTemporariaOpen(true)}
-                      className="btn-secondary boing-effect"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '100px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', marginLeft: '12px' }}
-                    >
-                      <span className="material-symbols-rounded" style={{ fontSize: '20px', color: 'var(--text-accent)' }}>swap_horiz</span>
-                      <span>Transferência Temporária</span>
-                    </button>
-                  )}
 
                   {taskEvents.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '100px', opacity: 0.5 }}>
@@ -1417,7 +1402,7 @@ function App() {
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
+                                <div style={{ display: 'hidden', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
                                       <div className="event-badge boing-effect" onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
@@ -1470,7 +1455,7 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
             </button>
 
-            {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA')) && (
+            {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
               <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
@@ -1589,7 +1574,7 @@ function App() {
         </div>
 
         {/* FAB */}
-        {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL')) && (
+        {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
           <div style={{ position: 'fixed', bottom: appMode === 'tasks' ? '80px' : '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
