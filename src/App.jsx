@@ -1240,6 +1240,30 @@ function App() {
               </div>
             )}
           </div>
+          {/* Injetar logo abaixo do cabeçalho de título do modo Visitas */}
+          {appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+            <div style={{ display: 'flex', padding: '10px 16px', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={() => setIsFilialTemporariaOpen(true)}
+                className="btn-secondary boing-effect"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '100px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px', color: 'var(--text-accent)' }}>swap_horiz</span>
+                <span>Transferência Temporária</span>
+              </button>
+            </div>
+          )}
         </header>
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
