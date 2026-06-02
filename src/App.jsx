@@ -1724,7 +1724,8 @@ function App() {
                 box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
                 backdrop-filter: blur(12px) !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                position: relative;
+                position: sticky !important;
+                top: 0 !important;
             }
             .app-header.scrolled {
                 padding: 8px 12px !important;
@@ -1780,10 +1781,10 @@ function App() {
             .filial-temp-btn {
                 position: absolute !important;
                 top: 12px !important;
-                right: 120px !important;        /* espaço maior antes do avatar+logout */
+                right: 120px !important;
                 z-index: 15 !important;
                 white-space: nowrap !important;
-                padding: 8px 12px !important;   /* mais compacto para o emoji */
+                padding: 8px 12px !important;
                 font-size: 13px !important;
             }
             .filial-temp-btn .filial-temp-icon,
