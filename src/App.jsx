@@ -13,7 +13,7 @@ import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
+import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
 // --- COMPONENTES AUXILIARES (mantidos) ---
@@ -158,52 +158,28 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
   );
 };
 
-const DraggableEvent = ({ event, index, children }) => {
-  return (
-    <Draggable draggableId={event.cr4a1_agenda_kairosid} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          style={{
-            ...provided.draggableProps.style,
-            minWidth: 0,
-            width: '100%',
-            boxSizing: 'border-box',
-            opacity: snapshot.isDragging ? 0.7 : 1,
-            transform: snapshot.isDragging ? 'scale(1.05)' : 'none',
-          }}
-        >
-          {children}
-        </div>
-      )}
-    </Draggable>
-  );
+const DraggableEvent = ({ event, children }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(1.05)`,
+    zIndex: 999,
+    opacity: isDragging ? 0.7 : 1,
+    boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.2)' : 'none',
+  } : undefined;
+  return <div ref={setNodeRef} style={{ ...style, minWidth: 0, width: '100%', boxSizing: 'border-box' }} {...listeners} {...attributes}>{children}</div>;
 };
 
 const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: dateStr });
   return (
-    <Droppable droppableId={dateStr}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.droppableProps}
-          onClick={onClick}
-          className={`calendar-day-card ${snapshot.isDraggingOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}
-          style={{
-            overflow: 'hidden',
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            opacity: 1,
-          }}
-        >
-          {children}
-          {provided.placeholder}
-        </div>
-      )}
-    </Droppable>
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={`calendar-day-card ${isOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}
+      style={{ overflow: 'hidden', minWidth: 0, display: 'flex', flexDirection: 'column', opacity: 1 }}
+    >
+      {children}
+    </div>
   );
 };
 
@@ -649,20 +625,14 @@ function App() {
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], []);
 
-  // Função handleDragEnd adaptada para @hello-pangea/dnd
-  const handleDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
-
-    // Soltou fora de um alvo válido
-    if (!destination) return;
-
-    // Soltou no mesmo lugar (mesmo dia)
-    if (source.droppableId === destination.droppableId) return;
-
-    const newDateStr = destination.droppableId; // ID do DroppableDay = 'yyyy-MM-dd'
+  // DRAG AND DROP – funcionamento correto para visitas e eventos
+  const handleDragEnd = async (e) => {
+    if (!e.over) return;
+    const eventId = e.active.id;
+    const newDateStr = e.over.id;
 
     const allEvents = getDisplayEvents();
-    const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === draggableId);
+    const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === eventId);
     if (!draggedEvent) return;
 
     // Visita
@@ -682,7 +652,7 @@ function App() {
 
     // Evento normal
     if (!draggedEvent.isVisitaPrincipal && !draggedEvent.isIntervalo) {
-      moveEvent(draggableId, newDateStr);
+      moveEvent(eventId, newDateStr);
       return;
     }
   };
@@ -724,6 +694,11 @@ function App() {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [listViewMode, setListViewMode] = useState('grid');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } })
+  );
 
   const currentUser = allUsers.find(u => u.cr4a1_username === user);
 
@@ -1089,7 +1064,7 @@ function App() {
   };
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -1640,7 +1615,7 @@ function App() {
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
-                                  {dayEvents.map((e, idx) => {
+                                  {dayEvents.map(e => {
                                     const isVisitaPrincipal = e.isVisitaPrincipal;
                                     const isIntervalo = e.isIntervalo;
                                     const eventColor = e.cr4a1_cor || getEventColor(e);
@@ -1679,7 +1654,7 @@ function App() {
                                     }
 
                                     return (
-                                      <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e} index={idx}>
+                                      <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
                                         <div
                                           className="event-badge boing-effect"
                                           onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
@@ -2307,7 +2282,7 @@ function App() {
             }
         }
       `}</style>
-    </DragDropContext>
+    </DndContext>
   );
 }
 
