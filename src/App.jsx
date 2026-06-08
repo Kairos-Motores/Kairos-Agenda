@@ -1519,37 +1519,62 @@ function App() {
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
-                                  {dayEvents.map(e => (
-                                    <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      <div
-                                        className="event-badge boing-effect"
-                                        onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
-                                        style={{
-                                          background: e.isVisitaPrincipal ? (e.cr4a1_cor || getEventColor(e)) : 'transparent',
-                                          color: e.isVisitaPrincipal ? '#fff' : 'transparent',
-                                          borderRadius: '4px',
-                                          padding: e.isVisitaPrincipal ? '3px 5px' : '0',
-                                          display: 'block',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                          whiteSpace: 'nowrap',
-                                          fontSize: e.isVisitaPrincipal ? '11px' : '0',
-                                          fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
-                                          width: '100%',
-                                          boxSizing: 'border-box',
-                                          opacity: e.isIntervalo ? 0 : 1,
-                                          border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
-                                        }}
-                                      >
-                                        {e.isVisitaPrincipal && (
-                                          <>
-                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
-                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                                          </>
-                                        )}
-                                      </div>
-                                    </DraggableEvent>
-                                  ))}
+                                  {dayEvents.map(e => {
+                                    // Define o estilo com base no tipo de evento e modo
+                                    const isVisitaPrincipal = e.isVisitaPrincipal;
+                                    const isIntervalo = e.isIntervalo;
+                                    const eventColor = e.cr4a1_cor || getEventColor(e);
+
+                                    // Estilo base para todos os eventos
+                                    let badgeStyle = {
+                                      borderRadius: '4px',
+                                      display: 'block',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      width: '100%',
+                                      boxSizing: 'border-box',
+                                      fontSize: '11px',
+                                      fontWeight: '600',
+                                      padding: '2px 4px',
+                                      color: '#fff',
+                                      background: eventColor,
+                                      opacity: 1,
+                                      border: '1px solid rgba(255,255,255,0.2)',
+                                    };
+
+                                    // Ajustes específicos para o modo Visitas
+                                    if (appMode === 'visitas') {
+                                      if (isIntervalo) {
+                                        badgeStyle.opacity = 0; // esconde intervalos
+                                      } else if (isVisitaPrincipal) {
+                                        badgeStyle.background = eventColor;
+                                        badgeStyle.fontWeight = 'bold';
+                                        badgeStyle.fontSize = '11px';
+                                        badgeStyle.padding = '3px 5px';
+                                      } else {
+                                        // outros eventos no modo visitas (improvável)
+                                        badgeStyle.opacity = 0.7;
+                                      }
+                                    } else {
+                                      // modo calendário normal: todos os eventos visíveis
+                                      badgeStyle.background = eventColor;
+                                      badgeStyle.opacity = e.cr4a1_privado ? 0.7 : 1;
+                                    }
+
+                                    return (
+                                      <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
+                                        <div
+                                          className="event-badge boing-effect"
+                                          onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
+                                          style={badgeStyle}
+                                        >
+                                          {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
+                                          {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                        </div>
+                                      </DraggableEvent>
+                                    );
+                                  })}
                                 </div>
                               </DroppableDay>
                             );
