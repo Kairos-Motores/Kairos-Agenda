@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES (mantidos) ---
+// --- COMPONENTES AUXILIARES (mantidos sem alterações) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -158,7 +158,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
   );
 };
 
-// NOVOS COMPONENTES DE DRAG AND DROP (corrigidos)
+// ========== COMPONENTES DE DRAG & DROP (CORRIGIDOS) ==========
 const DraggableEvent = ({ event, index, children }) => {
   return (
     <Draggable draggableId={event.cr4a1_agenda_kairosid} index={index}>
@@ -168,8 +168,7 @@ const DraggableEvent = ({ event, index, children }) => {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           style={{
-            // ESSENCIAL: espalha o estilo da biblioteca (contém transform e transition)
-            ...provided.draggableProps.style,
+            ...provided.draggableProps.style,   // obrigatório para posicionamento
             opacity: snapshot.isDragging ? 0.7 : 1,
             cursor: 'grab',
             userSelect: 'none',
@@ -209,6 +208,8 @@ const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
     </Droppable>
   );
 };
+
+// --- DEMAIS COMPONENTES (mantidos exatamente como no seu código original) ---
 
 const LoginScreen = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -652,10 +653,8 @@ function App() {
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], []);
 
-  // Função handleDragEnd adaptada para @hello-pangea/dnd
   const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
-
     if (!destination) return;
     if (source.droppableId === destination.droppableId) return;
 
@@ -664,7 +663,6 @@ function App() {
     const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === draggableId);
     if (!draggedEvent) return;
 
-    // Visita
     if (draggedEvent.isVisitaPrincipal && draggedEvent.originalData) {
       const updatedVisita = {
         ...draggedEvent.originalData,
@@ -679,7 +677,6 @@ function App() {
       return;
     }
 
-    // Evento normal
     if (!draggedEvent.isVisitaPrincipal && !draggedEvent.isIntervalo) {
       moveEvent(draggableId, newDateStr);
       return;
@@ -1655,7 +1652,7 @@ function App() {
                                     return (
                                       <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e} index={idx}>
                                         <div
-                                          className="event-badge boing-effect"
+                                          className="event-badge"
                                           onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
                                           style={badgeStyle}
                                         >
@@ -2258,6 +2255,10 @@ function App() {
             background-color: var(--bg-tertiary) !important;
             box-shadow: inset 0 0 0 2px var(--text-accent);
             transition: background-color 0.15s, box-shadow 0.15s;
+        }
+
+        .event-badge {
+            transition: none !important;
         }
 
         @keyframes marquee {
