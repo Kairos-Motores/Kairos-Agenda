@@ -35,12 +35,9 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           const hasContent = isCurrentMonth && (dayEvents.length > 0 || holiday);
           const isFirstRow = index < 7;
           
-          // *** ÚNICA ALTERAÇÃO: ignorar eventos com isIntervalo para pintura de fundo ***
-          const uniqueUsersOnDay = [...new Set(
-            dayEvents
-              .filter(e => !e.isIntervalo)
-              .map(e => e.cr4a1_user_login)
-          )];
+          // Filtra eventos que não são intervalos para pintura de fundo e identificação de cor
+          const activeEvents = dayEvents.filter(e => !e.isIntervalo);
+          const uniqueUsersOnDay = [...new Set(activeEvents.map(e => e.cr4a1_user_login))];
           const colorsForDay = uniqueUsersOnDay.map(username => userColorMap[username]).filter(Boolean);
 
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
@@ -69,10 +66,10 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
               }}
               className="mini-day-cell"
             >
-              {/* FUNDO COLORIDO (apenas para visitas principais, não para intervalos) */}
+              {/* FUNDO COLORIDO (Usa a cor do usuário definido no map) */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
                 {isCurrentMonth && colorsForDay.map((color, idx) => (
-                  <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.3 }} />
+                  <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.4 }} />
                 ))}
               </div>
 
@@ -87,15 +84,11 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 {format(day, 'd')}
               </span>
 
-              {/* PONTOS DE EVENTO (todos os eventos, incluindo intervalos) */}
+              {/* PONTOS DE EVENTO (Apenas eventos que NÃO são intervalos) */}
               <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
-                {isCurrentMonth && dayEvents
-                  .filter(e => {
-                    // Inclui eventos com user_login definido (visitas e intervalos)
-                    return e.cr4a1_user_login;
-                  })
+                {isCurrentMonth && activeEvents
                   .map(e => userColorMap[e.cr4a1_user_login])
-                  .filter((color, idx, arr) => color && arr.indexOf(color) === idx) // cores únicas
+                  .filter((color, idx, arr) => color && arr.indexOf(color) === idx)
                   .slice(0, 3)
                   .map((color, idx) => (
                     <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
@@ -103,7 +96,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 }
               </div>
 
-              {/* TOOLTIP CUSTOMIZADO INTERATIVO (INALTERADO) */}
+              {/* TOOLTIP INTERATIVO */}
               {hoveredDay === dateStr && hasContent && (
                 <div 
                   onClick={(e) => e.stopPropagation()}
@@ -117,42 +110,42 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                     animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out'
                   }}
                 >
-                    <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                      {format(day, "d 'de' MMMM", { locale: ptBR })}
+                  <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                    {format(day, "d 'de' MMMM", { locale: ptBR })}
+                  </div>
+                  
+                  {holiday && (
+                    <div style={{ color: '#e74c3c', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
+                      🚩 {holiday.name}
                     </div>
-                    
-                    {holiday && (
-                      <div style={{ color: '#e74c3c', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
-                        🚩 {holiday.name}
-                      </div>
-                    )}
+                  )}
   
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {dayEvents
-                        .filter(e => e.cr4a1_user_login) // garante que tem usuário
-                        .map((ev, idx) => (
-                        <div 
-                          key={idx} 
-                          onClick={() => onEditEvent(ev)}
-                          className="tooltip-event-item"
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'flex-start', 
-                            gap: '10px', 
-                            padding: '8px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            transition: 'background 0.2s',
-                            backgroundColor: 'var(--bg-secondary)'
-                          }}
-                        >
-                          <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px' }} />
-                          <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                            <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
-                          </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {dayEvents
+                      .filter(e => e.cr4a1_user_login)
+                      .map((ev, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => onEditEvent(ev)}
+                        className="tooltip-event-item"
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start', 
+                          gap: '10px', 
+                          padding: '8px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          backgroundColor: 'var(--bg-secondary)'
+                        }}
+                      >
+                        <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px' }} />
+                        <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                          <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
+                  </div>
 
                   <div style={{
                     position: 'absolute',

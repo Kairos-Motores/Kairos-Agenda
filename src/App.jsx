@@ -1359,7 +1359,7 @@ function App() {
                         return (
                           <div key={i} style={{ ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
                             <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
-                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} appMode={appMode} />
                             </div>
                           </div>
                         );
