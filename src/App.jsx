@@ -1462,11 +1462,20 @@ function App() {
                         return (
                           <div key={i} style={{
                             ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
-                            overflow: 'visible',
+                            overflow: 'visible', // 👈 hovers não serão cortados
                             minHeight: appMode === 'visitas' ? '320px' : 'auto',
-                            height: appMode === 'visitas' ? '100%' : 'auto'
+                            height: appMode === 'visitas' ? '100%' : 'auto',
+                            position: 'relative',
+                            zIndex: 1
                           }}>
-                            <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
+                            <div style={{
+                              ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),
+                              borderRadius: '14px',
+                              background: 'var(--bg-primary)',
+                              height: '100%',
+                              overflow: 'visible', // 👈 fundamental
+                              position: 'relative'
+                            }}>
                               <MiniMonth
                                 monthDate={monthDate}
                                 onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
