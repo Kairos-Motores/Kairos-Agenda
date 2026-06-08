@@ -3,9 +3,8 @@ import ReactDOM from 'react-dom';
 import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
-import { Draggable, Droppable } from '@hello-pangea/dnd';
 
-// Componente de texto com marquee (mantido)
+// Componente de texto com marquee (corre da direita para a esquerda)
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -52,7 +51,7 @@ const MarqueeText = ({ text, color, onClick }) => {
   );
 };
 
-// Tooltip via Portal (mantido)
+// Tooltip via Portal
 const TooltipPortal = ({ children, targetRect, isFirstRow, onMouseEnter, onMouseLeave }) => {
   if (!targetRect) return null;
 
@@ -91,7 +90,7 @@ export const MiniMonth = ({
   allUsers = [],
   onEditEvent,
   isDetailed = false,
-  onDayClick,
+  onDayClick,          // nova prop
 }) => {
   const days = generateMonthDays(monthDate);
   const [hoveredDay, setHoveredDay] = useState(null);
@@ -140,7 +139,7 @@ export const MiniMonth = ({
     tryCloseTooltip();
   };
 
-  const cellHeight = isDetailed ? '85px' : '35px';
+  const cellHeight = isDetailed ? '85px' : '35px';  // altura aumentada para visitas
 
   return (
     <div className="mini-month-card" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -150,25 +149,20 @@ export const MiniMonth = ({
         </strong>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gridAutoRows: cellHeight,
-          gap: isDetailed ? '2px' : '1px',
-          flex: 1,
-        }}
-      >
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gridAutoRows: cellHeight,
+        gap: isDetailed ? '2px' : '1px',
+        flex: 1,
+      }}>
         {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-          <span
-            key={i}
-            style={{
-              fontWeight: 'bold',
-              fontSize: isDetailed ? '14px' : '9px',
-              textAlign: 'center',
-              color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)',
-            }}
-          >
+          <span key={i} style={{
+            fontWeight: 'bold',
+            fontSize: isDetailed ? '14px' : '9px',
+            textAlign: 'center',
+            color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)',
+          }}>
             {d}
           </span>
         ))}
@@ -188,120 +182,101 @@ export const MiniMonth = ({
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
           if (isCurrentMonth && (isWeekend(day) || holiday)) textColor = '#e74c3c';
 
-          // Fundo colorido comum a todos os dias
-          const backgroundDiv = (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
-              {isCurrentMonth && colorsForDay.map((color, idx) => (
-                <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.25 }} />
-              ))}
-            </div>
-          );
+          // Decide ação de clique
+          const handleDayClick = () => {
+            if (!isCurrentMonth) return;
+            if (isDetailed && activeEvents.length > 1 && onDayClick) {
+              onDayClick(dateStr, activeEvents);
+            } else if (isDetailed && activeEvents.length === 1 && onEditEvent) {
+              onEditEvent(activeEvents[0]);
+            } else {
+              onSelectMonth(day);
+            }
+          };
 
-          // Número do dia
-          const dayNumber = (
-            <span style={{ position: 'relative', zIndex: 1, fontWeight: holiday ? '700' : '500', fontSize: isDetailed ? '16px' : '10px' }}>
-              {format(day, 'd')}
-            </span>
-          );
-
-          // Se não for o mês atual, renderiza sem drag & drop
-          if (!isCurrentMonth) {
-            return (
-              <div key={dateStr} style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {backgroundDiv}
-                {dayNumber}
-              </div>
-            );
-          }
-
-          // Dia do mês atual: suporta droppable e draggable
           return (
-            <Droppable droppableId={dateStr} key={dateStr}>
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  onClick={() => isCurrentMonth && onSelectMonth(day)}
-                  onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
-                  onMouseLeave={!isDetailed ? handleDayLeave : undefined}
-                  style={{
-                    position: 'relative',
-                    backgroundColor: snapshot.isDraggingOver ? 'var(--bg-tertiary)' : 'transparent',
-                    borderRadius: '4px',
-                    transition: 'background-color 0.2s',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: isDetailed ? 'flex-start' : 'center',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {backgroundDiv}
-                  {dayNumber}
+            <div
+              key={day.toString()}
+              onClick={handleDayClick}
+              onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
+              onMouseLeave={!isDetailed ? handleDayLeave : undefined}
+              style={{
+                textAlign: 'center',
+                fontSize: '10px',
+                cursor: isCurrentMonth ? 'pointer' : 'default',
+                color: textColor,
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: isDetailed ? 'flex-start' : 'center',
+                borderRadius: '4px',
+                padding: isDetailed ? '4px 2px' : '0',
+                height: '100%',
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+              }}
+              className="mini-day-cell"
+            >
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
+                {isCurrentMonth && colorsForDay.map((color, idx) => (
+                  <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.25 }} />
+                ))}
+              </div>
 
-                  {/* Eventos draggable */}
-                  {activeEvents.map((event, idx) => (
-                    <Draggable
-                      key={event.cr4a1_agenda_kairosid}
-                      draggableId={event.cr4a1_agenda_kairosid}
-                      index={idx}
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditEvent(event);
-                          }}
-                          style={{
-                            ...provided.draggableProps.style,
-                            opacity: snapshot.isDragging ? 0.7 : 1,
-                            cursor: 'grab',
-                            userSelect: 'none',
-                            width: '100%',
-                            marginTop: '1px',
-                          }}
-                        >
-                          {isDetailed ? (
-                            <MarqueeText
-                              text={event.cr4a1_titulo}
-                              color={userColorMap[event.cr4a1_user_login]}
-                              onClick={() => {}}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                backgroundColor: userColorMap[event.cr4a1_user_login] || '#ccc',
-                                color: '#fff',
-                                borderRadius: '3px',
-                                padding: '1px 3px',
-                                fontSize: '9px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                lineHeight: 1.1,
-                              }}
-                            >
-                              {event.cr4a1_titulo}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
+              <span style={{ position: 'relative', zIndex: 1, fontWeight: holiday ? '700' : '500', fontSize: isDetailed ? '16px' : '10px' }}>
+                {format(day, 'd')}
+              </span>
 
-                  {provided.placeholder}
+              {/* Renderização condicional no modo detalhado */}
+              {isDetailed && isCurrentMonth && activeEvents.length > 0 && (
+                <div style={{ width: '100%', marginTop: '2px', overflow: 'hidden' }}>
+                  {activeEvents.length > 1 ? (
+                    <div style={{
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      borderRadius: '4px',
+                      padding: '2px 4px',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {activeEvents.length} visitas
+                    </div>
+                  ) : (
+                    activeEvents.slice(0, 1).map((ev, i) => (
+                      <MarqueeText
+                        key={i}
+                        text={ev.cr4a1_titulo}
+                        color={userColorMap[ev.cr4a1_user_login]}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditEvent(ev);
+                        }}
+                      />
+                    ))
+                  )}
                 </div>
               )}
-            </Droppable>
+
+              {!isDetailed && (
+                <div style={{ display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
+                  {isCurrentMonth && activeEvents
+                    .map(e => userColorMap[e.cr4a1_user_login])
+                    .filter((color, idx, arr) => color && arr.indexOf(color) === idx)
+                    .slice(0, 3)
+                    .map((color, idx) => (
+                      <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
+                    ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
 
-      {/* Tooltip (apenas modo normal) */}
       {!isDetailed && hoveredDay && (
         <TooltipPortal
           targetRect={hoveredRect}
@@ -309,19 +284,16 @@ export const MiniMonth = ({
           onMouseEnter={handleTooltipEnter}
           onMouseLeave={handleTooltipLeave}
         >
-          <div
-            className="premium-tooltip"
-            style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-              maxWidth: '280px',
-              whiteSpace: 'normal',
-              wordBreak: 'break-word',
-            }}
-          >
+          <div className="premium-tooltip" style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            maxWidth: '280px',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
+          }}>
             <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
               {format(new Date(hoveredDay + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
             </div>
@@ -337,6 +309,7 @@ export const MiniMonth = ({
                   <div
                     key={idx}
                     onClick={() => onEditEvent(ev)}
+                    className="tooltip-event-item"
                     style={{
                       display: 'flex',
                       alignItems: 'flex-start',
