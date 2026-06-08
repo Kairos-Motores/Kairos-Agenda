@@ -543,8 +543,13 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 };
 
 // --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
-const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita }) => {
+const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
   if (!isOpen || !visitas || visitas.length === 0) return null;
+
+  const getUserName = (login) => {
+    const user = allUsers.find(u => u.cr4a1_username === login);
+    return user?.cr4a1_nome_exibicao || login;
+  };
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
@@ -575,6 +580,11 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita }) => {
             >
               <div style={{ fontWeight: '600', color: 'var(--text-title)', marginBottom: '4px' }}>
                 {v.cr4a1_titulo}
+              </div>
+              {/* Nome do visitante adicionado aqui */}
+              <div style={{ fontSize: '12px', color: 'var(--text-accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
+                {getUserName(v.cr4a1_user_login)}
               </div>
               {v.cr4a1_detalhes && (
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
