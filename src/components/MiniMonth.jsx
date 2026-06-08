@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
-// Componente de texto com marquee (corre da direita para a esquerda como letreiro)
+// Componente de texto com marquee (corre da direita para a esquerda, sem vazar)
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -27,7 +27,7 @@ const MarqueeText = ({ text, color, onClick }) => {
         padding: '1px 3px',
         marginBottom: '1px',
         whiteSpace: 'nowrap',
-        overflow: 'hidden',        // 👈 texto não vaza
+        overflow: 'hidden',          // 👈 nunca vaza
         cursor: 'pointer',
         lineHeight: 1.1,
         position: 'relative',
@@ -53,6 +53,8 @@ const MarqueeText = ({ text, color, onClick }) => {
 export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays = [], allUsers = [], onEditEvent, isDetailed = false }) => {
   const days = generateMonthDays(monthDate);
   const [hoveredDay, setHoveredDay] = useState(null);
+  const [isMonthHovered, setIsMonthHovered] = useState(false);
+  const leaveTimer = useRef(null);
 
   const userColorMap = allUsers.reduce((acc, curr) => {
     acc[curr.cr4a1_username] = curr.cr4a1_cor || '#ccc';
@@ -60,6 +62,59 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
   }, {});
 
   const cellHeight = isDetailed ? 'minmax(55px, 1fr)' : '35px';
+
+  // Limpa o timer ao desmontar
+  useEffect(() => {
+    return () => {
+      if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    };
+  }, []);
+
+  // Funções para controlar hover do mês sem flicker
+  const handleMonthMouseEnter = () => {
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+    setIsMonthHovered(true);
+  };
+
+  const handleMonthMouseLeave = () => {
+    // Pequeno delay para permitir que o mouse entre no tooltip
+    leaveTimer.current = setTimeout(() => {
+      setIsMonthHovered(false);
+      setHoveredDay(null);
+    }, 150);
+  };
+
+  const handleTooltipMouseEnter = () => {
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+    setIsMonthHovered(true);
+  };
+
+  const handleTooltipMouseLeave = () => {
+    leaveTimer.current = setTimeout(() => {
+      setIsMonthHovered(false);
+      setHoveredDay(null);
+    }, 150);
+  };
+
+  // Quando o mouse entra em um dia específico
+  const handleDayMouseEnter = (dateStr) => {
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+    setHoveredDay(dateStr);
+    setIsMonthHovered(true);
+  };
+
+  const handleDayMouseLeave = () => {
+    // Não faz nada imediatamente; o timer do mês tratará de fechar
+  };
 
   return (
     <div
@@ -69,9 +124,12 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',      // para z-index funcionar no hover
-        zIndex: 1,
+        position: 'relative',
+        zIndex: isMonthHovered ? 999 : 1,    // 🔥 eleva o mês quando hover
+        transition: 'z-index 0.1s',
       }}
+      onMouseEnter={handleMonthMouseEnter}
+      onMouseLeave={handleMonthMouseLeave}
     >
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
         <strong style={{ textTransform: 'capitalize', fontSize: isDetailed ? '16px' : '12px', color: 'var(--text-title)' }}>
@@ -119,12 +177,15 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
           if (isCurrentMonth && (isWeekend(day) || holiday)) textColor = '#e74c3c';
 
+          // Só mostra tooltip se o mês estiver com hover e o dia for o ativo
+          const showTooltip = isMonthHovered && hoveredDay === dateStr && hasContent;
+
           return (
             <div
               key={day.toString()}
               onClick={() => isCurrentMonth && onSelectMonth(day)}
-              onMouseEnter={() => hasContent && setHoveredDay(dateStr)}
-              onMouseLeave={() => setHoveredDay(null)}
+              onMouseEnter={() => handleDayMouseEnter(dateStr)}
+              onMouseLeave={handleDayMouseLeave}
               style={{
                 textAlign: 'center',
                 fontSize: '10px',
@@ -135,13 +196,13 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: isDetailed ? 'flex-start' : 'center',
-                overflow: 'visible',     // 👈 tooltips podem sair
+                overflow: 'visible',
                 borderRadius: '4px',
                 transition: 'background 0.2s',
                 padding: isDetailed ? '4px 2px' : '0',
                 minHeight: isDetailed ? '55px' : undefined,
                 height: 'auto',
-                zIndex: hasContent ? 2 : 1,
+                zIndex: showTooltip ? 10 : 1,
               }}
               className="mini-day-cell"
             >
@@ -200,9 +261,8 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
               )}
 
               {/* Tooltip (apenas modo normal) */}
-              {!isDetailed && hoveredDay === dateStr && hasContent && (
+              {!isDetailed && showTooltip && (
                 <div
-                  onClick={(e) => e.stopPropagation()}
                   className="premium-tooltip"
                   style={{
                     position: 'absolute',
@@ -212,10 +272,11 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                     zIndex: 1100,
                     animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out',
                     whiteSpace: 'nowrap',
-                    pointerEvents: 'auto',   // permite interação
+                    pointerEvents: 'auto',   // permite interação com o tooltip
                   }}
+                  onMouseEnter={handleTooltipMouseEnter}
+                  onMouseLeave={handleTooltipMouseLeave}
                 >
-                  {/* conteúdo do tooltip (idêntico ao seu código original) */}
                   <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
                     {format(day, "d 'de' MMMM", { locale: ptBR })}
                   </div>
