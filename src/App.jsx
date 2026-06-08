@@ -253,22 +253,17 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
-// --- COMPONENTE DE VISITAS (COMBOBOX INTELIGENTE BUSCÁVEL COM LISTA INTEGRADA) ---
+// --- COMPONENTE DE VISITAS ATUALIZADO (DIAS CORRIDOS) ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
-  const [clienteId, setClienteId] = useState(editingVisita?.cr4a1_cliente_id || '');
   const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [motivo, setMotivo] = useState(editingVisita?.cr4a1_motivo || '');
   const [visitante, setVisitante] = useState(editingVisita?.cr4a1_visitante || currentUser?.cr4a1_username);
   const [dataVisita, setDataVisita] = useState(editingVisita?.cr4a1_data_visita ? editingVisita.cr4a1_data_visita.split('T')[0] : '');
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
-  const [filialFiltro, setFilialFiltro] = useState(editingVisita?.cr4a1_filial || currentUser?.cr4a1_unidade || 'Todas');
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
-  const podeTrocarFilial = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
-
-  const unidades = ['Todas', 'São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
   const usuariosComerciais = useMemo(() => {
     return allUsers.filter(u => {
@@ -279,25 +274,30 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const filteredOrgs = useMemo(() => {
     return organizacoes.filter(org => {
-      const matchesUnit = filialFiltro === 'Todas' || !org.cr4a1_filial_origem || org.cr4a1_filial_origem === filialFiltro;
+      const matchesUnit = !org.cr4a1_filial_origem || org.cr4a1_filial_origem === currentUser?.cr4a1_unidade;
       const isDropdownMode = searchOrg === cliente;
       const matchesSearch = isDropdownMode || !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
       return matchesUnit && matchesSearch;
     });
-  }, [organizacoes, searchOrg, cliente, filialFiltro]);
+  }, [organizacoes, searchOrg, cliente, currentUser]);
 
   if (!isOpen) return null;
 
-  const getNextBusinessDay = (startDate, intervalDays) => {
-    let date = new Date(startDate);
-    let daysAdded = 0;
-    while (daysAdded < intervalDays) {
-      date.setDate(date.getDate() + 1);
+  // NOVA LÓGICA: Soma dias corridos e só joga para frente se cair em FDS/Feriado
+  const getNextValidVisitDay = (startDateStr, intervalDays) => {
+    let date = new Date(startDateStr + 'T12:00:00');
+    date.setDate(date.getDate() + intervalDays);
+
+    while (true) {
       const dayOfWeek = date.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const dateString = date.toISOString().split('T')[0];
       const isHoliday = holidays.some(h => h.date === dateString);
-      if (!isWeekend && !isHoliday) daysAdded++;
+
+      if (!isWeekend && !isHoliday) {
+        break;
+      }
+      date.setDate(date.getDate() + 1);
     }
     return date;
   };
@@ -308,33 +308,30 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       return;
     }
 
-    const periodoString = String(parseInt(periodo, 10) || 0);
-
     const baseVisita = {
       cr4a1_visita_id: editingVisita?.cr4a1_visita_id,
       cr4a1_cliente: cliente,
-      cr4a1_cliente_id: clienteId,
       cr4a1_motivo: motivo,
       cr4a1_visitante: visitante,
-      cr4a1_filial: filialFiltro === 'Todas' ? currentUser?.cr4a1_unidade : filialFiltro,
+      cr4a1_filial: currentUser?.cr4a1_unidade,
       cr4a1_data_visita: dataVisita,
-      cr4a1_periodo_visita: periodoString
+      cr4a1_periodo_visita: parseInt(periodo, 10) || 0
     };
 
     if (editingVisita) {
-      const { cr4a1_id, ...visitaLimpa } = baseVisita;
-      onSave([visitaLimpa]);
+      onSave([baseVisita]);
     } else {
       let visitasToCreate = [baseVisita];
       let interval = parseInt(periodo, 10) || 0;
 
       if (interval > 0) {
-        let currentDate = new Date(dataVisita);
+        let currentStr = dataVisita;
         for (let i = 0; i < 5; i++) {
-          currentDate = getNextBusinessDay(currentDate, interval);
+          const nextDate = getNextValidVisitDay(currentStr, interval);
+          currentStr = nextDate.toISOString().split('T')[0];
           visitasToCreate.push({
             ...baseVisita,
-            cr4a1_data_visita: currentDate.toISOString().split('T')[0]
+            cr4a1_data_visita: currentStr
           });
         }
       }
@@ -352,61 +349,27 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {podeTrocarFilial && (
-            <div className="input-group">
-              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Filtrar por Filial</label>
-              <select
-                value={filialFiltro}
-                onChange={e => setFilialFiltro(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
-              >
-                {unidades.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          )}
-
           <div className="input-group" style={{ position: 'relative' }}>
             <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cliente</label>
             <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: '100%' }}>
               <input
                 type="text"
                 value={searchOrg}
-                onChange={e => {
-                  setSearchOrg(e.target.value);
-                  setCliente(e.target.value);
-                  setClienteId('');
-                  setIsOpenDropdown(true);
-                }}
+                onChange={e => { setSearchOrg(e.target.value); setCliente(e.target.value); setIsOpenDropdown(true); }}
                 onFocus={() => setIsOpenDropdown(true)}
                 onBlur={() => setTimeout(() => setIsOpenDropdown(false), 200)}
                 placeholder="Selecione ou pesquise o cliente..."
                 style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
               />
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpenDropdown(!isOpenDropdown); }}
-                style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
-                  {isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}
-                </span>
+              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpenDropdown(!isOpenDropdown); }} style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}</span>
               </button>
             </div>
 
             {isOpenDropdown && filteredOrgs.length > 0 && (
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
                 {filteredOrgs.map(org => (
-                  <div
-                    key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
-                    onMouseDown={() => {
-                      setSearchOrg(org.cr4a1_novacoluna);
-                      setCliente(org.cr4a1_novacoluna);
-                      setClienteId(org.cr4a1_echoe_organizacoesid || '');
-                      setIsOpenDropdown(false);
-                    }}
-                    style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }}
-                    className="dropdown-item-select"
-                  >
+                  <div key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna} onMouseDown={() => { setSearchOrg(org.cr4a1_novacoluna); setCliente(org.cr4a1_novacoluna); setIsOpenDropdown(false); }} style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }} className="dropdown-item-select">
                     {org.cr4a1_novacoluna}
                   </div>
                 ))}
@@ -426,7 +389,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
             </div>
 
             <div className="input-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Úteis)</label>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Corridos)</label>
               <input type="number" min="0" value={periodo} onChange={e => setPeriodo(e.target.value)} disabled={!!editingVisita} placeholder="0 = Única" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', opacity: editingVisita ? 0.6 : 1 }} />
             </div>
           </div>
@@ -1247,29 +1210,29 @@ function App() {
             </button>
 
             {/* Botão Filial Temporária com classes para controle mobile */}
-            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
+            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
-              <button 
-                onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect filial-temp-btn"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  padding: '8px 16px', 
-                  borderRadius: '100px', 
-                  border: '1px solid var(--border-color)', 
-                  background: 'var(--bg-secondary)', 
-                  color: 'var(--text-primary)', 
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
-              >
-                <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                <span className="filial-temp-text">Filial Temporária</span>
-              </button>
-            )}
+                <button
+                  onClick={() => setIsFilialTemporariaOpen(true)}
+                  className="btn-secondary boing-effect filial-temp-btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '100px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}
+                >
+                  <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                  <span className="filial-temp-text">Filial Temporária</span>
+                </button>
+              )}
           </div>
 
           <div className="header-profile">
@@ -1449,10 +1412,10 @@ function App() {
               ) : (
                 <>
                   {view === 'year' && (
-                    <div className="mini-month-grid" style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))', 
-                      gap: '24px', 
+                    <div className="mini-month-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '24px',
                       overflow: 'visible',
                       padding: appMode === 'visitas' ? '8px' : '0'
                     }}>
@@ -1460,8 +1423,8 @@ function App() {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                         return (
-                          <div key={i} style={{ 
-                            ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), 
+                          <div key={i} style={{
+                            ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
                             overflow: 'visible',
                             minHeight: appMode === 'visitas' ? '320px' : 'auto'
                           }}>
@@ -1476,10 +1439,10 @@ function App() {
 
                   {view === 'month' && (
                     <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
-                      <div style={{ 
-                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), 
-                        overflow: 'visible', 
-                        opacity: 1 
+                      <div style={{
+                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}),
+                        overflow: 'visible',
+                        opacity: 1
                       }}>
                         <div
                           className="calendar-month-grid"
@@ -1497,41 +1460,44 @@ function App() {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                             const dayEvents = handleGetEventsForDay(day);
+
+                            // Identifica se há visita neste dia para destacar o fundo
+                            const hasVisita = appMode === 'visitas' && dayEvents.some(e => e.isVisita);
+
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
+                                <div style={{
+                                  display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
+                                  width: '28px', height: '28px', borderRadius: '50%',
+                                  backgroundColor: hasVisita ? '#f57c00' : (isToday ? 'var(--text-accent)' : 'transparent'),
+                                  color: (isToday || hasVisita) ? 'white' : 'var(--text-primary)',
+                                  fontWeight: (isToday || hasVisita) ? '700' : '500',
+                                  fontSize: '12px', marginBottom: '4px', flexShrink: 0,
+                                  boxShadow: hasVisita ? '0 4px 12px rgba(245, 124, 0, 0.4)' : 'none'
+                                }}>
+                                  {format(day, 'd')}
+                                </div>
+
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
-                                  {dayEvents.map(e => (
-                                    <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      <div 
-                                        className="event-badge boing-effect" 
-                                        onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} 
-                                        style={{ 
-                                          background: e.isVisitaPrincipal ? (e.cr4a1_cor || getEventColor(e)) : 'transparent',
-                                          color: e.isVisitaPrincipal ? '#fff' : 'transparent',
-                                          borderRadius: '4px', 
-                                          padding: e.isVisitaPrincipal ? '3px 5px' : '0',
-                                          display: 'block', 
-                                          overflow: 'hidden', 
-                                          textOverflow: 'ellipsis', 
-                                          whiteSpace: 'nowrap', 
-                                          fontSize: e.isVisitaPrincipal ? '11px' : '0',
-                                          fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
-                                          width: '100%', 
-                                          boxSizing: 'border-box',
-                                          opacity: e.isIntervalo ? 0 : 1,
-                                          border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
-                                        }}
-                                      >
-                                        {e.isVisitaPrincipal && (
-                                          <>
-                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
-                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                                          </>
-                                        )}
-                                      </div>
-                                    </DraggableEvent>
-                                  ))}
+                                  {dayEvents.map(e => {
+                                    // Layout limpo e sem bolinhas apenas para o Modo Visitas
+                                    if (appMode === 'visitas' && e.isVisita) {
+                                      return (
+                                        <div key={e.cr4a1_agenda_kairosid} onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} className="boing-effect" style={{ fontSize: '10px', color: '#f57c00', fontWeight: '700', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', padding: '2px' }}>
+                                          {e.cr4a1_titulo.replace('Visita: ', '')}
+                                        </div>
+                                      );
+                                    }
+
+                                    // Renderização normal de eventos do Kairós
+                                    return (
+                                      <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
+                                        <div className="event-badge boing-effect" onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
+                                          {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                        </div>
+                                      </DraggableEvent>
+                                    );
+                                  })}
                                 </div>
                               </DroppableDay>
                             );
