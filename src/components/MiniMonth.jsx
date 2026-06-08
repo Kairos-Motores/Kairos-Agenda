@@ -3,7 +3,7 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
-export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays = [], allUsers = [], onEditEvent }) => {
+export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays = [], allUsers = [], onEditEvent, isDetailed = false }) => {
   const days = generateMonthDays(monthDate);
   const [hoveredDay, setHoveredDay] = useState(null);
 
@@ -12,17 +12,28 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
     return acc;
   }, {});
 
+  // Altura da célula varia conforme o modo
+  const cellHeight = isDetailed ? 'minmax(55px, 1fr)' : '35px';
+  const gridAutoRows = isDetailed ? 'minmax(55px, auto)' : undefined;
+
   return (
-    <div className="mini-month-card" style={{ padding: '5px', position: 'relative' }}>
-      <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-        <strong style={{ textTransform: 'capitalize', fontSize: '12px', color: 'var(--text-title)' }}>
+    <div className="mini-month-card" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+        <strong style={{ textTransform: 'capitalize', fontSize: isDetailed ? '16px' : '12px', color: 'var(--text-title)' }}>
           {format(monthDate, 'MMMM', { locale: ptBR })}
         </strong>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1px' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gridAutoRows: cellHeight,
+        gap: isDetailed ? '2px' : '1px',
+        flex: 1,
+        overflow: 'hidden'
+      }}>
         {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-          <span key={i} style={{ fontWeight: 'bold', fontSize: '9px', textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)' }}>
+          <span key={i} style={{ fontWeight: 'bold', fontSize: isDetailed ? '12px' : '9px', textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)' }}>
             {d}
           </span>
         ))}
@@ -34,8 +45,8 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           const holiday = isCurrentMonth ? holidays.find(h => h.date === dateStr) : null;
           const hasContent = isCurrentMonth && (dayEvents.length > 0 || holiday);
           const isFirstRow = index < 7;
-          
-          // Filtra eventos que não são intervalos para pintura de fundo e identificação de cor
+
+          // Filtra eventos que não são intervalos
           const activeEvents = dayEvents.filter(e => !e.isIntervalo);
           const uniqueUsersOnDay = [...new Set(activeEvents.map(e => e.cr4a1_user_login))];
           const colorsForDay = uniqueUsersOnDay.map(username => userColorMap[username]).filter(Boolean);
@@ -44,61 +55,96 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           if (isCurrentMonth && (isWeekend(day) || holiday)) textColor = '#e74c3c';
 
           return (
-            <div 
-              key={day.toString()} 
+            <div
+              key={day.toString()}
               onClick={() => isCurrentMonth && onSelectMonth(day)}
               onMouseEnter={() => hasContent && setHoveredDay(dateStr)}
               onMouseLeave={() => setHoveredDay(null)}
-              style={{ 
-                height: '35px', 
-                textAlign: 'center', 
-                fontSize: '10px', 
+              style={{
+                textAlign: 'center',
+                fontSize: '10px',
                 cursor: isCurrentMonth ? 'pointer' : 'default',
-                color: textColor, 
+                color: textColor,
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'visible', 
+                justifyContent: isDetailed ? 'flex-start' : 'center',
+                overflow: 'visible',
                 borderRadius: '4px',
-                transition: 'background 0.2s'
+                transition: 'background 0.2s',
+                padding: isDetailed ? '4px 2px' : '0',
+                minHeight: isDetailed ? '55px' : undefined,
+                height: 'auto'
               }}
               className="mini-day-cell"
             >
-              {/* FUNDO COLORIDO (Usa a cor do usuário definido no map) */}
+              {/* Fundo colorido por usuário */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
                 {isCurrentMonth && colorsForDay.map((color, idx) => (
-                  <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.4 }} />
+                  <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.25 }} />
                 ))}
               </div>
 
-              <span style={{ 
-                position: 'relative', 
-                zIndex: 1, 
+              <span style={{
+                position: 'relative',
+                zIndex: 1,
                 fontWeight: holiday ? '700' : '500',
                 backgroundColor: holiday ? 'var(--bg-primary)' : 'transparent',
                 padding: '1px 3px',
-                borderRadius: '3px'
+                borderRadius: '3px',
+                fontSize: isDetailed ? '13px' : '10px'
               }}>
                 {format(day, 'd')}
               </span>
 
-              {/* PONTOS DE EVENTO (Apenas eventos que NÃO são intervalos) */}
-              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
-                {isCurrentMonth && activeEvents
-                  .map(e => userColorMap[e.cr4a1_user_login])
-                  .filter((color, idx, arr) => color && arr.indexOf(color) === idx)
-                  .slice(0, 3)
-                  .map((color, idx) => (
-                    <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
-                  ))
-                }
-              </div>
+              {/* No modo detalhado, mostra os títulos dos eventos */}
+              {isDetailed && isCurrentMonth && activeEvents.length > 0 && (
+                <div style={{ position: 'relative', zIndex: 1, width: '100%', marginTop: '2px' }}>
+                  {activeEvents.slice(0, 3).map((ev, i) => (
+                    <div
+                      key={i}
+                      onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                      style={{
+                        fontSize: '9px',
+                        backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc',
+                        color: '#fff',
+                        borderRadius: '3px',
+                        padding: '1px 3px',
+                        marginBottom: '1px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        cursor: 'pointer',
+                        lineHeight: 1.1
+                      }}
+                    >
+                      {ev.cr4a1_titulo}
+                    </div>
+                  ))}
+                  {activeEvents.length > 3 && (
+                    <div style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>+{activeEvents.length - 3}</div>
+                  )}
+                </div>
+              )}
 
-              {/* TOOLTIP INTERATIVO */}
-              {hoveredDay === dateStr && hasContent && (
-                <div 
+              {/* Bolinhas coloridas (modo normal) */}
+              {!isDetailed && (
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
+                  {isCurrentMonth && activeEvents
+                    .map(e => userColorMap[e.cr4a1_user_login])
+                    .filter((color, idx, arr) => color && arr.indexOf(color) === idx)
+                    .slice(0, 3)
+                    .map((color, idx) => (
+                      <div key={idx} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: color }} />
+                    ))
+                  }
+                </div>
+              )}
+
+              {/* Tooltip (apenas no modo normal) */}
+              {!isDetailed && hoveredDay === dateStr && hasContent && (
+                <div
                   onClick={(e) => e.stopPropagation()}
                   className="premium-tooltip"
                   style={{

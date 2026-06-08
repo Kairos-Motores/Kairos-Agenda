@@ -1247,29 +1247,29 @@ function App() {
             </button>
 
             {/* Botão Filial Temporária com classes para controle mobile */}
-            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
+            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
-              <button 
-                onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect filial-temp-btn"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  padding: '8px 16px', 
-                  borderRadius: '100px', 
-                  border: '1px solid var(--border-color)', 
-                  background: 'var(--bg-secondary)', 
-                  color: 'var(--text-primary)', 
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
-              >
-                <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                <span className="filial-temp-text">Filial Temporária</span>
-              </button>
-            )}
+                <button
+                  onClick={() => setIsFilialTemporariaOpen(true)}
+                  className="btn-secondary boing-effect filial-temp-btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    borderRadius: '100px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}
+                >
+                  <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                  <span className="filial-temp-text">Filial Temporária</span>
+                </button>
+              )}
           </div>
 
           <div className="header-profile">
@@ -1449,10 +1449,10 @@ function App() {
               ) : (
                 <>
                   {view === 'year' && (
-                    <div className="mini-month-grid" style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))', 
-                      gap: '24px', 
+                    <div className="mini-month-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1.5fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '24px',
                       overflow: 'visible',
                       padding: appMode === 'visitas' ? '8px' : '0'
                     }}>
@@ -1460,13 +1460,22 @@ function App() {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                         return (
-                          <div key={i} style={{ 
-                            ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), 
+                          <div key={i} style={{
+                            ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
                             overflow: 'visible',
-                            minHeight: appMode === 'visitas' ? '320px' : 'auto'
+                            minHeight: appMode === 'visitas' ? '320px' : 'auto',
+                            height: appMode === 'visitas' ? '100%' : 'auto'
                           }}>
                             <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
-                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
+                              <MiniMonth
+                                monthDate={monthDate}
+                                onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
+                                getEventsForDay={handleGetEventsForDay}
+                                holidays={holidays}
+                                allUsers={allUsers}
+                                onEditEvent={handleEditClick}
+                                isDetailed={appMode === 'visitas'}
+                              />
                             </div>
                           </div>
                         );
@@ -1476,10 +1485,10 @@ function App() {
 
                   {view === 'month' && (
                     <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
-                      <div style={{ 
-                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), 
-                        overflow: 'visible', 
-                        opacity: 1 
+                      <div style={{
+                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}),
+                        overflow: 'visible',
+                        opacity: 1
                       }}>
                         <div
                           className="calendar-month-grid"
@@ -1503,21 +1512,21 @@ function App() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      <div 
-                                        className="event-badge boing-effect" 
-                                        onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} 
-                                        style={{ 
+                                      <div
+                                        className="event-badge boing-effect"
+                                        onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
+                                        style={{
                                           background: e.isVisitaPrincipal ? (e.cr4a1_cor || getEventColor(e)) : 'transparent',
                                           color: e.isVisitaPrincipal ? '#fff' : 'transparent',
-                                          borderRadius: '4px', 
+                                          borderRadius: '4px',
                                           padding: e.isVisitaPrincipal ? '3px 5px' : '0',
-                                          display: 'block', 
-                                          overflow: 'hidden', 
-                                          textOverflow: 'ellipsis', 
-                                          whiteSpace: 'nowrap', 
+                                          display: 'block',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
                                           fontSize: e.isVisitaPrincipal ? '11px' : '0',
                                           fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
-                                          width: '100%', 
+                                          width: '100%',
                                           boxSizing: 'border-box',
                                           opacity: e.isIntervalo ? 0 : 1,
                                           border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
@@ -1525,7 +1534,7 @@ function App() {
                                       >
                                         {e.isVisitaPrincipal && (
                                           <>
-                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
+                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
                                             {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                                           </>
                                         )}
