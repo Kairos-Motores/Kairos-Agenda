@@ -1797,6 +1797,7 @@ function App() {
               isOpen={dayVisitasModalOpen}
               onClose={() => setDayVisitasModalOpen(false)}
               visitas={selectedDayVisitas}
+              allUsers={allUsers}
               onEditVisita={(v) => {
                 if (v.originalData) {
                   setEditingVisita(v.originalData);
