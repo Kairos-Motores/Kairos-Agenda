@@ -4,7 +4,7 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
-// ─── Componente Marquee (texto correndo) ───────────────────────
+// Componente de texto com marquee (corre da direita para a esquerda)
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -21,14 +21,14 @@ const MarqueeText = ({ text, color, onClick }) => {
       ref={containerRef}
       onClick={onClick}
       style={{
-        fontSize: '9px',
+        fontSize: '10px',
         backgroundColor: color || '#ccc',
         color: '#fff',
         borderRadius: '3px',
         padding: '1px 3px',
         marginBottom: '1px',
         whiteSpace: 'nowrap',
-        overflow: 'hidden', // corta o texto que sai
+        overflow: 'hidden',
         cursor: 'pointer',
         lineHeight: 1.1,
         width: '100%',
@@ -51,7 +51,7 @@ const MarqueeText = ({ text, color, onClick }) => {
   );
 };
 
-// ─── Tooltip via Portal (nunca é cortado) ─────────────────────
+// Tooltip via Portal
 const TooltipPortal = ({ children, targetRect, isFirstRow, onMouseEnter, onMouseLeave }) => {
   if (!targetRect) return null;
 
@@ -82,28 +82,33 @@ const TooltipPortal = ({ children, targetRect, isFirstRow, onMouseEnter, onMouse
   );
 };
 
-// ─── Componente principal ──────────────────────────────────────
-export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays = [], allUsers = [], onEditEvent, isDetailed = false }) => {
+export const MiniMonth = ({
+  monthDate,
+  onSelectMonth,
+  getEventsForDay,
+  holidays = [],
+  allUsers = [],
+  onEditEvent,
+  isDetailed = false,
+  onDayClick,          // nova prop
+}) => {
   const days = generateMonthDays(monthDate);
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredRect, setHoveredRect] = useState(null);
   const [isTooltipHovered, setIsTooltipHovered] = useState(false);
   const leaveTimer = useRef(null);
 
-  // Mapa de cores dos usuários
   const userColorMap = allUsers.reduce((acc, curr) => {
     acc[curr.cr4a1_username] = curr.cr4a1_cor || '#ccc';
     return acc;
   }, {});
 
-  // Limpa timer ao desmontar
   useEffect(() => {
     return () => {
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
     };
   }, []);
 
-  // Fecha tooltip se mouse saiu do dia E do tooltip
   const tryCloseTooltip = () => {
     leaveTimer.current = setTimeout(() => {
       if (!isTooltipHovered) {
@@ -134,18 +139,16 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
     tryCloseTooltip();
   };
 
-  const cellHeight = isDetailed ? '65px' : '35px';
+  const cellHeight = isDetailed ? '85px' : '35px';  // altura aumentada para visitas
 
   return (
     <div className="mini-month-card" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Nome do mês */}
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
         <strong style={{ textTransform: 'capitalize', fontSize: isDetailed ? '16px' : '12px', color: 'var(--text-title)' }}>
           {format(monthDate, 'MMMM', { locale: ptBR })}
         </strong>
       </div>
 
-      {/* Grade de dias */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
@@ -153,7 +156,6 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
         gap: isDetailed ? '2px' : '1px',
         flex: 1,
       }}>
-        {/* Cabeçalhos dos dias da semana */}
         {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
           <span key={i} style={{
             fontWeight: 'bold',
@@ -165,7 +167,6 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           </span>
         ))}
 
-        {/* Dias do mês */}
         {days.map((day, index) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = getEventsForDay(day);
@@ -181,10 +182,22 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
           if (isCurrentMonth && (isWeekend(day) || holiday)) textColor = '#e74c3c';
 
+          // Decide ação de clique
+          const handleDayClick = () => {
+            if (!isCurrentMonth) return;
+            if (isDetailed && activeEvents.length > 1 && onDayClick) {
+              onDayClick(dateStr, activeEvents);
+            } else if (isDetailed && activeEvents.length === 1 && onEditEvent) {
+              onEditEvent(activeEvents[0]);
+            } else {
+              onSelectMonth(day);
+            }
+          };
+
           return (
             <div
               key={day.toString()}
-              onClick={() => isCurrentMonth && onSelectMonth(day)}
+              onClick={handleDayClick}
               onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
               onMouseLeave={!isDetailed ? handleDayLeave : undefined}
               style={{
@@ -201,43 +214,53 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 padding: isDetailed ? '4px 2px' : '0',
                 height: '100%',
                 boxSizing: 'border-box',
-                overflow: 'hidden', // impede que conteúdo extra expanda a célula
+                overflow: 'hidden',
               }}
               className="mini-day-cell"
             >
-              {/* Fundo colorido por usuário */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', zIndex: 0, overflow: 'hidden', borderRadius: '4px' }}>
                 {isCurrentMonth && colorsForDay.map((color, idx) => (
                   <div key={idx} style={{ flex: 1, backgroundColor: color, opacity: 0.25 }} />
                 ))}
               </div>
 
-              {/* Número do dia */}
-              <span style={{ position: 'relative', zIndex: 1, fontWeight: holiday ? '700' : '500', fontSize: isDetailed ? '13px' : '10px' }}>
+              <span style={{ position: 'relative', zIndex: 1, fontWeight: holiday ? '700' : '500', fontSize: isDetailed ? '16px' : '10px' }}>
                 {format(day, 'd')}
               </span>
 
-              {/* Eventos no modo detalhado (visitas) com marquee */}
+              {/* Renderização condicional no modo detalhado */}
               {isDetailed && isCurrentMonth && activeEvents.length > 0 && (
                 <div style={{ width: '100%', marginTop: '2px', overflow: 'hidden' }}>
-                  {activeEvents.slice(0, 3).map((ev, i) => (
-                    <MarqueeText
-                      key={i}
-                      text={ev.cr4a1_titulo}
-                      color={userColorMap[ev.cr4a1_user_login]}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditEvent(ev);
-                      }}
-                    />
-                  ))}
-                  {activeEvents.length > 3 && (
-                    <div style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>+{activeEvents.length - 3}</div>
+                  {activeEvents.length > 1 ? (
+                    <div style={{
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      borderRadius: '4px',
+                      padding: '2px 4px',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {activeEvents.length} visitas
+                    </div>
+                  ) : (
+                    activeEvents.slice(0, 1).map((ev, i) => (
+                      <MarqueeText
+                        key={i}
+                        text={ev.cr4a1_titulo}
+                        color={userColorMap[ev.cr4a1_user_login]}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditEvent(ev);
+                        }}
+                      />
+                    ))
                   )}
                 </div>
               )}
 
-              {/* Bolinhas coloridas (modo normal) */}
               {!isDetailed && (
                 <div style={{ display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
                   {isCurrentMonth && activeEvents
@@ -254,7 +277,6 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
         })}
       </div>
 
-      {/* Tooltip (apenas no modo normal) renderizado no body */}
       {!isDetailed && hoveredDay && (
         <TooltipPortal
           targetRect={hoveredRect}
@@ -272,18 +294,14 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
             whiteSpace: 'normal',
             wordBreak: 'break-word',
           }}>
-            {/* Cabeçalho do tooltip */}
             <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
               {format(new Date(hoveredDay + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
             </div>
-
             {holidays.find(h => h.date === hoveredDay) && (
               <div style={{ color: '#e74c3c', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
                 🚩 {holidays.find(h => h.date === hoveredDay).name}
               </div>
             )}
-
-            {/* Lista de eventos */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {getEventsForDay(new Date(hoveredDay + 'T12:00:00'))
                 .filter(e => e.cr4a1_user_login)

@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES AUXILIARES (mantidos exatamente como estavam) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -542,6 +542,53 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
   );
 };
 
+// --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
+const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita }) => {
+  if (!isOpen || !visitas || visitas.length === 0) return null;
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '20px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: 'var(--text-title)', fontWeight: '700' }}>Visitas do dia</h3>
+          <button onClick={onClose} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+            <span className="material-symbols-rounded">close</span>
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {visitas.map((v, idx) => (
+            <div
+              key={v.cr4a1_agenda_kairosid || idx}
+              onClick={() => {
+                onEditVisita(v);
+                onClose();
+              }}
+              style={{
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'var(--bg-secondary)',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                border: '1px solid var(--border-color)',
+              }}
+              className="boing-effect"
+            >
+              <div style={{ fontWeight: '600', color: 'var(--text-title)', marginBottom: '4px' }}>
+                {v.cr4a1_titulo}
+              </div>
+              {v.cr4a1_detalhes && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {v.cr4a1_detalhes}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- COMPONENTE PRINCIPAL ---
 
 function App() {
@@ -587,6 +634,10 @@ function App() {
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
+
+  // Novos estados para o modal de listagem de visitas do dia
+  const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
+  const [selectedDayVisitas, setSelectedDayVisitas] = useState([]);
 
   const handleEditWorkspaceClick = (ws) => {
     setEditingWorkspace(ws);
@@ -913,6 +964,12 @@ function App() {
     }
   };
 
+  // Handler para dia com múltiplas visitas (abre modal de listagem)
+  const handleDayClick = (dateStr, events) => {
+    setSelectedDayVisitas(events);
+    setDayVisitasModalOpen(true);
+  };
+
   const getEventColor = (event) => event.cr4a1_cor || (allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login)?.cr4a1_cor || '#3498db');
 
   const handleNavigate = (direction) => {
@@ -990,6 +1047,7 @@ function App() {
           borderRight: '1px solid var(--border-color)', overflowY: 'auto', display: 'flex', flexDirection: 'column',
           borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
         }}>
+          {/* ... conteúdo da sidebar mantido exatamente como antes ... */}
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1192,9 +1250,9 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER FLEXÍVEL E INTELIGENTE */}
+        {/* HEADER FLEXÍVEL E INTELIGENTE (mantido igual) */}
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-
+          {/* ... conteúdo do header mantido exatamente como no código original ... */}
           <div className="header-left">
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
@@ -1246,7 +1304,6 @@ function App() {
               <span className="nav-label-collapse">Fichas</span>
             </button>
 
-            {/* Botão Filial Temporária com classes para controle mobile */}
             {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
                 <button
@@ -1463,7 +1520,7 @@ function App() {
                           <div key={i} style={{
                             ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
                             overflow: 'visible',
-                            minHeight: appMode === 'visitas' ? '600px' : 'auto',   // 👈 antes 320px, agora 600px
+                            minHeight: appMode === 'visitas' ? '600px' : 'auto',
                             height: appMode === 'visitas' ? '100%' : 'auto',
                             position: 'relative',
                             zIndex: 1
@@ -1484,6 +1541,7 @@ function App() {
                                 allUsers={allUsers}
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
+                                onDayClick={appMode === 'visitas' ? handleDayClick : undefined}
                               />
                             </div>
                           </div>
@@ -1520,12 +1578,10 @@ function App() {
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => {
-                                    // Define o estilo com base no tipo de evento e modo
                                     const isVisitaPrincipal = e.isVisitaPrincipal;
                                     const isIntervalo = e.isIntervalo;
                                     const eventColor = e.cr4a1_cor || getEventColor(e);
 
-                                    // Estilo base para todos os eventos
                                     let badgeStyle = {
                                       borderRadius: '4px',
                                       display: 'block',
@@ -1543,21 +1599,18 @@ function App() {
                                       border: '1px solid rgba(255,255,255,0.2)',
                                     };
 
-                                    // Ajustes específicos para o modo Visitas
                                     if (appMode === 'visitas') {
                                       if (isIntervalo) {
-                                        badgeStyle.opacity = 0; // esconde intervalos
+                                        badgeStyle.opacity = 0;
                                       } else if (isVisitaPrincipal) {
                                         badgeStyle.background = eventColor;
                                         badgeStyle.fontWeight = 'bold';
                                         badgeStyle.fontSize = '11px';
                                         badgeStyle.padding = '3px 5px';
                                       } else {
-                                        // outros eventos no modo visitas (improvável)
                                         badgeStyle.opacity = 0.7;
                                       }
                                     } else {
-                                      // modo calendário normal: todos os eventos visíveis
                                       badgeStyle.background = eventColor;
                                       badgeStyle.opacity = e.cr4a1_privado ? 0.7 : 1;
                                     }
@@ -1594,7 +1647,7 @@ function App() {
             </div>
           </main>
 
-          {/* BARRA LATERAL DIREITA FIXA (DESKTOP) - FLUTUANTE */}
+          {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="desktop-only" style={{
             position: 'fixed',
             right: '0',
@@ -1736,6 +1789,23 @@ function App() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Modal de listagem de visitas do dia */}
+          {dayVisitasModalOpen && (
+            <DayVisitasModal
+              isOpen={dayVisitasModalOpen}
+              onClose={() => setDayVisitasModalOpen(false)}
+              visitas={selectedDayVisitas}
+              onEditVisita={(v) => {
+                if (v.originalData) {
+                  setEditingVisita(v.originalData);
+                  setIsVisitaModalOpen(true);
+                } else {
+                  handleEditClick(v);
+                }
+              }}
+            />
           )}
         </div>
 
@@ -1907,7 +1977,6 @@ function App() {
                 grid-template-columns: 1fr !important;
             }
 
-            /* Linha 0: Perfil + Logout (topo direito) */
             .header-profile {
                 order: 0 !important;
                 width: 100% !important;
@@ -1943,7 +2012,6 @@ function App() {
                 width: 36px !important;
             }
 
-            /* Botão Filial Temporária – mobile: emoji + mais espaço */
             .filial-temp-btn {
                 position: absolute !important;
                 top: 12px !important;
@@ -1962,7 +2030,6 @@ function App() {
                 font-size: 18px;
             }
 
-            /* Linha 1: Menu, Logo, Seletor de Vistas e Fichas */
             .header-left {
                 order: 1 !important;
                 display: flex !important;
@@ -2051,7 +2118,6 @@ function App() {
                 display: none !important;
             }
 
-            /* Linha 3: Controle de Datas e Utilidades */
             .header-bottom {
                 order: 2 !important;
                 display: grid !important;
@@ -2150,39 +2216,33 @@ function App() {
                 grid-column: 2 !important;
             }
         }
-            /* ==============================
-   HOVER EXPANSIVO NOS MESES
-   ============================== */
-.mini-month-card:hover {
-  z-index: 999 !important;      /* sobrepõe meses vizinhos */
-}
 
-/* Animação marquee (usada pelas visitas) */
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
-}
+        /* HOVER EXPANSIVO NOS MESES (agora não necessário, mas mantido por compatibilidade) */
+        .mini-month-card:hover {
+            z-index: 999 !important;
+        }
 
-/* Manter 1 coluna em mobile */
-@media (max-width: 900px) {
-  .mini-month-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-  @keyframes marquee {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-}
+        /* Animações */
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
 
-@keyframes fadeInDown {
-  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            .mini-month-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
       `}</style>
     </DndContext>
   );
