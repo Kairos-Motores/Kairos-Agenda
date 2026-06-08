@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
-// Componente de texto com marquee (corre da direita para a esquerda, sem vazar)
+// ─── Componente Marquee (texto correndo) ───────────────────────
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -27,13 +28,13 @@ const MarqueeText = ({ text, color, onClick }) => {
         padding: '1px 3px',
         marginBottom: '1px',
         whiteSpace: 'nowrap',
-        overflow: 'hidden',          // 👈 nunca vaza
+        overflow: 'hidden', // corta o texto que sai
         cursor: 'pointer',
         lineHeight: 1.1,
-        position: 'relative',
         width: '100%',
         maxWidth: '100%',
         boxSizing: 'border-box',
+        position: 'relative',
       }}
     >
       <span
@@ -50,118 +51,121 @@ const MarqueeText = ({ text, color, onClick }) => {
   );
 };
 
+// ─── Tooltip via Portal (nunca é cortado) ─────────────────────
+const TooltipPortal = ({ children, targetRect, isFirstRow, onMouseEnter, onMouseLeave }) => {
+  if (!targetRect) return null;
+
+  const style = {
+    position: 'fixed',
+    left: targetRect.left + targetRect.width / 2,
+    transform: 'translateX(-50%)',
+    zIndex: 99999,
+    pointerEvents: 'auto',
+    animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out',
+  };
+
+  if (isFirstRow) {
+    style.top = targetRect.bottom + 8;
+  } else {
+    style.bottom = window.innerHeight - targetRect.top + 8;
+  }
+
+  return ReactDOM.createPortal(
+    <div
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+};
+
+// ─── Componente principal ──────────────────────────────────────
 export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays = [], allUsers = [], onEditEvent, isDetailed = false }) => {
   const days = generateMonthDays(monthDate);
   const [hoveredDay, setHoveredDay] = useState(null);
-  const [isMonthHovered, setIsMonthHovered] = useState(false);
+  const [hoveredRect, setHoveredRect] = useState(null);
+  const [isTooltipHovered, setIsTooltipHovered] = useState(false);
   const leaveTimer = useRef(null);
 
+  // Mapa de cores dos usuários
   const userColorMap = allUsers.reduce((acc, curr) => {
     acc[curr.cr4a1_username] = curr.cr4a1_cor || '#ccc';
     return acc;
   }, {});
 
-  const cellHeight = isDetailed ? 'minmax(55px, 1fr)' : '35px';
-
-  // Limpa o timer ao desmontar
+  // Limpa timer ao desmontar
   useEffect(() => {
     return () => {
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
     };
   }, []);
 
-  // Funções para controlar hover do mês sem flicker
-  const handleMonthMouseEnter = () => {
-    if (leaveTimer.current) {
-      clearTimeout(leaveTimer.current);
-      leaveTimer.current = null;
-    }
-    setIsMonthHovered(true);
-  };
-
-  const handleMonthMouseLeave = () => {
-    // Pequeno delay para permitir que o mouse entre no tooltip
+  // Fecha tooltip se mouse saiu do dia E do tooltip
+  const tryCloseTooltip = () => {
     leaveTimer.current = setTimeout(() => {
-      setIsMonthHovered(false);
-      setHoveredDay(null);
-    }, 150);
+      if (!isTooltipHovered) {
+        setHoveredDay(null);
+        setHoveredRect(null);
+      }
+    }, 200);
   };
 
-  const handleTooltipMouseEnter = () => {
-    if (leaveTimer.current) {
-      clearTimeout(leaveTimer.current);
-      leaveTimer.current = null;
-    }
-    setIsMonthHovered(true);
-  };
-
-  const handleTooltipMouseLeave = () => {
-    leaveTimer.current = setTimeout(() => {
-      setIsMonthHovered(false);
-      setHoveredDay(null);
-    }, 150);
-  };
-
-  // Quando o mouse entra em um dia específico
-  const handleDayMouseEnter = (dateStr) => {
-    if (leaveTimer.current) {
-      clearTimeout(leaveTimer.current);
-      leaveTimer.current = null;
-    }
+  const handleDayEnter = (dateStr, e) => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    const rect = e.currentTarget.getBoundingClientRect();
     setHoveredDay(dateStr);
-    setIsMonthHovered(true);
+    setHoveredRect(rect);
   };
 
-  const handleDayMouseLeave = () => {
-    // Não faz nada imediatamente; o timer do mês tratará de fechar
+  const handleDayLeave = () => {
+    tryCloseTooltip();
   };
+
+  const handleTooltipEnter = () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    setIsTooltipHovered(true);
+  };
+
+  const handleTooltipLeave = () => {
+    setIsTooltipHovered(false);
+    tryCloseTooltip();
+  };
+
+  const cellHeight = isDetailed ? '55px' : '35px';
 
   return (
-    <div
-      className="mini-month-card"
-      style={{
-        padding: '8px',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        zIndex: isMonthHovered ? 999 : 1,    // 🔥 eleva o mês quando hover
-        transition: 'z-index 0.1s',
-      }}
-      onMouseEnter={handleMonthMouseEnter}
-      onMouseLeave={handleMonthMouseLeave}
-    >
+    <div className="mini-month-card" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Nome do mês */}
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
         <strong style={{ textTransform: 'capitalize', fontSize: isDetailed ? '16px' : '12px', color: 'var(--text-title)' }}>
           {format(monthDate, 'MMMM', { locale: ptBR })}
         </strong>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gridAutoRows: cellHeight,
-          gap: isDetailed ? '2px' : '1px',
-          flex: 1,
-          overflow: 'visible',
-          position: 'relative',
-        }}
-      >
+      {/* Grade de dias */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gridAutoRows: cellHeight,
+        gap: isDetailed ? '2px' : '1px',
+        flex: 1,
+      }}>
+        {/* Cabeçalhos dos dias da semana */}
         {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-          <span
-            key={i}
-            style={{
-              fontWeight: 'bold',
-              fontSize: isDetailed ? '12px' : '9px',
-              textAlign: 'center',
-              color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)',
-            }}
-          >
+          <span key={i} style={{
+            fontWeight: 'bold',
+            fontSize: isDetailed ? '12px' : '9px',
+            textAlign: 'center',
+            color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)',
+          }}>
             {d}
           </span>
         ))}
 
+        {/* Dias do mês */}
         {days.map((day, index) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = getEventsForDay(day);
@@ -177,15 +181,12 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           let textColor = isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)';
           if (isCurrentMonth && (isWeekend(day) || holiday)) textColor = '#e74c3c';
 
-          // Só mostra tooltip se o mês estiver com hover e o dia for o ativo
-          const showTooltip = isMonthHovered && hoveredDay === dateStr && hasContent;
-
           return (
             <div
               key={day.toString()}
               onClick={() => isCurrentMonth && onSelectMonth(day)}
-              onMouseEnter={() => handleDayMouseEnter(dateStr)}
-              onMouseLeave={handleDayMouseLeave}
+              onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
+              onMouseLeave={!isDetailed ? handleDayLeave : undefined}
               style={{
                 textAlign: 'center',
                 fontSize: '10px',
@@ -196,13 +197,11 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: isDetailed ? 'flex-start' : 'center',
-                overflow: 'visible',
                 borderRadius: '4px',
-                transition: 'background 0.2s',
                 padding: isDetailed ? '4px 2px' : '0',
-                minHeight: isDetailed ? '55px' : undefined,
-                height: 'auto',
-                zIndex: showTooltip ? 10 : 1,
+                height: '100%',
+                boxSizing: 'border-box',
+                overflow: 'hidden', // impede que conteúdo extra expanda a célula
               }}
               className="mini-day-cell"
             >
@@ -213,23 +212,14 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 ))}
               </div>
 
-              <span
-                style={{
-                  position: 'relative',
-                  zIndex: 1,
-                  fontWeight: holiday ? '700' : '500',
-                  backgroundColor: holiday ? 'var(--bg-primary)' : 'transparent',
-                  padding: '1px 3px',
-                  borderRadius: '3px',
-                  fontSize: isDetailed ? '13px' : '10px',
-                }}
-              >
+              {/* Número do dia */}
+              <span style={{ position: 'relative', zIndex: 1, fontWeight: holiday ? '700' : '500', fontSize: isDetailed ? '13px' : '10px' }}>
                 {format(day, 'd')}
               </span>
 
-              {/* Títulos dos eventos (modo detalhado) com marquee */}
+              {/* Eventos no modo detalhado (visitas) com marquee */}
               {isDetailed && isCurrentMonth && activeEvents.length > 0 && (
-                <div style={{ position: 'relative', zIndex: 1, width: '100%', marginTop: '2px' }}>
+                <div style={{ width: '100%', marginTop: '2px', overflow: 'hidden' }}>
                   {activeEvents.slice(0, 3).map((ev, i) => (
                     <MarqueeText
                       key={i}
@@ -249,7 +239,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
 
               {/* Bolinhas coloridas (modo normal) */}
               {!isDetailed && (
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
+                <div style={{ display: 'flex', gap: '2px', marginTop: '2px', height: '4px' }}>
                   {isCurrentMonth && activeEvents
                     .map(e => userColorMap[e.cr4a1_user_login])
                     .filter((color, idx, arr) => color && arr.indexOf(color) === idx)
@@ -259,78 +249,70 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                     ))}
                 </div>
               )}
-
-              {/* Tooltip (apenas modo normal) */}
-              {!isDetailed && showTooltip && (
-                <div
-                  className="premium-tooltip"
-                  style={{
-                    position: 'absolute',
-                    [isFirstRow ? 'top' : 'bottom']: '120%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1100,
-                    animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out',
-                    whiteSpace: 'nowrap',
-                    pointerEvents: 'auto',   // permite interação com o tooltip
-                  }}
-                  onMouseEnter={handleTooltipMouseEnter}
-                  onMouseLeave={handleTooltipMouseLeave}
-                >
-                  <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    {format(day, "d 'de' MMMM", { locale: ptBR })}
-                  </div>
-
-                  {holiday && (
-                    <div style={{ color: '#e74c3c', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
-                      🚩 {holiday.name}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {dayEvents
-                      .filter(e => e.cr4a1_user_login)
-                      .map((ev, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => onEditEvent(ev)}
-                          className="tooltip-event-item"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '10px',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            transition: 'background 0.2s',
-                            backgroundColor: 'var(--bg-secondary)',
-                          }}
-                        >
-                          <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px' }} />
-                          <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                            <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-
-                  <div
-                    style={{
-                      position: 'absolute',
-                      [isFirstRow ? 'bottom' : 'top']: '100%',
-                      left: '50%',
-                      transform: 'translateX(-50%)' + (isFirstRow ? ' rotate(180deg)' : ''),
-                      borderLeft: '8px solid transparent',
-                      borderRight: '8px solid transparent',
-                      borderTop: '8px solid rgba(255, 255, 255, 0.98)',
-                    }}
-                  />
-                </div>
-              )}
             </div>
           );
         })}
       </div>
+
+      {/* Tooltip (apenas no modo normal) renderizado no body */}
+      {!isDetailed && hoveredDay && (
+        <TooltipPortal
+          targetRect={hoveredRect}
+          isFirstRow={hoveredDay ? parseInt(hoveredDay.split('-')[2]) <= 7 : true}
+          onMouseEnter={handleTooltipEnter}
+          onMouseLeave={handleTooltipLeave}
+        >
+          <div className="premium-tooltip" style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            maxWidth: '280px',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
+          }}>
+            {/* Cabeçalho do tooltip */}
+            <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+              {format(new Date(hoveredDay + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
+            </div>
+
+            {holidays.find(h => h.date === hoveredDay) && (
+              <div style={{ color: '#e74c3c', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
+                🚩 {holidays.find(h => h.date === hoveredDay).name}
+              </div>
+            )}
+
+            {/* Lista de eventos */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {getEventsForDay(new Date(hoveredDay + 'T12:00:00'))
+                .filter(e => e.cr4a1_user_login)
+                .map((ev, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => onEditEvent(ev)}
+                    className="tooltip-event-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      backgroundColor: 'var(--bg-secondary)',
+                    }}
+                  >
+                    <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px' }} />
+                    <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                      <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </TooltipPortal>
+      )}
     </div>
   );
 };
