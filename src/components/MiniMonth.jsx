@@ -134,7 +134,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
     tryCloseTooltip();
   };
 
-  const cellHeight = isDetailed ? '55px' : '35px';
+  const cellHeight = isDetailed ? '85px' : '35px';
 
   return (
     <div className="mini-month-card" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>

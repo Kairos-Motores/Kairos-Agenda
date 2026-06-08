@@ -1453,7 +1453,7 @@ function App() {
                       display: 'grid',
                       gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1.5fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
                       gap: '24px',
-                      overflow: 'visible',                 // permite que hovers saiam
+                      overflow: 'visible',
                       padding: appMode === 'visitas' ? '8px' : '0'
                     }}>
                       {Array.from({ length: 12 }, (_, i) => {
@@ -1462,8 +1462,8 @@ function App() {
                         return (
                           <div key={i} style={{
                             ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
-                            overflow: 'visible',            // 👈 não corta tooltips
-                            minHeight: appMode === 'visitas' ? '320px' : 'auto',
+                            overflow: 'visible',
+                            minHeight: appMode === 'visitas' ? '600px' : 'auto',   // 👈 antes 320px, agora 600px
                             height: appMode === 'visitas' ? '100%' : 'auto',
                             position: 'relative',
                             zIndex: 1
@@ -1473,7 +1473,7 @@ function App() {
                               borderRadius: '14px',
                               background: 'var(--bg-primary)',
                               height: '100%',
-                              overflow: 'visible',          // 👈 crucial
+                              overflow: 'visible',
                               position: 'relative'
                             }}>
                               <MiniMonth
