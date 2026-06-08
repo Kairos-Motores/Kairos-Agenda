@@ -256,14 +256,19 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
 // --- COMPONENTE DE VISITAS (COMBOBOX INTELIGENTE BUSCÁVEL COM LISTA INTEGRADA) ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
+  const [clienteId, setClienteId] = useState(editingVisita?.cr4a1_cliente_id || '');
   const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [motivo, setMotivo] = useState(editingVisita?.cr4a1_motivo || '');
   const [visitante, setVisitante] = useState(editingVisita?.cr4a1_visitante || currentUser?.cr4a1_username);
   const [dataVisita, setDataVisita] = useState(editingVisita?.cr4a1_data_visita ? editingVisita.cr4a1_data_visita.split('T')[0] : '');
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
+  const [filialFiltro, setFilialFiltro] = useState(editingVisita?.cr4a1_filial || currentUser?.cr4a1_unidade || 'Todas');
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
+  const podeTrocarFilial = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
+
+  const unidades = ['Todas', 'São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
   const usuariosComerciais = useMemo(() => {
     return allUsers.filter(u => {
@@ -274,30 +279,25 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const filteredOrgs = useMemo(() => {
     return organizacoes.filter(org => {
-      const matchesUnit = !org.cr4a1_filial_origem || org.cr4a1_filial_origem === currentUser?.cr4a1_unidade;
+      const matchesUnit = filialFiltro === 'Todas' || !org.cr4a1_filial_origem || org.cr4a1_filial_origem === filialFiltro;
       const isDropdownMode = searchOrg === cliente;
       const matchesSearch = isDropdownMode || !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
       return matchesUnit && matchesSearch;
     });
-  }, [organizacoes, searchOrg, cliente, currentUser]);
+  }, [organizacoes, searchOrg, cliente, filialFiltro]);
 
   if (!isOpen) return null;
 
-  // NOVA LÓGICA DE DIAS CORRIDOS: Soma e evita cair em dias não úteis no final da contagem
-  const getNextValidVisitDay = (startDateStr, intervalDays) => {
-    let date = new Date(startDateStr + 'T12:00:00'); 
-    date.setDate(date.getDate() + intervalDays); 
-
-    while (true) {
+  const getNextBusinessDay = (startDate, intervalDays) => {
+    let date = new Date(startDate);
+    let daysAdded = 0;
+    while (daysAdded < intervalDays) {
+      date.setDate(date.getDate() + 1);
       const dayOfWeek = date.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const dateString = date.toISOString().split('T')[0];
       const isHoliday = holidays.some(h => h.date === dateString);
-
-      if (!isWeekend && !isHoliday) {
-        break; 
-      }
-      date.setDate(date.getDate() + 1);
+      if (!isWeekend && !isHoliday) daysAdded++;
     }
     return date;
   };
@@ -308,30 +308,33 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       return;
     }
 
+    const periodoString = String(parseInt(periodo, 10) || 0);
+
     const baseVisita = {
       cr4a1_visita_id: editingVisita?.cr4a1_visita_id,
       cr4a1_cliente: cliente,
+      cr4a1_cliente_id: clienteId,
       cr4a1_motivo: motivo,
       cr4a1_visitante: visitante,
-      cr4a1_filial: currentUser?.cr4a1_unidade,
+      cr4a1_filial: filialFiltro === 'Todas' ? currentUser?.cr4a1_unidade : filialFiltro,
       cr4a1_data_visita: dataVisita,
-      cr4a1_periodo_visita: parseInt(periodo, 10) || 0
+      cr4a1_periodo_visita: periodoString
     };
 
     if (editingVisita) {
-      onSave([baseVisita]);
+      const { cr4a1_id, ...visitaLimpa } = baseVisita;
+      onSave([visitaLimpa]);
     } else {
       let visitasToCreate = [baseVisita];
       let interval = parseInt(periodo, 10) || 0;
 
       if (interval > 0) {
-        let currentStr = dataVisita;
+        let currentDate = new Date(dataVisita);
         for (let i = 0; i < 5; i++) {
-          const nextDate = getNextValidVisitDay(currentStr, interval);
-          currentStr = nextDate.toISOString().split('T')[0];
+          currentDate = getNextBusinessDay(currentDate, interval);
           visitasToCreate.push({
             ...baseVisita,
-            cr4a1_data_visita: currentStr
+            cr4a1_data_visita: currentDate.toISOString().split('T')[0]
           });
         }
       }
@@ -349,27 +352,61 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {podeTrocarFilial && (
+            <div className="input-group">
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Filtrar por Filial</label>
+              <select
+                value={filialFiltro}
+                onChange={e => setFilialFiltro(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+              >
+                {unidades.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          )}
+
           <div className="input-group" style={{ position: 'relative' }}>
             <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cliente</label>
             <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: '100%' }}>
-              <input 
-                type="text" 
-                value={searchOrg} 
-                onChange={e => { setSearchOrg(e.target.value); setCliente(e.target.value); setIsOpenDropdown(true); }}
+              <input
+                type="text"
+                value={searchOrg}
+                onChange={e => {
+                  setSearchOrg(e.target.value);
+                  setCliente(e.target.value);
+                  setClienteId('');
+                  setIsOpenDropdown(true);
+                }}
                 onFocus={() => setIsOpenDropdown(true)}
                 onBlur={() => setTimeout(() => setIsOpenDropdown(false), 200)}
-                placeholder="Selecione ou pesquise o cliente..." 
-                style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }} 
+                placeholder="Selecione ou pesquise o cliente..."
+                style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
               />
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpenDropdown(!isOpenDropdown); }} style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpenDropdown(!isOpenDropdown); }}
+                style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                  {isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}
+                </span>
               </button>
             </div>
-            
+
             {isOpenDropdown && filteredOrgs.length > 0 && (
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
                 {filteredOrgs.map(org => (
-                  <div key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna} onMouseDown={() => { setSearchOrg(org.cr4a1_novacoluna); setCliente(org.cr4a1_novacoluna); setIsOpenDropdown(false); }} style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }} className="dropdown-item-select">
+                  <div
+                    key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
+                    onMouseDown={() => {
+                      setSearchOrg(org.cr4a1_novacoluna);
+                      setCliente(org.cr4a1_novacoluna);
+                      setClienteId(org.cr4a1_echoe_organizacoesid || '');
+                      setIsOpenDropdown(false);
+                    }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }}
+                    className="dropdown-item-select"
+                  >
                     {org.cr4a1_novacoluna}
                   </div>
                 ))}
@@ -387,9 +424,9 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
               <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Data Inicial</label>
               <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
             </div>
-            
+
             <div className="input-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Corridos)</label>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Úteis)</label>
               <input type="number" min="0" value={periodo} onChange={e => setPeriodo(e.target.value)} disabled={!!editingVisita} placeholder="0 = Única" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', opacity: editingVisita ? 0.6 : 1 }} />
             </div>
           </div>
@@ -416,7 +453,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 };
 
 // --- COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
-const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
+const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos = false }) => {
   const [selectedUser, setSelectedUser] = useState('');
   const [unidade, setUnidade] = useState('');
   const [inicio, setInicio] = useState('');
@@ -424,12 +461,13 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
 
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
-  const comerciais = useMemo(() => {
+  const usuariosDisponiveis = useMemo(() => {
+    if (mostrarTodos) return allUsers;
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
       return userRoles.includes('COMERCIAL');
     });
-  }, [allUsers]);
+  }, [allUsers, mostrarTodos]);
 
   if (!isOpen) return null;
 
@@ -453,16 +491,24 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave }) => {
       <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '450px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)' }}>
         <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>swap_horiz</span>
-          Filial Temporária (Comercial)
+          Filial Temporária {mostrarTodos ? '(Todos)' : '(Comercial)'}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="input-group">
-            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Selecionar Comercial</label>
-            <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+              Selecionar {mostrarTodos ? 'Funcionário' : 'Comercial'}
+            </label>
+            <select
+              value={selectedUser}
+              onChange={e => setSelectedUser(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+            >
               <option value="">Selecione um profissional...</option>
-              {comerciais.map(u => (
-                <option key={u.cr4a1_usuarios_agendaid} value={u.cr4a1_usuarios_agendaid}>{u.cr4a1_nome_exibicao || u.cr4a1_username} (Origem: {u.cr4a1_unidade})</option>
+              {usuariosDisponiveis.map(u => (
+                <option key={u.cr4a1_usuarios_agendaid} value={u.cr4a1_usuarios_agendaid}>
+                  {u.cr4a1_nome_exibicao || u.cr4a1_username} ({u.cr4a1_unidade || 'Sem unidade'})
+                </option>
               ))}
             </select>
           </div>
@@ -570,21 +616,70 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
+  // --- MAPEAMENTO DAS VISITAS (COM DIFERENCIAÇÃO VISUAL) ---
   const mappedVisitas = useMemo(() => {
-    return visitas
-      .filter(v => hasRole('ADMIN') || hasRole('COORD COMERCIAL') ? v.cr4a1_filial === currentUser?.cr4a1_unidade : v.cr4a1_visitante === currentUser?.cr4a1_username)
-      .map(v => ({
-        cr4a1_agenda_kairosid: v.cr4a1_visita_id,
-        cr4a1_titulo: `Visita: ${v.cr4a1_cliente}`,
-        cr4a1_data_inicio: v.cr4a1_data_visita,
-        cr4a1_data_fim: v.cr4a1_data_visita,
+    if (!visitas || visitas.length === 0) return [];
+
+    const visitasFiltradas = (hasRole('ADMIN') || hasRole('COORD COMERCIAL'))
+      ? visitas
+      : visitas.filter(v => v.cr4a1_visitante === currentUser?.cr4a1_username);
+
+    const sorted = [...visitasFiltradas].sort((a, b) =>
+      (a.cr4a1_data_visita || '').localeCompare(b.cr4a1_data_visita || '')
+    );
+
+    const resultado = [];
+
+    for (let i = 0; i < sorted.length; i++) {
+      const visita = sorted[i];
+      const dataVisita = visita.cr4a1_data_visita?.split('T')[0];
+      if (!dataVisita) continue;
+
+      const usuario = allUsers.find(u => u.cr4a1_username === visita.cr4a1_visitante);
+      const corUsuario = usuario?.cr4a1_cor || '#f57c00';
+
+      resultado.push({
+        cr4a1_agenda_kairosid: visita.cr4a1_visita_id,
+        cr4a1_titulo: `📍 Visita: ${visita.cr4a1_cliente}`,
+        cr4a1_data_inicio: dataVisita,
+        cr4a1_data_fim: dataVisita,
         cr4a1_hora_inicio: '08:00',
-        cr4a1_user_login: v.cr4a1_visitante, // Associa à cor escolhida pelo utilizador (visitor)
+        cr4a1_cor: corUsuario,
+        cr4a1_user_login: visita.cr4a1_visitante,
         cr4a1_dia_inteiro: true,
+        isVisitaPrincipal: true,
         isVisita: true,
-        originalData: v
-      }));
-  }, [visitas, currentUser, roles]);
+        originalData: visita,
+      });
+
+      const proximaData = i + 1 < sorted.length
+        ? sorted[i + 1].cr4a1_data_visita?.split('T')[0]
+        : null;
+
+      if (proximaData) {
+        let current = new Date(dataVisita + 'T12:00:00');
+        const end = new Date(proximaData + 'T12:00:00');
+        current.setDate(current.getDate() + 1);
+
+        while (current < end) {
+          const dateStr = format(current, 'yyyy-MM-dd');
+          resultado.push({
+            cr4a1_agenda_kairosid: `intervalo_${dateStr}`,
+            cr4a1_titulo: 'Período entre visitas',
+            cr4a1_data_inicio: dateStr,
+            cr4a1_data_fim: dateStr,
+            cr4a1_hora_inicio: '00:00',
+            cr4a1_cor: corUsuario,
+            cr4a1_user_login: visita.cr4a1_visitante,
+            cr4a1_dia_inteiro: true,
+            isIntervalo: true,
+          });
+          current.setDate(current.getDate() + 1);
+        }
+      }
+    }
+    return resultado;
+  }, [visitas, currentUser, allUsers, roles]);
 
   const getDisplayEvents = () => {
     if (appMode === 'visitas') return mappedVisitas;
@@ -609,7 +704,7 @@ function App() {
     try {
       if (editingVisita) {
         await updateVisitas(visitasArray[0]);
-        toast.success("Visita comercial updated com sucesso!", { id: loadingToast });
+        toast.success("Visita comercial atualizada com sucesso!", { id: loadingToast });
       } else {
         await addVisitas(visitasArray);
         toast.success(`${visitasArray.length} visita(s) agendada(s) com sucesso!`, { id: loadingToast });
@@ -801,13 +896,15 @@ function App() {
   };
 
   const handleEditClick = (event) => {
-    if (event.isVisita) {
+    if (event.isVisitaPrincipal) {
       if (hasRole('ADMIN') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL')) {
         setEditingVisita(event.originalData);
         setIsVisitaModalOpen(true);
       }
       return;
     }
+
+    if (event.isIntervalo) return;
 
     if (hasRole('SECRETARIA') || hasRole('COORD') || hasRole('ADMIN') || event.cr4a1_user_login === user) {
       setEditingEvent(event); setIsModalOpen(true);
@@ -978,7 +1075,7 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1149,12 +1246,12 @@ function App() {
               <span className="nav-label-collapse">Fichas</span>
             </button>
 
-            {/* REGRA 3 COM INTEGRAÇÃO RH: Botão de Transferência visível no cabeçalho em Visitas para COORD COMERCIAL/ADMIN E no modo Calendário para ADMIN/RH */}
+            {/* Botão Filial Temporária com classes para controle mobile */}
             {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) || 
               (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
               <button 
                 onClick={() => setIsFilialTemporariaOpen(true)}
-                className="btn-secondary boing-effect"
+                className="btn-secondary boing-effect filial-temp-btn"
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1169,8 +1266,8 @@ function App() {
                   fontWeight: '600'
                 }}
               >
-                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                <span>Filial Temporária</span>
+                <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                <span className="filial-temp-text">Filial Temporária</span>
               </button>
             )}
           </div>
@@ -1352,14 +1449,24 @@ function App() {
               ) : (
                 <>
                   {view === 'year' && (
-                    <div className="mini-month-grid" style={{ display: 'grid', gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', overflow: 'visible' }}>
+                    <div className="mini-month-grid" style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))', 
+                      gap: '24px', 
+                      overflow: 'visible',
+                      padding: appMode === 'visitas' ? '8px' : '0'
+                    }}>
                       {Array.from({ length: 12 }, (_, i) => {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                         return (
-                          <div key={i} style={{ ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), overflow: 'visible' }}>
+                          <div key={i} style={{ 
+                            ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}), 
+                            overflow: 'visible',
+                            minHeight: appMode === 'visitas' ? '320px' : 'auto'
+                          }}>
                             <div style={{ ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }), borderRadius: '14px', background: 'var(--bg-primary)', height: '100%', overflow: 'visible' }}>
-                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} appMode={appMode} />
+                              <MiniMonth monthDate={monthDate} onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEditEvent={handleEditClick} />
                             </div>
                           </div>
                         );
@@ -1369,7 +1476,11 @@ function App() {
 
                   {view === 'month' && (
                     <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
-                      <div style={{ ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), overflow: 'visible', opacity: 1 }}>
+                      <div style={{ 
+                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}), 
+                        overflow: 'visible', 
+                        opacity: 1 
+                      }}>
                         <div
                           className="calendar-month-grid"
                           style={{
@@ -1377,7 +1488,8 @@ function App() {
                             background: 'var(--bg-primary)',
                             borderRadius: '22px',
                             overflow: 'visible',
-                            opacity: 1
+                            opacity: 1,
+                            gridTemplateRows: appMode === 'visitas' ? 'repeat(auto-fill, minmax(120px, 1fr))' : undefined,
                           }}
                         >
                           {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
@@ -1387,12 +1499,36 @@ function App() {
                             const dayEvents = handleGetEventsForDay(day);
                             return (
                               <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
-                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? 'var(--text-accent)' : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.map(e => (
                                     <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e}>
-                                      <div className="event-badge boing-effect" onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} style={{ background: getEventColor(e), color: 'white', borderRadius: '4px', padding: '2px 4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', width: '100%', boxSizing: 'border-box' }}>
-                                        {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                      <div 
+                                        className="event-badge boing-effect" 
+                                        onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }} 
+                                        style={{ 
+                                          background: e.isVisitaPrincipal ? (e.cr4a1_cor || getEventColor(e)) : 'transparent',
+                                          color: e.isVisitaPrincipal ? '#fff' : 'transparent',
+                                          borderRadius: '4px', 
+                                          padding: e.isVisitaPrincipal ? '3px 5px' : '0',
+                                          display: 'block', 
+                                          overflow: 'hidden', 
+                                          textOverflow: 'ellipsis', 
+                                          whiteSpace: 'nowrap', 
+                                          fontSize: e.isVisitaPrincipal ? '11px' : '0',
+                                          fontWeight: e.isVisitaPrincipal ? 'bold' : 'normal',
+                                          width: '100%', 
+                                          boxSizing: 'border-box',
+                                          opacity: e.isIntervalo ? 0 : 1,
+                                          border: e.isVisitaPrincipal ? '1px solid rgba(255,255,255,0.3)' : 'none'
+                                        }}
+                                      >
+                                        {e.isVisitaPrincipal && (
+                                          <>
+                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>} 
+                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                          </>
+                                        )}
                                       </div>
                                     </DraggableEvent>
                                   ))}
@@ -1469,6 +1605,7 @@ function App() {
               onClose={() => setIsFilialTemporariaOpen(false)}
               allUsers={allUsers}
               onSave={atualizarFilialTemporaria}
+              mostrarTodos={hasRole('ADMIN') || hasRole('RH')}
             />
           )}
           {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
@@ -1612,7 +1749,6 @@ function App() {
         @media (max-width: 1024px) { .desktop-only { display: none !important; } .mobile-only { display: flex !important; } }
         @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
         
-        /* EFEITO BOING (MOLA ELÁSTICA) */
         .boing-effect {
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
         }
@@ -1621,7 +1757,6 @@ function App() {
             transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
 
-        /* LÓGICA DO CABEÇALHO (SMART HEADER) */
         .app-header {
             display: flex;
             flex-wrap: wrap;
@@ -1700,255 +1835,278 @@ function App() {
             padding: 0;
         }
 
-        /* COMPORTAMENTO MOBILE OTIMIZADO & LUXUOSO */
+        /* COMPORTAMENTO MOBILE OTIMIZADO */
         @media (max-width: 900px) {
-    .app-header {
-        display: flex !important;
-        flex-direction: column !important;
-        padding: 12px 16px !important;
-        gap: 12px !important;
-        background: var(--bg-primary) !important;
-        border-bottom: 1px solid var(--border-color) !important;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
-        backdrop-filter: blur(12px) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-    .app-header.scrolled {
-        padding: 8px 12px !important;
-        gap: 8px !important;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
-    }
-    [data-theme='dark'] .app-header {
-        background: rgba(30, 30, 30, 0.8) !important;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
-    }
+            .app-header {
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 12px 16px !important;
+                gap: 12px !important;
+                background: var(--bg-primary) !important;
+                border-bottom: 1px solid var(--border-color) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+                backdrop-filter: blur(12px) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                position: sticky !important;
+                top: 0 !important;
+            }
+            .app-header.scrolled {
+                padding: 8px 12px !important;
+                gap: 8px !important;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+            }
+            [data-theme='dark'] .app-header {
+                background: rgba(30, 30, 30, 0.8) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
+            }
 
-    /* FORÇAR EXATAMENTE UM MÊS POR LINHA NA VISUALIZAÇÃO ANUAL MOBILE */
-    .mini-month-grid {
-        grid-template-columns: 1fr !important;
-    }
+            .mini-month-grid {
+                grid-template-columns: 1fr !important;
+            }
 
-    .header-profile {
-        order: 0 !important;
-        width: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-end !important;
-        gap: 8px !important;
-        position: static !important;   
-        margin: 0 0 4px 0 !important;  
-    }
-    .header-profile .profile-name {
-        display: none !important;
-    }
-    .header-profile > div {
-        padding: 2px !important;
-        border-radius: 50% !important;
-        background: var(--bg-secondary) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border: 1px solid var(--border-color) !important;
-        height: 36px !important;
-        width: 36px !important;
-        box-sizing: border-box !important;
-        cursor: pointer !important;
-    }
-    .header-profile > div img {
-        width: 30px !important;
-        height: 30px !important;
-    }
-    .header-profile .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-    }
+            /* Linha 0: Perfil + Logout (topo direito) */
+            .header-profile {
+                order: 0 !important;
+                width: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 8px !important;
+                position: static !important;   
+                margin: 0 0 4px 0 !important;  
+            }
+            .header-profile .profile-name {
+                display: none !important;
+            }
+            .header-profile > div {
+                padding: 2px !important;
+                border-radius: 50% !important;
+                background: var(--bg-secondary) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border: 1px solid var(--border-color) !important;
+                height: 36px !important;
+                width: 36px !important;
+                box-sizing: border-box !important;
+                cursor: pointer !important;
+            }
+            .header-profile > div img {
+                width: 30px !important;
+                height: 30px !important;
+            }
+            .header-profile .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+            }
 
-    .header-left {
-        order: 1 !important;
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        width: 100% !important;
-        gap: 8px !important;
-        justify-content: flex-start !important;
-    }
+            /* Botão Filial Temporária – mobile: emoji + mais espaço */
+            .filial-temp-btn {
+                position: absolute !important;
+                top: 12px !important;
+                right: 120px !important;
+                z-index: 15 !important;
+                white-space: nowrap !important;
+                padding: 8px 12px !important;
+                font-size: 13px !important;
+            }
+            .filial-temp-btn .filial-temp-icon,
+            .filial-temp-btn .filial-temp-text {
+                display: none !important;
+            }
+            .filial-temp-btn::before {
+                content: "🔄";
+                font-size: 18px;
+            }
 
-    .header-left > button:first-of-type {
-        order: 1 !important;
-        flex: 0 0 auto !important;
-    }
+            /* Linha 1: Menu, Logo, Seletor de Vistas e Fichas */
+            .header-left {
+                order: 1 !important;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                width: 100% !important;
+                gap: 8px !important;
+                justify-content: flex-start !important;
+            }
 
-    .header-left .logo {
-        order: 2 !important;
-        gap: 4px !important;
-        flex: 0 0 auto !important;
-    }
-    .header-left .logo .nav-label-collapse {
-        display: none !important;
-    }
+            .header-left > button:first-of-type {
+                order: 1 !important;
+                flex: 0 0 auto !important;
+            }
 
-    .segmented-views {
-        order: 3 !important;
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        background: var(--bg-secondary) !important;
-        border-radius: 16px !important;
-        padding: 4px !important;
-        border: 1px solid var(--border-color) !important;
-        box-sizing: border-box !important;
-        overflow: hidden !important;
-    }
-    .segmented-views button {
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-        justify-content: center !important;
-        padding: 6px 2px !important;
-        height: 30px !important;
-        border-radius: 12px !important;
-        font-size: 11px !important;
-        border: none !important;
-        background: transparent !important;
-        color: var(--text-secondary) !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    .segmented-views button.active {
-        background: var(--text-accent) !important;
-        color: white !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
-    }
-    .segmented-views .nav-label-collapse {
-        display: none !important;
-    }
+            .header-left .logo {
+                order: 2 !important;
+                gap: 4px !important;
+                flex: 0 0 auto !important;
+            }
+            .header-left .logo .nav-label-collapse {
+                display: none !important;
+            }
 
-    .header-left > button:last-of-type {
-        order: 4 !important;
-        flex: 0 0 auto !important;
-        height: 38px !important;
-        width: 38px !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 12px !important;
-        border: 1px solid var(--border-color) !important;
-        background: var(--bg-secondary) !important;
-        color: var(--text-primary) !important;
-        margin-left: 8px !important;
-        box-sizing: border-box !important;
-    }
-    .header-left > button:last-of-type.active {
-        border-color: var(--text-accent) !important;
-        background: var(--bg-tertiary) !important;
-        color: var(--text-accent) !important;
-        box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
-    }
-    .header-left > button:last-of-type .nav-label-collapse {
-        display: none !important;
-    }
+            .segmented-views {
+                order: 3 !important;
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                background: var(--bg-secondary) !important;
+                border-radius: 16px !important;
+                padding: 4px !important;
+                border: 1px solid var(--border-color) !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
+            .segmented-views button {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                justify-content: center !important;
+                padding: 6px 2px !important;
+                height: 30px !important;
+                border-radius: 12px !important;
+                font-size: 11px !important;
+                border: none !important;
+                background: transparent !important;
+                color: var(--text-secondary) !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            .segmented-views button.active {
+                background: var(--text-accent) !important;
+                color: white !important;
+                font-weight: 700 !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
+            }
+            .segmented-views .nav-label-collapse {
+                display: none !important;
+            }
 
-    .header-bottom {
-        order: 2 !important;
-        display: grid !important;
-        grid-template-columns: 1fr auto !important;
-        grid-template-rows: auto auto !important;
-        gap: 10px 8px !important;
-        align-items: center !important;
-        width: 100% !important;
-        margin-top: 4px !important;
-        position: relative !important;
-        flex-basis: auto !important;
-    }
-    .app-header.scrolled .header-bottom {
-        order: 2 !important;
-        flex-basis: auto !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
+            .header-left > button:last-of-type {
+                order: 4 !important;
+                flex: 0 0 auto !important;
+                height: 38px !important;
+                width: 38px !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 12px !important;
+                border: 1px solid var(--border-color) !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                margin-left: 8px !important;
+                box-sizing: border-box !important;
+            }
+            .header-left > button:last-of-type.active {
+                border-color: var(--text-accent) !important;
+                background: var(--bg-tertiary) !important;
+                color: var(--text-accent) !important;
+                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
+            }
+            .header-left > button:last-of-type .nav-label-collapse {
+                display: none !important;
+            }
 
-    .header-bottom > div:nth-child(2) {
-        grid-row: 1 !important;
-        grid-column: 1 !important;
-        justify-self: start !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-    }
-    .header-bottom > div:nth-child(2) span {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        color: var(--text-title) !important;
-        text-transform: capitalize !important;
-    }
-    .header-bottom > div:nth-child(2) span:first-of-type {
-        max-width: 120px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-    }
+            /* Linha 3: Controle de Datas e Utilidades */
+            .header-bottom {
+                order: 2 !important;
+                display: grid !important;
+                grid-template-columns: 1fr auto !important;
+                grid-template-rows: auto auto !important;
+                gap: 10px 8px !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-top: 4px !important;
+                position: relative !important;
+                flex-basis: auto !important;
+            }
+            .app-header.scrolled .header-bottom {
+                order: 2 !important;
+                flex-basis: auto !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
 
-    .header-bottom > div:nth-child(1) {
-        grid-row: 1 !important;
-        grid-column: 2 !important;
-        justify-self: end !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-    }
-    .header-bottom > div:nth-child(1) .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-    }
-    .header-bottom > div:nth-child(1) .nav-pill {
-        height: 36px !important;
-        padding: 0 12px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-        background: var(--bg-secondary) !important;
-        color: var(--text-primary) !important;
-        border: 1px solid var(--border-color) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
+            .header-bottom > div:nth-child(2) {
+                grid-row: 1 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(2) span {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: var(--text-title) !important;
+                text-transform: capitalize !important;
+            }
+            .header-bottom > div:nth-child(2) span:first-of-type {
+                max-width: 120px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
 
-    .header-bottom > div:nth-child(3) {
-        grid-row: 2 !important;
-        grid-column: 1 / span 2 !important;
-        justify-self: end !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-    }
-    .header-bottom > div:nth-child(3) .icon-btn {
-        height: 36px !important;
-        width: 36px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-    }
+            .header-bottom > div:nth-child(1) {
+                grid-row: 1 !important;
+                grid-column: 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+            }
+            .header-bottom > div:nth-child(1) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+            .header-bottom > div:nth-child(1) .nav-pill {
+                height: 36px !important;
+                padding: 0 12px !important;
+                font-size: 12px !important;
+                font-weight: 600 !important;
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary) !important;
+                border: 1px solid var(--border-color) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
 
-    .header-bottom > div:nth-child(4) {
-        grid-row: 2 !important;
-        grid-column: 1 !important;
-        justify-self: start !important;
-    }
+            .header-bottom > div:nth-child(3) {
+                grid-row: 2 !important;
+                grid-column: 1 / span 2 !important;
+                justify-self: end !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+            }
+            .header-bottom > div:nth-child(3) .icon-btn {
+                height: 36px !important;
+                width: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: var(--bg-secondary) !important;
+                border: 1px solid var(--border-color) !important;
+            }
 
-    .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
-        grid-column: 2 !important;
-    }
-}
+            .header-bottom > div:nth-child(4) {
+                grid-row: 2 !important;
+                grid-column: 1 !important;
+                justify-self: start !important;
+            }
+
+            .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
+                grid-column: 2 !important;
+            }
+        }
       `}</style>
     </DndContext>
   );
