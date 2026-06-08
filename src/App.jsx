@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import { DndContext, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, useDraggable, useDroppable } from '@dnd-kit/core';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
-// --- COMPONENTES AUXILIARES (mantidos exatamente como estavam) ---
+// --- COMPONENTES AUXILIARES (mantidos) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
   <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -160,7 +160,12 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
 
 const DraggableEvent = ({ event, children }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: event.cr4a1_agenda_kairosid });
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, opacity: isDragging ? 0.6 : 1 } : undefined;
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(1.05)`,
+    zIndex: 999,
+    opacity: isDragging ? 0.7 : 1,
+    boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.2)' : 'none',
+  } : undefined;
   return <div ref={setNodeRef} style={{ ...style, minWidth: 0, width: '100%', boxSizing: 'border-box' }} {...listeners} {...attributes}>{children}</div>;
 };
 
@@ -253,7 +258,7 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
   );
 };
 
-// --- COMPONENTE DE VISITAS (COMBOBOX INTELIGENTE BUSCÁVEL COM LISTA INTEGRADA) ---
+// --- COMPONENTE DE VISITAS ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
   const [clienteId, setClienteId] = useState(editingVisita?.cr4a1_cliente_id || '');
@@ -452,7 +457,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   );
 };
 
-// --- COMPONENTE: MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
+// --- MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
 const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos = false }) => {
   const [selectedUser, setSelectedUser] = useState('');
   const [unidade, setUnidade] = useState('');
@@ -581,7 +586,6 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
               <div style={{ fontWeight: '600', color: 'var(--text-title)', marginBottom: '4px' }}>
                 {v.cr4a1_titulo}
               </div>
-              {/* Nome do visitante adicionado aqui */}
               <div style={{ fontSize: '12px', color: 'var(--text-accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
                 {getUserName(v.cr4a1_user_login)}
@@ -621,8 +625,36 @@ function App() {
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], []);
 
-  const handleDragEnd = (e) => {
-    if (e.over && e.active.id !== e.over.id) moveEvent(e.active.id, e.over.id);
+  // DRAG AND DROP – funcionamento correto para visitas e eventos
+  const handleDragEnd = async (e) => {
+    if (!e.over) return;
+    const eventId = e.active.id;
+    const newDateStr = e.over.id;
+
+    const allEvents = getDisplayEvents();
+    const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === eventId);
+    if (!draggedEvent) return;
+
+    // Visita
+    if (draggedEvent.isVisitaPrincipal && draggedEvent.originalData) {
+      const updatedVisita = {
+        ...draggedEvent.originalData,
+        cr4a1_data_visita: newDateStr,
+      };
+      try {
+        await updateVisitas(updatedVisita);
+        toast.success('Visita reagendada!');
+      } catch (err) {
+        toast.error('Erro ao reagendar visita.');
+      }
+      return;
+    }
+
+    // Evento normal
+    if (!draggedEvent.isVisitaPrincipal && !draggedEvent.isIntervalo) {
+      moveEvent(eventId, newDateStr);
+      return;
+    }
   };
 
   const notifiedRef = useRef(new Set());
@@ -645,7 +677,6 @@ function App() {
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
 
-  // Novos estados para o modal de listagem de visitas do dia
   const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
   const [selectedDayVisitas, setSelectedDayVisitas] = useState([]);
 
@@ -677,7 +708,6 @@ function App() {
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
 
-  // --- MAPEAMENTO DAS VISITAS (COM DIFERENCIAÇÃO VISUAL) ---
   const mappedVisitas = useMemo(() => {
     if (!visitas || visitas.length === 0) return [];
 
@@ -974,7 +1004,6 @@ function App() {
     }
   };
 
-  // Handler para dia com múltiplas visitas (abre modal de listagem)
   const handleDayClick = (dateStr, events) => {
     setSelectedDayVisitas(events);
     setDayVisitasModalOpen(true);
@@ -1057,7 +1086,6 @@ function App() {
           borderRight: '1px solid var(--border-color)', overflowY: 'auto', display: 'flex', flexDirection: 'column',
           borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
         }}>
-          {/* ... conteúdo da sidebar mantido exatamente como antes ... */}
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1260,9 +1288,9 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER FLEXÍVEL E INTELIGENTE (mantido igual) */}
+        {/* HEADER FLEXÍVEL E INTELIGENTE */}
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
-          {/* ... conteúdo do header mantido exatamente como no código original ... */}
+
           <div className="header-left">
             <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
@@ -1801,7 +1829,6 @@ function App() {
             </div>
           )}
 
-          {/* Modal de listagem de visitas do dia */}
           {dayVisitasModalOpen && (
             <DayVisitasModal
               isOpen={dayVisitasModalOpen}
@@ -2228,12 +2255,12 @@ function App() {
             }
         }
 
-        /* HOVER EXPANSIVO NOS MESES (agora não necessário, mas mantido por compatibilidade) */
-        .mini-month-card:hover {
-            z-index: 999 !important;
+        .calendar-day-card.drop-over {
+            background-color: var(--bg-tertiary) !important;
+            box-shadow: inset 0 0 0 2px var(--text-accent);
+            transition: background-color 0.15s, box-shadow 0.15s;
         }
 
-        /* Animações */
         @keyframes marquee {
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
