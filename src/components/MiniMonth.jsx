@@ -3,7 +3,6 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
-// Componente de texto com marquee (corre da esquerda para a direita)
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -44,14 +43,6 @@ const MarqueeText = ({ text, color, onClick }) => {
       >
         {text}
       </span>
-      {isOverflow && (
-        <style>{`
-          @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-100%); }
-          }
-        `}</style>
-      )}
     </div>
   );
 };
@@ -75,8 +66,8 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
-        zIndex: 1, // para contexto de empilhamento
+        position: 'relative',      // necessário para o z-index funcionar
+        zIndex: 1,
       }}
     >
       <div style={{ textAlign: 'center', marginBottom: '8px' }}>
@@ -92,7 +83,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
           gridAutoRows: cellHeight,
           gap: isDetailed ? '2px' : '1px',
           flex: 1,
-          overflow: 'visible', // 👈 fundamental para os tooltips
+          overflow: 'visible',
           position: 'relative',
         }}
       >
@@ -141,13 +132,13 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: isDetailed ? 'flex-start' : 'center',
-                overflow: 'visible', // 👈 tooltips podem sair
+                overflow: 'visible',    // permite que tooltips saiam
                 borderRadius: '4px',
                 transition: 'background 0.2s',
                 padding: isDetailed ? '4px 2px' : '0',
                 minHeight: isDetailed ? '55px' : undefined,
                 height: 'auto',
-                zIndex: hasContent ? 2 : 1, // dias com eventos ficam acima
+                zIndex: hasContent ? 2 : 1,
               }}
               className="mini-day-cell"
             >

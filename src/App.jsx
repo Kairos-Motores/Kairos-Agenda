@@ -1453,7 +1453,7 @@ function App() {
                       display: 'grid',
                       gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1.5fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
                       gap: '24px',
-                      overflow: 'visible',
+                      overflow: 'visible',       // 👈 permite que hovers saiam dos limites
                       padding: appMode === 'visitas' ? '8px' : '0'
                     }}>
                       {Array.from({ length: 12 }, (_, i) => {
@@ -1462,7 +1462,7 @@ function App() {
                         return (
                           <div key={i} style={{
                             ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
-                            overflow: 'visible', // 👈 hovers não serão cortados
+                            overflow: 'visible',   // importante para não cortar tooltips
                             minHeight: appMode === 'visitas' ? '320px' : 'auto',
                             height: appMode === 'visitas' ? '100%' : 'auto',
                             position: 'relative',
@@ -1473,7 +1473,7 @@ function App() {
                               borderRadius: '14px',
                               background: 'var(--bg-primary)',
                               height: '100%',
-                              overflow: 'visible', // 👈 fundamental
+                              overflow: 'visible',   // 👈 crucial
                               position: 'relative'
                             }}>
                               <MiniMonth
@@ -2125,6 +2125,25 @@ function App() {
                 grid-column: 2 !important;
             }
         }
+            /* ==============================
+   HOVER EXPANSIVO NOS MESES
+   ============================== */
+.mini-month-card:hover {
+  z-index: 999 !important;      /* sobrepõe meses vizinhos */
+}
+
+/* Animação marquee (usada pelas visitas) */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Manter 1 coluna em mobile */
+@media (max-width: 900px) {
+  .mini-month-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
       `}</style>
     </DndContext>
   );
