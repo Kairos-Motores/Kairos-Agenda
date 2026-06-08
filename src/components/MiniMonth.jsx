@@ -3,6 +3,7 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 
+// Componente de texto com marquee (corre da direita para a esquerda como letreiro)
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
@@ -26,18 +27,20 @@ const MarqueeText = ({ text, color, onClick }) => {
         padding: '1px 3px',
         marginBottom: '1px',
         whiteSpace: 'nowrap',
-        overflow: 'hidden',
+        overflow: 'hidden',        // 👈 texto não vaza
         cursor: 'pointer',
         lineHeight: 1.1,
         position: 'relative',
         width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <span
         ref={textRef}
         style={{
           display: 'inline-block',
-          animation: isOverflow ? 'marquee 8s linear infinite' : 'none',
+          animation: isOverflow ? 'marquee 6s linear infinite' : 'none',
           whiteSpace: 'nowrap',
         }}
       >
@@ -66,7 +69,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',      // necessário para o z-index funcionar
+        position: 'relative',      // para z-index funcionar no hover
         zIndex: 1,
       }}
     >
@@ -132,7 +135,7 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: isDetailed ? 'flex-start' : 'center',
-                overflow: 'visible',    // permite que tooltips saiam
+                overflow: 'visible',     // 👈 tooltips podem sair
                 borderRadius: '4px',
                 transition: 'background 0.2s',
                 padding: isDetailed ? '4px 2px' : '0',
@@ -209,8 +212,10 @@ export const MiniMonth = ({ monthDate, onSelectMonth, getEventsForDay, holidays 
                     zIndex: 1100,
                     animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out',
                     whiteSpace: 'nowrap',
+                    pointerEvents: 'auto',   // permite interação
                   }}
                 >
+                  {/* conteúdo do tooltip (idêntico ao seu código original) */}
                   <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
                     {format(day, "d 'de' MMMM", { locale: ptBR })}
                   </div>
