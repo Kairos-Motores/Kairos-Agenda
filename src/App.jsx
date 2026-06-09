@@ -146,7 +146,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         rel="noopener noreferrer"
         className="boing-effect"
         style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
+          display: 'flex', alignItems: 'center', justify-content: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
           background: '#25D366', color: 'white', textDecoration: 'none', fontWeight: '700', fontSize: '14px',
           boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
         }}
@@ -287,13 +287,27 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
 
 // --- COMPONENTE DE VISITAS ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
+  const getInitialDate = () => {
+    if (editingVisita?.cr4a1_data_visita) return editingVisita.cr4a1_data_visita.split('T')[0];
+    return '';
+  };
+
+  const getInitialTime = () => {
+    if (editingVisita?.cr4a1_dataconexao) {
+      const d = new Date(editingVisita.cr4a1_dataconexao);
+      if (!isNaN(d)) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    return '08:00';
+  };
+
   const [cliente, setCliente] = useState(editingVisita?.cr4a1_cliente || '');
   const [clienteId, setClienteId] = useState(editingVisita?.cr4a1_cliente_id || '');
   const [searchOrg, setSearchOrg] = useState(editingVisita?.cr4a1_cliente || '');
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [motivo, setMotivo] = useState(editingVisita?.cr4a1_motivo || '');
   const [visitante, setVisitante] = useState(editingVisita?.cr4a1_visitante || currentUser?.cr4a1_username);
-  const [dataVisita, setDataVisita] = useState(editingVisita?.cr4a1_data_visita ? editingVisita.cr4a1_data_visita.split('T')[0] : '');
+  const [dataVisita, setDataVisita] = useState(getInitialDate());
+  const [horaVisita, setHoraVisita] = useState(getInitialTime());
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
   const [filialFiltro, setFilialFiltro] = useState(editingVisita?.cr4a1_filial || currentUser?.cr4a1_unidade || 'Todas');
 
@@ -342,6 +356,10 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
     const periodoString = String(parseInt(periodo, 10) || 0);
 
+    const dataVisitaText = `${dataVisita.split('-').reverse().join('/')} ${horaVisita}`;
+    const dataConexaoDate = new Date(`${dataVisita}T${horaVisita}:00`);
+    const dataConexaoIso = isNaN(dataConexaoDate) ? null : dataConexaoDate.toISOString();
+
     const baseVisita = {
       cr4a1_visita_id: editingVisita?.cr4a1_visita_id,
       cr4a1_cliente: cliente,
@@ -350,7 +368,9 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       cr4a1_visitante: visitante,
       cr4a1_filial: filialFiltro === 'Todas' ? currentUser?.cr4a1_unidade : filialFiltro,
       cr4a1_data_visita: dataVisita,
-      cr4a1_periodo_visita: periodoString
+      cr4a1_periodo_visita: periodoString,
+      cr4a1_dataconexao: dataConexaoIso,
+      cr4a1_dataconexaotoday: dataVisitaText
     };
 
     if (editingVisita) {
@@ -361,12 +381,17 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       let interval = parseInt(periodo, 10) || 0;
 
       if (interval > 0) {
-        let currentDate = new Date(dataVisita);
+        let currentDate = new Date(`${dataVisita}T12:00:00`);
         for (let i = 0; i < 5; i++) {
           currentDate = getNextBusinessDay(currentDate, interval);
+          const nextDateStr = currentDate.toISOString().split('T')[0];
+          const nextDataConexaoDate = new Date(`${nextDateStr}T${horaVisita}:00`);
+          
           visitasToCreate.push({
             ...baseVisita,
-            cr4a1_data_visita: currentDate.toISOString().split('T')[0]
+            cr4a1_data_visita: nextDateStr,
+            cr4a1_dataconexao: isNaN(nextDataConexaoDate) ? null : nextDataConexaoDate.toISOString(),
+            cr4a1_dataconexaotoday: `${nextDateStr.split('-').reverse().join('/')} ${horaVisita}`
           });
         }
       }
@@ -429,11 +454,11 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
                 {filteredOrgs.map(org => (
                   <div
-                    key={org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
+                    key={org.cr4a1_id_org || org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
                     onMouseDown={() => {
                       setSearchOrg(org.cr4a1_novacoluna);
                       setCliente(org.cr4a1_novacoluna);
-                      setClienteId(org.cr4a1_echoe_organizacoesid || '');
+                      setClienteId(org.cr4a1_id_org || '');
                       setIsOpenDropdown(false);
                     }}
                     style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }}
@@ -455,6 +480,11 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
             <div className="input-group" style={{ flex: 1 }}>
               <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Data Inicial</label>
               <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+            </div>
+
+            <div className="input-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hora</label>
+              <input type="time" value={horaVisita} onChange={e => setHoraVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
             </div>
 
             <div className="input-group" style={{ flex: 1 }}>
@@ -666,10 +696,19 @@ function App() {
 
     // Visita
     if (draggedEvent.isVisitaPrincipal && draggedEvent.originalData) {
+      const originalTime = draggedEvent.originalData.cr4a1_dataconexao
+        ? (() => { const d = new Date(draggedEvent.originalData.cr4a1_dataconexao); return isNaN(d) ? '08:00' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()
+        : '08:00';
+      
+      const newConexaoDate = new Date(`${newDateStr}T${originalTime}:00`);
+
       const updatedVisita = {
         ...draggedEvent.originalData,
         cr4a1_data_visita: newDateStr,
+        cr4a1_dataconexao: isNaN(newConexaoDate) ? null : newConexaoDate.toISOString(),
+        cr4a1_dataconexaotoday: `${newDateStr.split('-').reverse().join('/')} ${originalTime}`
       };
+      
       try {
         await updateVisitas(updatedVisita);
         toast.success('Visita reagendada!');
