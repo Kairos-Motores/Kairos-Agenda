@@ -1667,7 +1667,27 @@ function App() {
                                 allUsers={allUsers}
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
-                                onDayClick={appMode === 'visitas' ? handleDayClick : undefined}
+                                onDayClick={(dateStr) => {
+                                  // 1. Busca os eventos específicos do dia clicado
+                                  const eventosDoDia = handleGetEventsForDay(dateStr);
+
+                                  if (appMode === 'visitas') {
+                                    // 2. Filtra para ver se há visitas principais
+                                    const visitasDoDia = eventosDoDia.filter(e => e.isVisitaPrincipal);
+
+                                    if (visitasDoDia.length > 0) {
+                                      // 3. Se houver, abre o modal de cards e interrompe a navegação
+                                      handleDayClick(dateStr, visitasDoDia);
+                                      return;
+                                    }
+                                  }
+
+                                  // 4. Comportamento padrão (agenda normal ou dia sem visitas): 
+                                  // Navega para a visão detalhada do dia
+                                  const [y, m, d] = dateStr.split('-');
+                                  setCurrentDate(new Date(y, parseInt(m) - 1, d));
+                                  setView('day');
+                                }}
                               />
                             </div>
                           </div>
