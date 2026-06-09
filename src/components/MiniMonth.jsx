@@ -243,45 +243,77 @@ export const MiniMonth = ({
                   {dayNumber}
 
                   {isDetailed ? (
-                    /* APENAS MODO VISITAS (isDetailed): Renderiza a lista de eventos com texto */
-                    activeEvents.map((event, idx) => {
-                      const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
-                      return (
-                        <Draggable
-                          key={event.cr4a1_agenda_kairosid}
-                          draggableId={event.cr4a1_agenda_kairosid}
-                          index={idx}
+                    /* ============================================================
+                       MODO VISITAS (isDetailed): contador + lista de eventos
+                       ============================================================ */
+                    <>
+                      {/* Se houver múltiplas visitas E a prop onDayClick existir, mostra o contador */}
+                      {activeEvents.length > 1 && onDayClick ? (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDayClick(dateStr, activeEvents);
+                          }}
+                          style={{
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            color: '#fff',
+                            borderRadius: '4px',
+                            padding: '2px 4px',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            marginTop: '2px',
+                            width: '100%',
+                          }}
                         >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditEvent(event);
-                              }}
-                              style={{
-                                ...provided.draggableProps.style,
-                                opacity: snapshot.isDragging ? 0.7 : 1,
-                                cursor: 'grab',
-                                userSelect: 'none',
-                                width: '100%',
-                                marginTop: '1px',
-                              }}
+                          {activeEvents.length} visitas
+                        </div>
+                      ) : (
+                        /* Caso contrário, renderiza cada evento (1 ou sem onDayClick) */
+                        activeEvents.map((event, idx) => {
+                          const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
+                          return (
+                            <Draggable
+                              key={event.cr4a1_agenda_kairosid}
+                              draggableId={event.cr4a1_agenda_kairosid}
+                              index={idx}
                             >
-                              <MarqueeText
-                                text={event.cr4a1_titulo}
-                                color={eventColor}
-                                onClick={() => {}}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditEvent(event);
+                                  }}
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    opacity: snapshot.isDragging ? 0.7 : 1,
+                                    cursor: 'grab',
+                                    userSelect: 'none',
+                                    width: '100%',
+                                    marginTop: '1px',
+                                  }}
+                                >
+                                  <MarqueeText
+                                    text={event.cr4a1_titulo}
+                                    color={eventColor}
+                                    onClick={() => {}}
+                                  />
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })
+                      )}
+                    </>
                   ) : (
-                    /* APENAS MODO CALENDÁRIO COMUM: Renderiza bolinhas em tonalidade mais viva */
+                    /* ============================================================
+                       MODO CALENDÁRIO COMUM: bolinhas coloridas
+                       ============================================================ */
                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '3px', marginTop: '4px' }}>
                       {activeEvents
                         .map(e => userColorMap[e.cr4a1_user_login] || '#ccc')
