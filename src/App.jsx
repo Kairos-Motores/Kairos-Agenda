@@ -386,7 +386,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
           currentDate = getNextBusinessDay(currentDate, interval);
           const nextDateStr = currentDate.toISOString().split('T')[0];
           const nextDataConexaoDate = new Date(`${nextDateStr}T${horaVisita}:00`);
-          
+
           visitasToCreate.push({
             ...baseVisita,
             cr4a1_data_visita: nextDateStr,
@@ -635,7 +635,7 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
             <span className="material-symbols-rounded">close</span>
           </button>
         </div>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
           {visitas.map((v, idx) => (
             <div
@@ -671,7 +671,7 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>person</span>
                 {getUserName(v.cr4a1_user_login)}
               </div>
-              
+
               {v.originalData?.cr4a1_motivo && (
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
                   <strong>Motivo:</strong> {v.originalData.cr4a1_motivo}
@@ -724,7 +724,7 @@ function App() {
       const originalTime = draggedEvent.originalData.cr4a1_dataconexao
         ? (() => { const d = new Date(draggedEvent.originalData.cr4a1_dataconexao); return isNaN(d) ? '08:00' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()
         : '08:00';
-      
+
       const newConexaoDate = new Date(`${newDateStr}T${originalTime}:00`);
 
       const updatedVisita = {
@@ -733,7 +733,7 @@ function App() {
         cr4a1_dataconexao: isNaN(newConexaoDate) ? null : newConexaoDate.toISOString(),
         cr4a1_dataconexaotoday: `${newDateStr.split('-').reverse().join('/')} ${originalTime}`
       };
-      
+
       try {
         await updateVisitas(updatedVisita);
         toast.success('Visita reagendada!');
@@ -1700,7 +1700,24 @@ function App() {
                             const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
                             const dayEvents = handleGetEventsForDay(day);
                             return (
-                              <DroppableDay key={day.toString()} dateStr={dateStr} isToday={isToday} onClick={() => { setCurrentDate(day); setView('day'); }}>
+                              <DroppableDay
+                                key={day.toString()}
+                                dateStr={dateStr}
+                                isToday={isToday}
+                                onClick={() => {
+                                  if (appMode === 'visitas') {
+                                    // Se estiver no modo visitas, filtra apenas os eventos que são visitas e abre o modal
+                                    const visitasDoDia = dayEvents.filter(e => e.isVisitaPrincipal);
+                                    if (visitasDoDia.length > 0) {
+                                      handleDayClick(dateStr, visitasDoDia);
+                                    }
+                                  } else {
+                                    // Comportamento normal da agenda: entra na visão do dia
+                                    setCurrentDate(day);
+                                    setView('day');
+                                  }
+                                }}
+                              >
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.filter(e => !e.isIntervalo).map((e, idx) => {
