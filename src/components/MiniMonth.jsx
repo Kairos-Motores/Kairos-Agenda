@@ -242,62 +242,66 @@ export const MiniMonth = ({
                   {backgroundLayer}
                   {dayNumber}
 
-                  {/* Renderiza cada evento como um Draggable */}
-                  {activeEvents.map((event, idx) => {
-                    const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
-                    return (
-                      <Draggable
-                        key={event.cr4a1_agenda_kairosid}
-                        draggableId={event.cr4a1_agenda_kairosid}
-                        index={idx}
-                      >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditEvent(event);
-                            }}
-                            style={{
-                              ...provided.draggableProps.style, // ESSENCIAL para o posicionamento
-                              opacity: snapshot.isDragging ? 0.7 : 1,
-                              cursor: 'grab',
-                              userSelect: 'none',
-                              width: '100%',
-                              marginTop: '1px',
-                              // NENHUM transform ou transição que interfira
-                            }}
-                          >
-                            {isDetailed ? (
+                  {isDetailed ? (
+                    /* APENAS MODO VISITAS (isDetailed): Renderiza a lista de eventos com texto */
+                    activeEvents.map((event, idx) => {
+                      const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
+                      return (
+                        <Draggable
+                          key={event.cr4a1_agenda_kairosid}
+                          draggableId={event.cr4a1_agenda_kairosid}
+                          index={idx}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditEvent(event);
+                              }}
+                              style={{
+                                ...provided.draggableProps.style,
+                                opacity: snapshot.isDragging ? 0.7 : 1,
+                                cursor: 'grab',
+                                userSelect: 'none',
+                                width: '100%',
+                                marginTop: '1px',
+                              }}
+                            >
                               <MarqueeText
                                 text={event.cr4a1_titulo}
                                 color={eventColor}
                                 onClick={() => {}}
                               />
-                            ) : (
-                              <div
-                                style={{
-                                  backgroundColor: eventColor,
-                                  color: '#fff',
-                                  borderRadius: '3px',
-                                  padding: '1px 3px',
-                                  fontSize: '9px',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  lineHeight: 1.1,
-                                }}
-                              >
-                                {event.cr4a1_titulo}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })
+                  ) : (
+                    /* APENAS MODO CALENDÁRIO COMUM: Renderiza bolinhas em tonalidade mais viva */
+                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '3px', marginTop: '4px' }}>
+                      {activeEvents
+                        .map(e => userColorMap[e.cr4a1_user_login] || '#ccc')
+                        .filter((color, idx, arr) => arr.indexOf(color) === idx)
+                        .slice(0, 3)
+                        .map((color, idx) => (
+                          <div 
+                            key={idx} 
+                            style={{ 
+                              width: '6px', 
+                              height: '6px', 
+                              borderRadius: '50%', 
+                              backgroundColor: color, 
+                              filter: 'brightness(1.2)' 
+                            }} 
+                          />
+                        ))
+                      }
+                    </div>
+                  )}
 
                   {provided.placeholder}
                 </div>
