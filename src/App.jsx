@@ -605,6 +605,7 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 };
 
 // --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
+// --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
 const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
   if (!isOpen || !visitas || visitas.length === 0) return null;
 
@@ -613,16 +614,29 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
     return user?.cr4a1_nome_exibicao || login;
   };
 
+  // Função para extrair a hora corretamente dos dados originais
+  const getVisitaTime = (v) => {
+    if (v.originalData?.cr4a1_dataconexao) {
+      const d = new Date(v.originalData.cr4a1_dataconexao);
+      if (!isNaN(d)) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    return v.cr4a1_hora_inicio || '08:00';
+  };
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '20px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-title)', fontWeight: '700' }}>Visitas do dia</h3>
+          <h3 style={{ margin: 0, color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>view_agenda</span>
+            Visitas do Dia
+          </h3>
           <button onClick={onClose} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
             <span className="material-symbols-rounded">close</span>
           </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
           {visitas.map((v, idx) => (
             <div
               key={v.cr4a1_agenda_kairosid || idx}
@@ -631,25 +645,36 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
                 onClose();
               }}
               style={{
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '16px',
+                borderRadius: '16px',
                 background: 'var(--bg-secondary)',
                 cursor: 'pointer',
-                transition: 'background 0.2s',
+                transition: 'background 0.2s, transform 0.2s',
                 border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
               }}
               className="boing-effect"
             >
-              <div style={{ fontWeight: '600', color: 'var(--text-title)', marginBottom: '4px' }}>
-                {v.cr4a1_titulo}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ fontWeight: '700', color: 'var(--text-title)', fontSize: '15px' }}>
+                  {v.cr4a1_titulo.replace('📍 Visita: ', '')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff3e0', color: '#f57c00', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', flexShrink: 0 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>schedule</span>
+                  {getVisitaTime(v)}
+                </div>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-accent)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
+
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>person</span>
                 {getUserName(v.cr4a1_user_login)}
               </div>
-              {v.cr4a1_detalhes && (
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {v.cr4a1_detalhes}
+              
+              {v.originalData?.cr4a1_motivo && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+                  <strong>Motivo:</strong> {v.originalData.cr4a1_motivo}
                 </div>
               )}
             </div>
