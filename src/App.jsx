@@ -146,7 +146,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
         rel="noopener noreferrer"
         className="boing-effect"
         style={{
-          display: 'flex', alignItems: 'center', justify-content: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px', borderRadius: '16px',
           background: '#25D366', color: 'white', textDecoration: 'none', fontWeight: '700', fontSize: '14px',
           boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
         }}
