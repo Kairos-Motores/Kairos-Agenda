@@ -1668,25 +1668,27 @@ function App() {
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
                                 onDayClick={(dateStr) => {
-                                  // 1. Busca os eventos específicos do dia clicado
-                                  const eventosDoDia = handleGetEventsForDay(dateStr);
+                                  // 1. Converte a string 'yyyy-MM-dd' num objeto Date real para a pesquisa funcionar
+                                  const [y, m, d] = dateStr.split('-');
+                                  const targetDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+
+                                  // 2. Busca os eventos do dia usando o objeto Date correto
+                                  const eventosDoDia = handleGetEventsForDay(targetDate);
 
                                   if (appMode === 'visitas') {
-                                    // 2. Filtra para ver se há visitas principais
+                                    // 3. Filtra pelas visitas principais
                                     const visitasDoDia = eventosDoDia.filter(e => e.isVisitaPrincipal);
 
                                     if (visitasDoDia.length > 0) {
-                                      // 3. Se houver, abre o modal de cards e interrompe a navegação
+                                      // 4. Abre o mesmo modal da visualização mensal e interrompe o fluxo
                                       handleDayClick(dateStr, visitasDoDia);
                                       return;
                                     }
                                   }
 
-                                  // 4. Comportamento padrão (agenda normal ou dia sem visitas): 
-                                  // Navega para a visão detalhada do dia
-                                  const [y, m, d] = dateStr.split('-');
-                                  setCurrentDate(new Date(y, parseInt(m) - 1, d));
-                                  setView('day');
+                                  // 5. Comportamento padrão: se não for modo visitas, apenas abre o mês clicado
+                                  setCurrentDate(monthDate);
+                                  setView('month');
                                 }}
                               />
                             </div>
