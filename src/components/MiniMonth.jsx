@@ -223,7 +223,16 @@ export const MiniMonth = ({
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  onClick={() => isCurrentMonth && onSelectMonth(day)}
+                  onClick={(e) => {
+                    if (!isCurrentMonth) return;
+                    e.stopPropagation(); // Impede que o clique acione eventos do mês/ano inteiro
+                    
+                    if (onDayClick) {
+                      onDayClick(dateStr);
+                    } else {
+                      onSelectMonth(day);
+                    }
+                  }}
                   onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
                   onMouseLeave={!isDetailed ? handleDayLeave : undefined}
                   style={{
@@ -252,7 +261,9 @@ export const MiniMonth = ({
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDayClick(dateStr, activeEvents);
+                            if (onDayClick) {
+                              onDayClick(dateStr);
+                            }
                           }}
                           style={{
                             backgroundColor: 'rgba(0,0,0,0.5)',
