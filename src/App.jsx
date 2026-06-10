@@ -1661,33 +1661,45 @@ function App() {
                             }}>
                               <MiniMonth
                                 monthDate={monthDate}
-                                onSelectMonth={(d) => { setCurrentDate(d); setView('month'); }}
                                 getEventsForDay={handleGetEventsForDay}
                                 holidays={holidays}
                                 allUsers={allUsers}
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
-                                onDayClick={(dateStr) => {
-                                  // 1. Converte a string 'yyyy-MM-dd' num objeto Date real para a pesquisa funcionar
-                                  const [y, m, d] = dateStr.split('-');
-                                  const targetDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
 
-                                  // 2. Busca os eventos do dia usando o objeto Date correto
-                                  const eventosDoDia = handleGetEventsForDay(targetDate);
-
+                                /* 1. Se clicar diretamente na etiqueta de "X Visitas" */
+                                onDayClick={(dateStr, events = []) => {
                                   if (appMode === 'visitas') {
-                                    // 3. Filtra pelas visitas principais
+                                    const visitas = events.filter(e => e.isVisitaPrincipal);
+                                    if (visitas.length > 0) {
+                                      handleDayClick(dateStr, visitas);
+                                      return;
+                                    }
+                                  }
+                                }}
+
+                                /* 2. Se clicar em qualquer parte do quadrado do dia */
+                                onSelectMonth={(day) => {
+                                  if (appMode === 'visitas') {
+                                    // Formatar a data para o padrão 'yyyy-MM-dd' para o modal
+                                    const y = day.getFullYear();
+                                    const m = String(day.getMonth() + 1).padStart(2, '0');
+                                    const d = String(day.getDate()).padStart(2, '0');
+                                    const dateStr = `${y}-${m}-${d}`;
+
+                                    // Busca as visitas para o dia clicado
+                                    const eventosDoDia = handleGetEventsForDay(day);
                                     const visitasDoDia = eventosDoDia.filter(e => e.isVisitaPrincipal);
 
+                                    // Se houver visita, abre o modal e PARA o código aqui (não muda de ecrã)
                                     if (visitasDoDia.length > 0) {
-                                      // 4. Abre o mesmo modal da visualização mensal e interrompe o fluxo
                                       handleDayClick(dateStr, visitasDoDia);
                                       return;
                                     }
                                   }
 
-                                  // 5. Comportamento padrão: se não for modo visitas, apenas abre o mês clicado
-                                  setCurrentDate(monthDate);
+                                  // Comportamento original: se não for visita, abre o mês
+                                  setCurrentDate(day);
                                   setView('month');
                                 }}
                               />
