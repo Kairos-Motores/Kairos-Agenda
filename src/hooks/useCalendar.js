@@ -14,7 +14,7 @@ export const useCalendar = () => {
     const [notification, setNotification] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
-    
+
     // --- ESTADOS COMERCIAIS ---
     const [organizacoes, setOrganizacoes] = useState([]);
     const [visitas, setVisitas] = useState([]);
@@ -284,7 +284,7 @@ export const useCalendar = () => {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await response.json();
-            
+
             const permissoesUsuario = data.value?.[0]?.cr4a1_role || 'COMUM';
 
             if (data.value && data.value.length === 1) {
@@ -593,10 +593,10 @@ export const useCalendar = () => {
             const filter = encodeURIComponent(`cr4a1_novacoluna eq '${nomeCliente}'`);
             const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&$filter=${filter}`);
             const data = await response.json();
-            
+
             if (data.value && data.value.length > 0) {
                 const orgId = data.value[0].cr4a1_echoe_organizacoesid;
-                
+
                 const patchRes = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses&id=${orgId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -611,15 +611,45 @@ export const useCalendar = () => {
         }
     };
 
+    // 1. NOVA FUNÇÃO: Busca o título do visitante na tabela de credenciais
+    const getVisitanteTitle = async (login) => {
+        if (!login) return null;
+        try {
+            const filter = encodeURIComponent(`cr4a1_usu_x00e1_rio eq '${login}'`);
+            // Nota: O plural do Dataverse geralmente adiciona 'es'. 
+            // Se a API der erro 404, mude para 'cr4a1_credenciais' (sem o 'es').
+            const response = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$filter=${filter}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.value && data.value.length > 0 && data.value[0].cr4a1_title) {
+                    return data.value[0].cr4a1_title; // Retorna o valor bonito encontrado
+                }
+            }
+        } catch (error) {
+            console.warn("Erro ao buscar o title do visitante:", error);
+        }
+        return login; // Fallback de segurança: se falhar, grava o login original para não perder dados
+    };
+
+    // 2. ATUALIZADA: addVisitas agora converte o login no Title antes de enviar
     const addVisitas = async (visitasArray) => {
         try {
-            // Remove campos que não devem ser enviados na criação (ID automático e visita_id opcional)
-            const visitasParaEnviar = visitasArray.map(({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => ({
-                ...resto,
-                // Garante que a data seja enviada como DateTime completo (UTC)
-                cr4a1_data_visita: cr4a1_data_visita 
-                    ? new Date(cr4a1_data_visita + 'T00:00:00').toISOString() 
-                    : null
+            // Transformamos o .map em Promise.all para esperar as buscas no banco de credenciais
+            const visitasParaEnviar = await Promise.all(visitasArray.map(async ({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => {
+
+                // Tenta pegar o visitante da visita, ou assume o usuário logado
+                const loginParaBusca = resto.cr4a1_visitante || user;
+
+                // Vai buscar a correspondência na tabela credenciais
+                const titleReal = await getVisitanteTitle(loginParaBusca);
+
+                return {
+                    ...resto,
+                    cr4a1_visitante: titleReal, // Subsitui o login pelo valor encontrado em cr4a1_title
+                    cr4a1_data_visita: cr4a1_data_visita
+                        ? new Date(cr4a1_data_visita + 'T00:00:00').toISOString()
+                        : null
+                };
             }));
 
             const requests = visitasParaEnviar.map(visita =>
@@ -639,9 +669,8 @@ export const useCalendar = () => {
                 }
             }
 
-            // Tenta marcar a organização como recorrente, mas não bloqueia se falhar
             if (visitasArray.length > 0 && visitasArray[0].cr4a1_cliente) {
-                marcarOrganizacaoComRecorrencia(visitasArray[0].cr4a1_cliente).catch(() => {});
+                marcarOrganizacaoComRecorrencia(visitasArray[0].cr4a1_cliente).catch(() => { });
             }
 
             await fetchDadosComerciais();
@@ -651,16 +680,19 @@ export const useCalendar = () => {
         }
     };
 
+    // 3. ATUALIZADA: updateVisitas (Garante que edições não sobrescrevam o nome com o login)
     const updateVisitas = async (visitaData) => {
         try {
-            // Para atualização, mantém o ID da visita, mas também corrige a data
+            const loginParaBusca = visitaData.cr4a1_visitante || user;
+            const titleReal = await getVisitanteTitle(loginParaBusca);
+
             const payload = {
                 ...visitaData,
-                cr4a1_data_visita: visitaData.cr4a1_data_visita 
-                    ? new Date(visitaData.cr4a1_data_visita + 'T00:00:00').toISOString() 
+                cr4a1_visitante: titleReal, // Mantém o nome bonito
+                cr4a1_data_visita: visitaData.cr4a1_data_visita
+                    ? new Date(visitaData.cr4a1_data_visita + 'T00:00:00').toISOString()
                     : null
             };
-            // Remove campos que não devem ser enviados (caso existam)
             delete payload.cr4a1_id;
 
             const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaData.cr4a1_visita_id}`, {
@@ -673,14 +705,15 @@ export const useCalendar = () => {
                 const err = await response.text();
                 throw new Error(`Erro ${response.status}: ${err}`);
             }
-            
+
             if (visitaData.cr4a1_cliente) {
-                marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente).catch(() => {});
+                marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente).catch(() => { });
             }
 
+            // Atualiza os cards visuais imediatamente com o payload ajustado
             setVisitas(prevVisitas =>
                 prevVisitas.map(v =>
-                    v.cr4a1_visita_id === visitaData.cr4a1_visita_id ? visitaData : v
+                    v.cr4a1_visita_id === visitaData.cr4a1_visita_id ? payload : v
                 )
             );
         } catch (error) {
