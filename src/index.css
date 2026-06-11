@@ -489,11 +489,20 @@ body {
 .mini-month-card {
   position: relative;
   overflow: visible !important;
-  background: var(--bg-primary);
   border-radius: 16px;
   padding: 16px;
-  border: 1px solid var(--border-color);
-  transition: var(--transition-elastic);
+  border: 1.5px solid transparent !important;
+  background: 
+    linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
+    conic-gradient(from var(--border-angle), var(--text-accent), var(--border-color) 45%, var(--text-accent) 90%, var(--text-accent)) border-box !important;
+  animation: rotate-border 8s linear infinite !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: var(--transition-elastic), transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.mini-month-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.04) !important;
+  transform: translateY(-2px);
 }
 
 .mini-month-header {
@@ -628,4 +637,38 @@ button:active {
 .sidebar-material {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* --- Animated Gradient Borders and Box Shadows --- */
+
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rotate-border {
+  0% {
+    --border-angle: 0deg;
+  }
+  100% {
+    --border-angle: 360deg;
+  }
+}
+
+.animated-border-card {
+  position: relative;
+  z-index: 0;
+  border: 1.5px solid transparent !important;
+  background: 
+    linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
+    conic-gradient(from var(--border-angle), var(--border-gradient-color, var(--text-accent)), var(--border-color) 45%, var(--border-gradient-color, var(--text-accent)) 90%, var(--border-gradient-color, var(--text-accent))) border-box !important;
+  animation: rotate-border 8s linear infinite !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease !important;
+}
+
+.animated-border-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.04) !important;
+  transform: translateY(-3px) !important;
 }

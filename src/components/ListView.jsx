@@ -93,20 +93,16 @@ export const ListView = ({
     return (
       <div
         key={event.cr4a1_agenda_kairosid}
+        className="animated-border-card"
         style={{
-          background: 'var(--bg-primary)',
-          border: `1px solid ${currentWorkspace ? workspaceColor : 'var(--border-color)'}`,
+          '--border-gradient-color': currentWorkspace ? workspaceColor : 'var(--text-accent)',
           borderRadius: cardRadius,
           padding: cardPadding,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)',
           position: 'relative',
-          transition: 'box-shadow 0.2s, border-color 0.2s',
         }}
-        onMouseEnter={(e) => { if (!isMobile) e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.06)'; }}
-        onMouseLeave={(e) => { if (!isMobile) e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'; }}
       >
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
