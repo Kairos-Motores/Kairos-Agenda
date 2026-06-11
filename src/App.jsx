@@ -310,6 +310,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   const [horaVisita, setHoraVisita] = useState(getInitialTime());
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
   const [filialFiltro, setFilialFiltro] = useState(editingVisita?.cr4a1_filial || currentUser?.cr4a1_unidade || 'Todas');
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState('Todas');
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
   const podeTrocarFilial = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
@@ -319,9 +320,45 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   const usuariosComerciais = useMemo(() => {
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
-      return userRoles.includes('COMERCIAL') || u.cr4a1_username === currentUser?.cr4a1_username;
+
+      // Verifica se o usuário possui alguma das roles permitidas
+      const temRolePermitida = userRoles.includes('COMERCIAL') ||
+        userRoles.includes('COORD COMERCIAL') ||
+        userRoles.includes('ADMIN');
+
+      return temRolePermitida || u.cr4a1_username === currentUser?.cr4a1_username;
     });
   }, [allUsers, currentUser]);
+
+  const unidadesDisponiveis = useMemo(() => {
+    // Nota: Substitua 'cr4a1_unidade' pelo nome exato da sua coluna de unidade no Dataverse, se for diferente
+    const unidades = organizacoes
+      .map(org => org.cr4a1_unidade)
+      .filter(Boolean); // Remove vazios ou nulos
+    return [...new Set(unidades)]; // Remove as duplicatas
+  }, [organizacoes]);
+
+  // 3. Filtrar os Clientes (Organizações) com base no botão clicado
+  const clientesFiltrados = useMemo(() => {
+    if (unidadeSelecionada === 'Todas') return organizacoes;
+    return organizacoes.filter(org => org.cr4a1_unidade === unidadeSelecionada);
+  }, [organizacoes, unidadeSelecionada]);
+
+  // 4. Filtrar os Visitantes com base no botão clicado (mantendo a regra de segurança)
+  const visitantesFiltrados = useMemo(() => {
+    const baseUsuarios = allUsers.filter(u => {
+      const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
+      const temRolePermitida = userRoles.includes('COMERCIAL') ||
+        userRoles.includes('COORD COMERCIAL') ||
+        userRoles.includes('ADMIN');
+
+      return temRolePermitida || u.cr4a1_username === currentUser?.cr4a1_username;
+    });
+
+    if (unidadeSelecionada === 'Todas') return baseUsuarios;
+    // Filtra o usuário pela unidade dele
+    return baseUsuarios.filter(u => u.cr4a1_unidade === unidadeSelecionada);
+  }, [allUsers, currentUser, unidadeSelecionada]);
 
   const filteredOrgs = useMemo(() => {
     return organizacoes.filter(org => {
