@@ -642,7 +642,6 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 };
 
 // --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
-// --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
 const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
   if (!isOpen || !visitas || visitas.length === 0) return null;
 
@@ -709,9 +708,18 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
                 {getUserName(v.cr4a1_user_login)}
               </div>
 
-              {v.originalData?.cr4a1_motivo && (
+              {(v.originalData?.cr4a1_motivo || v.originalData?.cr4a1_filial) && (
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
-                  <strong>Motivo:</strong> {v.originalData.cr4a1_motivo}
+                  {v.originalData?.cr4a1_motivo && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>Motivo:</strong> {v.originalData.cr4a1_motivo}
+                    </div>
+                  )}
+                  {v.originalData?.cr4a1_filial && (
+                    <div>
+                      <strong>Unidade:</strong> {v.originalData.cr4a1_filial}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
