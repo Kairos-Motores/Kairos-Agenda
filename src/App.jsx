@@ -309,40 +309,65 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   const [dataVisita, setDataVisita] = useState(getInitialDate());
   const [horaVisita, setHoraVisita] = useState(getInitialTime());
   const [periodo, setPeriodo] = useState(editingVisita?.cr4a1_periodo_visita || 0);
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState('Todas');
   const [filialFiltro, setFilialFiltro] = useState(editingVisita?.cr4a1_filial || currentUser?.cr4a1_unidade || 'Todas');
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState('Todas');
 
   const canAssign = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
+  const podeTrocarFilial = hasRole('COORD COMERCIAL') || hasRole('ADMIN');
 
-  // Lógica de Unidades Dinâmicas
+  const unidades = ['Todas', 'São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
+
+  const usuariosComerciais = useMemo(() => {
+    return allUsers.filter(u => {
+      const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
+
+      // Verifica se o usuário possui alguma das roles permitidas
+      const temRolePermitida = userRoles.includes('COMERCIAL') ||
+        userRoles.includes('COORD COMERCIAL') ||
+        userRoles.includes('ADMIN');
+
+      return temRolePermitida || u.cr4a1_username === currentUser?.cr4a1_username;
+    });
+  }, [allUsers, currentUser]);
+
   const unidadesDisponiveis = useMemo(() => {
-    const unidades = organizacoes.map(org => org.cr4a1_unidade).filter(Boolean);
-    return [...new Set(unidades)];
+    // Nota: Substitua 'cr4a1_unidade' pelo nome exato da sua coluna de unidade no Dataverse, se for diferente
+    const unidades = organizacoes
+      .map(org => org.cr4a1_unidade)
+      .filter(Boolean); // Remove vazios ou nulos
+    return [...new Set(unidades)]; // Remove as duplicatas
   }, [organizacoes]);
 
-  // Filtro de Clientes por Unidade
+  // 3. Filtrar os Clientes (Organizações) com base no botão clicado
   const clientesFiltrados = useMemo(() => {
-    let list = organizacoes;
-    if (unidadeSelecionada !== 'Todas') {
-      list = list.filter(org => org.cr4a1_unidade === unidadeSelecionada);
-    }
-    // Mantém a busca textual
-    return list.filter(org => !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase()));
-  }, [organizacoes, unidadeSelecionada, searchOrg]);
+    if (unidadeSelecionada === 'Todas') return organizacoes;
+    return organizacoes.filter(org => org.cr4a1_unidade === unidadeSelecionada);
+  }, [organizacoes, unidadeSelecionada]);
 
-  // Filtro de Visitantes por Unidade
+  // 4. Filtrar os Visitantes com base no botão clicado (mantendo a regra de segurança)
   const visitantesFiltrados = useMemo(() => {
     const baseUsuarios = allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
-      const temRolePermitida = userRoles.includes('COMERCIAL') || 
-                               userRoles.includes('COORD COMERCIAL') || 
-                               userRoles.includes('ADMIN');
+      const temRolePermitida = userRoles.includes('COMERCIAL') ||
+        userRoles.includes('COORD COMERCIAL') ||
+        userRoles.includes('ADMIN');
+
       return temRolePermitida || u.cr4a1_username === currentUser?.cr4a1_username;
     });
 
     if (unidadeSelecionada === 'Todas') return baseUsuarios;
+    // Filtra o usuário pela unidade dele
     return baseUsuarios.filter(u => u.cr4a1_unidade === unidadeSelecionada);
   }, [allUsers, currentUser, unidadeSelecionada]);
+
+  const filteredOrgs = useMemo(() => {
+    return organizacoes.filter(org => {
+      const matchesUnit = filialFiltro === 'Todas' || !org.cr4a1_filial_origem || org.cr4a1_filial_origem === filialFiltro;
+      const isDropdownMode = searchOrg === cliente;
+      const matchesSearch = isDropdownMode || !searchOrg || org.cr4a1_novacoluna?.toLowerCase().includes(searchOrg.toLowerCase());
+      return matchesUnit && matchesSearch;
+    });
+  }, [organizacoes, searchOrg, cliente, filialFiltro]);
 
   if (!isOpen) return null;
 
@@ -367,6 +392,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
     }
 
     const periodoString = String(parseInt(periodo, 10) || 0);
+
     const dataVisitaText = `${dataVisita.split('-').reverse().join('/')} ${horaVisita}`;
     const dataConexaoDate = new Date(`${dataVisita}T${horaVisita}:00`);
     const dataConexaoIso = isNaN(dataConexaoDate) ? null : dataConexaoDate.toISOString();
@@ -377,7 +403,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
       cr4a1_cliente_id: clienteId,
       cr4a1_motivo: motivo,
       cr4a1_visitante: visitante,
-      cr4a1_filial: unidadeSelecionada === 'Todas' ? (currentUser?.cr4a1_unidade || 'Geral') : unidadeSelecionada,
+      cr4a1_filial: filialFiltro === 'Todas' ? currentUser?.cr4a1_unidade : filialFiltro,
       cr4a1_data_visita: dataVisita,
       cr4a1_periodo_visita: periodoString,
       cr4a1_dataconexao: dataConexaoIso,
@@ -420,17 +446,16 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Botões de Filtro de Unidade para Admins/Coords */}
-          {canAssign && (
-            <div style={{ marginBottom: '8px' }}>
-              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Selecionar Unidade</label>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => setUnidadeSelecionada('Todas')} style={{ padding: '6px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: unidadeSelecionada === 'Todas' ? '#f57c00' : 'var(--bg-secondary)', color: unidadeSelecionada === 'Todas' ? 'white' : 'var(--text-primary)', fontSize: '12px' }}>Todas</button>
-                {unidadesDisponiveis.map(u => (
-                  <button key={u} type="button" onClick={() => setUnidadeSelecionada(u)} style={{ padding: '6px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: unidadeSelecionada === u ? '#f57c00' : 'var(--bg-secondary)', color: unidadeSelecionada === u ? 'white' : 'var(--text-primary)', fontSize: '12px' }}>{u}</button>
-                ))}
-              </div>
+          {podeTrocarFilial && (
+            <div className="input-group">
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Filtrar por Filial</label>
+              <select
+                value={filialFiltro}
+                onChange={e => setFilialFiltro(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+              >
+                {unidades.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
           )}
 
@@ -440,17 +465,42 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
               <input
                 type="text"
                 value={searchOrg}
-                onChange={e => { setSearchOrg(e.target.value); setCliente(e.target.value); setClienteId(''); setIsOpenDropdown(true); }}
+                onChange={e => {
+                  setSearchOrg(e.target.value);
+                  setCliente(e.target.value);
+                  setClienteId('');
+                  setIsOpenDropdown(true);
+                }}
                 onFocus={() => setIsOpenDropdown(true)}
                 onBlur={() => setTimeout(() => setIsOpenDropdown(false), 200)}
-                placeholder="Selecione o cliente..."
-                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                placeholder="Selecione ou pesquise o cliente..."
+                style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
               />
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpenDropdown(!isOpenDropdown); }}
+                style={{ position: 'absolute', right: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%', padding: '0 8px' }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                  {isOpenDropdown ? 'arrow_drop_up' : 'arrow_drop_down'}
+                </span>
+              </button>
             </div>
-            {isOpenDropdown && clientesFiltrados.length > 0 && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '150px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
-                {clientesFiltrados.map(org => (
-                  <div key={org.cr4a1_echoe_organizacoesid} onMouseDown={() => { setSearchOrg(org.cr4a1_novacoluna); setCliente(org.cr4a1_novacoluna); setClienteId(org.cr4a1_echoe_organizacoesid); setIsOpenDropdown(false); }} style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', fontSize: '13px' }}>
+
+            {isOpenDropdown && filteredOrgs.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', maxHeight: '180px', overflowY: 'auto', zIndex: 10100, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: '4px' }}>
+                {filteredOrgs.map(org => (
+                  <div
+                    key={org.cr4a1_id_org || org.cr4a1_echoe_organizacoesid || org.cr4a1_novacoluna}
+                    onMouseDown={() => {
+                      setSearchOrg(org.cr4a1_novacoluna);
+                      setCliente(org.cr4a1_novacoluna);
+                      setClienteId(org.cr4a1_id_org || '');
+                      setIsOpenDropdown(false);
+                    }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', fontSize: '13px', transition: 'background 0.2s' }}
+                    className="dropdown-item-select"
+                  >
                     {org.cr4a1_novacoluna}
                   </div>
                 ))}
@@ -459,26 +509,32 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
           </div>
 
           <div className="input-group">
-            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Motivo</label>
-            <input type="text" value={motivo} onChange={e => setMotivo(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Motivo da Visita</label>
+            <input type="text" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex: Apresentação de propostas" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
           </div>
 
           <div style={{ display: 'flex', gap: '16px' }}>
             <div className="input-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Data</label>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Data Inicial</label>
               <input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
             </div>
+
             <div className="input-group" style={{ flex: 1 }}>
               <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hora</label>
               <input type="time" value={horaVisita} onChange={e => setHoraVisita(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+            </div>
+
+            <div className="input-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Período (Dias Úteis)</label>
+              <input type="number" min="0" value={periodo} onChange={e => setPeriodo(e.target.value)} disabled={!!editingVisita} placeholder="0 = Única" style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', opacity: editingVisita ? 0.6 : 1 }} />
             </div>
           </div>
 
           {canAssign && (
             <div className="input-group">
-              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Delegar Visitante</label>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Delegar Visitante (Apenas Comerciais)</label>
               <select value={visitante} onChange={e => setVisitante(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}>
-                {visitantesFiltrados.map(u => (
+                {usuariosComerciais.map(u => (
                   <option key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</option>
                 ))}
               </select>
@@ -487,8 +543,8 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '32px' }}>
-          <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: 'transparent' }}>Cancelar</button>
-          <button onClick={handleSave} style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: '#f57c00', color: 'white' }}>Guardar</button>
+          <button onClick={onClose} className="btn-secondary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px' }}>Cancelar</button>
+          <button onClick={handleSave} className="btn-primary boing-effect" style={{ padding: '12px 24px', borderRadius: '12px', background: '#f57c00', color: 'white' }}>Guardar</button>
         </div>
       </div>
     </div>
