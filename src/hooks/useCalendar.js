@@ -176,19 +176,27 @@ export const useCalendar = () => {
         } catch (error) { console.log("Usando tipos locais"); }
     }, []);
 
+    // 1. LEITURA: Filtragem das visitas com base no User Role
     const fetchDadosComerciais = useCallback(async () => {
         try {
             const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses`);
             const dataOrgs = await resOrgs.json();
             setOrganizacoes(dataOrgs.value || []);
 
-            const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases`);
+            // Filtro de Segurança
+            let filtroVisitas = '';
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            if (!permissoesElevadas.includes(userRole)) {
+                filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`; 
+            }
+
+            const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases${filtroVisitas}`);
             const dataVisitas = await resVisitas.json();
             setVisitas(dataVisitas.value || []);
         } catch (error) {
             console.error("Erro ao carregar dados comerciais:", error);
         }
-    }, []);
+    }, [user, userRole]);
 
     const fetchEvents = useCallback(async () => {
         if (workspaces.length === 0) {
@@ -262,7 +270,8 @@ export const useCalendar = () => {
 
     const moveEvent = async (eventId, newDate) => {
         const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
-        if (!event || (userRole !== 'SECRETARIA' && event.cr4a1_user_login !== user)) return;
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        if (!event || (!permissoesElevadas.includes(userRole) && event.cr4a1_user_login !== user)) return;
 
         await updateEvent({
             ...event,
@@ -303,7 +312,9 @@ export const useCalendar = () => {
     };
 
     const addEvent = async (eventData) => {
-        const targetUser = eventData.targetUser || (userRole === 'SECRETARIA' ? viewedUser : user);
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        const targetUser = eventData.targetUser || (permissoesElevadas.includes(userRole) ? viewedUser : user);
+        
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
 
@@ -409,7 +420,11 @@ export const useCalendar = () => {
         const finalId = (typeof id === 'object') ? id.cr4a1_agenda_kairosid : id;
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
-        if (userRole !== 'SECRETARIA' && finalOwner !== user) { toast.error("Permissão negada."); return; }
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) { 
+            toast.error("Permissão negada."); 
+            return; 
+        }
 
         setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== finalId));
 
@@ -587,7 +602,7 @@ export const useCalendar = () => {
         }
     };
 
-    // --- FUNÇÕES COMERCIAIS CORRIGIDAS ---
+    // --- FUNÇÕES COMERCIAIS CORRIGIDAS E BLINDADAS ---
     const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {
         try {
             const filter = encodeURIComponent(`cr4a1_novacoluna eq '${nomeCliente}'`);
@@ -611,41 +626,39 @@ export const useCalendar = () => {
         }
     };
 
-    // 1. NOVA FUNÇÃO: Busca o título do visitante na tabela de credenciais
+    // Função que converte o login do utilizador no nome real ("cr4a1_title")
     const getVisitanteTitle = async (login) => {
         if (!login) return null;
         try {
             const filter = encodeURIComponent(`cr4a1_usu_x00e1_rio eq '${login}'`);
-            // Nota: O plural do Dataverse geralmente adiciona 'es'. 
-            // Se a API der erro 404, mude para 'cr4a1_credenciais' (sem o 'es').
             const response = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$filter=${filter}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.value && data.value.length > 0 && data.value[0].cr4a1_title) {
-                    return data.value[0].cr4a1_title; // Retorna o valor bonito encontrado
+                    return data.value[0].cr4a1_title; 
                 }
             }
         } catch (error) {
             console.warn("Erro ao buscar o title do visitante:", error);
         }
-        return login; // Fallback de segurança: se falhar, grava o login original para não perder dados
+        return login; 
     };
 
-    // 2. ATUALIZADA: addVisitas agora converte o login no Title antes de enviar
+    // ESCRITA: Criação de visitas com validação de permissões
     const addVisitas = async (visitasArray) => {
         try {
-            // Transformamos o .map em Promise.all para esperar as buscas no banco de credenciais
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+
             const visitasParaEnviar = await Promise.all(visitasArray.map(async ({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => {
-
-                // Tenta pegar o visitante da visita, ou assume o usuário logado
-                const loginParaBusca = resto.cr4a1_visitante || user;
-
-                // Vai buscar a correspondência na tabela credenciais
+                
+                // Força a gravar no próprio utilizador se não for chefe
+                const loginParaBusca = podeAgendarParaOutros ? (resto.cr4a1_visitante || user) : user;
                 const titleReal = await getVisitanteTitle(loginParaBusca);
 
                 return {
                     ...resto,
-                    cr4a1_visitante: titleReal, // Subsitui o login pelo valor encontrado em cr4a1_title
+                    cr4a1_visitante: titleReal, 
                     cr4a1_data_visita: cr4a1_data_visita
                         ? new Date(cr4a1_data_visita + 'T00:00:00').toISOString()
                         : null
@@ -680,15 +693,19 @@ export const useCalendar = () => {
         }
     };
 
-    // 3. ATUALIZADA: updateVisitas (Garante que edições não sobrescrevam o nome com o login)
+    // ESCRITA: Edição de visitas com validação de permissões
     const updateVisitas = async (visitaData) => {
         try {
-            const loginParaBusca = visitaData.cr4a1_visitante || user;
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+
+            // Garante que o utilizador comum só edita/mantém o seu próprio nome
+            const loginParaBusca = podeAgendarParaOutros ? (visitaData.cr4a1_visitante || user) : user;
             const titleReal = await getVisitanteTitle(loginParaBusca);
 
             const payload = {
                 ...visitaData,
-                cr4a1_visitante: titleReal, // Mantém o nome bonito
+                cr4a1_visitante: titleReal, 
                 cr4a1_data_visita: visitaData.cr4a1_data_visita
                     ? new Date(visitaData.cr4a1_data_visita + 'T00:00:00').toISOString()
                     : null
@@ -710,7 +727,6 @@ export const useCalendar = () => {
                 marcarOrganizacaoComRecorrencia(visitaData.cr4a1_cliente).catch(() => { });
             }
 
-            // Atualiza os cards visuais imediatamente com o payload ajustado
             setVisitas(prevVisitas =>
                 prevVisitas.map(v =>
                     v.cr4a1_visita_id === visitaData.cr4a1_visita_id ? payload : v
@@ -749,7 +765,7 @@ export const useCalendar = () => {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
-        loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent,
+        loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile,
