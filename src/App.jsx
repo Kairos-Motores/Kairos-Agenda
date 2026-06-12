@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';   // 👈 ESSENCIAL para o DayTooltip
 import { Toaster, toast } from 'react-hot-toast';
 import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
