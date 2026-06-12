@@ -1813,14 +1813,14 @@ function App() {
               ) : (
                 <>
                   {view === 'year' && (
-                    <div className="mini-month-grid" style={{
-                      display: 'grid',
-                      gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1.5fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
-                      justifyContent: 'center',
-                      gap: '24px',
-                      overflow: 'visible',
-                      padding: appMode === 'visitas' ? '8px' : '0'
-                    }}>
+                    <div
+                      className="mini-month-grid"
+                      style={appMode === 'visitas' ? {
+                        gridTemplateColumns: 'repeat(2, 1.5fr)',
+                        padding: '8px',
+                        maxWidth: '100%'
+                      } : undefined}
+                    >
                       {Array.from({ length: 12 }, (_, i) => {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
