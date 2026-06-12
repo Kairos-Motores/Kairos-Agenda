@@ -503,6 +503,17 @@ body {
 .mini-month-card:hover {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18), 0 8px 20px rgba(0, 0, 0, 0.1) !important;
   transform: translateY(-4px);
+  z-index: 10 !important;
+}
+
+.mini-month-container {
+  position: relative;
+  z-index: 1;
+  transition: z-index 0.3s ease;
+}
+
+.mini-month-container:hover {
+  z-index: 10 !important;
 }
 
 .mini-month-header {
