@@ -168,7 +168,6 @@ const DraggableEvent = ({ event, index, children }) => {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           style={{
-            // ESSENCIAL: espalha o estilo da biblioteca (contém transform e transition)
             ...provided.draggableProps.style,
             opacity: snapshot.isDragging ? 0.7 : 1,
             cursor: 'grab',
@@ -185,7 +184,7 @@ const DraggableEvent = ({ event, index, children }) => {
   );
 };
 
-const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
+const DroppableDay = ({ dateStr, children, isToday, onClick, onMouseEnter, onMouseLeave }) => {
   return (
     <Droppable droppableId={dateStr}>
       {(provided, snapshot) => (
@@ -193,6 +192,8 @@ const DroppableDay = ({ dateStr, children, isToday, onClick }) => {
           ref={provided.innerRef}
           {...provided.droppableProps}
           onClick={onClick}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
           className={`calendar-day-card ${snapshot.isDraggingOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}
           style={{
             overflow: 'hidden',
@@ -321,7 +322,6 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
     return allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
 
-      // Verifica se o usuário possui alguma das roles permitidas
       const temRolePermitida = userRoles.includes('COMERCIAL') ||
         userRoles.includes('COORD COMERCIAL') ||
         userRoles.includes('ADMIN');
@@ -331,20 +331,17 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
   }, [allUsers, currentUser]);
 
   const unidadesDisponiveis = useMemo(() => {
-    // Nota: Substitua 'cr4a1_unidade' pelo nome exato da sua coluna de unidade no Dataverse, se for diferente
     const unidades = organizacoes
       .map(org => org.cr4a1_unidade)
-      .filter(Boolean); // Remove vazios ou nulos
-    return [...new Set(unidades)]; // Remove as duplicatas
+      .filter(Boolean);
+    return [...new Set(unidades)];
   }, [organizacoes]);
 
-  // 3. Filtrar os Clientes (Organizações) com base no botão clicado
   const clientesFiltrados = useMemo(() => {
     if (unidadeSelecionada === 'Todas') return organizacoes;
     return organizacoes.filter(org => org.cr4a1_unidade === unidadeSelecionada);
   }, [organizacoes, unidadeSelecionada]);
 
-  // 4. Filtrar os Visitantes com base no botão clicado (mantendo a regra de segurança)
   const visitantesFiltrados = useMemo(() => {
     const baseUsuarios = allUsers.filter(u => {
       const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
@@ -356,7 +353,6 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
     });
 
     if (unidadeSelecionada === 'Todas') return baseUsuarios;
-    // Filtra o usuário pela unidade dele
     return baseUsuarios.filter(u => u.cr4a1_unidade === unidadeSelecionada);
   }, [allUsers, currentUser, unidadeSelecionada]);
 
@@ -650,7 +646,6 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
     return user?.cr4a1_nome_exibicao || login;
   };
 
-  // Função para extrair a hora corretamente dos dados originais
   const getVisitaTime = (v) => {
     if (v.originalData?.cr4a1_dataconexao) {
       const d = new Date(v.originalData.cr4a1_dataconexao);
@@ -730,6 +725,75 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
   );
 };
 
+// --- COMPONENTE DE TOOLTIP PARA A VISUALIZAÇÃO MENSAL ---
+const DayTooltip = ({ dayData, allUsers, onEditEvent, onMouseEnter, onMouseLeave }) => {
+  if (!dayData) return null;
+  const { dateStr, events, rect } = dayData;
+  if (!rect) return null;
+
+  const userColorMap = allUsers.reduce((acc, curr) => {
+    acc[curr.cr4a1_username] = curr.cr4a1_cor || '#ccc';
+    return acc;
+  }, {});
+
+  const style = {
+    position: 'fixed',
+    left: Math.min(rect.left + rect.width / 2, window.innerWidth - 300),
+    top: rect.bottom + 8,
+    transform: 'translateX(-50%)',
+    zIndex: 99999,
+    pointerEvents: 'auto',
+    animation: 'fadeInDown 0.2s ease-out',
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div style={{
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+        maxWidth: '280px',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+      }}>
+        <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '10px', color: 'var(--text-accent)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+          {format(new Date(dateStr + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {events.map((ev, idx) => (
+            <div
+              key={idx}
+              onClick={() => onEditEvent(ev)}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px',
+                borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s',
+                backgroundColor: 'var(--bg-secondary)',
+              }}
+            >
+              <div style={{
+                minWidth: '8px', height: '8px', borderRadius: '50%',
+                backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px'
+              }} />
+              <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>
+                  {ev.cr4a1_user_login}:
+                </span> {ev.cr4a1_titulo}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 // --- COMPONENTE PRINCIPAL ---
 
 function App() {
@@ -758,7 +822,6 @@ function App() {
     }
   };
 
-  // Função handleDragEnd adaptada para @hello-pangea/dnd
   const handleDragEnd = async (result) => {
     setIsDraggingMember(false);
     const { source, destination, draggableId } = result;
@@ -794,7 +857,6 @@ function App() {
     const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === draggableId);
     if (!draggedEvent) return;
 
-    // Visita
     if (draggedEvent.isVisitaPrincipal && draggedEvent.originalData) {
       const originalTime = draggedEvent.originalData.cr4a1_dataconexao
         ? (() => { const d = new Date(draggedEvent.originalData.cr4a1_dataconexao); return isNaN(d) ? '08:00' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()
@@ -818,7 +880,6 @@ function App() {
       return;
     }
 
-    // Evento normal
     if (!draggedEvent.isVisitaPrincipal && !draggedEvent.isIntervalo) {
       moveEvent(draggableId, newDateStr);
       return;
@@ -850,6 +911,36 @@ function App() {
 
   const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
   const [selectedDayVisitas, setSelectedDayVisitas] = useState([]);
+
+  // --- ESTADO DO TOOLTIP ---
+  const [dayTooltip, setDayTooltip] = useState(null); // { dateStr, events, rect }
+  const [isTooltipHovered, setIsTooltipHovered] = useState(false);
+  const tooltipTimer = useRef(null);
+
+  const handleDayMouseEnter = (dateStr, events, rect) => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setDayTooltip({ dateStr, events, rect });
+  };
+
+  const handleDayMouseLeave = () => {
+    tooltipTimer.current = setTimeout(() => {
+      if (!isTooltipHovered) {
+        setDayTooltip(null);
+      }
+    }, 200);
+  };
+
+  const handleTooltipMouseEnter = () => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setIsTooltipHovered(true);
+  };
+
+  const handleTooltipMouseLeave = () => {
+    setIsTooltipHovered(false);
+    tooltipTimer.current = setTimeout(() => {
+      setDayTooltip(null);
+    }, 200);
+  };
 
   const handleEditWorkspaceClick = (ws) => {
     setEditingWorkspace(ws);
@@ -1851,29 +1942,24 @@ function App() {
                                 isDetailed={appMode === 'visitas'}
 
                                 onDayClick={(dateStr) => {
-                                  // 1. Transformamos a string (ex: '2026-06-10') em um objeto de Data válido
                                   const [year, month, day] = dateStr.split('-');
                                   const targetDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
                                   if (appMode === 'visitas') {
-                                    // 2. Usamos a função correta para buscar os eventos deste dia
                                     const eventosDoDia = handleGetEventsForDay(targetDate);
                                     const visitasDoDia = eventosDoDia.filter(e => e.isVisitaPrincipal);
 
-                                    // 3. Se existirem visitas, ABRE O MODAL e para a execução
                                     if (visitasDoDia.length > 0) {
                                       handleDayClick(dateStr, visitasDoDia);
                                       return;
                                     }
                                   }
 
-                                  // 4. Comportamento padrão: se NÃO houver visitas, abre a visualização do mês
                                   setCurrentDate(targetDate);
                                   setView('month');
                                 }}
 
                                 onSelectMonth={(d) => {
-                                  // Prevenção extra para o clique nas áreas vazias do mês
                                   setCurrentDate(d);
                                   setView('month');
                                 }}
@@ -1915,17 +2001,22 @@ function App() {
                                 isToday={isToday}
                                 onClick={() => {
                                   if (appMode === 'visitas') {
-                                    // Se estiver no modo visitas, filtra apenas os eventos que são visitas e abre o modal
                                     const visitasDoDia = dayEvents.filter(e => e.isVisitaPrincipal);
                                     if (visitasDoDia.length > 0) {
                                       handleDayClick(dateStr, visitasDoDia);
                                     }
                                   } else {
-                                    // Comportamento normal da agenda: entra na visão do dia
                                     setCurrentDate(day);
                                     setView('day');
                                   }
                                 }}
+                                onMouseEnter={(e) => {
+                                  if (dayEvents.length > 0 && appMode !== 'visitas') {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    handleDayMouseEnter(dateStr, dayEvents, rect);
+                                  }
+                                }}
+                                onMouseLeave={handleDayMouseLeave}
                               >
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
@@ -2138,6 +2229,17 @@ function App() {
               }}
             />
           )}
+
+          {/* Renderiza o tooltip da visão mensal */}
+          {dayTooltip && (
+            <DayTooltip
+              dayData={dayTooltip}
+              allUsers={allUsers}
+              onEditEvent={handleEditClick}
+              onMouseEnter={handleTooltipMouseEnter}
+              onMouseLeave={handleTooltipMouseLeave}
+            />
+          )}
         </div>
 
         {/* FAB */}
@@ -2300,7 +2402,7 @@ function App() {
             border: 1px solid var(--border-color);
             border-radius: 28px 0 0 28px;
             display: flex;
-            flex-direction: column;
+            flexDirection: column;
             align-items: center;
             padding: 16px 0;
             gap: 16px;
