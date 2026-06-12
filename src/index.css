@@ -494,15 +494,15 @@ body {
   border: 1.5px solid transparent !important;
   background: 
     linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
-    conic-gradient(from var(--border-angle), var(--text-accent), var(--border-color) 45%, var(--text-accent) 90%, var(--text-accent)) border-box !important;
-  animation: rotate-border 8s linear infinite !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+    conic-gradient(from var(--border-angle), #ff4d4d, #ffb84d, #4dff4d, #4da6ff, #b84dff, #ff4d4d) border-box !important;
+  animation: rotate-border 4s linear infinite !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
   transition: var(--transition-elastic), transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .mini-month-card:hover {
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.04) !important;
-  transform: translateY(-2px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18), 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-4px);
 }
 
 .mini-month-header {
@@ -662,13 +662,127 @@ button:active {
   border: 1.5px solid transparent !important;
   background: 
     linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
-    conic-gradient(from var(--border-angle), var(--border-gradient-color, var(--text-accent)), var(--border-color) 45%, var(--border-gradient-color, var(--text-accent)) 90%, var(--border-gradient-color, var(--text-accent))) border-box !important;
-  animation: rotate-border 8s linear infinite !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+    conic-gradient(from var(--border-angle), #ff4d4d, #ffb84d, #4dff4d, #4da6ff, #b84dff, #ff4d4d) border-box !important;
+  animation: rotate-border 4s linear infinite !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
   transition: box-shadow 0.3s ease, transform 0.3s ease !important;
 }
 
 .animated-border-card:hover {
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.04) !important;
-  transform: translateY(-3px) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18), 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-4px) !important;
+}
+
+/* --- SIDEBARS STYLING --- */
+
+.left-avatar-sidebar {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: auto;
+  max-height: 70vh;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 20px 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+  gap: 12px;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.06);
+  z-index: 1000;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.left-avatar-sidebar:hover,
+.left-avatar-sidebar.dragging-active {
+  width: 72px;
+  padding: 16px 8px;
+}
+
+.left-avatar-sidebar .sidebar-collapsed-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.left-avatar-sidebar:hover .sidebar-collapsed-indicator,
+.left-avatar-sidebar.dragging-active .sidebar-collapsed-indicator {
+  display: none;
+}
+
+.left-avatar-sidebar .sidebar-expanded-content {
+  display: none;
+  opacity: 0;
+  width: 100%;
+  transition: opacity 0.3s ease;
+}
+
+.left-avatar-sidebar:hover .sidebar-expanded-content,
+.left-avatar-sidebar.dragging-active .sidebar-expanded-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 1;
+}
+
+.right-menu-sidebar {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-right: none;
+  border-radius: 20px 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+  gap: 16px;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.06);
+  z-index: 1000;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.right-menu-sidebar:hover {
+  width: 72px;
+  padding: 24px 8px;
+}
+
+.right-menu-sidebar .sidebar-collapsed-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.right-menu-sidebar:hover .sidebar-collapsed-indicator {
+  display: none;
+}
+
+.right-menu-sidebar .sidebar-expanded-content {
+  display: none;
+  opacity: 0;
+  width: 100%;
+  transition: opacity 0.3s ease;
+}
+
+.right-menu-sidebar:hover .sidebar-expanded-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  opacity: 1;
 }

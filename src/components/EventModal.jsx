@@ -3,7 +3,11 @@ import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent, userRole, allUsers = [], eventTypes = [], viewedUser, workspaces = [] }) => {
+export const EventModal = ({
+    isOpen, onClose, onSave, initialDate, editingEvent, userRole,
+    allUsers = [], eventTypes = [], viewedUser, workspaces = [],
+    preselectedTargetUser, preselectedWorkspaceId
+}) => {
     const [formData, setFormData] = useState({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
@@ -61,14 +65,14 @@ export const EventModal = ({ isOpen, onClose, onSave, initialDate, editingEvent,
                 title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
                 startHour: '08:00', endHour: '09:00',
                 details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
-                targetUser: viewedUser || '', allDay: false,
-                workspaceId: workspaces[0]?.cr4a1_calendarios_workspacesid || ''
+                targetUser: preselectedTargetUser || viewedUser || '', allDay: false,
+                workspaceId: preselectedWorkspaceId || workspaces[0]?.cr4a1_calendarios_workspacesid || ''
             });
             setSubtasks([]);
             setIsPrivate(false);
         }
         setIsSaving(false);
-    }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces]);
+    }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces, preselectedTargetUser, preselectedWorkspaceId]);
 
     // Fechar dropdowns ao clicar fora
     useEffect(() => {

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { format, isWeekend } from 'date-fns';
@@ -108,6 +109,15 @@ export const MiniMonth = ({
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (hoveredDay !== null || hoveredRect !== null || isTooltipHovered !== false) {
+      setHoveredDay(null);
+      setHoveredRect(null);
+      setIsTooltipHovered(false);
+    }
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+  }, [isDetailed, hoveredDay, hoveredRect, isTooltipHovered]);
 
   // Controle do tooltip (sem flicker)
   const tryCloseTooltip = () => {
@@ -389,7 +399,12 @@ export const MiniMonth = ({
                 .map((ev, idx) => (
                   <div
                     key={idx}
-                    onClick={() => onEditEvent(ev)}
+                    onClick={() => {
+                      setIsTooltipHovered(false);
+                      setHoveredDay(null);
+                      setHoveredRect(null);
+                      onEditEvent(ev);
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'flex-start',

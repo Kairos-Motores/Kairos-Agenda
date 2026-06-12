@@ -752,14 +752,44 @@ function App() {
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], []);
 
+  const handleDragStart = (start) => {
+    if (start.draggableId.startsWith('member_')) {
+      setIsDraggingMember(true);
+    }
+  };
+
   // Função handleDragEnd adaptada para @hello-pangea/dnd
   const handleDragEnd = async (result) => {
+    setIsDraggingMember(false);
     const { source, destination, draggableId } = result;
 
     if (!destination) return;
     if (source.droppableId === destination.droppableId) return;
 
     const newDateStr = destination.droppableId;
+
+    if (draggableId.startsWith('member_')) {
+      const memberUsername = draggableId.substring(7);
+      
+      const canAssign = hasRole('ADMIN') || hasRole('COORD');
+      if (!canAssign) {
+        toast.error("Apenas ADMIN ou COORD podem atribuir eventos desta forma.");
+        return;
+      }
+
+      if (devWorkspace) {
+        setPreselectedWorkspaceId(devWorkspace.cr4a1_calendarios_workspacesid);
+      }
+      setPreselectedTargetUser(memberUsername);
+      
+      const targetDate = new Date(newDateStr + 'T12:00:00');
+      setCurrentDate(targetDate);
+      
+      setEditingEvent(null);
+      setIsModalOpen(true);
+      return;
+    }
+
     const allEvents = getDisplayEvents();
     const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === draggableId);
     if (!draggedEvent) return;
@@ -805,6 +835,9 @@ function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
+  const [preselectedTargetUser, setPreselectedTargetUser] = useState('');
+  const [preselectedWorkspaceId, setPreselectedWorkspaceId] = useState('');
+  const [isDraggingMember, setIsDraggingMember] = useState(false);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [dayViewMode, setDayViewMode] = useState('timeline');
@@ -840,6 +873,27 @@ function App() {
     if (!devWorkspace) return [];
     return events.filter(e => e.cr4a1_workspace_id === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [events, workspaces]);
+
+  const devWorkspace = useMemo(() => workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação"), [workspaces]);
+  
+  const isDevWorkspaceActive = useMemo(() => {
+    if (!devWorkspace) return false;
+    return activeWorkspaces.includes(devWorkspace.cr4a1_calendarios_workspacesid) || 
+           (activeWorkspaces.length === 0 && defaultWorkspaceId === devWorkspace.cr4a1_calendarios_workspacesid);
+  }, [devWorkspace, activeWorkspaces, defaultWorkspaceId]);
+
+  const devWorkspaceMembers = useMemo(() => {
+    if (!devWorkspace) return [];
+    const logins = new Set();
+    if (devWorkspace.cr4a1_criador_login) logins.add(devWorkspace.cr4a1_criador_login);
+    if (devWorkspace.cr4a1_membros_logins) {
+      devWorkspace.cr4a1_membros_logins.split(',').forEach(m => {
+        const trimmed = m.trim();
+        if (trimmed) logins.add(trimmed);
+      });
+    }
+    return allUsers.filter(u => logins.has(u.cr4a1_username));
+  }, [devWorkspace, allUsers]);
 
   const mappedVisitas = useMemo(() => {
     if (!visitas || visitas.length === 0) return [];
@@ -1197,7 +1251,7 @@ function App() {
   };
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -1575,7 +1629,89 @@ function App() {
         </header>
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
-          <main className="main-container" style={{ flex: 1, padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible' }}>
+          {/* BARRA LATERAL ESQUERDA DE PARTICIPANTES (HOVER EXPANDE) */}
+          {isDevWorkspaceActive && appMode !== 'visitas' && (
+            <aside className={`left-avatar-sidebar desktop-only ${isDraggingMember ? 'dragging-active' : ''}`}>
+              <div className="sidebar-collapsed-indicator">
+                <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>groups</span>
+              </div>
+              <Droppable droppableId="sidebar-members" isDropDisabled={true}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="sidebar-expanded-content"
+                  >
+                    {devWorkspaceMembers.map((member, idx) => (
+                      <Draggable
+                        key={member.cr4a1_username}
+                        draggableId={`member_${member.cr4a1_username}`}
+                        index={idx}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className="boing-effect"
+                            style={{
+                              ...provided.draggableProps.style,
+                              cursor: 'grab',
+                              userSelect: 'none',
+                              opacity: snapshot.isDragging ? 0.6 : 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '40px',
+                              height: '40px',
+                            }}
+                            title={member.cr4a1_nome_exibicao || member.cr4a1_username}
+                          >
+                            {member.cr4a1_foto ? (
+                              <img
+                                src={member.cr4a1_foto}
+                                alt={member.cr4a1_username}
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '50%',
+                                  objectFit: 'cover',
+                                  border: '2px solid var(--text-accent)',
+                                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '50%',
+                                  backgroundColor: member.cr4a1_cor || 'var(--text-accent)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#fff',
+                                  fontSize: '14px',
+                                  fontWeight: '700',
+                                  border: '2px solid var(--text-accent)',
+                                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                {member.cr4a1_username?.[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </aside>
+          )}
+
+          <main className="main-container" style={{ flex: 1, padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible', marginLeft: (isDevWorkspaceActive && appMode !== 'visitas') ? '24px' : '0' }}>
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {appMode === 'tasks' ? (
@@ -1837,48 +1973,36 @@ function App() {
           </main>
 
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
-          <aside className="desktop-only" style={{
-            position: 'fixed',
-            right: '0',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '64px',
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border-color)',
-            borderRight: 'none',
-            borderRadius: '24px 0 0 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            padding: '24px 0',
-            gap: '24px',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.06)',
-            zIndex: 1000
-          }}>
-            <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
-              width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: appMode === 'calendar' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'calendar' ? 'var(--text-accent)' : 'var(--text-primary)'
-            }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
-            </button>
-
-            {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
-              <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
+          <aside className="right-menu-sidebar desktop-only">
+            <div className="sidebar-collapsed-indicator">
+              <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>apps</span>
+            </div>
+            <div className="sidebar-expanded-content">
+              <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
+                background: appMode === 'calendar' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'calendar' ? 'var(--text-accent)' : 'var(--text-primary)'
               }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>assignment</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
               </button>
-            )}
 
-            {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
-              <button onClick={() => setAppMode('visitas')} className={`boing-effect ${appMode === 'visitas' ? 'active' : ''}`} title="Visitas Comerciais" style={{
-                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: appMode === 'visitas' ? '#fff3e0' : 'transparent', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-primary)'
-              }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>location_on</span>
-              </button>
-            )}
+              {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
+                <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
+                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>assignment</span>
+                </button>
+              )}
+
+              {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+                <button onClick={() => setAppMode('visitas')} className={`boing-effect ${appMode === 'visitas' ? 'active' : ''}`} title="Visitas Comerciais" style={{
+                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: appMode === 'visitas' ? '#fff3e0' : 'transparent', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>location_on</span>
+                </button>
+              )}
+            </div>
           </aside>
         </div>
 
@@ -1893,7 +2017,26 @@ function App() {
               mostrarTodos={hasRole('ADMIN') || hasRole('RH')}
             />
           )}
-          {isModalOpen && <EventModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEvent} initialDate={currentDate.toISOString()} editingEvent={editingEvent} userRole={userRole} allUsers={allUsers} eventTypes={eventTypes} viewedUser={viewedUser} workspaces={workspaces} />}
+          {isModalOpen && (
+            <EventModal
+              isOpen={isModalOpen}
+              onClose={() => {
+                setIsModalOpen(false);
+                setPreselectedTargetUser('');
+                setPreselectedWorkspaceId('');
+              }}
+              onSave={handleSaveEvent}
+              initialDate={currentDate.toISOString()}
+              editingEvent={editingEvent}
+              userRole={userRole}
+              allUsers={allUsers}
+              eventTypes={eventTypes}
+              viewedUser={viewedUser}
+              workspaces={workspaces}
+              preselectedTargetUser={preselectedTargetUser}
+              preselectedWorkspaceId={preselectedWorkspaceId}
+            />
+          )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} deleteEventType={deleteEventType} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
