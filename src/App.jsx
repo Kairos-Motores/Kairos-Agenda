@@ -1816,6 +1816,7 @@ function App() {
                     <div className="mini-month-grid" style={{
                       display: 'grid',
                       gridTemplateColumns: appMode === 'visitas' ? 'repeat(2, 1.5fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                      justifyContent: 'center',
                       gap: '24px',
                       overflow: 'visible',
                       padding: appMode === 'visitas' ? '8px' : '0'
@@ -1824,13 +1825,11 @@ function App() {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
                         const activeWSForGradient = workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid));
                         return (
-                          <div key={i} style={{
+                          <div key={i} className="mini-month-container" style={{
                             ...(appMode !== 'visitas' && activeWSForGradient.length > 1 ? { background: `linear-gradient(135deg, ${activeWSForGradient.map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '16px' } : {}),
                             overflow: 'visible',
                             minHeight: appMode === 'visitas' ? '600px' : 'auto',
                             height: appMode === 'visitas' ? '100%' : 'auto',
-                            position: 'relative',
-                            zIndex: 1
                           }}>
                             <div style={{
                               ...(appMode !== 'visitas' && activeWSForGradient.length <= 1 ? wsBorderStyle : { border: 'none' }),

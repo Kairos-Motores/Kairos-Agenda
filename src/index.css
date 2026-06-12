@@ -509,11 +509,13 @@ body {
 .mini-month-container {
   position: relative;
   z-index: 1;
-  transition: z-index 0.3s ease;
+  overflow: visible;
+  isolation: auto;
 }
 
 .mini-month-container:hover {
   z-index: 10 !important;
+  isolation: isolate;
 }
 
 .mini-month-header {
