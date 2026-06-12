@@ -1628,7 +1628,7 @@ function App() {
           </div>
         </header>
 
-        <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible' }}>
+        <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible', justifyContent: 'center' }}>
           {/* BARRA LATERAL ESQUERDA DE PARTICIPANTES (HOVER EXPANDE) */}
           {isDevWorkspaceActive && appMode !== 'visitas' && (
             <aside className={`left-avatar-sidebar desktop-only ${isDraggingMember ? 'dragging-active' : ''}`}>
@@ -1711,7 +1711,15 @@ function App() {
             </aside>
           )}
 
-          <main className="main-container" style={{ flex: 1, padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '16px'), paddingBottom: '80px', overflow: 'visible', marginLeft: (isDevWorkspaceActive && appMode !== 'visitas') ? '24px' : '0' }}>
+          <main className="main-container" style={{ 
+            flex: 1, 
+            padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'), 
+            paddingBottom: '80px', 
+            overflow: 'visible', 
+            marginLeft: (isDevWorkspaceActive && appMode !== 'visitas') ? '24px' : '0',
+            maxWidth: '1400px',
+            margin: '0 auto'
+          }}>
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {appMode === 'tasks' ? (
@@ -1814,12 +1822,7 @@ function App() {
                 <>
                   {view === 'year' && (
                     <div
-                      className="mini-month-grid"
-                      style={appMode === 'visitas' ? {
-                        gridTemplateColumns: 'repeat(2, 1.5fr)',
-                        padding: '8px',
-                        maxWidth: '100%'
-                      } : undefined}
+                      className={`mini-month-grid ${appMode === 'visitas' ? 'visitas' : ''}`}
                     >
                       {Array.from({ length: 12 }, (_, i) => {
                         const monthDate = new Date(currentDate.getFullYear(), i, 1);
@@ -1973,9 +1976,6 @@ function App() {
 
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="right-menu-sidebar desktop-only">
-            <div className="sidebar-collapsed-indicator">
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>apps</span>
-            </div>
             <div className="sidebar-expanded-content">
               <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2277,6 +2277,56 @@ function App() {
             opacity: 0;
             margin: 0;
             padding: 0;
+        }
+
+        /* Centraliza e limita a largura do conteúdo principal */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding-left: 24px;
+            padding-right: 24px;
+            box-sizing: border-box;
+        }
+
+        /* Barra lateral direita – fixa, mas sem empurrar o conteúdo */
+        .right-menu-sidebar {
+            position: fixed;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 56px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 28px 0 0 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            gap: 16px;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.06);
+            z-index: 1000;
+        }
+
+        /* Garantir que a grade anual ocupe bem o espaço */
+        .mini-month-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Quando no modo visitas, dois cartões grandes */
+        .mini-month-grid.visitas {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        /* Ajusta margem do main por causa da sidebar fixa */
+        @media (min-width: 1025px) {
+            .main-container {
+                margin-right: 80px; /* espaço para a barra lateral direita */
+            }
         }
 
         /* COMPORTAMENTO MOBILE OTIMIZADO */
