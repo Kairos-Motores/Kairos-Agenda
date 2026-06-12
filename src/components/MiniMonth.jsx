@@ -7,7 +7,7 @@ import { generateMonthDays } from '../utils/dateHelpers';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 
 /* ================================================================
-   MarqueeText & TooltipPortal (mantidos como nas versões estáveis)
+   MarqueeText (mantido)
    ================================================================ */
 const MarqueeText = ({ text, color, onClick }) => {
   const containerRef = useRef(null);
@@ -55,21 +55,34 @@ const MarqueeText = ({ text, color, onClick }) => {
   );
 };
 
-const TooltipPortal = ({ children, targetRect, isFirstRow, onMouseEnter, onMouseLeave }) => {
+/* ================================================================
+   TooltipPortal – agora sempre aparece ACIMA do dia
+   ================================================================ */
+const TooltipPortal = ({ children, targetRect, onMouseEnter, onMouseLeave }) => {
   if (!targetRect) return null;
+
+  // Calcula a posição para que o tooltip fique centralizado e acima do dia
+  const tooltipWidth = 280; // mesmo max-width usado no conteúdo
+  let left = targetRect.left + targetRect.width / 2;
+  // Garante que não ultrapasse a borda direita da tela
+  if (left + tooltipWidth / 2 > window.innerWidth - 8) {
+    left = window.innerWidth - tooltipWidth / 2 - 8;
+  }
+  // Garante que não ultrapasse a borda esquerda
+  if (left - tooltipWidth / 2 < 8) {
+    left = tooltipWidth / 2 + 8;
+  }
+
   const style = {
     position: 'fixed',
-    left: targetRect.left + targetRect.width / 2,
+    left: left,
+    bottom: window.innerHeight - targetRect.top + 8, // aparece logo acima do dia
     transform: 'translateX(-50%)',
     zIndex: 99999,
     pointerEvents: 'auto',
-    animation: isFirstRow ? 'fadeInDown 0.2s ease-out' : 'fadeInUp 0.2s ease-out',
+    animation: 'fadeInUp 0.2s ease-out', // animação vindo de baixo para cima
   };
-  if (isFirstRow) {
-    style.top = targetRect.bottom + 8;
-  } else {
-    style.bottom = window.innerHeight - targetRect.top + 8;
-  }
+
   return ReactDOM.createPortal(
     <div style={style} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       {children}
@@ -110,14 +123,13 @@ export const MiniMonth = ({
     };
   }, []);
 
+  // Reseta o tooltip quando o modo muda
   useEffect(() => {
-    if (hoveredDay !== null || hoveredRect !== null || isTooltipHovered !== false) {
-      setHoveredDay(null);
-      setHoveredRect(null);
-      setIsTooltipHovered(false);
-    }
+    setHoveredDay(null);
+    setHoveredRect(null);
+    setIsTooltipHovered(false);
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
-  }, [isDetailed, hoveredDay, hoveredRect, isTooltipHovered]);
+  }, [isDetailed]);
 
   // Controle do tooltip (sem flicker)
   const tryCloseTooltip = () => {
@@ -235,8 +247,7 @@ export const MiniMonth = ({
                   {...provided.droppableProps}
                   onClick={(e) => {
                     if (!isCurrentMonth) return;
-                    e.stopPropagation(); // Impede que o clique acione eventos do mês/ano inteiro
-                    
+                    e.stopPropagation();
                     if (onDayClick) {
                       onDayClick(dateStr);
                     } else {
@@ -266,14 +277,11 @@ export const MiniMonth = ({
                        MODO VISITAS (isDetailed): contador + lista de eventos
                        ============================================================ */
                     <>
-                      {/* Se houver múltiplas visitas E a prop onDayClick existir, mostra o contador */}
                       {activeEvents.length > 1 && onDayClick ? (
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onDayClick) {
-                              onDayClick(dateStr);
-                            }
+                            if (onDayClick) onDayClick(dateStr);
                           }}
                           style={{
                             backgroundColor: 'rgba(0,0,0,0.5)',
@@ -292,7 +300,6 @@ export const MiniMonth = ({
                           {activeEvents.length} visitas
                         </div>
                       ) : (
-                        /* Caso contrário, renderiza cada evento (1 ou sem onDayClick) */
                         activeEvents.map((event, idx) => {
                           const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
                           return (
@@ -364,11 +371,10 @@ export const MiniMonth = ({
         })}
       </div>
 
-      {/* Tooltip (apenas no modo normal) */}
+      {/* Tooltip (apenas no modo normal) – agora sempre aparece ACIMA do dia */}
       {!isDetailed && hoveredDay && (
         <TooltipPortal
           targetRect={hoveredRect}
-          isFirstRow={hoveredDay ? parseInt(hoveredDay.split('-')[2]) <= 7 : true}
           onMouseEnter={handleTooltipEnter}
           onMouseLeave={handleTooltipLeave}
         >
