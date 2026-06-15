@@ -826,11 +826,12 @@ function App() {
   };
 
   const handleDragEnd = async (result) => {
-    setIsDraggingMember(false);
     const { source, destination, draggableId } = result;
 
-    if (!destination) return;
-    if (source.droppableId === destination.droppableId) return;
+    if (!destination || source.droppableId === destination.droppableId) {
+      setIsDraggingMember(false);
+      return;
+    }
 
     const newDateStr = destination.droppableId;
 
@@ -843,21 +844,25 @@ function App() {
         return;
       }
 
-      if (devWorkspace) {
-        setPreselectedWorkspaceId(devWorkspace.cr4a1_calendarios_workspacesid);
-      }
+      // Prepara os dados do modal ANTES de abrir
+      if (devWorkspace) setPreselectedWorkspaceId(devWorkspace.cr4a1_calendarios_workspacesid);
       setPreselectedTargetUser(memberUsername);
-      
+      setEditingEvent(null);
+
       const targetDate = new Date(newDateStr + 'T12:00:00');
       setCurrentDate(targetDate);
       
-      setEditingEvent(null);
+      // Reseta o estado de arraste imediatamente
+      setIsDraggingMember(false);
+
+      // Timeout ligeiramente maior para garantir que o DND finalize a remoção do Portal
       setTimeout(() => {
         setIsModalOpen(true);
-      }, 50); // Pequeno atraso para permitir que a biblioteca dnd-kit finalize o arraste
+      }, 150); 
       return;
     }
 
+    setIsDraggingMember(false);
     const allEvents = getDisplayEvents();
     const draggedEvent = allEvents.find(ev => ev.cr4a1_agenda_kairosid === draggableId);
     if (!draggedEvent) return;
@@ -1751,16 +1756,18 @@ function App() {
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               className="boing-effect"
-                              style={snapshot.isDragging ? { display: 'none' } : {
+                              style={{
                                 ...provided.draggableProps.style,
                                 cursor: 'grab',
                                 userSelect: 'none',
-                                opacity: 1,
+                                // Em vez de display: none, usamos opacity 0 para não quebrar a biblioteca
+                                opacity: snapshot.isDragging ? 0 : 1,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 width: '40px',
                                 height: '40px',
+                                pointerEvents: snapshot.isDragging ? 'none' : 'auto',
                               }}
                               title={member.cr4a1_nome_exibicao || member.cr4a1_username}
                             >
@@ -1812,6 +1819,7 @@ function App() {
                                   height: '40px',
                                   zIndex: 99999,
                                   transition: 'none',
+                                  pointerEvents: 'none', // Evita que o clone capture o mouse
                                   borderRadius: '50%',
                                   boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
                                 }}
