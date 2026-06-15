@@ -852,7 +852,9 @@ function App() {
       setCurrentDate(targetDate);
       
       setEditingEvent(null);
-      setIsModalOpen(true);
+      setTimeout(() => {
+        setIsModalOpen(true);
+      }, 50); // Pequeno atraso para permitir que a biblioteca dnd-kit finalize o arraste
       return;
     }
 
@@ -1742,14 +1744,13 @@ function App() {
                         draggableId={`member_${member.cr4a1_username}`}
                         index={idx}
                       >
-                      {(provided, snapshot) => {
-                        const content = (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className="boing-effect"
-                            style={snapshot.isDragging ? { display: 'none' } : { // Esconde o elemento original enquanto está sendo arrastado
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className="boing-effect"
+                          style={snapshot.isDragging ? { display: 'none' } : { // Esconde o elemento original enquanto está sendo arrastado
                               ...provided.draggableProps.style,
                               cursor: snapshot.isDragging ? 'grabbing' : 'grab',
                               userSelect: 'none',
@@ -1799,12 +1800,9 @@ function App() {
                               </div>
                             )}
                           </div>
-                        );
-
-                        // Uso do Portal para evitar que o ícone seja cortado pelo overflow da sidebar
-                        if (snapshot.isDragging) {
-                          // Cria um clone visual para ser arrastado no portal
-                          const portalContent = (
+                        )}
+                      {snapshot.isDragging && ReactDOM.createPortal(
+                        (
                             <div
                               style={{
                                 ...provided.draggableProps.style, // Usa os estilos do provided para posicionamento
@@ -1838,10 +1836,9 @@ function App() {
                               )}
                             </div>
                           );
-                          return ReactDOM.createPortal(portalContent, document.body); // Renderiza o clone no portal
-                        }
-                        return content;
-                      }}
+                        ),
+                        document.body
+                      )}
                       </Draggable>
                     ))}
                     {provided.placeholder}
