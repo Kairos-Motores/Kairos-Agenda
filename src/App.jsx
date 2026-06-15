@@ -176,6 +176,8 @@ const DraggableEvent = ({ event, index, children }) => {
             minWidth: 0,
             width: '100%',
             boxSizing: 'border-box',
+            // Previne o lag causado por transições de CSS durante o arraste
+            transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition,
           }}
         >
           {children}
@@ -1740,7 +1742,8 @@ function App() {
                         draggableId={`member_${member.cr4a1_username}`}
                         index={idx}
                       >
-                        {(provided, snapshot) => (
+                      {(provided, snapshot) => {
+                        const content = (
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
@@ -1748,14 +1751,17 @@ function App() {
                             className="boing-effect"
                             style={{
                               ...provided.draggableProps.style,
-                              cursor: 'grab',
+                              cursor: snapshot.isDragging ? 'grabbing' : 'grab',
                               userSelect: 'none',
-                              opacity: snapshot.isDragging ? 0.6 : 1,
+                              opacity: snapshot.isDragging ? 0.8 : 1,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               width: '40px',
                               height: '40px',
+                              // Garante que o ícone siga o mouse sem atraso e fique por cima de tudo
+                              zIndex: snapshot.isDragging ? 9999 : 'auto',
+                              transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition,
                             }}
                             title={member.cr4a1_nome_exibicao || member.cr4a1_username}
                           >
@@ -1769,7 +1775,7 @@ function App() {
                                   borderRadius: '50%',
                                   objectFit: 'cover',
                                   border: '2px solid var(--text-accent)',
-                                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                  boxShadow: snapshot.isDragging ? '0 8px 20px rgba(0,0,0,0.3)' : '0 4px 10px rgba(0,0,0,0.1)'
                                 }}
                               />
                             ) : (
@@ -1786,14 +1792,21 @@ function App() {
                                   fontSize: '14px',
                                   fontWeight: '700',
                                   border: '2px solid var(--text-accent)',
-                                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                                  boxShadow: snapshot.isDragging ? '0 8px 20px rgba(0,0,0,0.3)' : '0 4px 10px rgba(0,0,0,0.1)'
                                 }}
                               >
                                 {member.cr4a1_username?.[0]?.toUpperCase()}
                               </div>
                             )}
                           </div>
-                        )}
+                        );
+
+                        // Uso do Portal para evitar que o ícone seja cortado pelo overflow da sidebar
+                        if (snapshot.isDragging) {
+                          return ReactDOM.createPortal(content, document.body);
+                        }
+                        return content;
+                      }}
                       </Draggable>
                     ))}
                     {provided.placeholder}
@@ -2297,7 +2310,7 @@ function App() {
         @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
         
         .boing-effect {
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .boing-effect:active {
             transform: scale(0.85) !important;
