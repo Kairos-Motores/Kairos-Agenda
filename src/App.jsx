@@ -1749,7 +1749,7 @@ function App() {
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
                             className="boing-effect"
-                            style={{
+                            style={snapshot.isDragging ? { display: 'none' } : { // Esconde o elemento original enquanto está sendo arrastado
                               ...provided.draggableProps.style,
                               cursor: snapshot.isDragging ? 'grabbing' : 'grab',
                               userSelect: 'none',
@@ -1760,7 +1760,7 @@ function App() {
                               width: '40px',
                               height: '40px',
                               // Garante que o ícone siga o mouse sem atraso e fique por cima de tudo
-                              zIndex: snapshot.isDragging ? 9999 : 'auto',
+                              zIndex: snapshot.isDragging ? 99999 : 'auto', // Aumenta o z-index para garantir que o clone esteja acima de tudo
                               transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition,
                             }}
                             title={member.cr4a1_nome_exibicao || member.cr4a1_username}
@@ -1803,7 +1803,42 @@ function App() {
 
                         // Uso do Portal para evitar que o ícone seja cortado pelo overflow da sidebar
                         if (snapshot.isDragging) {
-                          return ReactDOM.createPortal(content, document.body);
+                          // Cria um clone visual para ser arrastado no portal
+                          const portalContent = (
+                            <div
+                              style={{
+                                ...provided.draggableProps.style, // Usa os estilos do provided para posicionamento
+                                cursor: 'grabbing',
+                                userSelect: 'none',
+                                opacity: 0.8,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '40px',
+                                height: '40px',
+                                zIndex: 99999, // Garante que o clone esteja no topo
+                                transition: 'none', // Sem transição durante o arraste
+                                // Estilos adicionais para o clone corresponder à aparência original
+                                borderRadius: '50%',
+                                boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
+                              }}
+                            >
+                              {member.cr4a1_foto ? (
+                                <img
+                                  src={member.cr4a1_foto}
+                                  alt={member.cr4a1_username}
+                                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--text-accent)' }}
+                                />
+                              ) : (
+                                <div
+                                  style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: member.cr4a1_cor || 'var(--text-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: '700', border: '2px solid var(--text-accent)' }}
+                                >
+                                  {member.cr4a1_username?.[0]?.toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          );
+                          return ReactDOM.createPortal(portalContent, document.body); // Renderiza o clone no portal
                         }
                         return content;
                       }}
