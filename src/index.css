@@ -839,7 +839,7 @@ button:active {
 .powerapps-sidebar {
   position: fixed;
   right: 0;
-  top: 25%;
+  top: calc(50% - 160px);
   transform: translateY(-50%);
   width: 24px;
   height: auto;

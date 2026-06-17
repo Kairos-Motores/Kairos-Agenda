@@ -2381,32 +2381,32 @@ function App() {
         )}
 
         {/* POWERAPPS FAB (MOBILE ONLY) */}
-        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
           {isPowerAppsFabOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start', marginBottom: '8px', marginLeft: '6px' }}>
               <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0s' }}>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Medro</span>
-                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/8571c626-fa75-4049-8b65-64d965ee8293?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=59adb198-18c2-4d83-8d5a-4bc8f219ee9a&sourcetime=1781693282907&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                   <img src={medroImg} alt="Medro" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </a>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Medro</span>
               </div>
               <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.05s' }}>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Hub</span>
-                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/501635ac-110f-415e-a9ec-ed6c70af9a54?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=7b9d36b0-aff6-477b-bf3c-49be3ed5b1db&sourcetime=1781632369050&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                   <img src={hubImg} alt="Hub" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </a>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Hub</span>
               </div>
               <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.1s' }}>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Echoe</span>
-                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/b8c3032e-74e3-4c5d-9290-38cd53936644?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=a95eae44-d827-4365-b370-399d11f57484&sourcetime=1781641491290&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                   <img src={echoeImg} alt="Echoe" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </a>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Echoe</span>
               </div>
               <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.15s' }}>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Avante</span>
-                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/9c6e8435-69c1-457f-94d0-f90579d82fab?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=0330f7bd-de70-4545-b029-61b7052c847e&sourcetime=1781612868074&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                   <img src={avanteImg} alt="Avante" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </a>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Avante</span>
               </div>
             </div>
           )}
