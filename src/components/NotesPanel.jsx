@@ -1,189 +1,234 @@
-import React, { useState, useMemo } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import React, { useState } from 'react';
 
-export const NotesPanel = ({ isOpen, onClose, notes, onSave, onDelete, currentUser, activeWorkspaceId, events }) => {
-  const [editingNote, setEditingNote] = useState(null);
-  const [search, setSearch] = useState('');
+export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser, workspaces, activeWorkspaces }) => {
+  const [notaAberta, setNotaAberta] = useState(null);
 
-  // Filtra as notas: Mesma workspace ou Privadas do próprio usuário
-  const filteredNotes = useMemo(() => {
-    return notes.filter(n => {
-      const isOwner = n.cr4a1_user_login === currentUser?.cr4a1_username;
-      const isSameWorkspace = n.cr4a1_workspace_id === activeWorkspaceId;
-      const isPrivate = n.cr4a1_privado === 'true' || n.cr4a1_privado === true;
+  // Filtra para exibir apenas notas dos workspaces ativos
+  const activeNotas = notas.filter(n => activeWorkspaces.includes(n.cr4a1_workspace_id));
 
-      const matchesFilter = isPrivate ? isOwner : isSameWorkspace;
-      const matchesSearch = n.cr4a1_titulo?.toLowerCase().includes(search.toLowerCase()) || 
-                           n.cr4a1_conteudo?.toLowerCase().includes(search.toLowerCase());
-      
-      return matchesFilter && matchesSearch;
-    });
-  }, [notes, currentUser, activeWorkspaceId, search]);
+  const openNota = (nota) => {
+    setNotaAberta({ ...nota });
+  };
 
-  const handleCreateNew = () => {
-    setEditingNote({
+  const createNewNota = () => {
+    setNotaAberta({
       cr4a1_titulo: '',
-      cr4a1_conteudo: JSON.stringify([{ type: 'text', value: '' }]),
-      cr4a1_privado: 'false',
-      cr4a1_evento_id: '',
-      cr4a1_user_login: currentUser?.cr4a1_username,
-      cr4a1_workspace_id: activeWorkspaceId
+      cr4a1_privado: false,
+      cr4a1_workspace_id: activeWorkspaces[0] || '',
+      cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
+  };
+
+  const handleBlockChange = (id, value) => {
+    setNotaAberta(prev => ({
+      ...prev,
+      cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, value } : b)
+    }));
+  };
+
+  const handleTypeChange = (id, type) => {
+    setNotaAberta(prev => ({
+      ...prev,
+      cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, type } : b)
+    }));
+  };
+
+  const addBlock = (type = 'text') => {
+    setNotaAberta(prev => ({
+      ...prev,
+      cr4a1_conteudo: [...(prev.cr4a1_conteudo || []), { id: crypto.randomUUID(), type, value: '' }]
+    }));
+  };
+
+  const removeBlock = (id) => {
+    setNotaAberta(prev => ({
+      ...prev,
+      cr4a1_conteudo: prev.cr4a1_conteudo.filter(b => b.id !== id)
+    }));
   };
 
   const handleSave = () => {
-    onSave(editingNote);
-    setEditingNote(null);
+    const data = {
+      titulo: notaAberta.cr4a1_titulo,
+      privado: notaAberta.cr4a1_privado,
+      workspaceId: notaAberta.cr4a1_workspace_id,
+      conteudo: notaAberta.cr4a1_conteudo,
+      eventoId: notaAberta.cr4a1_evento_id
+    };
+
+    if (notaAberta.cr4a1_notion_notasid) {
+      updateNota(notaAberta.cr4a1_notion_notasid, data);
+    } else {
+      addNota(data);
+    }
+    setNotaAberta(null);
   };
 
-  if (!isOpen) return null;
+  const handleDelete = () => {
+    if (notaAberta.cr4a1_notion_notasid) {
+      deleteNota(notaAberta.cr4a1_notion_notasid);
+    }
+    setNotaAberta(null);
+  };
 
-  return (
-    <div className={`notes-sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
-      <div className="notes-sidebar-content" onClick={e => e.stopPropagation()}>
-        <header className="notes-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>sticky_note_2</span>
-            <h2 style={{ margin: 0, fontSize: '20px' }}>Notas</h2>
+  // TELA DE EDIÇÃO
+  if (notaAberta) {
+    return (
+      <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <button onClick={() => setNotaAberta(null)} className="btn-secondary boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}>
+            Voltar
+          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {notaAberta.cr4a1_notion_notasid && (
+              <button onClick={handleDelete} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#ffebee', color: '#c62828', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                Excluir
+              </button>
+            )}
+            <button onClick={handleSave} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#f57c00', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+              Salvar Nota
+            </button>
           </div>
-          <button onClick={onClose} className="icon-btn boing-effect"><span className="material-symbols-rounded">close</span></button>
-        </header>
+        </div>
 
-        {editingNote ? (
-          <div className="note-editor view-enter">
-            <div className="editor-actions">
-              <button onClick={() => setEditingNote(null)} className="btn-secondary boing-effect">Voltar</button>
-              <button onClick={handleSave} className="btn-primary boing-effect">Guardar</button>
-            </div>
-
-            <input 
-              className="note-title-input"
-              placeholder="Título (opcional)"
-              value={editingNote.cr4a1_titulo}
-              onChange={e => setEditingNote({...editingNote, cr4a1_titulo: e.target.value})}
-            />
-
-            <div className="notion-editor-mock">
-              {/* Aqui simulamos o editor de blocos. 
-                  Em uma implementação real, usaríamos Tiptap ou Editor.js */}
-              <textarea 
-                placeholder="Escreva aqui... Use '-' para tópicos (Simulação Notion)"
-                value={typeof editingNote.cr4a1_conteudo === 'string' ? editingNote.cr4a1_conteudo : JSON.stringify(editingNote.cr4a1_conteudo)}
-                onChange={e => setEditingNote({...editingNote, cr4a1_conteudo: e.target.value})}
-              />
-            </div>
-
-            <div className="editor-settings">
-              <label className="checkbox-label">
-                <input 
-                  type="checkbox" 
-                  checked={editingNote.cr4a1_privado === 'true'} 
-                  onChange={e => setEditingNote({...editingNote, cr4a1_privado: e.target.checked ? 'true' : 'false'})}
-                />
-                Nota Privada
-              </label>
-              
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+          <input 
+            type="text" 
+            placeholder="Título da Nota..." 
+            value={notaAberta.cr4a1_titulo} 
+            onChange={e => setNotaAberta({ ...notaAberta, cr4a1_titulo: e.target.value })}
+            style={{ fontSize: '28px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', width: '60%' }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+            <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={notaAberta.cr4a1_privado} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_privado: e.target.checked })} />
+              🔒 Privada
+            </label>
+            {workspaces.length > 0 && (
               <select 
-                value={editingNote.cr4a1_evento_id}
-                onChange={e => setEditingNote({...editingNote, cr4a1_evento_id: e.target.value})}
-                className="event-linker"
+                value={notaAberta.cr4a1_workspace_id} 
+                onChange={e => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: e.target.value })}
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '8px', fontSize: '12px', outline: 'none' }}
               >
-                <option value="">Vincular a um evento...</option>
-                {events.map(ev => (
-                  <option key={ev.cr4a1_agenda_kairosid} value={ev.cr4a1_agenda_kairosid}>{ev.cr4a1_titulo}</option>
+                {workspaces.map(ws => (
+                  <option key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>{ws.cr4a1_nome}</option>
                 ))}
               </select>
-            </div>
+            )}
           </div>
-        ) : (
-          <div className="notes-list-view">
-            <div className="notes-search-bar">
-              <span className="material-symbols-rounded">search</span>
-              <input placeholder="Procurar notas..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+        </div>
 
-            <button onClick={handleCreateNew} className="add-note-btn boing-effect">
-              <span className="material-symbols-rounded">add</span> Nova Nota
-            </button>
+        {/* EDITOR NOTION FLEXÍVEL */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
+          {(notaAberta.cr4a1_conteudo || []).map((bloco) => (
+            <div key={bloco.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              
+              <select 
+                value={bloco.type} 
+                onChange={e => handleTypeChange(bloco.id, e.target.value)}
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px', padding: '6px', borderRadius: '8px', outline: 'none', cursor: 'pointer', marginTop: '4px' }}
+              >
+                <option value="text">Texto</option>
+                <option value="todo">Tópico</option>
+                <option value="heading">H1</option>
+              </select>
 
-            <div className="notes-grid">
-              {filteredNotes.map(note => (
-                <div key={note.cr4a1_id_da_nota} className="note-card boing-effect" onClick={() => setEditingNote(note)}>
-                  <div className="note-card-header">
-                    <span className="user-tag">{note.cr4a1_user_login}</span>
-                    {note.cr4a1_privado === 'true' && <span className="material-symbols-rounded private-icon">lock</span>}
-                  </div>
-                  <h3>{note.cr4a1_titulo || 'Sem título'}</h3>
-                  <p>{note.cr4a1_conteudo?.substring(0, 80)}...</p>
-                  {note.cr4a1_evento_id && (
-                    <div className="event-tag">
-                      <span className="material-symbols-rounded">event</span> Evento vinculado
-                    </div>
-                  )}
+              {bloco.type === 'heading' ? (
+                <input 
+                  type="text" 
+                  value={bloco.value} 
+                  onChange={e => handleBlockChange(bloco.id, e.target.value)}
+                  placeholder="Cabeçalho principal..." 
+                  style={{ flex: 1, fontSize: '22px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', padding: '4px 0' }}
+                />
+              ) : bloco.type === 'todo' ? (
+                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '8px' }}>
+                  <span style={{ color: '#f57c00', fontSize: '18px' }}>•</span>
+                  <input 
+                    type="text" 
+                    value={bloco.value} 
+                    onChange={e => handleBlockChange(bloco.id, e.target.value)}
+                    placeholder="Listar item..." 
+                    style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '4px 0' }}
+                  />
                 </div>
-              ))}
+              ) : (
+                <textarea 
+                  value={bloco.value} 
+                  onChange={e => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                    handleBlockChange(bloco.id, e.target.value);
+                  }}
+                  placeholder="Escreva um texto..." 
+                  style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '6px 0', resize: 'none', overflow: 'hidden', minHeight: '28px', lineHeight: '1.5' }}
+                  rows={1}
+                />
+              )}
+
+              <button onClick={() => removeBlock(bloco.id)} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', marginTop: '4px' }} title="Remover bloco">
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+              </button>
             </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+            <button type="button" onClick={() => addBlock('text')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Texto</button>
+            <button type="button" onClick={() => addBlock('todo')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Tópico</button>
+            <button type="button" onClick={() => addBlock('heading')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ H1</button>
           </div>
-        )}
+        </div>
+      </div>
+    );
+  }
+
+  // TELA INICIAL: LISTAGEM DE NOTAS
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0, color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>description</span>
+          Notas / Hub
+        </h2>
+        <button onClick={createNewNota} className="boing-effect" style={{ padding: '10px 20px', borderRadius: '12px', background: '#f57c00', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>add</span>
+          Nova Nota
+        </button>
       </div>
 
-      <style>{`
-        .notes-sidebar-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 5000;
-          display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-        }
-        .notes-sidebar-overlay.active { opacity: 1; pointer-events: auto; }
-        .notes-sidebar-content {
-          width: 450px; max-width: 90vw; background: var(--bg-primary); height: 100%;
-          transform: translateX(100%); transition: transform 0.5s var(--easing-elastic);
-          display: flex; flexDirection: column; padding: 24px; box-shadow: -10px 0 30px rgba(0,0,0,0.1);
-        }
-        .notes-sidebar-overlay.active .notes-sidebar-content { transform: translateX(0); }
-        
-        .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .notes-search-bar { 
-          display: flex; align-items: center; gap: 8px; background: var(--bg-secondary);
-          padding: 10px 16px; borderRadius: 12px; margin-bottom: 16px;
-        }
-        .notes-search-bar input { border: none; background: transparent; color: var(--text-primary); outline: none; flex: 1; }
-        
-        .add-note-btn {
-          width: 100%; padding: 14px; borderRadius: 12px; border: 1px dashed var(--border-color);
-          background: transparent; color: var(--text-accent); cursor: pointer;
-          display: flex; align-items: center; justify-content: center; gap: 8px; fontWeight: 600; margin-bottom: 20px;
-        }
-        
-        .notes-grid { display: grid; grid-template-columns: 1fr; gap: 12px; overflow-y: auto; }
-        .note-card {
-          padding: 16px; borderRadius: 16px; border: 1px solid var(--border-color); background: var(--bg-secondary);
-          cursor: pointer; transition: all 0.2s ease;
-        }
-        .note-card:hover { border-color: var(--text-accent); transform: translateY(-2px); }
-        .note-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .user-tag { font-size: 10px; background: var(--md-primary-container); color: var(--md-on-primary-container); padding: 2px 8px; borderRadius: 4px; fontWeight: 700; }
-        .private-icon { fontSize: 14px; color: var(--text-secondary); }
-        .event-tag { fontSize: 11px; color: var(--text-accent); display: flex; alignItems: center; gap: 4px; marginTop: 8px; }
-        
-        .note-title-input {
-          width: 100%; fontSize: 24px; fontWeight: 700; border: none; background: transparent;
-          color: var(--text-title); outline: none; margin-bottom: 20px;
-        }
-        .notion-editor-mock textarea {
-          width: 100%; min-height: 300px; border: none; background: transparent;
-          color: var(--text-primary); fontSize: 16px; line-height: 1.6; outline: none; resize: none;
-        }
-        .editor-actions { display: flex; justify-content: space-between; margin-bottom: 24px; }
-        .editor-settings {
-          marginTop: auto; padding-top: 20px; border-top: 1px solid var(--border-color);
-          display: flex; flexDirection: column; gap: 12px;
-        }
-        .checkbox-label { display: flex; align-items: center; gap: 8px; fontSize: 14px; cursor: pointer; }
-        .event-linker {
-          padding: 10px; borderRadius: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color);
-          color: var(--text-primary);
-        }
-      `}</style>
+      {activeNotas.length === 0 ? (
+        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: '48px', opacity: 0.5, marginBottom: '16px' }}>speaker_notes_off</span>
+          <p>Nenhuma nota encontrada. Crie a sua primeira anotação!</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '24px' }}>
+          {activeNotas.map(nota => (
+            <div 
+              key={nota.cr4a1_notion_notasid} 
+              onClick={() => openNota(nota)}
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column', gap: '12px' }}
+              className="boing-effect note-card"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {nota.cr4a1_titulo || 'Sem Título'}
+                </h4>
+                {nota.cr4a1_privado && (
+                  <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#f57c00' }} title="Nota Privada">lock</span>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? nota.cr4a1_conteudo.find(b => b.type === 'text' || b.type === 'todo')?.value || '...' : 'Vazio...'}
+              </p>
+              <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
+                {nota.cr4a1_criador_login}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

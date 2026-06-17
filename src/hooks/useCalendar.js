@@ -5,8 +5,6 @@ import { fetchNationalHolidays } from '../api/holidays';
 
 const API_PROXY = '/api/dataverse-proxy';
 
-const PERMISSOES_ELEVADAS = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-
 export const useCalendar = () => {
     const [view, setView] = useState('year');
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -20,6 +18,9 @@ export const useCalendar = () => {
     // --- ESTADOS COMERCIAIS ---
     const [organizacoes, setOrganizacoes] = useState([]);
     const [visitas, setVisitas] = useState([]);
+
+    // --- ESTADOS DE NOTAS (NOTION) ---
+    const [notas, setNotas] = useState([]);
 
     // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
@@ -50,7 +51,6 @@ export const useCalendar = () => {
         const validate = async () => {
             try {
                 const filter = encodeURIComponent(`cr4a1_username eq '${storedUser}'`);
-
                 const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
                 if (!response.ok) throw new Error(`API error: ${response.status}`);
                 const data = await response.json();
@@ -179,16 +179,15 @@ export const useCalendar = () => {
         } catch (error) { console.log("Usando tipos locais"); }
     }, []);
 
-    // 1. LEITURA: Filtragem das visitas com base no User Role
     const fetchDadosComerciais = useCallback(async () => {
         try {
             const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses`);
             const dataOrgs = await resOrgs.json();
             setOrganizacoes(dataOrgs.value || []);
 
-            // Filtro de Segurança
-            let filtroVisitas = '';            
-            if (!PERMISSOES_ELEVADAS.includes(userRole)) {
+            let filtroVisitas = '';
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            if (!permissoesElevadas.includes(userRole)) {
                 filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`; 
             }
 
@@ -236,6 +235,31 @@ export const useCalendar = () => {
         } finally { setLoading(false); }
     }, [workspaces, user]);
 
+    // --- NOVA FUNÇÃO: BUSCAR NOTAS ---
+    const fetchNotas = useCallback(async () => {
+        if (workspaces.length === 0) {
+            setNotas([]);
+            return;
+        }
+        try {
+            const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&$filter=${encodeURIComponent(wsFilter)}`);
+            const data = await response.json();
+
+            // Regra de privacidade
+            const notasFiltradas = (data.value || []).filter(nota => {
+                return !nota.cr4a1_privado || nota.cr4a1_criador_login === user;
+            }).map(nota => ({
+                ...nota,
+                cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : []
+            }));
+
+            setNotas(notasFiltradas);
+        } catch (error) {
+            console.error("Erro ao carregar as notas Notion:", error);
+        }
+    }, [workspaces, user]);
+
     useEffect(() => { fetchNationalHolidays(currentDate.getFullYear()).then(setHolidays); }, [currentDate.getFullYear()]);
 
     useEffect(() => {
@@ -250,8 +274,9 @@ export const useCalendar = () => {
     useEffect(() => {
         if (user && workspaces.length > 0) {
             fetchEvents();
+            fetchNotas(); // Busca as notas sempre que os workspaces ou utilizador mudam
         }
-    }, [fetchEvents, workspaces]);
+    }, [fetchEvents, fetchNotas, workspaces]);
 
     const filteredEvents = useMemo(() => {
         if (activeWorkspaces.length === 0) return [];
@@ -268,24 +293,6 @@ export const useCalendar = () => {
         setActiveWorkspaces(prev =>
             prev.includes(wsId) ? prev.filter(id => id !== wsId) : [...prev, wsId]
         );
-    };
-
-    const moveEvent = async (eventId, newDate) => {
-        const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);        
-        if (!event || (!PERMISSOES_ELEVADAS.includes(userRole) && event.cr4a1_user_login !== user)) return;
-
-        await updateEvent({
-            ...event,
-            startDate: newDate,
-            endDate: newDate,
-            title: event.cr4a1_titulo,
-            startHour: event.cr4a1_hora_inicio,
-            allDay: event.cr4a1_dia_inteiro,
-            details: event.cr4a1_detalhes,
-            targetUser: event.cr4a1_user_login,
-            workspaceId: event.cr4a1_workspace_id,
-            cr4a1_subtasks: event.cr4a1_subtasks
-        });
     };
 
     const login = async (username, password) => {
@@ -313,7 +320,8 @@ export const useCalendar = () => {
     };
 
     const addEvent = async (eventData) => {
-        const targetUser = eventData.targetUser || (PERMISSOES_ELEVADAS.includes(userRole) ? viewedUser : user);
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        const targetUser = eventData.targetUser || (permissoesElevadas.includes(userRole) ? viewedUser : user);
         
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
@@ -366,7 +374,7 @@ export const useCalendar = () => {
 
             fetchEvents();
         } catch (error) {
-            toast.error(`Erro ao salvar: Verifique se o texto não é muito longo.`);
+            toast.error(`Erro ao salvar evento.`);
             console.error("Erro detalhado:", error);
             setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== generatedId));
         }
@@ -411,7 +419,7 @@ export const useCalendar = () => {
 
             fetchEvents();
         } catch (error) {
-            toast.error("Erro ao atualizar. O texto pode estar excedendo o limite da coluna.");
+            toast.error("Erro ao atualizar evento.");
             addToQueue({ method: 'PATCH', id: id, body: updatedEventDB });
         }
     };
@@ -420,7 +428,8 @@ export const useCalendar = () => {
         const finalId = (typeof id === 'object') ? id.cr4a1_agenda_kairosid : id;
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
-        if (!PERMISSOES_ELEVADAS.includes(userRole) && finalOwner !== user) { 
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) { 
             toast.error("Permissão negada."); 
             return; 
         }
@@ -433,6 +442,25 @@ export const useCalendar = () => {
             await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${finalId}`, { method: 'DELETE' });
             fetchEvents();
         } catch (error) { addToQueue({ method: 'DELETE', id: finalId }); }
+    };
+
+    const moveEvent = async (eventId, newDate) => {
+        const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
+        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+        if (!event || (!permissoesElevadas.includes(userRole) && event.cr4a1_user_login !== user)) return;
+
+        await updateEvent({
+            ...event,
+            startDate: newDate,
+            endDate: newDate,
+            title: event.cr4a1_titulo,
+            startHour: event.cr4a1_hora_inicio,
+            allDay: event.cr4a1_dia_inteiro,
+            details: event.cr4a1_detalhes,
+            targetUser: event.cr4a1_user_login,
+            workspaceId: event.cr4a1_workspace_id,
+            cr4a1_subtasks: event.cr4a1_subtasks
+        });
     };
 
     const addEventType = async (name, emoji) => {
@@ -601,7 +629,71 @@ export const useCalendar = () => {
         }
     };
 
-    // --- FUNÇÕES COMERCIAIS CORRIGIDAS E BLINDADAS ---
+    // --- FUNÇÕES DE ESCRITA DE NOTAS ---
+    const addNota = async (notaData) => {
+        const generatedId = crypto.randomUUID();
+        const novaNotaDB = {
+            cr4a1_notion_notasid: generatedId,
+            cr4a1_titulo: notaData.titulo || '',
+            cr4a1_criador_login: user,
+            cr4a1_workspace_id: notaData.workspaceId,
+            cr4a1_privado: !!notaData.privado,
+            cr4a1_evento_id: notaData.eventoId || null,
+            cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
+        };
+
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novaNotaDB)
+            });
+            if (!response.ok) throw new Error('Erro ao salvar nota no Dataverse');
+            fetchNotas();
+            toast.success("Nota criada com sucesso!");
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao salvar nota.");
+        }
+    };
+
+    const updateNota = async (notaId, notaData) => {
+        const payload = {
+            cr4a1_titulo: notaData.titulo || '',
+            cr4a1_privado: !!notaData.privado,
+            cr4a1_evento_id: notaData.eventoId || null,
+            cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
+        };
+
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&id=${notaId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Erro ao atualizar nota');
+            fetchNotas();
+            toast.success("Nota atualizada!");
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao atualizar nota.");
+        }
+    };
+
+    const deleteNota = async (notaId) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&id=${notaId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Erro ao deletar nota');
+            fetchNotas();
+            toast.success("Nota removida.");
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao remover nota.");
+        }
+    };
+
     const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {
         try {
             const filter = encodeURIComponent(`cr4a1_novacoluna eq '${nomeCliente}'`);
@@ -625,7 +717,6 @@ export const useCalendar = () => {
         }
     };
 
-    // Função que converte o login do utilizador no nome real ("cr4a1_title")
     const getVisitanteTitle = async (login) => {
         if (!login) return null;
         try {
@@ -643,14 +734,12 @@ export const useCalendar = () => {
         return login; 
     };
 
-    // ESCRITA: Criação de visitas com validação de permissões
     const addVisitas = async (visitasArray) => {
         try {
-            const podeAgendarParaOutros = PERMISSOES_ELEVADAS.includes(userRole);
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
 
             const visitasParaEnviar = await Promise.all(visitasArray.map(async ({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => {
-                
-                // Força a gravar no próprio utilizador se não for chefe
                 const loginParaBusca = podeAgendarParaOutros ? (resto.cr4a1_visitante || user) : user;
                 const titleReal = await getVisitanteTitle(loginParaBusca);
 
@@ -675,7 +764,6 @@ export const useCalendar = () => {
             for (const resp of responses) {
                 if (!resp.ok) {
                     const errorBody = await resp.text();
-                    console.error("Erro ao criar visita:", errorBody);
                     throw new Error(`Erro ${resp.status}: ${errorBody}`);
                 }
             }
@@ -691,12 +779,11 @@ export const useCalendar = () => {
         }
     };
 
-    // ESCRITA: Edição de visitas com validação de permissões
     const updateVisitas = async (visitaData) => {
         try {
-            const podeAgendarParaOutros = PERMISSOES_ELEVADAS.includes(userRole);
+            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
 
-            // Garante que o utilizador comum só edita/mantém o seu próprio nome
             const loginParaBusca = podeAgendarParaOutros ? (visitaData.cr4a1_visitante || user) : user;
             const titleReal = await getVisitanteTitle(loginParaBusca);
 
@@ -768,6 +855,7 @@ export const useCalendar = () => {
         updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
+        notas, addNota, updateNota, deleteNota, // <-- Exportação das notas para usar no App
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };

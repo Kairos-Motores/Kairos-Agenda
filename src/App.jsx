@@ -833,7 +833,8 @@ function App() {
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
-    organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria
+    organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
+    notas = [], addNota, updateNota, deleteNota // 👈 NOVAS FUNÇÕES DO USECALENDAR (ESTILO NOTION)
   } = useCalendar();
 
   const roles = useMemo(() => Array.isArray(userRole) ? userRole : (typeof userRole === 'string' ? userRole.split(',').map(r => r.trim()) : []), [userRole]);
@@ -945,7 +946,6 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
 
   const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
@@ -1424,6 +1424,14 @@ function App() {
                 <span className="material-symbols-rounded">calendar_month</span> Agenda
               </button>
 
+              <button onClick={() => { setAppMode('notas'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
+                justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                backgroundColor: appMode === 'notas' ? '#ffe0b2' : 'transparent',
+                color: appMode === 'notas' ? '#f57c00' : 'var(--text-primary)'
+              }}>
+                <span className="material-symbols-rounded">description</span> Notas
+              </button>
+
               {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
                 <button onClick={() => { setAppMode('tasks'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
@@ -1448,16 +1456,16 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (appMode === 'tasks') setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (['tasks', 'notas'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                  fontWeight: (view === v.id && appMode !== 'tasks') ? '700' : '500', backgroundColor: (view === v.id && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                  fontWeight: (view === v.id && !['tasks', 'notas'].includes(appMode)) ? '700' : '500', backgroundColor: (view === v.id && !['tasks', 'notas'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !['tasks', 'notas'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
               ))}
-              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (appMode === 'tasks') setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (['tasks', 'notas'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                 display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                fontWeight: (view === 'list' && appMode !== 'tasks') ? '700' : '500', backgroundColor: (view === 'list' && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                fontWeight: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? '700' : '500', backgroundColor: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>view_agenda</span> Fichas
               </button>
@@ -1481,7 +1489,7 @@ function App() {
               </div>
             </div>
 
-            {appMode !== 'visitas' && (
+            {!['visitas', 'notas'].includes(appMode) && (
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
@@ -1614,10 +1622,10 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
             </button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)', fontSize: '28px' }}>
-                {appMode === 'visitas' ? 'location_on' : 'calendar_month'}
+              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' ? '#f57c00' : 'var(--text-accent)'), fontSize: '28px' }}>
+                {appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : 'calendar_month')}
               </span>
-              <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : 'Kairós'}</span>
+              <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : 'Kairós')}</span>
             </h1>
 
             <div className="segmented-views" style={{
@@ -1625,11 +1633,11 @@ function App() {
               borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
             }}>
               {viewsConfig.map(v => {
-                const isActive = view === v.id && appMode !== 'tasks';
+                const isActive = view === v.id && !['tasks', 'notas'].includes(appMode);
                 return (
                   <button
                     key={v.id}
-                    onClick={() => { setView(v.id); if (appMode === 'tasks') setAppMode('calendar'); }}
+                    onClick={() => { setView(v.id); if (['tasks', 'notas'].includes(appMode)) setAppMode('calendar'); }}
                     className={`boing-effect ${isActive ? 'active' : ''}`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
@@ -1646,13 +1654,13 @@ function App() {
             </div>
 
             <button
-              onClick={() => { setView('list'); if (appMode === 'tasks') setAppMode('calendar'); }}
-              className={`boing-effect ${view === 'list' && appMode !== 'tasks' ? 'active' : ''}`}
+              onClick={() => { setView('list'); if (['tasks', 'notas'].includes(appMode)) setAppMode('calendar'); }}
+              className={`boing-effect ${view === 'list' && !['tasks', 'notas'].includes(appMode) ? 'active' : ''}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                border: (view === 'list' && appMode !== 'tasks') ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
-                background: (view === 'list' && appMode !== 'tasks') ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                color: (view === 'list' && appMode !== 'tasks') ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
+                border: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
+                background: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                color: (view === 'list' && !['tasks', 'notas'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer'
               }}
             >
@@ -1741,7 +1749,7 @@ function App() {
               )}
             </div>
 
-            {appMode !== 'tasks' && view === 'day' && (
+            {!['tasks', 'notas'].includes(appMode) && view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
                 <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
@@ -1761,7 +1769,7 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible', justifyContent: 'center' }}>
           {/* BARRA LATERAL ESQUERDA DE PARTICIPANTES (HOVER EXPANDE) */}
-          {isDevWorkspaceActive && appMode !== 'visitas' && (
+          {isDevWorkspaceActive && !['visitas', 'notas'].includes(appMode) && (
             <aside className={`left-avatar-sidebar desktop-only ${isDraggingMember ? 'dragging-active' : ''}`}>
               <div className="sidebar-collapsed-indicator">
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>groups</span>
@@ -1883,16 +1891,26 @@ function App() {
 
           <main className="main-container" style={{
             flex: 1,
-            padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
+            padding: ['tasks', 'notas'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
             paddingBottom: '80px',
             overflow: 'visible',
-            marginLeft: (isDevWorkspaceActive && appMode !== 'visitas') ? '24px' : '0',
+            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas'].includes(appMode)) ? '24px' : '0',
             maxWidth: '1400px',
             margin: '0 auto'
           }}>
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
-              {appMode === 'tasks' ? (
+              {appMode === 'notas' ? (
+                <NotesPanel
+                  notas={notas || []}
+                  addNota={addNota}
+                  updateNota={updateNota}
+                  deleteNota={deleteNota}
+                  currentUser={currentUser}
+                  workspaces={workspaces}
+                  activeWorkspaces={activeWorkspaces}
+                />
+              ) : appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
                   <header style={{ marginBottom: '10px' }}>
                     <h2 style={{ color: 'var(--text-title)', fontSize: '26px', fontWeight: '800' }}>Desenvolvimento e Inovação</h2>
@@ -2179,11 +2197,11 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
               </button>
 
-              <button onClick={() => setIsNotesOpen(true)} className="boing-effect" title="Notas da Equipa" style={{
+              <button onClick={() => setAppMode('notas')} className={`boing-effect ${appMode === 'notas' ? 'active' : ''}`} title="Notas da Equipa" style={{
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isNotesOpen ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-primary)'
+                background: appMode === 'notas' ? '#ffe0b2' : 'transparent', color: appMode === 'notas' ? '#f57c00' : 'var(--text-primary)'
               }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>sticky_note_2</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>description</span>
               </button>
 
               {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
@@ -2249,17 +2267,6 @@ function App() {
               allUsers={allUsers}
               userRole={userRole}
               editingWorkspace={editingWorkspace}
-            />
-          )}
-          {isNotesOpen && (
-            <NotesPanel 
-              isOpen={isNotesOpen}
-              onClose={() => setIsNotesOpen(false)}
-              notes={[]} // Aqui você passará as notas do seu hook useCalendar futuramente
-              onSave={(note) => toast.success("Nota salva!")} // Integração com API virá depois
-              currentUser={currentUser}
-              activeWorkspaceId={activeWorkspaces[0] || defaultWorkspaceId}
-              events={events}
             />
           )}
           {isProfileModalOpen && (
@@ -2366,11 +2373,11 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div style={{ position: 'fixed', bottom: appMode === 'tasks' ? '80px' : '24px', right: '24px', zIndex: 500 }}>
+          <div style={{ position: 'fixed', bottom: ['tasks', 'notas'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
-                {appMode !== 'visitas' && (
+                {!['visitas', 'notas'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
                     <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -2388,7 +2395,7 @@ function App() {
                   </div>
                 )}
 
-                {(hasRole('ADMIN') || hasRole('RH')) && appMode !== 'visitas' && (
+                {(hasRole('ADMIN') || hasRole('RH')) && !['visitas', 'notas'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
                     <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
