@@ -5,6 +5,8 @@ import { fetchNationalHolidays } from '../api/holidays';
 
 const API_PROXY = '/api/dataverse-proxy';
 
+const PERMISSOES_ELEVADAS = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
+
 export const useCalendar = () => {
     const [view, setView] = useState('year');
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -48,6 +50,7 @@ export const useCalendar = () => {
         const validate = async () => {
             try {
                 const filter = encodeURIComponent(`cr4a1_username eq '${storedUser}'`);
+
                 const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
                 if (!response.ok) throw new Error(`API error: ${response.status}`);
                 const data = await response.json();
@@ -184,9 +187,8 @@ export const useCalendar = () => {
             setOrganizacoes(dataOrgs.value || []);
 
             // Filtro de Segurança
-            let filtroVisitas = '';
-            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            if (!permissoesElevadas.includes(userRole)) {
+            let filtroVisitas = '';            
+            if (!PERMISSOES_ELEVADAS.includes(userRole)) {
                 filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`; 
             }
 
@@ -269,9 +271,8 @@ export const useCalendar = () => {
     };
 
     const moveEvent = async (eventId, newDate) => {
-        const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
-        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!event || (!permissoesElevadas.includes(userRole) && event.cr4a1_user_login !== user)) return;
+        const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);        
+        if (!event || (!PERMISSOES_ELEVADAS.includes(userRole) && event.cr4a1_user_login !== user)) return;
 
         await updateEvent({
             ...event,
@@ -312,8 +313,7 @@ export const useCalendar = () => {
     };
 
     const addEvent = async (eventData) => {
-        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        const targetUser = eventData.targetUser || (permissoesElevadas.includes(userRole) ? viewedUser : user);
+        const targetUser = eventData.targetUser || (PERMISSOES_ELEVADAS.includes(userRole) ? viewedUser : user);
         
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
@@ -420,8 +420,7 @@ export const useCalendar = () => {
         const finalId = (typeof id === 'object') ? id.cr4a1_agenda_kairosid : id;
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
-        const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) { 
+        if (!PERMISSOES_ELEVADAS.includes(userRole) && finalOwner !== user) { 
             toast.error("Permissão negada."); 
             return; 
         }
@@ -647,8 +646,7 @@ export const useCalendar = () => {
     // ESCRITA: Criação de visitas com validação de permissões
     const addVisitas = async (visitasArray) => {
         try {
-            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+            const podeAgendarParaOutros = PERMISSOES_ELEVADAS.includes(userRole);
 
             const visitasParaEnviar = await Promise.all(visitasArray.map(async ({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => {
                 
@@ -696,8 +694,7 @@ export const useCalendar = () => {
     // ESCRITA: Edição de visitas com validação de permissões
     const updateVisitas = async (visitaData) => {
         try {
-            const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+            const podeAgendarParaOutros = PERMISSOES_ELEVADAS.includes(userRole);
 
             // Garante que o utilizador comum só edita/mantém o seu próprio nome
             const loginParaBusca = podeAgendarParaOutros ? (visitaData.cr4a1_visitante || user) : user;

@@ -17,6 +17,11 @@ import { ptBR } from 'date-fns/locale';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
 
+import avanteImg from './assets/avante.png';
+import echoeImg from './assets/echoe.png';
+import hubImg from './assets/hub.png';
+import medroImg from './assets/medro.png';
+
 // --- COMPONENTES AUXILIARES (mantidos) ---
 
 const BirthdayCelebration = ({ name, onClose }) => (
@@ -219,6 +224,14 @@ const LoginScreen = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
+  // Função para ignorar o login real durante o desenvolvimento em localhost
+  const handleDevLogin = () => {
+    // Define valores padrão que o teu useCalendar provavelmente espera
+    localStorage.setItem('kairos_logged_user', 'admin'); 
+    localStorage.setItem('kairos_user_role', 'ADMIN');
+    window.location.reload(); // Recarrega para o hook ler os novos dados
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsAuthenticating(true);
@@ -238,6 +251,19 @@ const LoginScreen = ({ onLogin }) => {
         <button type="submit" disabled={isAuthenticating} className="boing-effect" style={{ width: '100%', padding: '12px', background: 'var(--text-accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
           {isAuthenticating ? 'A validar...' : 'Entrar'}
         </button>
+
+        {window.location.hostname === 'localhost' && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed var(--border-color)', textAlign: 'center' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>Modo Desenvolvimento</p>
+            <button 
+              type="button" 
+              onClick={handleDevLogin}
+              style={{ background: 'none', border: '1px solid var(--text-accent)', color: 'var(--text-accent)', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
+            >
+              Ignorar Login (Localhost)
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
@@ -957,6 +983,7 @@ function App() {
     setIsWorkspaceModalOpen(true);
   };
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
+  const [isPowerAppsFabOpen, setIsPowerAppsFabOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [showBirthday, setShowBirthday] = useState(false);
 
@@ -2114,6 +2141,28 @@ function App() {
             </div>
           </main>
 
+          {/* BARRA POWERAPPS LATERAL DIREITA FIXA (DESKTOP) */}
+          <aside className="powerapps-sidebar desktop-only">
+            <div className="sidebar-collapsed-indicator">
+              <span className="powerapps-title">PowerApps</span>
+            </div>
+            <div className="sidebar-expanded-content">
+              {/* Cole o link dentro do href="" abaixo */}
+              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/9c6e8435-69c1-457f-94d0-f90579d82fab?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=0330f7bd-de70-4545-b029-61b7052c847e&sourcetime=1781612868074&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Avante">
+                <img src={avanteImg} alt="Avante" className="powerapp-icon" />
+              </a>
+              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/b8c3032e-74e3-4c5d-9290-38cd53936644?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=a95eae44-d827-4365-b370-399d11f57484&sourcetime=1781641491290&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Echoe">
+                <img src={echoeImg} alt="Echoe" className="powerapp-icon" />
+              </a>
+              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/501635ac-110f-415e-a9ec-ed6c70af9a54?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=7b9d36b0-aff6-477b-bf3c-49be3ed5b1db&sourcetime=1781632369050&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Hub">
+                <img src={hubImg} alt="Hub" className="powerapp-icon" />
+              </a>
+              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/8571c626-fa75-4049-8b65-64d965ee8293?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=59adb198-18c2-4d83-8d5a-4bc8f219ee9a&sourcetime=1781693282907&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Medro">
+                <img src={medroImg} alt="Medro" className="powerapp-icon" />
+              </a>
+            </div>
+          </aside>
+
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="right-menu-sidebar desktop-only">
             <div className="sidebar-expanded-content">
@@ -2330,6 +2379,41 @@ function App() {
             </button>
           </div>
         )}
+
+        {/* POWERAPPS FAB (MOBILE ONLY) */}
+        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          {isPowerAppsFabOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0s' }}>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Medro</span>
+                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                  <img src={medroImg} alt="Medro" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </a>
+              </div>
+              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.05s' }}>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Hub</span>
+                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                  <img src={hubImg} alt="Hub" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </a>
+              </div>
+              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.1s' }}>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Echoe</span>
+                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                  <img src={echoeImg} alt="Echoe" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </a>
+              </div>
+              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.15s' }}>
+                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Avante</span>
+                <a href="#" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                  <img src={avanteImg} alt="Avante" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </a>
+              </div>
+            </div>
+          )}
+          <button className="fab-btn boing-effect" onClick={() => setIsPowerAppsFabOpen(!isPowerAppsFabOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isPowerAppsFabOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isPowerAppsFabOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isPowerAppsFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isPowerAppsFabOpen ? 'close' : 'apps'}</span>
+          </button>
+        </div>
       </div>
 
       {/* BLOCO DE ESTILOS CSS INJETADO */}
