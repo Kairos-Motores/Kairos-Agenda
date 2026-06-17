@@ -56,22 +56,43 @@ export const dataverseApi = {
       headers: { 'x-dataverse-filter': filter }
     });
     const data = await response.json();
-    return data.value || [];
+    
+    // Converte a string de volta para booleano ao receber do banco para não quebrar a UI
+    if (data.value) {
+      return data.value.map(note => ({
+        ...note,
+        cr4a1_privado: note.cr4a1_privado === 'true'
+      }));
+    }
+    return [];
   },
 
   async createNote(noteData) {
+    // Clona o objeto e força a conversão do booleano para string
+    const payload = {
+      ...noteData,
+      cr4a1_privado: String(noteData.cr4a1_privado) 
+    };
+
     return await fetch(`${API_URL}?table=cr4a1_notas_kairoses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(noteData)
+      body: JSON.stringify(payload)
     });
   },
 
   async updateNote(id, noteData) {
+    const payload = { ...noteData };
+    
+    // Se a atualização incluir o campo privado, converte também
+    if (payload.cr4a1_privado !== undefined) {
+      payload.cr4a1_privado = String(payload.cr4a1_privado);
+    }
+
     return await fetch(`${API_URL}?table=cr4a1_notas_kairoses&id=${id}`, {
-      method: 'PATCH', // PATCH para atualização parcial
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(noteData)
+      body: JSON.stringify(payload)
     });
   },
 
