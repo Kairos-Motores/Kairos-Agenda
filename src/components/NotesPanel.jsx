@@ -50,14 +50,16 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
   const handleSave = () => {
     const data = {
       titulo: notaAberta.cr4a1_titulo,
-      privado: notaAberta.cr4a1_privado,
+      // 1. FORÇAMOS A STRING AQUI NA RAIZ para o erro Edm.Boolean desaparecer
+      privado: String(notaAberta.cr4a1_privado), 
       workspaceId: notaAberta.cr4a1_workspace_id,
       conteudo: notaAberta.cr4a1_conteudo,
       eventoId: notaAberta.cr4a1_evento_id
     };
 
-    if (notaAberta.cr4a1_id_da_nota) { // Usando o nome da coluna correto para o ID
-      updateNota(notaAberta.cr4a1_notion_notasid, data);
+    if (notaAberta.cr4a1_id_da_nota) { 
+      // 2. CORREÇÃO: Enviando cr4a1_id_da_nota em vez do antigo cr4a1_notion_notasid
+      updateNota(notaAberta.cr4a1_id_da_nota, data); 
     } else {
       addNota(data);
     }
@@ -65,8 +67,9 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
   };
 
   const handleDelete = () => {
-    if (notaAberta.cr4a1_id_da_nota) { // Usando o nome da coluna correto para o ID
-      deleteNota(notaAberta.cr4a1_notion_notasid);
+    if (notaAberta.cr4a1_id_da_nota) { 
+      // 2. CORREÇÃO: Enviando cr4a1_id_da_nota em vez do antigo cr4a1_notion_notasid
+      deleteNota(notaAberta.cr4a1_id_da_nota);
     }
     setNotaAberta(null);
   };
@@ -80,7 +83,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
             Voltar
           </button>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {notaAberta.cr4a1_id_da_nota && ( // Usando o nome da coluna correto para o ID
+            {notaAberta.cr4a1_id_da_nota && ( 
               <button onClick={handleDelete} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#ffebee', color: '#c62828', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                 Excluir
               </button>
@@ -101,7 +104,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
             <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={notaAberta.cr4a1_privado} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_privado: e.target.checked })} />
+              <input type="checkbox" checked={notaAberta.cr4a1_privado === true || notaAberta.cr4a1_privado === 'true'} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_privado: e.target.checked })} />
               🔒 Privada
             </label>
             {workspaces.length > 0 && (
@@ -204,8 +207,8 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '24px' }}>
           {activeNotas.map(nota => (
-            <div // Usando o nome da coluna correto para o ID
-              key={nota.cr4a1_notion_notasid} 
+            <div 
+              key={nota.cr4a1_id_da_nota} // 3. CORREÇÃO DE CHAVE DE LISTA AQUI TAMBÉM
               onClick={() => openNota(nota)}
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column', gap: '12px' }}
               className="boing-effect note-card"
@@ -214,7 +217,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
                 <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {nota.cr4a1_titulo || 'Sem Título'}
                 </h4>
-                {nota.cr4a1_privado && (
+                {(nota.cr4a1_privado === true || nota.cr4a1_privado === 'true') && (
                   <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#f57c00' }} title="Nota Privada">lock</span>
                 )}
               </div>
