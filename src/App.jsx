@@ -21,6 +21,7 @@ import avanteImg from './assets/avante.png';
 import echoeImg from './assets/echoe.png';
 import hubImg from './assets/hub.png';
 import medroImg from './assets/medro.png';
+import mainLogo from './assets/LOGO PNG 8x11 (1).png';
 
 // --- COMPONENTES AUXILIARES (mantidos) ---
 
@@ -2165,6 +2166,9 @@ function App() {
 
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="right-menu-sidebar desktop-only">
+            <div className="sidebar-collapsed-indicator">
+              <img src={mainLogo} alt="Logo" style={{ width: '16px', height: 'auto', opacity: 0.6, transform: 'rotate(-90deg)', transition: 'opacity 0.3s ease' }} onMouseOver={(e) => e.currentTarget.style.opacity = 1} onMouseOut={(e) => e.currentTarget.style.opacity = 0.6} />
+            </div>
             <div className="sidebar-expanded-content">
               <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
                 width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
