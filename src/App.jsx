@@ -228,7 +228,7 @@ const LoginScreen = ({ onLogin }) => {
   // Função para ignorar o login real durante o desenvolvimento em localhost
   const handleDevLogin = () => {
     // Define valores padrão que o teu useCalendar provavelmente espera
-    localStorage.setItem('kairos_logged_user', 'admin'); 
+    localStorage.setItem('kairos_logged_user', 'admin');
     localStorage.setItem('kairos_user_role', 'ADMIN');
     window.location.reload(); // Recarrega para o hook ler os novos dados
   };
@@ -256,8 +256,8 @@ const LoginScreen = ({ onLogin }) => {
         {window.location.hostname === 'localhost' && (
           <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed var(--border-color)', textAlign: 'center' }}>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>Modo Desenvolvimento</p>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleDevLogin}
               style={{ background: 'none', border: '1px solid var(--text-accent)', color: 'var(--text-accent)', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
             >
@@ -864,7 +864,7 @@ function App() {
 
     if (draggableId.startsWith('member_')) {
       const memberUsername = draggableId.substring(7);
-      
+
       const canAssign = hasRole('ADMIN') || hasRole('COORD');
       if (!canAssign) {
         toast.error("Apenas ADMIN ou COORD podem atribuir eventos desta forma.");
@@ -878,14 +878,14 @@ function App() {
 
       const targetDate = new Date(newDateStr + 'T12:00:00');
       setCurrentDate(targetDate);
-      
+
       // Reseta o estado de arraste imediatamente
       setIsDraggingMember(false);
 
       // Timeout ligeiramente maior para garantir que o DND finalize a remoção do Portal
       setTimeout(() => {
         setIsModalOpen(true);
-      }, 150); 
+      }, 150);
       return;
     }
 
@@ -1004,11 +1004,11 @@ function App() {
   }, [events, workspaces]);
 
   const devWorkspace = useMemo(() => workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação"), [workspaces]);
-  
+
   const isDevWorkspaceActive = useMemo(() => {
     if (!devWorkspace) return false;
-    return activeWorkspaces.includes(devWorkspace.cr4a1_calendarios_workspacesid) || 
-           (activeWorkspaces.length === 0 && defaultWorkspaceId === devWorkspace.cr4a1_calendarios_workspacesid);
+    return activeWorkspaces.includes(devWorkspace.cr4a1_calendarios_workspacesid) ||
+      (activeWorkspaces.length === 0 && defaultWorkspaceId === devWorkspace.cr4a1_calendarios_workspacesid);
   }, [devWorkspace, activeWorkspaces, defaultWorkspaceId]);
 
   const devWorkspaceMembers = useMemo(() => {
@@ -1879,11 +1879,11 @@ function App() {
             </aside>
           )}
 
-          <main className="main-container" style={{ 
-            flex: 1, 
-            padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'), 
-            paddingBottom: '80px', 
-            overflow: 'visible', 
+          <main className="main-container" style={{
+            flex: 1,
+            padding: appMode === 'tasks' ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
+            paddingBottom: '80px',
+            overflow: 'visible',
             marginLeft: (isDevWorkspaceActive && appMode !== 'visitas') ? '24px' : '0',
             maxWidth: '1400px',
             margin: '0 auto'
