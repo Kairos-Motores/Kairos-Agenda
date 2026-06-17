@@ -52,7 +52,7 @@ export const dataverseApi = {
   },
 
   async getNotes(filter = '') {
-    const response = await fetch(`${API_URL}?table=cr4a1_notas_kairoses`, {
+    const response = await fetch(`${API_URL}?table=cr4a1_notas_kairos`, {
       headers: { 'x-dataverse-filter': filter }
     });
     const data = await response.json();
@@ -60,7 +60,7 @@ export const dataverseApi = {
   },
 
   async createNote(noteData) {
-    return await fetch(`${API_URL}?table=cr4a1_notas_kairoses`, {
+    return await fetch(`${API_URL}?table=cr4a1_notas_kairos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(noteData)
@@ -68,7 +68,7 @@ export const dataverseApi = {
   },
 
   async updateNote(id, noteData) {
-    return await fetch(`${API_URL}?table=cr4a1_notas_kairoses&id=${id}`, {
+    return await fetch(`${API_URL}?table=cr4a1_notas_kairos&id=${id}`, {
       method: 'PATCH', // PATCH para atualização parcial
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(noteData)
