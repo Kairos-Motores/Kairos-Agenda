@@ -2145,7 +2145,7 @@ function App() {
           {/* BARRA POWERAPPS LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="powerapps-sidebar desktop-only">
             <div className="sidebar-collapsed-indicator">
-              <span className="powerapps-title">PowerApps</span>
+              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>apps</span>
             </div>
             <div className="sidebar-expanded-content">
               {/* Cole o link dentro do href="" abaixo */}
@@ -2167,7 +2167,7 @@ function App() {
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
           <aside className="right-menu-sidebar desktop-only">
             <div className="sidebar-collapsed-indicator">
-              <img src={mainLogo} alt="Logo" style={{ width: '16px', height: 'auto', opacity: 0.6, transform: 'rotate(-90deg)', transition: 'opacity 0.3s ease' }} onMouseOver={(e) => e.currentTarget.style.opacity = 1} onMouseOut={(e) => e.currentTarget.style.opacity = 0.6} />
+              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>side_navigation</span>
             </div>
             <div className="sidebar-expanded-content">
               <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
@@ -2528,23 +2528,51 @@ function App() {
             box-sizing: border-box;
         }
 
-        /* Barra lateral direita – fixa, mas sem empurrar o conteúdo */
-        .right-menu-sidebar {
+        /* Estilo Base para as Barras Laterais Flutuantes (MD3) */
+        .right-menu-sidebar, .powerapps-sidebar {
             position: fixed;
-            right: 16px;
-            top: 50%;
+            right: 12px;
             transform: translateY(-50%);
             width: 56px;
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
-            border-radius: 28px 0 0 28px;
+            border-radius: 28px;
             display: flex;
-            flexDirection: column;
+            flex-direction: column;
             align-items: center;
-            padding: 16px 0;
+            padding: 12px 0;
             gap: 16px;
-            box-shadow: -4px 0 24px rgba(0,0,0,0.06);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             z-index: 1000;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            overflow: hidden;
+            max-height: 56px;
+        }
+
+        /* Posicionamento Distinto para evitar sobreposição */
+        .right-menu-sidebar { top: 35%; }
+        .powerapps-sidebar { top: 65%; }
+
+        .right-menu-sidebar:hover, .powerapps-sidebar:hover {
+            max-height: 400px;
+            width: 64px;
+            border-radius: 32px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            background: var(--bg-secondary);
+        }
+
+        .sidebar-collapsed-indicator {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .right-menu-sidebar:hover .sidebar-collapsed-indicator,
+        .powerapps-sidebar:hover .sidebar-collapsed-indicator {
+            transform: scale(0.8) translateY(-5px);
+            opacity: 0.5;
         }
 
         /* Garantir que a grade anual ocupe bem o espaço */
