@@ -8,6 +8,7 @@ import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
 import { UserManagementModal } from './components/UserManagementModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
+import { NotesPanel } from './components/NotesPanel';
 import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import {
@@ -944,6 +945,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
 
   const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
@@ -2177,6 +2179,13 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
               </button>
 
+              <button onClick={() => setIsNotesOpen(true)} className="boing-effect" title="Notas da Equipa" style={{
+                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isNotesOpen ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-primary)'
+              }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>sticky_note_2</span>
+              </button>
+
               {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
                 <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
                   width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2240,6 +2249,17 @@ function App() {
               allUsers={allUsers}
               userRole={userRole}
               editingWorkspace={editingWorkspace}
+            />
+          )}
+          {isNotesOpen && (
+            <NotesPanel 
+              isOpen={isNotesOpen}
+              onClose={() => setIsNotesOpen(false)}
+              notes={[]} // Aqui você passará as notas do seu hook useCalendar futuramente
+              onSave={(note) => toast.success("Nota salva!")} // Integração com API virá depois
+              currentUser={currentUser}
+              activeWorkspaceId={activeWorkspaces[0] || defaultWorkspaceId}
+              events={events}
             />
           )}
           {isProfileModalOpen && (

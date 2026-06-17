@@ -49,5 +49,35 @@ export const dataverseApi = {
     return await fetch(`${API_URL}?table=cr4a1_agenda_kairoses&id=${id}`, {
       method: 'DELETE'
     });
+  },
+
+  async getNotes(filter = '') {
+    const response = await fetch(`${API_URL}?table=cr4a1_notas_kairos`, {
+      headers: { 'x-dataverse-filter': filter }
+    });
+    const data = await response.json();
+    return data.value || [];
+  },
+
+  async createNote(noteData) {
+    return await fetch(`${API_URL}?table=cr4a1_notas_kairos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(noteData)
+    });
+  },
+
+  async updateNote(id, noteData) {
+    return await fetch(`${API_URL}?table=cr4a1_notas_kairos&id=${id}`, {
+      method: 'PATCH', // PATCH para atualização parcial
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(noteData)
+    });
+  },
+
+  async deleteNote(id) {
+    return await fetch(`${API_URL}?table=cr4a1_notas_kairos&id=${id}`, {
+      method: 'DELETE'
+    });
   }
 };
