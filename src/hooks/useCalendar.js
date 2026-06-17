@@ -243,7 +243,7 @@ export const useCalendar = () => {
         }
         try {
             const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&$filter=${encodeURIComponent(wsFilter)}`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
 
             // Regra de privacidade
@@ -632,8 +632,8 @@ export const useCalendar = () => {
     // --- FUNÇÕES DE ESCRITA DE NOTAS ---
     const addNota = async (notaData) => {
         const generatedId = crypto.randomUUID();
-        const novaNotaDB = {
-            cr4a1_notion_notasid: generatedId,
+        const novaNotaDB = { // Usando o nome da coluna correto para o ID
+            cr4a1_id_da_nota: generatedId,
             cr4a1_titulo: notaData.titulo || '',
             cr4a1_criador_login: user,
             cr4a1_workspace_id: notaData.workspaceId,
@@ -642,8 +642,8 @@ export const useCalendar = () => {
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
 
-        try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases`, {
+        try { // Corrigindo o nome da tabela
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(novaNotaDB)
@@ -665,8 +665,8 @@ export const useCalendar = () => {
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
 
-        try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&id=${notaId}`, {
+        try { // Corrigindo o nome da tabela
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&id=${notaId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -682,7 +682,7 @@ export const useCalendar = () => {
 
     const deleteNota = async (notaId) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notion_notases&id=${notaId}`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&id=${notaId}`, {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error('Erro ao deletar nota');

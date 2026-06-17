@@ -56,7 +56,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
       eventoId: notaAberta.cr4a1_evento_id
     };
 
-    if (notaAberta.cr4a1_notion_notasid) {
+    if (notaAberta.cr4a1_id_da_nota) { // Usando o nome da coluna correto para o ID
       updateNota(notaAberta.cr4a1_notion_notasid, data);
     } else {
       addNota(data);
@@ -65,7 +65,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
   };
 
   const handleDelete = () => {
-    if (notaAberta.cr4a1_notion_notasid) {
+    if (notaAberta.cr4a1_id_da_nota) { // Usando o nome da coluna correto para o ID
       deleteNota(notaAberta.cr4a1_notion_notasid);
     }
     setNotaAberta(null);
@@ -80,7 +80,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
             Voltar
           </button>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {notaAberta.cr4a1_notion_notasid && (
+            {notaAberta.cr4a1_id_da_nota && ( // Usando o nome da coluna correto para o ID
               <button onClick={handleDelete} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#ffebee', color: '#c62828', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                 Excluir
               </button>
@@ -204,7 +204,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '24px' }}>
           {activeNotas.map(nota => (
-            <div 
+            <div // Usando o nome da coluna correto para o ID
               key={nota.cr4a1_notion_notasid} 
               onClick={() => openNota(nota)}
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column', gap: '12px' }}
