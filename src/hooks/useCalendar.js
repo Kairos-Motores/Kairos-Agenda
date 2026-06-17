@@ -243,7 +243,7 @@ export const useCalendar = () => {
         }
         try {
             const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&$filter=${encodeURIComponent(wsFilter)}`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
 
             // Regra de privacidade
@@ -643,7 +643,7 @@ export const useCalendar = () => {
         };
 
         try { // Corrigindo o nome da tabela
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(novaNotaDB)
@@ -666,7 +666,7 @@ export const useCalendar = () => {
         };
 
         try { // Corrigindo o nome da tabela
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&id=${notaId}`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -682,7 +682,7 @@ export const useCalendar = () => {
 
     const deleteNota = async (notaId) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairos&id=${notaId}`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error('Erro ao deletar nota');
