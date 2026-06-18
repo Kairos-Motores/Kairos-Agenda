@@ -51,12 +51,23 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
 
   const handleSave = () => {
     const data = {
+      // ⚠️ CHAVES ANTIGAS: O seu useCalendar.js procura por elas para transformar em JSON e montar o payload!
+      titulo: notaAberta.cr4a1_titulo,
+      privado: notaAberta.cr4a1_private,
+      private: notaAberta.cr4a1_private,
+      workspaceId: notaAberta.cr4a1_workspace_id,
+      conteudo: notaAberta.cr4a1_conteudo, // <--- O SEGREDO AQUI (Impede o envio vazio)
+      eventoId: notaAberta.cr4a1_evento_id,
+      user: notaAberta.cr4a1_user_login, // Ajustado para o nome user_login
+      user_login: notaAberta.cr4a1_user_login,
+
+      // ⚠️ CHAVES NOVAS DATAVERSE: Mantidas para caso a API ou o fluxo já use os nomes diretos
       cr4a1_titulo: notaAberta.cr4a1_titulo,
       cr4a1_private: notaAberta.cr4a1_private, 
       cr4a1_workspace_id: notaAberta.cr4a1_workspace_id,
       cr4a1_conteudo: notaAberta.cr4a1_conteudo,
       cr4a1_evento_id: notaAberta.cr4a1_evento_id,
-      cr4a1_user_login: notaAberta.cr4a1_user_login // Atualizado para usar a coluna nova refletida
+      cr4a1_user_login: notaAberta.cr4a1_user_login
     };
 
     if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) { 
