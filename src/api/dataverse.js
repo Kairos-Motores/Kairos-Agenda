@@ -3,9 +3,7 @@ const API_URL = '/api/dataverse-proxy';
 export const dataverseApi = {
   async login(username, password) {
     try {
-      // Filtro exato: usuário AND senha
       const filter = `cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`;
-      
       const response = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas`, {
         method: 'GET',
         headers: { 
@@ -15,13 +13,8 @@ export const dataverseApi = {
       });
 
       if (!response.ok) return false;
-
       const data = await response.json();
-      
-      // SEGURANÇA: Só retorna true se encontrar EXATAMENTE 1 usuário.
-      // Se a senha estiver errada, o Dataverse retorna um array vazio [], e length será 0.
       return !!(data && data.value && data.value.length === 1);
-      
     } catch (error) {
       console.error("Erro na autenticação:", error);
       return false;
@@ -57,7 +50,7 @@ export const dataverseApi = {
     });
     const data = await response.json();
     
-    // Converte a string de volta para booleano ao receber do banco para não quebrar a UI
+    // Converte a string de volta para booleano na UI
     if (data.value) {
       return data.value.map(note => ({
         ...note,
@@ -70,31 +63,24 @@ export const dataverseApi = {
   async createNote(noteData) {
     const payload = { ...noteData };
 
-    // 1. Garantia da string no booleano (caso não tenha vindo convertido do painel)
+    // 1. FORÇA a conversão do booleano para String antes de viajar para a Microsoft
     if (payload.cr4a1_privado !== undefined) {
       payload.cr4a1_privado = String(payload.cr4a1_privado);
     }
 
-    // 2. Transformação do Lookup de Workspace
+    // 2. Transforma o Lookup de Workspace para o formato @odata.bind
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
-      // Deleta a chave antiga em texto simples
       delete payload.cr4a1_workspace_id; 
-      
-      // Cria a chave nova exigida pelo Dataverse apontando para a tabela no plural
-      // IMPORTANTE: Ajuste "cr4a1_calendarios_workspaceses" se o nome do Conjunto de Entidades for diferente
       payload["cr4a1_workspace_id@odata.bind"] = `/cr4a1_calendarios_workspaceses(${workspaceId})`;
     } else {
-      // Se for vazio, apaga para não enviar nulo na chave de texto e gerar erro
       delete payload.cr4a1_workspace_id;
     }
 
-    // 3. Transformação do Lookup de Evento (se a nota estiver atrelada a um agendamento)
+    // 3. Transforma o Lookup de Evento para o formato @odata.bind
     if (payload.cr4a1_evento_id) {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
-      
-      // Apontando para a tabela de agendas que você já configurou no topo do arquivo
       payload["cr4a1_evento_id@odata.bind"] = `/cr4a1_agenda_kairoses(${eventoId})`;
     } else {
       delete payload.cr4a1_evento_id;
@@ -110,11 +96,11 @@ export const dataverseApi = {
   async updateNote(id, noteData) {
     const payload = { ...noteData };
     
+    // As mesmas conversões são aplicadas na hora de Editar (PATCH)
     if (payload.cr4a1_privado !== undefined) {
       payload.cr4a1_privado = String(payload.cr4a1_privado);
     }
 
-    // Mesma lógica de transformação para atualizações (PATCH)
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
       delete payload.cr4a1_workspace_id;
@@ -130,6 +116,9 @@ export const dataverseApi = {
     } else {
       delete payload.cr4a1_evento_id;
     }
+
+    // Limpa a chave primária do corpo para evitar conflitos na atualização
+    delete payload.cr4a1_id_da_nota;
 
     return await fetch(`${API_URL}?table=cr4a1_notas_kairoses&id=${id}`, {
       method: 'PATCH',
