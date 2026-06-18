@@ -226,7 +226,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
               </p>
               <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
-                {nota.cr4a1_criador_login}
+                {nota.cr4a1_user_login}
               </div>
             </div>
           ))}

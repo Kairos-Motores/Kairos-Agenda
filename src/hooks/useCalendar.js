@@ -248,7 +248,7 @@ export const useCalendar = () => {
 
             // Regra de privacidade
             const notasFiltradas = (data.value || []).filter(nota => {
-                return !nota.cr4a1_private || nota.cr4a1_criador_login === user;
+                return !nota.cr4a1_private || nota.cr4a1_user_login === user;
             }).map(nota => ({
                 ...nota,
                 cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : []
@@ -635,7 +635,7 @@ export const useCalendar = () => {
         const novaNotaDB = { // Usando o nome da coluna correto para o ID
             cr4a1_id_da_nota: generatedId,
             cr4a1_titulo: notaData.titulo || '',
-            cr4a1_criador_login: user,
+            cr4a1_user_login: user,
             cr4a1_workspace_id: notaData.workspaceId,
             cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
