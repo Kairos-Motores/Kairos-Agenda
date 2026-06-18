@@ -248,7 +248,7 @@ export const useCalendar = () => {
 
             // Regra de privacidade
             const notasFiltradas = (data.value || []).filter(nota => {
-                return !nota.cr4a1_privado || nota.cr4a1_criador_login === user;
+                return !nota.cr4a1_private || nota.cr4a1_criador_login === user;
             }).map(nota => ({
                 ...nota,
                 cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : []
@@ -637,7 +637,7 @@ export const useCalendar = () => {
             cr4a1_titulo: notaData.titulo || '',
             cr4a1_criador_login: user,
             cr4a1_workspace_id: notaData.workspaceId,
-            cr4a1_privado: !!notaData.privado,
+            cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
@@ -660,7 +660,7 @@ export const useCalendar = () => {
     const updateNota = async (notaId, notaData) => {
         const payload = {
             cr4a1_titulo: notaData.titulo || '',
-            cr4a1_privado: !!notaData.privado,
+            cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };

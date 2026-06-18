@@ -13,7 +13,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
   const createNewNota = () => {
     setNotaAberta({
       cr4a1_titulo: '',
-      cr4a1_privado: false,
+      cr4a1_private: false,
       cr4a1_workspace_id: activeWorkspaces[0] || '',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
@@ -51,7 +51,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
     const data = {
       titulo: notaAberta.cr4a1_titulo,
       // 1. FORÇAMOS A STRING AQUI NA RAIZ para o erro Edm.Boolean desaparecer
-      privado: String(notaAberta.cr4a1_privado), 
+      privado: String(notaAberta.cr4a1_private), 
       workspaceId: notaAberta.cr4a1_workspace_id,
       conteudo: notaAberta.cr4a1_conteudo,
       eventoId: notaAberta.cr4a1_evento_id
@@ -104,7 +104,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
             <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={notaAberta.cr4a1_privado === true || notaAberta.cr4a1_privado === 'true'} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_privado: e.target.checked })} />
+              <input type="checkbox" checked={notaAberta.cr4a1_private === true || notaAberta.cr4a1_private === 'true'} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} />
               🔒 Privada
             </label>
             {workspaces.length > 0 && (
@@ -217,7 +217,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
                 <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {nota.cr4a1_titulo || 'Sem Título'}
                 </h4>
-                {(nota.cr4a1_privado === true || nota.cr4a1_privado === 'true') && (
+                {(nota.cr4a1_private === true || nota.cr4a1_private === 'true') && (
                   <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#f57c00' }} title="Nota Privada">lock</span>
                 )}
               </div>
