@@ -12,8 +12,10 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
 
   const createNewNota = () => {
     setNotaAberta({
+      cr4a1_notas_kairosid: crypto.randomUUID(), // Pré-geramos o GUID na coluna nativa do Dataverse
+      isNew: true, // Flag temporária para sabermos no front-end que é uma criação
       cr4a1_titulo: '',
-      cr4a1_private: false,
+      cr4a1_private: false, 
       cr4a1_workspace_id: activeWorkspaces[0] || '',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
@@ -49,27 +51,28 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
 
   const handleSave = () => {
     const data = {
-      titulo: notaAberta.cr4a1_titulo,
-      // 1. FORÇAMOS A STRING AQUI NA RAIZ para o erro Edm.Boolean desaparecer
-      privado: String(notaAberta.cr4a1_private), 
-      workspaceId: notaAberta.cr4a1_workspace_id,
-      conteudo: notaAberta.cr4a1_conteudo,
-      eventoId: notaAberta.cr4a1_evento_id
+      cr4a1_titulo: notaAberta.cr4a1_titulo,
+      cr4a1_private: notaAberta.cr4a1_private, 
+      cr4a1_workspace_id: notaAberta.cr4a1_workspace_id,
+      cr4a1_conteudo: notaAberta.cr4a1_conteudo,
+      cr4a1_evento_id: notaAberta.cr4a1_evento_id,
+      cr4a1_user_login: notaAberta.cr4a1_user_login // Atualizado para usar a coluna nova refletida
     };
 
-    if (notaAberta.cr4a1_id_da_nota) { 
-      // 2. CORREÇÃO: Enviando cr4a1_id_da_nota em vez do antigo cr4a1_notion_notasid
-      updateNota(notaAberta.cr4a1_id_da_nota, data); 
+    if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) { 
+      // Se já possui a chave nativa e não é nova, executa atualização
+      updateNota(notaAberta.cr4a1_notas_kairosid, data); 
     } else {
+      // Se for nova, injeta o ID pré-gerado no payload para o Dataverse adotá-lo como chave primária nativa
+      data.cr4a1_notas_kairosid = notaAberta.cr4a1_notas_kairosid;
       addNota(data);
     }
     setNotaAberta(null);
   };
 
   const handleDelete = () => {
-    if (notaAberta.cr4a1_id_da_nota) { 
-      // 2. CORREÇÃO: Enviando cr4a1_id_da_nota em vez do antigo cr4a1_notion_notasid
-      deleteNota(notaAberta.cr4a1_id_da_nota);
+    if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) { 
+      deleteNota(notaAberta.cr4a1_notas_kairosid);
     }
     setNotaAberta(null);
   };
@@ -83,7 +86,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
             Voltar
           </button>
           <div style={{ display: 'flex', gap: '12px' }}>
-            {notaAberta.cr4a1_id_da_nota && ( 
+            {notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew && ( 
               <button onClick={handleDelete} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#ffebee', color: '#c62828', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                 Excluir
               </button>
@@ -104,7 +107,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
             <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={notaAberta.cr4a1_private === true || notaAberta.cr4a1_private === 'true'} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} />
+              <input type="checkbox" checked={!!notaAberta.cr4a1_private} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} />
               🔒 Privada
             </label>
             {workspaces.length > 0 && (
@@ -208,7 +211,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '24px' }}>
           {activeNotas.map(nota => (
             <div 
-              key={nota.cr4a1_id_da_nota} // 3. CORREÇÃO DE CHAVE DE LISTA AQUI TAMBÉM
+              key={nota.cr4a1_notas_kairosid} // Alinhado com a chave nativa do Dataverse
               onClick={() => openNota(nota)}
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '20px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column', gap: '12px' }}
               className="boing-effect note-card"
@@ -217,7 +220,7 @@ export const NotesPanel = ({ notas, addNota, updateNota, deleteNota, currentUser
                 <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {nota.cr4a1_titulo || 'Sem Título'}
                 </h4>
-                {(nota.cr4a1_private === true || nota.cr4a1_private === 'true') && (
+                {nota.cr4a1_private && (
                   <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#f57c00' }} title="Nota Privada">lock</span>
                 )}
               </div>
