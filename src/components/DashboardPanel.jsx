@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom'; // IMPORTANTE: Adicionado para usar o Portal
+import ReactDOM from 'react-dom';
 import { BI_CONFIG } from '../config/biConfig';
 
 export const DashboardPanel = ({ activeWorkspaces, userRole }) => {
   const [biAberto, setBiAberto] = useState(null);
 
-  // Filtro Mestre: 
-  // 1. O card só aparece se o Workspace dele estiver marcado na barra lateral
-  // 2. O usuário precisa ser ADMIN (nesta fase de testes)
+  // Filtro Mestre Ajustado para usar NOMES ao invés de IDs
   const bisPermitidos = BI_CONFIG.filter(bi => {
+    // Verifica se o NOME do workspace do BI está dentro do array de workspaces marcados na lateral
     const isWorkspaceAtivo = activeWorkspaces.includes(bi.workspaceName);
+    
+    // Regra de permissão: Admins veem tudo. Outras roles apenas se estiverem na lista.
     const temPermissao = userRole === 'ADMIN' || bi.allowedRoles.includes(userRole);
+    
     return isWorkspaceAtivo && temPermissao;
   });
 
@@ -67,20 +69,18 @@ export const DashboardPanel = ({ activeWorkspaces, userRole }) => {
         )}
       </div>
 
-      {/* MODAL DE TELA CHEIA PARA O BI - RENDERIZADO NO BODY (PORTAL) 
-        Isso garante que ele sobreponha o header superior e toda a arquitetura de layout
-      */}
+      {/* MODAL DE TELA CHEIA PARA O BI - PORTAL */}
       {biAberto && ReactDOM.createPortal(
         <div style={{
-          position: 'fixed', // Travado na tela do navegador
-          top: 0, left: 0, width: '100vw', height: '100dvh', // 100dvh resolve problemas na barra de navegação no iOS/Android
+          position: 'fixed',
+          top: 0, left: 0, width: '100vw', height: '100dvh',
           background: 'var(--bg-primary)',
-          zIndex: 999999, // Z-index máximo para cobrir header e sidebar
+          zIndex: 999999,
           display: 'flex',
           flexDirection: 'column',
           animation: 'fadeInUp 0.3s ease'
         }}>
-          {/* Cabeçalho do Modal (Minimalista e Responsivo) */}
+          {/* Cabeçalho do Modal */}
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -132,7 +132,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole }) => {
             ></iframe>
           </div>
         </div>,
-        document.body // Injeta o modal direto na raiz do DOM
+        document.body
       )}
 
     </div>
