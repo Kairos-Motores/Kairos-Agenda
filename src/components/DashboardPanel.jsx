@@ -1,4 +1,3 @@
-// src/components/DashboardPanel.jsx
 import React, { useState } from 'react';
 
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
@@ -20,25 +19,19 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
     }
   };
 
-  // Converte os workspaces ativos (objetos) para uma lista de nomes
-  const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome); // ajuste se o campo for diferente
+  const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome);
 
-  // Filtra os BIs que o usuário pode ver
   const bisPermitidos = biConfig.filter(bi => {
-    // Verifica se o workspace está ativo (pelo nome)
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
-
-    // Verifica permissão por role
     const temPermissao =
-      bi.allowedRoles.includes('ALL') ||                           // qualquer um do workspace vê
-      bi.allowedRoles.includes(userRole) ||                        // role específica
-      (Array.isArray(userRole) && bi.allowedRoles.some(r => userRole.includes(r))); // múltiplas roles
-
+      bi.allowedRoles.includes('ALL') ||
+      bi.allowedRoles.includes(userRole) ||
+      (Array.isArray(userRole) && bi.allowedRoles.some(r => userRole.includes(r)));
     return isWorkspaceAtivo && temPermissao;
   });
 
   return (
-    <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px' }}>
+    <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%' }}>
       <h2 style={{ marginBottom: '20px', color: 'var(--text-title)' }}>
         <span className="material-symbols-rounded" style={{ color: '#f57c00', marginRight: '8px' }}>bar_chart</span>
         Painéis e Indicadores
@@ -78,20 +71,75 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* Modal em tela cheia */}
+      {/* Modal em tela cheia (ocupa tudo, sem espaços extras) */}
       {biAberto && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-            <h3 style={{ margin: 0, color: 'var(--text-title)' }}>{biAberto.title}</h3>
-            <button onClick={() => { setBiAberto(null); setBiUrl(''); }} className="btn-secondary boing-effect"
-              style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 10000,
+          background: 'var(--bg-primary)',
+          display: 'flex',
+          flexDirection: 'column',
+          margin: 0,
+          padding: 0,
+        }}>
+          {/* Cabeçalho mínimo */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 16px',
+            borderBottom: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            flexShrink: 0,
+          }}>
+            <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px' }}>{biAberto.title}</h3>
+            <button
+              onClick={() => { setBiAberto(null); setBiUrl(''); }}
+              className="btn-secondary boing-effect"
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'transparent',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+              }}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span> Fechar
             </button>
           </div>
-          <div style={{ flex: 1, width: '100%', background: '#f5f5f5' }}>
+
+          {/* Container do iframe: ocupa todo o espaço restante e corta a barra inferior */}
+          <div style={{
+            flex: 1,
+            width: '100%',
+            overflow: 'hidden',    // esconde a parte de baixo do iframe
+            background: '#f5f5f5',
+            position: 'relative',
+          }}>
             {biUrl && (
-              <iframe title={biAberto.title} src={biUrl} frameBorder="0" allowFullScreen style={{ width: '100%', height: '100%' }} />
+              <iframe
+                title={biAberto.title}
+                src={biUrl}
+                frameBorder="0"
+                allowFullScreen
+                style={{
+                  width: '100%',
+                  height: '110%',        // excede um pouco para cortar a barra inferior
+                  border: 'none',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                }}
+              />
             )}
           </div>
         </div>
