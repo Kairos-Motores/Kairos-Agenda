@@ -9,7 +9,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole }) => {
   // 1. O card só aparece se o Workspace dele estiver marcado na barra lateral
   // 2. O usuário precisa ser ADMIN (nesta fase de testes)
   const bisPermitidos = BI_CONFIG.filter(bi => {
-    const isWorkspaceAtivo = activeWorkspaces.includes(bi.workspaceId);
+    const isWorkspaceAtivo = activeWorkspaces.includes(bi.workspaceName);
     const temPermissao = userRole === 'ADMIN' || bi.allowedRoles.includes(userRole);
     return isWorkspaceAtivo && temPermissao;
   });
