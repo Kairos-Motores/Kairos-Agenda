@@ -1,11 +1,11 @@
 // api/bi-embed.js
 export default async function handler(req, res) {
+  // Permite requisições de qualquer origem (útil durante o desenvolvimento)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const { id } = req.query;
 
-  // Mapeamento completo de IDs para variáveis de ambiente
   const biUrls = {
     // Corporativo
     'conciliacao-bancaria': process.env.POWERBI_CONCILIACAO_BANCARIA_URL,
@@ -95,9 +95,6 @@ export default async function handler(req, res) {
   if (!url) {
     return res.status(404).json({ error: 'BI não encontrado' });
   }
-
-  // Aqui você pode adicionar validação de permissão (token JWT, roles)
-  // Por enquanto, apenas retorna a URL se existir
 
   return res.status(200).json({ url });
 }
