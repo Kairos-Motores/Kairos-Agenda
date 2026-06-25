@@ -71,7 +71,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* Modal em tela cheia */}
+      {/* Modal que cobre tudo, inclusive o header */}
       {biAberto && (
         <div style={{
           position: 'fixed',
@@ -79,14 +79,14 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           left: 0,
           width: '100vw',
           height: '100vh',
-          zIndex: 10000,
+          zIndex: 11000,                // acima do header (2000) e sidebars (1000)
           background: 'var(--bg-primary)',
           display: 'flex',
           flexDirection: 'column',
           margin: 0,
           padding: 0,
         }}>
-          {/* Cabeçalho mínimo */}
+          {/* Cabeçalho mínimo do BI */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -117,12 +117,15 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             </button>
           </div>
 
-          {/* Container do iframe: corta apenas o rodapé */}
+          {/* Container do iframe: centraliza e corta rodapé */}
           <div style={{
             flex: 1,
             width: '100%',
-            overflow: 'hidden',           // esconde o que exceder
+            overflow: 'hidden',              // esconde a parte inferior do iframe
             background: '#f5f5f5',
+            display: 'flex',
+            justifyContent: 'center',        // centraliza horizontalmente
+            alignItems: 'center',            // centraliza verticalmente (caso necessário)
             position: 'relative',
           }}>
             {biUrl && (
@@ -133,11 +136,10 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 allowFullScreen
                 style={{
                   width: '100%',
-                  height: 'calc(100% + 40px)',   // excede 40px para cortar o rodapé
+                  height: 'calc(100% + 40px)',   // corta só o rodapé inferior
                   border: 'none',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
+                  display: 'block',
+                  margin: '0 auto',
                 }}
               />
             )}

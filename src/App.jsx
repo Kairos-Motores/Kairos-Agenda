@@ -2907,6 +2907,10 @@ function App() {
             transition: background-color 0.15s, box-shadow 0.15s;
         }
 
+        .mobile-only .powerapp-fab-container {
+           z-index: 12000 !important;
+      }
+
         @keyframes marquee {
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
