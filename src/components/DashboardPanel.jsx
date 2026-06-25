@@ -71,7 +71,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* Modal em tela cheia (ocupa tudo, sem espaços extras) */}
+      {/* Modal em tela cheia */}
       {biAberto && (
         <div style={{
           position: 'fixed',
@@ -117,11 +117,11 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             </button>
           </div>
 
-          {/* Container do iframe: ocupa todo o espaço restante e corta a barra inferior */}
+          {/* Container do iframe: corta apenas o rodapé */}
           <div style={{
             flex: 1,
             width: '100%',
-            overflow: 'hidden',    // esconde a parte de baixo do iframe
+            overflow: 'hidden',           // esconde o que exceder
             background: '#f5f5f5',
             position: 'relative',
           }}>
@@ -133,7 +133,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 allowFullScreen
                 style={{
                   width: '100%',
-                  height: '110%',        // excede um pouco para cortar a barra inferior
+                  height: 'calc(100% + 40px)',   // excede 40px para cortar o rodapé
                   border: 'none',
                   position: 'absolute',
                   top: 0,
