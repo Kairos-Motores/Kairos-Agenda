@@ -1264,12 +1264,10 @@ function App() {
     const handleSaveUnitAndWorkspace = async (unit, setIsLoading) => {
       setIsLoading(true);
       try {
-        // 1. Garante a atualização da Unidade primeiro
+        // 1. Atualiza a unidade do usuário
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
-        console.log("Unidade atualizada.");
 
-        // 2. Busca o workspace novamente para garantir dados frescos
-        // (Ajuste o endpoint 'workspaces' conforme a sua API)
+        // 2. Busca o workspace (Use a estratégia de buscar na API novamente para garantir dados reais)
         const response = await fetch('/api/dataverse-proxy?table=cr4a1_calendarios_workspaceses');
         const json = await response.json();
         const allWorkspaces = json.value || [];
@@ -1279,39 +1277,40 @@ function App() {
         );
 
         if (!targetWorkspace) {
-          throw new Error(`Workspace "${unit}" não encontrado no servidor.`);
+          throw new Error(`Workspace "${unit}" não encontrado.`);
         }
 
-        // 3. Verifica se já está adicionado para evitar duplicidade ou erros
+        // 3. Atualiza a lista de membros
         const membrosAtuais = targetWorkspace.cr4a1_membros_logins
-          ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim())
+          ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
           : [];
 
         if (!membrosAtuais.includes(user)) {
           const novosMembros = [...membrosAtuais, user].join(',');
 
-          // 4. AQUI É O PONTO CRÍTICO: Use await antes de recarregar
-          const result = await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
+          // --- AQUI ESTÁ A MUDANÇA CRÍTICA ---
+          // 4. Aguardamos a resposta real do servidor
+          await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
             ...targetWorkspace,
             cr4a1_membros_logins: novosMembros
           });
 
-          console.log("Resposta do servidor:", result);
-          toast.success("Vinculação ao workspace confirmada!");
-        } else {
-          console.log("Usuário já estava no workspace.");
+          console.log("Servidor confirmou a gravação do novo membro.");
+
+          // 5. PAUSA DE SEGURANÇA: Damos 1.5s para o Dataverse processar o commit
+          // Isso evita que o reload ocorra enquanto o dado ainda está sendo salvo
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
 
-        // 5. Só recarrega depois de garantir que a promise acima foi resolvida
+        // 6. Recarregar
         window.location.reload();
 
       } catch (error) {
-        console.error("Erro fatal na sincronização:", error);
+        console.error("Erro na vinculação:", error);
         toast.error(`Falha: ${error.message}`);
         setIsLoading(false);
       }
     };
-
     return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
   }
 
