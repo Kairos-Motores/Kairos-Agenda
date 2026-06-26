@@ -3,116 +3,116 @@
 export const BI_CONFIG = [
   // ===== CORPORATIVO (Geral) =====
   {
-    id: 'conciliacao-bancaria',
-    workspaceName: 'Corporativo',
+    id: 'conciliacao-bancaria', //Dashboard Conciliação Bancária
+    workspaceName: 'Diretoria',
     title: 'Conciliação Bancária',
     description: 'Painel de conciliação bancária',
     icon: 'account_balance',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA']
   },
   {
-    id: 'diretoria',
-    workspaceName: 'Corporativo',
+    id: 'diretoria', //Dashboard diretoria
+    workspaceName: 'Comercial',
     title: 'Diretoria',
     description: 'Visão geral para diretoria',
     icon: 'leaderboard',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COMERCIAL']
   },
   {
-    id: 'fluxo-caixa',
-    workspaceName: 'Corporativo',
+    id: 'fluxo-caixa', //Fluxo de caixa 2.0
+    workspaceName: 'Financeiro',
     title: 'Fluxo de Caixa 2.0',
     description: 'Análise de fluxo de caixa',
     icon: 'payments',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'FINANCEIRO', 'DIRETORIA']
   },
   {
-    id: 'recursos-humanos',
-    workspaceName: 'Corporativo',
+    id: 'recursos-humanos', //Dashboard recursos humanos (ana letícia)
+    workspaceName: 'Recursos Humanos',
     title: 'Recursos Humanos',
     description: 'Dashboard de RH',
     icon: 'groups',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'COORD RH', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coord-adm',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-coord-adm', //Dashboard Relatório Coordenador Administrativo
+    workspaceName: 'Administrativo',
     title: 'Relatório Coordenador Administrativo',
     description: 'Relatório administrativo',
     icon: 'description',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'COORD ADM', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coordenadores',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-coordenadores', //Dashboard Relatório Coordenadores
+    workspaceName: 'Diretoria',
     title: 'Relatório Coordenadores',
     description: 'Painel dos coordenadores',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-gerencial',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-gerencial', //Dashboard Relatório Gerencial
+    workspaceName: 'Diretoria',
     title: 'Relatório Gerencial 2.0',
     description: 'Relatório gerencial',
     icon: 'monitoring',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-gerente-geral',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-gerente-geral', //Dashboard Relatório Gerente Geral
+    workspaceName: 'Diretoria',
     title: 'Relatório Gerente Geral',
     description: 'Painel do gerente geral',
     icon: 'person',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN','DIRETORIA']
   },
   {
-    id: 'saldos-orcamentarios',
-    workspaceName: 'Corporativo',
+    id: 'saldos-orcamentarios', //Dashboard Saldos Orçamentários
+    workspaceName: 'Suprimentos',
     title: 'Saldos Orçamentários',
     description: 'Acompanhamento de saldos',
     icon: 'savings',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'FINANCEIRO LIDER', 'SUPRIMENTOS', 'COORD ADM']
   },
   {
-    id: 'dre-2',
-    workspaceName: 'Corporativo',
+    id: 'dre-2', //DRE 2.0
+    workspaceName: 'Diretoria',
     title: 'DRE 2.0',
     description: 'Demonstração de Resultados',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA']
   },
   {
-    id: 'indicadores-comercial-coord-gerencial',
-    workspaceName: 'Corporativo',
+    id: 'indicadores-comercial-coord-gerencial', //Indicadores Comercial - Coord. Gerencial
+    workspaceName: 'Comercial',
     title: 'Indicadores Comercial - Coord. Gerencial',
     description: 'Indicadores comerciais',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'COORD COMERCIAL', 'DIRETORIA']
   },
   {
-    id: 'programacao-ferias',
-    workspaceName: 'Corporativo',
+    id: 'programacao-ferias', //Programação de Férias
+    workspaceName: 'Recursos Humanos',
     title: 'Programação de Férias',
     description: 'Painel de férias',
     icon: 'beach_access',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'RH', 'DIRETORIA']
   },
   {
-    id: 'relatorio-margens',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-margens', //Relatório de Margens
+    workspaceName: 'Qualidade',
     title: 'Relatório de Margens',
     description: 'Análise de margens',
     icon: 'margin',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'QUALIDADE']
   },
   {
-    id: 'relatorio-medro',
-    workspaceName: 'Corporativo',
+    id: 'relatorio-medro', //Relatório Medro
+    workspaceName: 'Diretoria',
     title: 'Relatório Medro',
     description: 'Relatório Medro corporativo',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA']
   },
 
   // ===== UNIDADE BARCARENA =====
@@ -122,55 +122,55 @@ export const BI_CONFIG = [
     title: 'Kanban - BRC',
     description: 'Quadro Kanban Barcarena',
     icon: 'view_kanban',
-    allowedRoles: ['COMUM', 'ADMIN']
+    allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coord-brc',
+    id: 'relatorio-coord-brc', //Relatório Coordenadores - BRC
     workspaceName: 'Barcarena',
     title: 'Relatório Coordenadores - BRC',
     description: 'Painel coordenadores Barcarena',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
   },
   {
-    id: 'saldos-orc-brc',
+    id: 'saldos-orc-brc', //Saldos Orçamentários - BRC
     workspaceName: 'Barcarena',
     title: 'Saldos Orçamentários - BRC',
     description: 'Saldos Barcarena',
     icon: 'savings',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
   },
   {
-    id: 'dre-brc',
+    id: 'dre-brc', //DRE BRC 2.0
     workspaceName: 'Barcarena',
     title: 'DRE BRC 2.0',
     description: 'DRE Barcarena',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
   },
   {
-    id: 'faturamento-brc',
+    id: 'faturamento-brc', //Faturamento BRC
     workspaceName: 'Barcarena',
     title: 'Faturamento BRC',
     description: 'Faturamento Barcarena',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
   },
   {
-    id: 'ind-comercial-brc',
+    id: 'ind-comercial-brc', //Indicadores Comercial - BRC
     workspaceName: 'Barcarena',
     title: 'Indicadores Comercial - BRC',
     description: 'Indicadores comerciais Barcarena',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'COMERCIAL']
   },
   {
-    id: 'ind-operacao-brc',
+    id: 'ind-operacao-brc', //Indicadores Operação - BRC
     workspaceName: 'Barcarena',
     title: 'Indicadores Operação - BRC',
     description: 'Indicadores de operação Barcarena',
     icon: 'engineering',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'PCP']
   },
   {
     id: 'medro-brc',
@@ -178,73 +178,73 @@ export const BI_CONFIG = [
     title: 'Relatório Medro - BRC',
     description: 'Relatório Medro Barcarena',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
   },
 
   // ===== UNIDADE SÃO LUÍS =====
   {
-    id: 'kanban-slz',
+    id: 'kanban-slz', //Quadro Kanban - SLZ
     workspaceName: 'São Luís',
     title: 'Kanban - SLZ',
     description: 'Quadro Kanban São Luís',
     icon: 'view_kanban',
-    allowedRoles: ['COMUM', 'ADMIN']
+    allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coord-slz',
+    id: 'relatorio-coord-slz', //Relatório Coordenadores - SLZ
     workspaceName: 'São Luís',
     title: 'Relatório Coordenadores - SLZ',
     description: 'Painel coordenadores SLZ',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP']
   },
   {
-    id: 'saldos-orc-slz',
+    id: 'saldos-orc-slz', //Saldos Orçamentários - SLZ
     workspaceName: 'São Luís',
     title: 'Saldos Orçamentários - SLZ',
     description: 'Saldos São Luís',
     icon: 'savings',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP']
   },
   {
-    id: 'dre-slz',
+    id: 'dre-slz', //DRE SLZ 2.0
     workspaceName: 'São Luís',
     title: 'DRE SLZ 2.0',
     description: 'DRE São Luís',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP']
   },
   {
-    id: 'faturamento-slz',
+    id: 'faturamento-slz',  //Faturamento SLZ
     workspaceName: 'São Luís',
     title: 'Faturamento SLZ',
     description: 'Faturamento SLZ',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP']
   },
   {
-    id: 'ind-comercial-slz',
+    id: 'ind-comercial-slz', //Indicadores Comercial - SLZ
     workspaceName: 'São Luís',
     title: 'Indicadores Comercial - SLZ',
     description: 'Indicadores comerciais SLZ',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL']
   },
   {
-    id: 'ind-operacao-slz',
+    id: 'ind-operacao-slz', //Indicadores Operação - SLZ
     workspaceName: 'São Luís',
     title: 'Indicadores Operação - SLZ',
     description: 'Indicadores operação SLZ',
     icon: 'engineering',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'PCP']
   },
   {
-    id: 'medro-slz',
+    id: 'medro-slz', //Relatório Medro - SLZ
     workspaceName: 'São Luís',
     title: 'Relatório Medro - SLZ',
     description: 'Relatório Medro SLZ',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP']
   },
 
   // ===== UNIDADE PARAUAPEBAS =====
