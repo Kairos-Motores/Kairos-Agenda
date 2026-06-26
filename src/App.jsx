@@ -1241,7 +1241,29 @@ function App() {
   if (!user) return <LoginScreen onLogin={login} />;
 
   if (currentUser && !currentUser.cr4a1_unidade) {
-    return <OnboardingModal user={user} onSaveUnit={(unit) => updateUnit(currentUser.cr4a1_usuarios_agendaid, unit)} />;
+    const handleSaveUnitAndWorkspace = async (unit) => {
+      // 1. Salva a unidade do usuário
+      await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
+
+      // 2. Procura o workspace com nome igual ao da unidade escolhida
+      const workspace = workspaces.find(ws => ws.cr4a1_nome === unit);
+      if (workspace) {
+        // 3. Verifica se o usuário já está nos membros
+        const membrosAtuais = workspace.cr4a1_membros_logins
+          ? workspace.cr4a1_membros_logins.split(',').map(s => s.trim())
+          : [];
+        if (!membrosAtuais.includes(user)) {
+          const novosMembros = [...membrosAtuais, user].join(',');
+          // 4. Atualiza o workspace com a nova lista de membros
+          await updateWorkspace(workspace.cr4a1_calendarios_workspacesid, {
+            ...workspace,
+            cr4a1_membros_logins: novosMembros
+          });
+        }
+      }
+    };
+
+    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
   }
 
   const onTouchStart = (e) => {
