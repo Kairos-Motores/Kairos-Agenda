@@ -941,6 +941,7 @@ function App() {
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
 
@@ -1095,6 +1096,12 @@ function App() {
     return filteredEvents;
   };
 
+  useEffect(() => {
+    if (workspaces.length > 0) {
+      setIsWorkspacesLoaded(true);
+    }
+  }, [workspaces]);
+
   const handleGetEventsForDay = (day) => {
     const targetDate = format(day, 'yyyy-MM-dd');
     return getDisplayEvents().filter(event => {
@@ -1245,15 +1252,15 @@ function App() {
       // 1. Atualiza a unidade do usuário
       await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-      // 2. Aguarda os workspaces estarem disponíveis (máximo 5 tentativas)
+      // 2. Aguarda os workspaces estarem disponíveis (máximo 5 segundos)
       let tentativas = 0;
       let workspace = null;
-      while (tentativas < 10 && !workspace) {
+      while (tentativas < 20 && !workspace) {
         workspace = workspaces.find(
-          ws => (ws.cr4a1_nome || '').trim() === unit.trim()
+          ws => (ws.cr4a1_nome || '').trim().toLowerCase() === unit.trim().toLowerCase()
         );
         if (!workspace) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 250));
           tentativas++;
         }
       }
@@ -1272,16 +1279,23 @@ function App() {
             ...workspace,
             cr4a1_membros_logins: novosMembros
           });
+          toast.success(`Você foi vinculado ao workspace "${workspace.cr4a1_nome}".`);
         }
       } else {
-        // Workspace não encontrado após várias tentativas
         toast.error(
           `Workspace da unidade "${unit}" não encontrado. Entre em contato com o administrador.`
         );
       }
     };
 
-    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
+    // Só exibe o modal quando os workspaces estiverem carregados
+    return isWorkspacesLoaded ? (
+      <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />
+    ) : (
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <p>Carregando ambiente...</p>
+      </div>
+    );
   }
 
   const onTouchStart = (e) => {
