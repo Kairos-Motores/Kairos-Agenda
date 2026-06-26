@@ -204,18 +204,22 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             )}
             {biUrl && (
               <iframe
-                title={biAberto.title}
-                src={biUrl}
-                frameBorder="0"
-                allowFullScreen
-                style={{
-                  width: '100%',
-                  height: 'calc(100% + 40px)',
-                  border: 'none',
-                  display: 'block',
-                  margin: '0 auto',
-                }}
-              />
+  title={biAberto.title}
+  src={biUrl}
+  frameBorder="0"
+  allowFullScreen
+  style={{
+    width: '100%',
+    // Aumentamos para 75px para garantir que a barra do Power BI suma completamente
+    height: 'calc(100% + 75px)', 
+    // marginTop negativo puxa o iframe para cima, fazendo a borda superior do conteúdo aparecer mais
+    marginTop: '-30px',          
+    border: 'none',
+    display: 'block',
+    marginRight: 'auto',
+    marginLeft: 'auto'
+  }}
+/>
             )}
           </div>
         </div>,
