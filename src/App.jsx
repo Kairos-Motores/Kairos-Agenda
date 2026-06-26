@@ -1267,17 +1267,17 @@ function App() {
         // 1. Atualiza a unidade do usuário
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-        // 2. Busca o workspace (Use a estratégia de buscar na API novamente para garantir dados reais)
-        const response = await fetch('/api/dataverse-proxy?table=cr4a1_calendarios_workspaceses');
+        // 2. Busca o workspace filtrando pelo nome exato (contorna a restrição de permissão)
+        // Usamos encodeURIComponent para garantir que acentos (ex: São Luís) sejam tratados corretamente na URL
+        const encodedUnit = encodeURIComponent(unit);
+        const response = await fetch(`/api/dataverse-proxy?table=cr4a1_calendarios_workspaceses&$filter=cr4a1_nome eq '${encodedUnit}'`);
         const json = await response.json();
-        const allWorkspaces = json.value || [];
 
-        const targetWorkspace = allWorkspaces.find(ws =>
-          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
-        );
+        // Com o filtro aplicado, o workspace correto deve ser o primeiro item do array
+        const targetWorkspace = json.value && json.value.length > 0 ? json.value[0] : null;
 
         if (!targetWorkspace) {
-          throw new Error(`Workspace "${unit}" não encontrado.`);
+          throw new Error(`Workspace "${unit}" não encontrado no banco de dados. Verifique o nome na tabela de Workspaces.`);
         }
 
         // 3. Atualiza a lista de membros
@@ -1288,7 +1288,6 @@ function App() {
         if (!membrosAtuais.includes(user)) {
           const novosMembros = [...membrosAtuais, user].join(',');
 
-          // --- AQUI ESTÁ A MUDANÇA CRÍTICA ---
           // 4. Aguardamos a resposta real do servidor
           await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
             ...targetWorkspace,
@@ -1298,8 +1297,9 @@ function App() {
           console.log("Servidor confirmou a gravação do novo membro.");
 
           // 5. PAUSA DE SEGURANÇA: Damos 1.5s para o Dataverse processar o commit
-          // Isso evita que o reload ocorra enquanto o dado ainda está sendo salvo
           await new Promise(resolve => setTimeout(resolve, 1500));
+        } else {
+          console.log("Usuário já estava no workspace.");
         }
 
         // 6. Recarregar
