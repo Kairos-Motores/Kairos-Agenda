@@ -13,7 +13,7 @@ import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { NotesPanel } from './components/NotesPanel';
 import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
-import { api } from './api/dataverse';
+import { dataverseApi } from './api/dataverse';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
@@ -1263,32 +1263,27 @@ function App() {
   if (currentUser && !currentUser.cr4a1_unidade) {
     const handleSaveUnitAndWorkspace = async (unit, setIsLoading) => {
       setIsLoading(true);
+      const API_PROXY = '/api/dataverse-proxy'; // URL que seu app já usa
 
       try {
-        // 1. Atualiza a unidade do usuário no banco
+        // 1. Atualiza a unidade no banco
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-        // 2. Tenta encontrar no estado local; se não houver, busca direto no servidor
-        let targetWorkspace = workspaces.find(ws =>
-          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
+        // 2. Busca o workspace diretamente da API para garantir que não virá vazio
+        const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`);
+        const data = await response.json();
+        const allWorkspaces = data.value || [];
+
+        const unitNormalized = unit.trim().toLowerCase();
+        const targetWorkspace = allWorkspaces.find(ws =>
+          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unitNormalized
         );
 
         if (!targetWorkspace) {
-          console.warn("Estado local vazio, buscando workspace diretamente na API...");
-          // Faz a chamada direta ao Dataverse (ajuste o endpoint conforme o seu api/dataverse.js)
-          const response = await api.get('/workspaces');
-          const allWorkspaces = response.data; // ou apenas response dependendo do seu setup
-
-          targetWorkspace = allWorkspaces.find(ws =>
-            ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
-          );
+          throw new Error(`Workspace "${unit}" não encontrado no banco de dados. Verifique o nome na tabela de Workspaces.`);
         }
 
-        if (!targetWorkspace) {
-          throw new Error(`Workspace "${unit}" não existe no Dataverse. Verifique o nome na tabela de Workspaces.`);
-        }
-
-        // 3. Adiciona o usuário ao Workspace
+        // 3. Adiciona o usuário como membro
         const membrosAtuais = targetWorkspace.cr4a1_membros_logins
           ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
           : [];
@@ -1302,22 +1297,17 @@ function App() {
           toast.success(`Vinculado ao workspace: ${targetWorkspace.cr4a1_nome}`);
         }
 
-        // 4. Recarrega a página para iniciar o app com tudo configurado
+        // 4. Recarrega a página para carregar o ambiente configurado
         window.location.reload();
 
       } catch (error) {
-        console.error("Erro fatal na vinculação:", error);
+        console.error("Erro na vinculação:", error);
         toast.error(error.message);
         setIsLoading(false);
       }
     };
 
-    return (
-      <OnboardingModal
-        user={user}
-        onSaveUnit={handleSaveUnitAndWorkspace}
-      />
-    );
+    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
   }
 
   const onTouchStart = (e) => {
