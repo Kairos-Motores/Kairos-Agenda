@@ -188,7 +188,7 @@ export const useCalendar = () => {
             let filtroVisitas = '';
             const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
             if (!permissoesElevadas.includes(userRole)) {
-                filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`; 
+                filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`;
             }
 
             const resVisitas = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases${filtroVisitas}`);
@@ -322,7 +322,7 @@ export const useCalendar = () => {
     const addEvent = async (eventData) => {
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
         const targetUser = eventData.targetUser || (permissoesElevadas.includes(userRole) ? viewedUser : user);
-        
+
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
 
@@ -429,9 +429,9 @@ export const useCalendar = () => {
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) { 
-            toast.error("Permissão negada."); 
-            return; 
+        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) {
+            toast.error("Permissão negada.");
+            return;
         }
 
         setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== finalId));
@@ -576,27 +576,33 @@ export const useCalendar = () => {
 
     const updateWorkspace = async (wsId, wsData) => {
         try {
-            const updatedWS = {
-                cr4a1_nome: wsData.nome,
-                cr4a1_tipo_workspace: wsData.tipo,
-                cr4a1_cor_hex: wsData.cor,
-                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros
+            // CORREÇÃO: Não tente mapear campos que não existem. 
+            // O wsData já está chegando do App.jsx com os nomes de colunas corretos do Dataverse.
+            // Apenas garantimos que o campo de membros esteja presente.
+
+            const payload = {
+                cr4a1_nome: wsData.cr4a1_nome,
+                cr4a1_tipo_workspace: wsData.cr4a1_tipo_workspace,
+                cr4a1_cor_hex: wsData.cr4a1_cor_hex,
+                cr4a1_membros_logins: wsData.cr4a1_membros_logins // Este é o campo que você quer salvar!
             };
 
             const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${wsId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedWS)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 toast.success("Workspace atualizado com sucesso!");
                 if (typeof fetchWorkspaces === 'function') await fetchWorkspaces();
             } else {
+                const errorText = await response.text();
+                console.error("Erro do servidor:", errorText);
                 toast.error("Erro ao atualizar Workspace.");
             }
         } catch (err) {
-            console.error(err);
+            console.error("Erro de rede:", err);
             toast.error("Erro ao atualizar Workspace.");
         }
     };
@@ -725,13 +731,13 @@ export const useCalendar = () => {
             if (response.ok) {
                 const data = await response.json();
                 if (data.value && data.value.length > 0 && data.value[0].cr4a1_title) {
-                    return data.value[0].cr4a1_title; 
+                    return data.value[0].cr4a1_title;
                 }
             }
         } catch (error) {
             console.warn("Erro ao buscar o title do visitante:", error);
         }
-        return login; 
+        return login;
     };
 
     const addVisitas = async (visitasArray) => {
@@ -745,7 +751,7 @@ export const useCalendar = () => {
 
                 return {
                     ...resto,
-                    cr4a1_visitante: titleReal, 
+                    cr4a1_visitante: titleReal,
                     cr4a1_data_visita: cr4a1_data_visita
                         ? new Date(cr4a1_data_visita + 'T00:00:00').toISOString()
                         : null
@@ -789,7 +795,7 @@ export const useCalendar = () => {
 
             const payload = {
                 ...visitaData,
-                cr4a1_visitante: titleReal, 
+                cr4a1_visitante: titleReal,
                 cr4a1_data_visita: visitaData.cr4a1_data_visita
                     ? new Date(visitaData.cr4a1_data_visita + 'T00:00:00').toISOString()
                     : null
