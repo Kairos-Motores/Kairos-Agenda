@@ -1263,46 +1263,51 @@ function App() {
   if (currentUser && !currentUser.cr4a1_unidade) {
     const handleSaveUnitAndWorkspace = async (unit, setIsLoading) => {
       setIsLoading(true);
-      const API_PROXY = '/api/dataverse-proxy'; // URL que seu app já usa
-
       try {
-        // 1. Atualiza a unidade no banco
+        // 1. Garante a atualização da Unidade primeiro
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
+        console.log("Unidade atualizada.");
 
-        // 2. Busca o workspace diretamente da API para garantir que não virá vazio
-        const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`);
-        const data = await response.json();
-        const allWorkspaces = data.value || [];
+        // 2. Busca o workspace novamente para garantir dados frescos
+        // (Ajuste o endpoint 'workspaces' conforme a sua API)
+        const response = await fetch('/api/dataverse-proxy?table=cr4a1_calendarios_workspaceses');
+        const json = await response.json();
+        const allWorkspaces = json.value || [];
 
-        const unitNormalized = unit.trim().toLowerCase();
         const targetWorkspace = allWorkspaces.find(ws =>
-          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unitNormalized
+          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
         );
 
         if (!targetWorkspace) {
-          throw new Error(`Workspace "${unit}" não encontrado no banco de dados. Verifique o nome na tabela de Workspaces.`);
+          throw new Error(`Workspace "${unit}" não encontrado no servidor.`);
         }
 
-        // 3. Adiciona o usuário como membro
+        // 3. Verifica se já está adicionado para evitar duplicidade ou erros
         const membrosAtuais = targetWorkspace.cr4a1_membros_logins
-          ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
+          ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim())
           : [];
 
         if (!membrosAtuais.includes(user)) {
           const novosMembros = [...membrosAtuais, user].join(',');
-          await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
+
+          // 4. AQUI É O PONTO CRÍTICO: Use await antes de recarregar
+          const result = await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
             ...targetWorkspace,
             cr4a1_membros_logins: novosMembros
           });
-          toast.success(`Vinculado ao workspace: ${targetWorkspace.cr4a1_nome}`);
+
+          console.log("Resposta do servidor:", result);
+          toast.success("Vinculação ao workspace confirmada!");
+        } else {
+          console.log("Usuário já estava no workspace.");
         }
 
-        // 4. Recarrega a página para carregar o ambiente configurado
+        // 5. Só recarrega depois de garantir que a promise acima foi resolvida
         window.location.reload();
 
       } catch (error) {
-        console.error("Erro na vinculação:", error);
-        toast.error(error.message);
+        console.error("Erro fatal na sincronização:", error);
+        toast.error(`Falha: ${error.message}`);
         setIsLoading(false);
       }
     };
