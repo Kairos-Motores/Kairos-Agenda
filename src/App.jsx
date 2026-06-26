@@ -1260,48 +1260,57 @@ function App() {
   // ... dentro da função App()
 
   if (currentUser && !currentUser.cr4a1_unidade) {
-    // ADICIONE UM ESTADO DE CARREGAMENTO LOCAL NO MODAL
     const handleSaveUnitAndWorkspace = async (unit, setIsLoading) => {
-      setIsLoading(true); // O modal deve gerir este estado
+      setIsLoading(true);
 
-      // 1. Atualiza a unidade do usuário
-      await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
+      try {
+        // 1. Atualiza a unidade do usuário no banco
+        await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-      // 2. Aguarda os workspaces estarem disponíveis (polling)
-      let tentativas = 0;
-      let workspace = null;
-      while (tentativas < 20 && !workspace) {
-        workspace = workspaces.find(
-          ws => (ws.cr4a1_nome || '').trim().toLowerCase() === unit.trim().toLowerCase()
+        // 2. Busca o workspace com normalização (trata espaços e maiúsculas)
+        const unitNormalized = unit.trim().toLowerCase();
+
+        const targetWorkspace = workspaces.find(ws =>
+          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unitNormalized
         );
-        if (!workspace) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // Aumentei um pouco o delay
-          tentativas++;
-        }
-      }
 
-      if (workspace) {
-        const membrosAtuais = workspace.cr4a1_membros_logins
-          ? workspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
+        if (!targetWorkspace) {
+          console.error("Workspaces disponíveis:", workspaces);
+          throw new Error(`Workspace com nome "${unit}" não encontrado. Verifique se o nome no workspace coincide exatamente com a unidade.`);
+        }
+
+        // 3. Verifica e adiciona o usuário se necessário
+        const membrosAtuais = targetWorkspace.cr4a1_membros_logins
+          ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
           : [];
 
         if (!membrosAtuais.includes(user)) {
           const novosMembros = [...membrosAtuais, user].join(',');
-          await updateWorkspace(workspace.cr4a1_calendarios_workspacesid, {
-            ...workspace,
+          await updateWorkspace(targetWorkspace.cr4a1_calendarios_workspacesid, {
+            ...targetWorkspace,
             cr4a1_membros_logins: novosMembros
           });
-          toast.success(`Vinculado ao workspace "${workspace.cr4a1_nome}".`);
+          toast.success(`Vinculado automaticamente ao workspace: ${targetWorkspace.cr4a1_nome}`);
+        } else {
+          toast.success("Unidade definida e já vinculado ao workspace.");
         }
-        window.location.reload(); // Força a atualização do estado do app
-      } else {
+
+        // 4. Recarrega a página para atualizar o estado da aplicação
+        window.location.reload();
+
+      } catch (error) {
+        console.error("Erro na vinculação automática:", error);
+        toast.error(error.message);
         setIsLoading(false);
-        toast.error(`Workspace da unidade "${unit}" não encontrado. Contate o administrador.`);
       }
     };
 
-    // REMOVIDO O CHECK DE isWorkspacesLoaded
-    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
+    return (
+      <OnboardingModal
+        user={user}
+        onSaveUnit={handleSaveUnitAndWorkspace}
+      />
+    );
   }
 
   const onTouchStart = (e) => {
