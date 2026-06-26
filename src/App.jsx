@@ -1289,12 +1289,11 @@ function App() {
     };
 
     // Só exibe o modal quando os workspaces estiverem carregados
-    return isWorkspacesLoaded ? (
-      <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />
-    ) : (
-      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <p>Carregando ambiente...</p>
-      </div>
+    return (
+      <OnboardingModal
+        user={user}
+        onSaveUnit={handleSaveUnitAndWorkspace}
+      />
     );
   }
 
