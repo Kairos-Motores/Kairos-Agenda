@@ -88,7 +88,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Comercial - Coord. Gerencial',
     description: 'Indicadores comerciais',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN', 'COORD COMERCIAL', 'DIRETORIA']
+    allowedRoles: ['ADMIN', 'COORD COMERCIAL', 'DIRETORIA', 'QUALIDADE']
   },
   {
     id: 'programacao-ferias', //Programação de Férias
@@ -162,7 +162,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Comercial - BRC',
     description: 'Indicadores comerciais Barcarena',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'COMERCIAL']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'COMERCIAL', 'QUALIDADE']
   },
   {
     id: 'ind-operacao-brc', //Indicadores Operação - BRC
@@ -170,7 +170,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Operação - BRC',
     description: 'Indicadores de operação Barcarena',
     icon: 'engineering',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'PCP']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'PCP', 'QUALIDADE']
   },
   {
     id: 'medro-brc',
@@ -228,7 +228,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Comercial - SLZ',
     description: 'Indicadores comerciais SLZ',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL', 'QUALIDADE']
   },
   {
     id: 'ind-operacao-slz', //Indicadores Operação - SLZ
@@ -236,7 +236,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Operação - SLZ',
     description: 'Indicadores operação SLZ',
     icon: 'engineering',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'PCP']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'PCP', 'QUALIDADE']
   },
   {
     id: 'medro-slz', //Relatório Medro - SLZ
@@ -249,274 +249,274 @@ export const BI_CONFIG = [
 
   // ===== UNIDADE PARAUAPEBAS =====
   {
-    id: 'kanban-prp',
+    id: 'kanban-prp', //Quadro Kanban - PRP
     workspaceName: 'Parauapebas',
     title: 'Kanban - PRP',
     description: 'Quadro Kanban Parauapebas',
     icon: 'view_kanban',
-    allowedRoles: ['COMUM']
+    allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coord-prp',
+    id: 'relatorio-coord-prp', //Relatório Coordenadores - PRP
     workspaceName: 'Parauapebas',
     title: 'Relatório Coordenadores - PRP',
     description: 'Painel coordenadores PRP',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP']
   },
   {
-    id: 'saldos-orc-prp',
+    id: 'saldos-orc-prp', //Saldos Orçamentários - PRP
     workspaceName: 'Parauapebas',
     title: 'Saldos Orçamentários - PRP',
     description: 'Saldos PRP',
     icon: 'savings',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP']
   },
   {
-    id: 'dre-prp',
+    id: 'dre-prp', //DRE PRP 2.0
     workspaceName: 'Parauapebas',
     title: 'DRE PRP 2.0',
     description: 'DRE Parauapebas',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP']
   },
   {
-    id: 'faturamento-prp',
+    id: 'faturamento-prp', //Faturamento PRP
     workspaceName: 'Parauapebas',
     title: 'Faturamento PRP',
     description: 'Faturamento PRP',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP']
   },
   {
-    id: 'ind-comercial-prp',
+    id: 'ind-comercial-prp', //Indicadores Comercial - PRP
     workspaceName: 'Parauapebas',
     title: 'Indicadores Comercial - PRP',
     description: 'Indicadores comerciais PRP',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL', 'COORD PRP']
   },
   {
-    id: 'ind-operacao-prp',
+    id: 'ind-operacao-prp', //Indicadores Operação - PRP
     workspaceName: 'Parauapebas',
     title: 'Indicadores Operação - PRP',
     description: 'Indicadores operação PRP',
     icon: 'engineering',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'COORD PRP']
   },
   {
-    id: 'medro-prp',
+    id: 'medro-prp', //Relatório Medro - PRP
     workspaceName: 'Parauapebas',
     title: 'Relatório Medro - PRP',
     description: 'Relatório Medro PRP',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP', 'COORD PCP']
   },
 
   // ===== UNIDADE SÃO JOSÉ DOS CAMPOS =====
   {
-    id: 'kanban-sjc',
+    id: 'kanban-sjc', //Quadro Kanban - SJC
     workspaceName: 'São José dos Campos',
     title: 'Kanban - SJC',
     description: 'Quadro Kanban SJC',
     icon: 'view_kanban',
-    allowedRoles: ['COMUM', 'ADMIN']
+    allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
-    id: 'relatorio-coord-sjc',
+    id: 'relatorio-coord-sjc', //Relatório Coordenadores - SJC
     workspaceName: 'São José dos Campos',
     title: 'Relatório Coordenadores - SJC',
     description: 'Painel coordenadores SJC',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC']
   },
   {
-    id: 'saldos-orc-sjc',
+    id: 'saldos-orc-sjc', //Saldos Orçamentários - SJC
     workspaceName: 'São José dos Campos',
     title: 'Saldos Orçamentários - SJC',
     description: 'Saldos SJC',
     icon: 'savings',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC']
   },
   {
-    id: 'dre-sjc',
+    id: 'dre-sjc', //DRE SJC 2.0
     workspaceName: 'São José dos Campos',
     title: 'DRE SJC 2.0',
     description: 'DRE SJC',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC']
   },
   {
-    id: 'faturamento-sjc',
+    id: 'faturamento-sjc', //Faturamento SJC
     workspaceName: 'São José dos Campos',
     title: 'Faturamento SJC',
     description: 'Faturamento SJC',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC']
   },
   {
-    id: 'ind-comercial-sjc',
+    id: 'ind-comercial-sjc', //Indicadores Comercial - SJC
     workspaceName: 'São José dos Campos',
     title: 'Indicadores Comercial - SJC',
     description: 'Indicadores comerciais SJC',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'QUALIDADE']
   },
   {
-    id: 'ind-operacao-sjc',
+    id: 'ind-operacao-sjc', //Indicadores Operação - SJC
     workspaceName: 'São José dos Campos',
     title: 'Indicadores Operação - SJC',
     description: 'Indicadores operação SJC',
     icon: 'engineering',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'COORD PCP', 'QUALIDADE']
   },
   {
-    id: 'medro-sjc',
+    id: 'medro-sjc', //Relatório Medro - SJC
     workspaceName: 'São José dos Campos',
     title: 'Relatório Medro - SJC',
     description: 'Relatório Medro SJC',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'COORD PCP']
   },
 
   // ===== UNIDADE AVEIRO =====
   {
-    id: 'kanban-avr',
+    id: 'kanban-avr', //Quadro Kanban - AVR
     workspaceName: 'Aveiro',
     title: 'Kanban - Aveiro',
     description: 'Quadro Kanban Aveiro',
     icon: 'view_kanban',
-    allowedRoles: ['ADMIN', 'COMUM']
+    allowedRoles: ['ADMIN', 'COMUM', 'DIRETORIA', 'COORD AVR']
   },
   {
-    id: 'relatorio-coord-avr',
+    id: 'relatorio-coord-avr', //Relatório Coordenadores - AVR
     workspaceName: 'Aveiro',
     title: 'Relatório Coordenadores - AVR',
     description: 'Painel coordenadores AVR',
     icon: 'group',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR']
   },
   {
-    id: 'dre-avr',
+    id: 'dre-avr', //DRE AVR 2.0
     workspaceName: 'Aveiro',
     title: 'DRE AVR 2.0',
     description: 'DRE Aveiro',
     icon: 'receipt_long',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR']
   },
   {
-    id: 'ind-comercial-avr',
+    id: 'ind-comercial-avr', //Indicadores Comercial - AVR
     workspaceName: 'Aveiro',
     title: 'Indicadores Comercial - AVR',
     description: 'Indicadores comerciais AVR',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR', 'COORD COMERCIAL']
   },
   {
-    id: 'medro-avr',
+    id: 'medro-avr', //Relatório Medro - AVR
     workspaceName: 'Aveiro',
     title: 'Relatório Medro - AVR',
     description: 'Relatório Medro AVR',
     icon: 'analytics',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR', 'COORD PCP']
   },
 
   // ===== DEPARTAMENTOS INTERNOS =====
   {
-    id: 'analise-garantias',
+    id: 'analise-garantias', //Análise de Garantias
     workspaceName: 'Departamentos Internos',
     title: 'Análise de Garantias',
     description: 'Painel de garantias',
     icon: 'verified',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE']
   },
   {
-    id: 'perda',
+    id: 'perda', //Painel de Perda
     workspaceName: 'Departamentos Internos',
     title: 'BI Perda',
     description: 'Indicadores de perda',
     icon: 'trending_down',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'QUALIDADE', 'COORD ADM']
   },
   {
-    id: 'garantia',
+    id: 'garantia', //Dashboard Garantia
     workspaceName: 'Departamentos Internos',
     title: 'Dashboard Garantia',
     description: 'Garantia detalhada',
     icon: 'shield',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE']
   },
   {
-    id: 'gestao-patrimonios',
+    id: 'gestao-patrimonios', //Dashboard Gestão de Patrimônios
     workspaceName: 'Departamentos Internos',
     title: 'Gestão de Patrimônios',
     description: 'Controle patrimonial',
     icon: 'warehouse',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'LOGISTICA', 'QUALIDADE']
   },
   {
-    id: 'inventario',
+    id: 'inventario', //Dashboard Inventário 2.0
     workspaceName: 'Departamentos Internos',
     title: 'Inventário 2.0',
     description: 'Painel de inventário',
     icon: 'inventory_2',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'LIDER FINANCEIRO']
   },
   {
-    id: 'logistica',
+    id: 'logistica', //Dashboard Logística
     workspaceName: 'Departamentos Internos',
     title: 'Dashboard Logística',
     description: 'Indicadores logísticos',
     icon: 'local_shipping',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'LOGISTICA', 'QUALIDADE']
   },
   {
-    id: 'planejador',
+    id: 'planejador', //Dashboard Planejador
     workspaceName: 'Departamentos Internos',
     title: 'Dashboard Planejador',
     description: 'Planejamento',
     icon: 'calendar_month',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE']
   },
   {
-    id: 'qualidade',
+    id: 'qualidade', //Dashboard Qualidade
     workspaceName: 'Departamentos Internos',
     title: 'Dashboard Qualidade',
     description: 'Indicadores de qualidade',
     icon: 'verified_user',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE']
   },
   {
-    id: 'treinamentos',
+    id: 'treinamentos', //Dashboard Treinamentos
     workspaceName: 'Departamentos Internos',
     title: 'Relatório Gerencial - Treinamentos',
     description: 'Treinamentos',
     icon: 'school',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE', 'COORD RH', 'RH']
   },
   {
     id: 'rh',
-    workspaceName: 'Departamentos Internos',
+    workspaceName: 'Departamentos Internos', //Dashboard RH
     title: 'Dashboard RH',
     description: 'Recursos Humanos',
     icon: 'groups',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD RH', 'RH', 'COORD ADM']
   },
   {
-    id: 'suprimentos',
+    id: 'suprimentos', //Dashboard Suprimentos
     workspaceName: 'Departamentos Internos',
     title: 'Dashboard Suprimentos',
     description: 'Suprimentos',
     icon: 'inventory',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'SUPRIMENTOS', 'QUALIDADE']
   },
   {
-    id: 'departamento-tecnico',
+    id: 'departamento-tecnico', //Dashboard Departamento Técnico
     workspaceName: 'Departamentos Internos',
     title: 'Departamento Técnico Kairós 2.0',
     description: 'Painel técnico',
     icon: 'build',
-    allowedRoles: ['ADMIN']
+    allowedRoles: ['ADMIN', 'DIRETORIA','DEPTO TECNICO', 'COORD DEPTO TECNICO']
   },
 
   // ===== DEPARTAMENTOS EXTERNOS =====
