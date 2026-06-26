@@ -1242,16 +1242,24 @@ function App() {
 
   if (currentUser && !currentUser.cr4a1_unidade) {
     const handleSaveUnitAndWorkspace = async (unit) => {
-      // 1. Salva a unidade do usuário
+      // 1. Atualiza a unidade do usuário
       await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-      // 2. Procura workspace com nome exato (ignora espaços extras)
-      const workspace = workspaces.find(
-        ws => (ws.cr4a1_nome || '').trim() === unit.trim()
-      );
+      // 2. Aguarda os workspaces estarem disponíveis (máximo 5 tentativas)
+      let tentativas = 0;
+      let workspace = null;
+      while (tentativas < 10 && !workspace) {
+        workspace = workspaces.find(
+          ws => (ws.cr4a1_nome || '').trim() === unit.trim()
+        );
+        if (!workspace) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          tentativas++;
+        }
+      }
 
       if (workspace) {
-        // 3. Workspace existe: adiciona o usuário como membro, se necessário
+        // 3. Adiciona o usuário como membro, se ainda não estiver
         const membrosAtuais = workspace.cr4a1_membros_logins
           ? workspace.cr4a1_membros_logins
             .split(',')
@@ -1266,20 +1274,10 @@ function App() {
           });
         }
       } else {
-        // 4. Workspace NÃO existe: cria automaticamente para a unidade
-        try {
-          await addWorkspace({
-            nome: unit,
-            tipo: 'COMPARTILHADO',
-            cor: '#009688',      // cor padrão; pode personalizar por unidade
-            membros: user         // já adiciona o usuário como membro
-          });
-          // Pequeno delay para o estado atualizar e então recarregar
-          setTimeout(() => window.location.reload(), 500);
-        } catch (error) {
-          console.error('Erro ao criar workspace automaticamente:', error);
-          toast.error('Falha ao configurar seu ambiente. Contate o administrador.');
-        }
+        // Workspace não encontrado após várias tentativas
+        toast.error(
+          `Workspace da unidade "${unit}" não encontrado. Entre em contato com o administrador.`
+        );
       }
     };
 
