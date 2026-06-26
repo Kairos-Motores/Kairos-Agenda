@@ -297,6 +297,7 @@ const materialColors = [
 
 const OnboardingModal = ({ user, onSaveUnit }) => {
   const [selectedUnit, setSelectedUnit] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false); // Novo estado
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
   return (
@@ -304,13 +305,22 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
       <div className="modal-content" style={{ maxWidth: '400px', width: '90%', textAlign: 'center', padding: '40px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
         <span style={{ fontSize: '48px' }}>🏢</span>
         <h2 style={{ margin: '20px 0 10px', color: 'var(--text-title)' }}>Bem-vindo à Kairós!</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Seleciona a tua unidade para configurares o teu perfil:</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', fontSize: '14px' }}>Seleciona a tua unidade:</p>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
           {units.map(unit => (
             <button key={unit} onClick={() => setSelectedUnit(unit)} className="boing-effect" style={{ padding: '14px', borderRadius: '12px', border: selectedUnit === unit ? '2px solid var(--text-accent)' : '1px solid var(--border-color)', background: selectedUnit === unit ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: selectedUnit === unit ? '700' : '500' }}>{unit}</button>
           ))}
         </div>
-        <button disabled={!selectedUnit} onClick={() => onSaveUnit(selectedUnit)} className="btn-primary boing-effect" style={{ width: '100%', padding: '16px', opacity: selectedUnit ? 1 : 0.5 }}>Confirmar e Entrar</button>
+
+        <button
+          disabled={!selectedUnit || isLoading}
+          onClick={() => onSaveUnit(selectedUnit, setIsLoading)}
+          className="btn-primary boing-effect"
+          style={{ width: '100%', padding: '16px', opacity: (selectedUnit && !isLoading) ? 1 : 0.5 }}
+        >
+          {isLoading ? 'Configurando ambiente...' : 'Confirmar e Entrar'}
+        </button>
       </div>
     </div>
   );
@@ -1247,12 +1257,17 @@ function App() {
 
   if (!user) return <LoginScreen onLogin={login} />;
 
+  // ... dentro da função App()
+
   if (currentUser && !currentUser.cr4a1_unidade) {
-    const handleSaveUnitAndWorkspace = async (unit) => {
+    // ADICIONE UM ESTADO DE CARREGAMENTO LOCAL NO MODAL
+    const handleSaveUnitAndWorkspace = async (unit, setIsLoading) => {
+      setIsLoading(true); // O modal deve gerir este estado
+
       // 1. Atualiza a unidade do usuário
       await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-      // 2. Aguarda os workspaces estarem disponíveis (máximo 5 segundos)
+      // 2. Aguarda os workspaces estarem disponíveis (polling)
       let tentativas = 0;
       let workspace = null;
       while (tentativas < 20 && !workspace) {
@@ -1260,41 +1275,33 @@ function App() {
           ws => (ws.cr4a1_nome || '').trim().toLowerCase() === unit.trim().toLowerCase()
         );
         if (!workspace) {
-          await new Promise(resolve => setTimeout(resolve, 250));
+          await new Promise(resolve => setTimeout(resolve, 500)); // Aumentei um pouco o delay
           tentativas++;
         }
       }
 
       if (workspace) {
-        // 3. Adiciona o usuário como membro, se ainda não estiver
         const membrosAtuais = workspace.cr4a1_membros_logins
-          ? workspace.cr4a1_membros_logins
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean)
+          ? workspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
           : [];
+
         if (!membrosAtuais.includes(user)) {
           const novosMembros = [...membrosAtuais, user].join(',');
           await updateWorkspace(workspace.cr4a1_calendarios_workspacesid, {
             ...workspace,
             cr4a1_membros_logins: novosMembros
           });
-          toast.success(`Você foi vinculado ao workspace "${workspace.cr4a1_nome}".`);
+          toast.success(`Vinculado ao workspace "${workspace.cr4a1_nome}".`);
         }
+        window.location.reload(); // Força a atualização do estado do app
       } else {
-        toast.error(
-          `Workspace da unidade "${unit}" não encontrado. Entre em contato com o administrador.`
-        );
+        setIsLoading(false);
+        toast.error(`Workspace da unidade "${unit}" não encontrado. Contate o administrador.`);
       }
     };
 
-    // Só exibe o modal quando os workspaces estiverem carregados
-    return (
-      <OnboardingModal
-        user={user}
-        onSaveUnit={handleSaveUnitAndWorkspace}
-      />
-    );
+    // REMOVIDO O CHECK DE isWorkspacesLoaded
+    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
   }
 
   const onTouchStart = (e) => {
