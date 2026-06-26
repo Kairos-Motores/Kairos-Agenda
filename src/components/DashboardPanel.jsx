@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
+// Importe a função de permissão que criamos
+import { checkAccess } from '../utils/permissions'; 
 
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const [biAberto, setBiAberto] = useState(null);
@@ -22,12 +24,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
   const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome);
 
+  // LÓGICA DE FILTRAGEM ATUALIZADA
   const bisPermitidos = biConfig.filter(bi => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
-    const temPermissao =
-      bi.allowedRoles.includes('ALL') ||
-      bi.allowedRoles.includes(userRole) ||
-      (Array.isArray(userRole) && bi.allowedRoles.some(r => userRole.includes(r)));
+    
+    // Usamos 'ALL' para bypass e checkAccess para validar as roles
+    const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
+    
     return isWorkspaceAtivo && temPermissao;
   });
 
@@ -75,15 +78,15 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* Modal que cobre tudo, inserido via Portal no document.body */}
+      {/* Modal permanece igual */}
       {biAberto && ReactDOM.createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
           width: '100vw',
-          height: '100dvh', // Usa dvh para lidar com a barra de endereços do mobile
-          zIndex: 999999, // Supera todos os componentes da tela
+          height: '100dvh',
+          zIndex: 999999,
           background: 'var(--bg-primary)',
           display: 'flex',
           flexDirection: 'column',
@@ -91,8 +94,6 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           padding: 0,
           animation: 'fadeInUp 0.3s ease'
         }}>
-          
-          {/* Cabeçalho do BI - Responsivo e Minimalista */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -107,12 +108,10 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               <div style={{ background: '#fff3e0', padding: '8px', borderRadius: '8px', display: 'flex' }}>
                 <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '24px' }}>{biAberto.icon}</span>
               </div>
-              {/* Oculta o excesso de texto no mobile com ellipsis */}
               <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60vw' }}>
                 {biAberto.title}
               </h3>
             </div>
-
             <button
               onClick={() => { setBiAberto(null); setBiUrl(''); }}
               className="boing-effect"
@@ -134,26 +133,22 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               <span>Fechar</span>
             </button>
           </div>
-
-          {/* Container do iframe: centraliza e corta rodapé */}
           <div style={{
             flex: 1,
             width: '100%',
-            overflow: 'hidden', // esconde a parte inferior do iframe
+            overflow: 'hidden',
             background: '#f5f5f5',
             display: 'flex',
-            justifyContent: 'center', // centraliza horizontalmente
-            alignItems: 'center', // centraliza verticalmente
+            justifyContent: 'center',
+            alignItems: 'center',
             position: 'relative',
           }}>
-            {/* Adicionado um loader básico para não ficar a tela branca enquanto busca a API */}
             {!biUrl && (
               <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '32px', animation: 'spin 1s linear infinite' }}>autorenew</span>
                 Carregando painel...
               </div>
             )}
-            
             {biUrl && (
               <iframe
                 title={biAberto.title}
@@ -162,7 +157,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 allowFullScreen
                 style={{
                   width: '100%',
-                  height: 'calc(100% + 40px)', // corta só o rodapé inferior que você parametrizou
+                  height: 'calc(100% + 40px)',
                   border: 'none',
                   display: 'block',
                   margin: '0 auto',
