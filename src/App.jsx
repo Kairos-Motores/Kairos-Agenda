@@ -1241,30 +1241,40 @@ function App() {
   if (!user) return <LoginScreen onLogin={login} />;
 
   if (currentUser && !currentUser.cr4a1_unidade) {
-    const handleSaveUnitAndWorkspace = async (unit) => {
-      // 1. Salva a unidade do usuário
-      await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
+  const handleSaveUnitAndWorkspace = async (unit) => {
+    // 1. Atualiza a unidade do usuário
+    await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-      // 2. Procura o workspace com nome igual ao da unidade escolhida
-      const workspace = workspaces.find(ws => ws.cr4a1_nome === unit);
-      if (workspace) {
-        // 3. Verifica se o usuário já está nos membros
-        const membrosAtuais = workspace.cr4a1_membros_logins
-          ? workspace.cr4a1_membros_logins.split(',').map(s => s.trim())
-          : [];
-        if (!membrosAtuais.includes(user)) {
-          const novosMembros = [...membrosAtuais, user].join(',');
-          // 4. Atualiza o workspace com a nova lista de membros
-          await updateWorkspace(workspace.cr4a1_calendarios_workspacesid, {
-            ...workspace,
-            cr4a1_membros_logins: novosMembros
-          });
-        }
+    // 2. Procura o workspace cujo nome (trim) coincide com a unidade escolhida (trim)
+    const workspace = workspaces.find(
+      ws => ws.cr4a1_nome?.trim() === unit.trim()
+    );
+
+    if (workspace) {
+      // 3. Lista de membros atual, tratando espaços e filtrando vazios
+      const membrosAtuais = workspace.cr4a1_membros_logins
+        ? workspace.cr4a1_membros_logins
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : [];
+
+      // 4. Se o usuário ainda não estiver na lista, adiciona
+      if (!membrosAtuais.includes(user)) {
+        const novosMembros = [...membrosAtuais, user].join(',');
+        await updateWorkspace(workspace.cr4a1_calendarios_workspacesid, {
+          ...workspace,
+          cr4a1_membros_logins: novosMembros
+        });
+        console.log(`Usuário ${user} adicionado ao workspace ${workspace.cr4a1_nome}`);
       }
-    };
+    } else {
+      console.warn(`Nenhum workspace encontrado para a unidade "${unit}"`);
+    }
+  };
 
-    return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
-  }
+  return <OnboardingModal user={user} onSaveUnit={handleSaveUnitAndWorkspace} />;
+}
 
   const onTouchStart = (e) => {
     setTouchEnd(null);
