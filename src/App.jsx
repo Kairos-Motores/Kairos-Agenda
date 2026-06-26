@@ -13,6 +13,7 @@ import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { NotesPanel } from './components/NotesPanel';
 import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
+import { api } from './api/dataverse';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
 } from 'date-fns';
@@ -1267,19 +1268,27 @@ function App() {
         // 1. Atualiza a unidade do usuário no banco
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
 
-        // 2. Busca o workspace com normalização (trata espaços e maiúsculas)
-        const unitNormalized = unit.trim().toLowerCase();
-
-        const targetWorkspace = workspaces.find(ws =>
-          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unitNormalized
+        // 2. Tenta encontrar no estado local; se não houver, busca direto no servidor
+        let targetWorkspace = workspaces.find(ws =>
+          ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
         );
 
         if (!targetWorkspace) {
-          console.error("Workspaces disponíveis:", workspaces);
-          throw new Error(`Workspace com nome "${unit}" não encontrado. Verifique se o nome no workspace coincide exatamente com a unidade.`);
+          console.warn("Estado local vazio, buscando workspace diretamente na API...");
+          // Faz a chamada direta ao Dataverse (ajuste o endpoint conforme o seu api/dataverse.js)
+          const response = await api.get('/workspaces');
+          const allWorkspaces = response.data; // ou apenas response dependendo do seu setup
+
+          targetWorkspace = allWorkspaces.find(ws =>
+            ws.cr4a1_nome && ws.cr4a1_nome.trim().toLowerCase() === unit.trim().toLowerCase()
+          );
         }
 
-        // 3. Verifica e adiciona o usuário se necessário
+        if (!targetWorkspace) {
+          throw new Error(`Workspace "${unit}" não existe no Dataverse. Verifique o nome na tabela de Workspaces.`);
+        }
+
+        // 3. Adiciona o usuário ao Workspace
         const membrosAtuais = targetWorkspace.cr4a1_membros_logins
           ? targetWorkspace.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean)
           : [];
@@ -1290,16 +1299,14 @@ function App() {
             ...targetWorkspace,
             cr4a1_membros_logins: novosMembros
           });
-          toast.success(`Vinculado automaticamente ao workspace: ${targetWorkspace.cr4a1_nome}`);
-        } else {
-          toast.success("Unidade definida e já vinculado ao workspace.");
+          toast.success(`Vinculado ao workspace: ${targetWorkspace.cr4a1_nome}`);
         }
 
-        // 4. Recarrega a página para atualizar o estado da aplicação
+        // 4. Recarrega a página para iniciar o app com tudo configurado
         window.location.reload();
 
       } catch (error) {
-        console.error("Erro na vinculação automática:", error);
+        console.error("Erro fatal na vinculação:", error);
         toast.error(error.message);
         setIsLoading(false);
       }
