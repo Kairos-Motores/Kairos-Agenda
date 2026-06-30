@@ -227,25 +227,33 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
                     <button
                         className="btn-primary"
-                        style={{ width: '100%', opacity: isSaving ? 0.7 : 1 }}
-                        disabled={isSaving} // Desabilita para evitar cliques duplos
-                        onClick={async () => { // Adicione async aqui
+                        style={{ width: '100%' }}
+                        onClick={async () => {
                             if (!formData.nome) return;
 
-                            setIsSaving(true);
+                            // 1. Traduzimos as chaves do estado local para o formato do Dataverse
+                            const payloadDataverse = {
+                                cr4a1_nome: formData.nome,
+                                cr4a1_tipo_workspace: formData.tipo,
+                                cr4a1_cor_hex: formData.cor,
+                                cr4a1_membros_logins: formData.membros
+                            };
+
+                            // 2. Se for edição, garantimos que o ID está indo junto no pacote
+                            if (editingWorkspace && editingWorkspace.cr4a1_calendarios_workspacesid) {
+                                payloadDataverse.cr4a1_calendarios_workspacesid = editingWorkspace.cr4a1_calendarios_workspacesid;
+                            }
+
                             try {
-                                // Se onSave for uma Promise, o await garante que vamos esperar o fim do processo
-                                await onSave(formData);
-                                onClose(); // Só fecha se o save for bem-sucedido
+                                // 3. Enviamos o objeto formatado corretamente
+                                await onSave(payloadDataverse);
+                                onClose();
                             } catch (error) {
-                                console.error("Erro ao salvar:", error);
-                                // Aqui você pode adicionar um toast.error se usar bibliotecas de notificação
-                            } finally {
-                                setIsSaving(false);
+                                console.error("Falha ao salvar workspace:", error);
                             }
                         }}
                     >
-                        {isSaving ? 'Salvando...' : (editingWorkspace ? 'Guardar Alterações' : 'Criar Workspace')}
+                        {editingWorkspace ? 'Guardar Alterações' : 'Criar Workspace'}
                     </button>
                 </div>
             </div>
