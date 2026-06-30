@@ -511,7 +511,7 @@ export const BI_CONFIG = [
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'SUPRIMENTOS', 'QUALIDADE']
   },
   {
-    id: 'departamento-tecnico', //Dashboard Departamento Técnico
+    id: 'departamento-tecnico', //Dashboard Departamento Técni  co
     workspaceName: 'Departamentos Internos',
     title: 'Departamento Técnico Kairós 2.0',
     description: 'Painel técnico',

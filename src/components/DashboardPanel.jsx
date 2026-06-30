@@ -5,7 +5,7 @@ import { checkAccess } from '../utils/permissions';
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const [biAberto, setBiAberto] = useState(null);
   const [biUrl, setBiUrl] = useState('');
-  
+
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -31,17 +31,17 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const bisPermitidos = biConfig.filter(bi => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
     const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
-    
+
     // Filtros de UI
     const matchesSearch = bi.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesWorkspace = selectedWorkspace ? bi.workspaceName === selectedWorkspace : true;
-    
+
     return isWorkspaceAtivo && temPermissao && matchesSearch && matchesWorkspace;
   });
 
   return (
     <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      
+
       {/* Header MD3 */}
       <div>
         <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center' }}>
@@ -53,9 +53,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)' }}>search</span>
-            <input 
-              type="text" 
-              placeholder="Pesquisar painéis..." 
+            <input
+              type="text"
+              placeholder="Pesquisar painéis..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -70,7 +70,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               }}
             />
           </div>
-          <button 
+          <button
             onClick={() => { setSearchTerm(''); setSelectedWorkspace(null); }}
             style={{ padding: '12px', borderRadius: '50%', border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
@@ -80,29 +80,29 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
         {/* Filter Chips (Workspaces) - Scrollable */}
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
-           <button 
-             onClick={() => setSelectedWorkspace(null)}
-             style={{ 
-               padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)', 
-               background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
-               whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-             }}
-           >
-             Todos
-           </button>
-           {activeWorkspaceNames.map(name => (
-             <button 
-               key={name}
-               onClick={() => setSelectedWorkspace(name)}
-               style={{ 
-                 padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)', 
-                 background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
-                 whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-               }}
-             >
-               {name}
-             </button>
-           ))}
+          <button
+            onClick={() => setSelectedWorkspace(null)}
+            style={{
+              padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)',
+              background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
+              whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+            }}
+          >
+            Todos
+          </button>
+          {activeWorkspaceNames.map(name => (
+            <button
+              key={name}
+              onClick={() => setSelectedWorkspace(name)}
+              style={{
+                padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)',
+                background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
+                whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+              }}
+            >
+              {name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -182,7 +182,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 fontSize: '14px',
               }}
             >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span> 
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span>
               <span>Fechar</span>
             </button>
           </div>
@@ -204,22 +204,22 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             )}
             {biUrl && (
               <iframe
-  title={biAberto.title}
-  src={biUrl}
-  frameBorder="0"
-  allowFullScreen
-  style={{
-    width: '100%',
-    // Aumentamos para 75px para garantir que a barra do Power BI suma completamente
-    height: 'calc(100% + 75px)', 
-    // marginTop negativo puxa o iframe para cima, fazendo a borda superior do conteúdo aparecer mais
-    marginTop: '-30px',          
-    border: 'none',
-    display: 'block',
-    marginRight: 'auto',
-    marginLeft: 'auto'
-  }}
-/>
+                title={biAberto.title}
+                src={biUrl}
+                frameBorder="0"
+                allowFullScreen
+                style={{
+                  width: '100%',
+                  // Aumentamos para 120px para garantir que a barra inferior do Power BI suma completamente
+                  height: 'calc(100% + 120px)',
+                  // Reduzimos o marginTop para -10px ou 0px, para parar de cortar o topo do seu relatório
+                  marginTop: '-10px',
+                  border: 'none',
+                  display: 'block',
+                  marginRight: 'auto',
+                  marginLeft: 'auto'
+                }}
+              />
             )}
           </div>
         </div>,
