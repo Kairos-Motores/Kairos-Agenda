@@ -211,9 +211,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 style={{
                   width: '100%',
                   // Aumentamos para 120px para garantir que a barra inferior do Power BI suma completamente
-                  height: 'calc(100% + 100px)',
+                  height: 'calc(100% + 130px)',
                   // Reduzimos o marginTop para -10px ou 0px, para parar de cortar o topo do seu relatório
-                  marginTop: '-60px',
+                  marginTop: '30px',
                   border: 'none',
                   display: 'block',
                   marginRight: 'auto',
