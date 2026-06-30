@@ -13,14 +13,14 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   // Estados para a barra do BI (Auto-hide)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
-  // Lógica para esconder a barra após 3 segundos de inatividade
+  // Lógica robusta do temporizador: reseta sempre que a barra fica visível
   useEffect(() => {
-    if (!biAberto) return;
-
-    const timer = setTimeout(() => {
-      setIsHeaderVisible(false);
-    }, 3000);
-
+    let timer;
+    if (biAberto && isHeaderVisible) {
+      timer = setTimeout(() => {
+        setIsHeaderVisible(false);
+      }, 3000);
+    }
     return () => clearTimeout(timer);
   }, [biAberto, isHeaderVisible]);
 
@@ -31,7 +31,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
       if (data.url) {
         setBiUrl(data.url);
         setBiAberto(bi);
-        setIsHeaderVisible(true); // Garante que começa visível
+        setIsHeaderVisible(true);
       } else {
         alert('Erro ao carregar painel. Verifique suas permissões.');
       }
@@ -54,7 +54,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   return (
     <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       
-      {/* Header MD3 */}
+      {/* Header e Filtros */}
       <div>
         <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center' }}>
           <span className="material-symbols-rounded" style={{ color: '#f57c00', marginRight: '8px' }}>bar_chart</span>
@@ -77,7 +77,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 background: 'var(--bg-secondary)',
                 color: 'var(--text-title)',
                 fontSize: '16px',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -116,9 +117,10 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         </div>
       </div>
 
+      {/* Grid de Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto' }}>
         {bisPermitidos.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px' }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px', gridColumn: '1 / -1' }}>
             <span className="material-symbols-rounded" style={{ fontSize: '48px', opacity: 0.5 }}>visibility_off</span>
             <p>Nenhum painel encontrado.</p>
           </div>
@@ -140,102 +142,100 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
+      {/* MODAL FULLSCREEN - A Magia Acontece Aqui */}
       {biAberto && ReactDOM.createPortal(
-        <div 
-          onMouseMove={() => setIsHeaderVisible(true)} // Reseta o timer ao mover o mouse
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100dvh',
-            zIndex: 999999,
-            background: 'var(--bg-primary)',
-            display: 'flex',
-            flexDirection: 'column',
-            margin: 0,
-            padding: 0,
-            animation: 'fadeInUp 0.3s ease'
-          }}
-        >
-          {/* Header com transição de opacidade */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '12px 16px',
-            borderBottom: '1px solid var(--border-color)',
-            background: 'var(--bg-secondary)',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-            flexShrink: 0,
-            opacity: isHeaderVisible ? 1 : 0,
-            transition: 'opacity 0.3s ease-in-out',
-            pointerEvents: isHeaderVisible ? 'auto' : 'none' // Impede cliques quando invisível
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ background: '#fff3e0', padding: '8px', borderRadius: '8px', display: 'flex' }}>
-                <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '24px' }}>{biAberto.icon}</span>
-              </div>
-              <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60vw' }}>
-                {biAberto.title}
-              </h3>
-            </div>
-            <button
-              onClick={() => { setBiAberto(null); setBiUrl(''); }}
-              className="boing-effect"
-              style={{
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: 'none',
-                background: '#ffebee',
-                color: '#c62828',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontWeight: 'bold',
-                fontSize: '14px',
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span> 
-              <span>Fechar</span>
-            </button>
-          </div>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 999999,
+          background: 'var(--bg-primary)',
+          overflow: 'hidden' // Garante que o iframe não crie barras de rolagem na tela inteira
+        }}>
           
-          <div style={{
-            flex: 1,
-            width: '100%',
-            overflow: 'hidden',
-            background: '#f5f5f5',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            position: 'relative',
-          }}>
-            {!biUrl && (
-              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '32px', animation: 'spin 1s linear infinite' }}>autorenew</span>
-                Carregando painel...
-              </div>
-            )}
-            {biUrl && (
-              <iframe
-                title={biAberto.title}
-                src={biUrl}
-                frameBorder="0"
-                allowFullScreen
-                style={{
-                  width: '100%',
-                  height: 'calc(100% + 100px)',
-                  marginTop: '-30px',
-                  border: 'none',
-                  display: 'block',
-                  marginRight: 'auto',
-                  marginLeft: 'auto'
-                }}
-              />
-            )}
+          {/* CAMADA 1: O Iframe - Fica no fundo, pegando a tela TODA */}
+          <div style={{ position: 'absolute', inset: 0, background: '#f5f5f5' }}>
+             {!biUrl && (
+               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-secondary)', gap: '8px' }}>
+                 <span className="material-symbols-rounded" style={{ animation: 'spin 1s linear infinite' }}>autorenew</span>
+                 Carregando painel...
+               </div>
+             )}
+             {biUrl && (
+               <iframe
+                 title={biAberto.title}
+                 src={biUrl}
+                 style={{
+                   position: 'absolute',
+                   top: 0,
+                   left: 0,
+                   width: '100%',
+                   // 42px é exatamente a altura da barra preta de rodapé padrão do Power BI. 
+                   // Ao dar 100% + 42px, o rodapé vaza para fora do container e some.
+                   height: 'calc(100% + 42px)', 
+                   border: 'none',
+                   display: 'block'
+                 }}
+               />
+             )}
           </div>
+
+          {/* CAMADA 2: A Zona de Gatilho (Trigger Zone) 
+              Fica invisível no topo da tela. Se o mouse encostar aqui, a barra aparece. 
+              Isso burla a limitação do iframe roubar os eventos de mouse. */}
+          <div 
+            onMouseEnter={() => setIsHeaderVisible(true)}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '60px',
+              zIndex: 10
+            }}
+          />
+
+          {/* CAMADA 3: O Cabeçalho (Overlay com Glassmorphism) */}
+          <div 
+            onMouseEnter={() => setIsHeaderVisible(true)} // Mantém visível enquanto o mouse estiver sobre ele
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              padding: '12px 16px',
+              background: 'rgba(255, 255, 255, 0.90)', // Fundo translúcido
+              backdropFilter: 'blur(8px)', // Efeito de vidro embaçado (MD3)
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxSizing: 'border-box',
+              // Animação de deslizar para cima/baixo (muito mais elegante que só sumir)
+              opacity: isHeaderVisible ? 1 : 0,
+              transform: isHeaderVisible ? 'translateY(0)' : 'translateY(-100%)',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              pointerEvents: isHeaderVisible ? 'auto' : 'none', // Se estiver invisível, os cliques atravessam para o iframe
+              zIndex: 12
+            }}
+          >
+             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: '#fff3e0', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                    <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{biAberto.icon}</span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>{biAberto.title}</h3>
+             </div>
+             <button 
+               onClick={() => { setBiAberto(null); setBiUrl(''); }} 
+               style={{ 
+                 padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#ffebee', 
+                 color: '#c62828', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' 
+               }}
+             >
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+                Fechar
+             </button>
+          </div>
+
         </div>,
         document.body
       )}
