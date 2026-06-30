@@ -106,14 +106,14 @@ export const BI_CONFIG = [
     icon: 'margin',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'QUALIDADE']
   },
-  {
+  /*{
     id: 'relatorio-medro', //Relatório Medro
     workspaceName: 'Diretoria',
     title: 'Relatório Medro',
     description: 'Relatório Medro corporativo',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA']
-  },
+  },*/
 
   // ===== UNIDADE BARCARENA =====
   {
@@ -172,14 +172,14 @@ export const BI_CONFIG = [
     icon: 'engineering',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'PCP', 'QUALIDADE']
   },
-  {
+  /*{
     id: 'medro-brc',
     workspaceName: 'Barcarena',
     title: 'Relatório Medro - BRC',
     description: 'Relatório Medro Barcarena',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
-  },
+  },*/
 
   // ===== UNIDADE SÃO LUÍS =====
   {
@@ -238,14 +238,14 @@ export const BI_CONFIG = [
     icon: 'engineering',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'PCP', 'QUALIDADE']
   },
-  {
+  /*{
     id: 'medro-slz', //Relatório Medro - SLZ
     workspaceName: 'São Luís',
     title: 'Relatório Medro - SLZ',
     description: 'Relatório Medro SLZ',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP']
-  },
+  },*/
 
   // ===== UNIDADE PARAUAPEBAS =====
   {
@@ -304,14 +304,14 @@ export const BI_CONFIG = [
     icon: 'engineering',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PCP', 'COORD PRP']
   },
-  {
+  /*{
     id: 'medro-prp', //Relatório Medro - PRP
     workspaceName: 'Parauapebas',
     title: 'Relatório Medro - PRP',
     description: 'Relatório Medro PRP',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP', 'COORD PCP']
-  },
+  },*/
 
   // ===== UNIDADE SÃO JOSÉ DOS CAMPOS =====
   {
@@ -370,14 +370,14 @@ export const BI_CONFIG = [
     icon: 'engineering',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'COORD PCP', 'QUALIDADE']
   },
-  {
+  /*{
     id: 'medro-sjc', //Relatório Medro - SJC
     workspaceName: 'São José dos Campos',
     title: 'Relatório Medro - SJC',
     description: 'Relatório Medro SJC',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'COORD PCP']
-  },
+  },*/
 
   // ===== UNIDADE AVEIRO =====
   {
@@ -412,14 +412,14 @@ export const BI_CONFIG = [
     icon: 'insert_chart',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR', 'COORD COMERCIAL']
   },
-  {
+  /*{
     id: 'medro-avr', //Relatório Medro - AVR
     workspaceName: 'Aveiro',
     title: 'Relatório Medro - AVR',
     description: 'Relatório Medro AVR',
     icon: 'analytics',
     allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD AVR', 'COORD PCP']
-  },
+  },*/
 
   // ===== DEPARTAMENTOS INTERNOS =====
   {
