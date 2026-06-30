@@ -227,7 +227,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 style={{
                   width: '100%',
                   height: 'calc(100% + 100px)',
-                  marginTop: '-30px',
+                  marginTop: '0px',
                   border: 'none',
                   display: 'block',
                   marginRight: 'auto',
