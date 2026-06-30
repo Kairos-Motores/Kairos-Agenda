@@ -5,7 +5,7 @@ import { checkAccess } from '../utils/permissions';
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const [biAberto, setBiAberto] = useState(null);
   const [biUrl, setBiUrl] = useState('');
-
+  
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -31,7 +31,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
       if (data.url) {
         setBiUrl(data.url);
         setBiAberto(bi);
-        setIsHeaderVisible(true);
+        setIsHeaderVisible(true); // Garante que começa visível
       } else {
         alert('Erro ao carregar painel. Verifique suas permissões.');
       }
@@ -42,15 +42,12 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
   const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome);
 
-  // Lógica de filtragem com suporte a busca, workspace e permissões
   const bisPermitidos = biConfig.filter(bi => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
     const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
-
-    // Filtros de UI
     const matchesSearch = bi.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesWorkspace = selectedWorkspace ? bi.workspaceName === selectedWorkspace : true;
-
+    
     return isWorkspaceAtivo && temPermissao && matchesSearch && matchesWorkspace;
   });
 
@@ -145,7 +142,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
       {biAberto && ReactDOM.createPortal(
         <div 
-          onMouseMove={() => setIsHeaderVisible(true)}
+          onMouseMove={() => setIsHeaderVisible(true)} // Reseta o timer ao mover o mouse
           style={{
             position: 'fixed',
             top: 0,
@@ -154,55 +151,90 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             height: '100dvh',
             zIndex: 999999,
             background: 'var(--bg-primary)',
+            display: 'flex',
+            flexDirection: 'column',
             margin: 0,
             padding: 0,
-            overflow: 'hidden'
+            animation: 'fadeInUp 0.3s ease'
           }}
         >
-          {/* Iframe como BASE - Ocupa a tela inteira por baixo */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#f5f5f5' }}>
-             {!biUrl && <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>Carregando...</div>}
-             {biUrl && (
-               <iframe
-                 title={biAberto.title}
-                 src={biUrl}
-                 style={{
-                   width: '100%',
-                   height: 'calc(100% + 140px)', // Aumentado para esconder rodapé
-                   marginTop: '-50px',          // Ajuste para esconder título/menu superior
-                   border: 'none',
-                   display: 'block'
-                 }}
-               />
-             )}
-          </div>
-
-          {/* Header como OVERLAY - Flutua por cima */}
+          {/* Header com transição de opacidade */}
           <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            padding: '12px 16px',
-            background: 'var(--bg-secondary)',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+            flexShrink: 0,
             opacity: isHeaderVisible ? 1 : 0,
-            transition: 'opacity 0.4s ease',
-            pointerEvents: isHeaderVisible ? 'auto' : 'none',
-            zIndex: 10
+            transition: 'opacity 0.3s ease-in-out',
+            pointerEvents: isHeaderVisible ? 'auto' : 'none' // Impede cliques quando invisível
           }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ background: '#fff3e0', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-                    <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{biAberto.icon}</span>
-                </div>
-                <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--text-title)' }}>{biAberto.title}</h3>
-             </div>
-             <button onClick={() => { setBiAberto(null); setBiUrl(''); }} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#ffebee', color: '#c62828', fontWeight: 'bold', cursor: 'pointer' }}>
-                Fechar
-             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ background: '#fff3e0', padding: '8px', borderRadius: '8px', display: 'flex' }}>
+                <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '24px' }}>{biAberto.icon}</span>
+              </div>
+              <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60vw' }}>
+                {biAberto.title}
+              </h3>
+            </div>
+            <button
+              onClick={() => { setBiAberto(null); setBiUrl(''); }}
+              className="boing-effect"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: '#ffebee',
+                color: '#c62828',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontWeight: 'bold',
+                fontSize: '14px',
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span> 
+              <span>Fechar</span>
+            </button>
+          </div>
+          
+          <div style={{
+            flex: 1,
+            width: '100%',
+            overflow: 'hidden',
+            background: '#f5f5f5',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'relative',
+          }}>
+            {!biUrl && (
+              <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '32px', animation: 'spin 1s linear infinite' }}>autorenew</span>
+                Carregando painel...
+              </div>
+            )}
+            {biUrl && (
+              <iframe
+                title={biAberto.title}
+                src={biUrl}
+                frameBorder="0"
+                allowFullScreen
+                style={{
+                  width: '100%',
+                  height: 'calc(100% + 100px)',
+                  marginTop: '-30px',
+                  border: 'none',
+                  display: 'block',
+                  marginRight: 'auto',
+                  marginLeft: 'auto'
+                }}
+              />
+            )}
           </div>
         </div>,
         document.body
