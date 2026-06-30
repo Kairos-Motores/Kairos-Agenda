@@ -10,6 +10,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
     const [memberMode, setMemberMode] = useState('text');
     const [userFilter, setUserFilter] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (editingWorkspace) {
@@ -226,14 +227,25 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
                     <button
                         className="btn-primary"
-                        style={{ width: '100%' }}
-                        onClick={() => {
+                        style={{ width: '100%', opacity: isSaving ? 0.7 : 1 }}
+                        disabled={isSaving} // Desabilita para evitar cliques duplos
+                        onClick={async () => { // Adicione async aqui
                             if (!formData.nome) return;
-                            onSave(formData);
-                            onClose();
+
+                            setIsSaving(true);
+                            try {
+                                // Se onSave for uma Promise, o await garante que vamos esperar o fim do processo
+                                await onSave(formData);
+                                onClose(); // Só fecha se o save for bem-sucedido
+                            } catch (error) {
+                                console.error("Erro ao salvar:", error);
+                                // Aqui você pode adicionar um toast.error se usar bibliotecas de notificação
+                            } finally {
+                                setIsSaving(false);
+                            }
                         }}
                     >
-                        {editingWorkspace ? 'Guardar Alterações' : 'Criar Workspace'}
+                        {isSaving ? 'Salvando...' : (editingWorkspace ? 'Guardar Alterações' : 'Criar Workspace')}
                     </button>
                 </div>
             </div>
