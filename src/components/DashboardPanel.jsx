@@ -226,7 +226,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 allowFullScreen
                 style={{
                   width: '100%',
-                  height: 'calc(100% + 100px)',
+                  height: 'calc(100% + 130px)',
                   marginTop: '-30px',
                   border: 'none',
                   display: 'block',
