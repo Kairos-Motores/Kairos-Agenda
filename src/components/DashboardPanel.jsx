@@ -1,14 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { checkAccess } from '../utils/permissions';
 
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const [biAberto, setBiAberto] = useState(null);
   const [biUrl, setBiUrl] = useState('');
-
+  
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+
+  // Estados para a barra do BI (Auto-hide)
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+
+  // Lógica para esconder a barra após 3 segundos de inatividade
+  useEffect(() => {
+    if (!biAberto) return;
+
+    const timer = setTimeout(() => {
+      setIsHeaderVisible(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [biAberto, isHeaderVisible]);
 
   const abrirBI = async (bi) => {
     try {
@@ -17,6 +31,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
       if (data.url) {
         setBiUrl(data.url);
         setBiAberto(bi);
+        setIsHeaderVisible(true); // Garante que começa visível
       } else {
         alert('Erro ao carregar painel. Verifique suas permissões.');
       }
@@ -27,21 +42,18 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
   const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome);
 
-  // Lógica de filtragem com suporte a busca, workspace e permissões
   const bisPermitidos = biConfig.filter(bi => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
     const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
-
-    // Filtros de UI
     const matchesSearch = bi.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesWorkspace = selectedWorkspace ? bi.workspaceName === selectedWorkspace : true;
-
+    
     return isWorkspaceAtivo && temPermissao && matchesSearch && matchesWorkspace;
   });
 
   return (
     <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
+      
       {/* Header MD3 */}
       <div>
         <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center' }}>
@@ -49,13 +61,12 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           Painéis e Indicadores
         </h2>
 
-        {/* Search Bar MD3 Pill */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)' }}>search</span>
-            <input
-              type="text"
-              placeholder="Pesquisar painéis..."
+            <input 
+              type="text" 
+              placeholder="Pesquisar painéis..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -70,7 +81,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               }}
             />
           </div>
-          <button
+          <button 
             onClick={() => { setSearchTerm(''); setSelectedWorkspace(null); }}
             style={{ padding: '12px', borderRadius: '50%', border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
@@ -78,35 +89,33 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           </button>
         </div>
 
-        {/* Filter Chips (Workspaces) - Scrollable */}
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
-          <button
-            onClick={() => setSelectedWorkspace(null)}
-            style={{
-              padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)',
-              background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
-              whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-            }}
-          >
-            Todos
-          </button>
-          {activeWorkspaceNames.map(name => (
-            <button
-              key={name}
-              onClick={() => setSelectedWorkspace(name)}
-              style={{
-                padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)',
-                background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
-                whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-              }}
-            >
-              {name}
-            </button>
-          ))}
+           <button 
+             onClick={() => setSelectedWorkspace(null)}
+             style={{ 
+               padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)', 
+               background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
+               whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+             }}
+           >
+             Todos
+           </button>
+           {activeWorkspaceNames.map(name => (
+             <button 
+               key={name}
+               onClick={() => setSelectedWorkspace(name)}
+               style={{ 
+                 padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)', 
+                 background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
+                 whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+               }}
+             >
+               {name}
+             </button>
+           ))}
         </div>
       </div>
 
-      {/* Grid de BI */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto' }}>
         {bisPermitidos.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px' }}>
@@ -131,22 +140,25 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* Modal de visualização */}
       {biAberto && ReactDOM.createPortal(
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100dvh',
-          zIndex: 999999,
-          background: 'var(--bg-primary)',
-          display: 'flex',
-          flexDirection: 'column',
-          margin: 0,
-          padding: 0,
-          animation: 'fadeInUp 0.3s ease'
-        }}>
+        <div 
+          onMouseMove={() => setIsHeaderVisible(true)} // Reseta o timer ao mover o mouse
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 999999,
+            background: 'var(--bg-primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            margin: 0,
+            padding: 0,
+            animation: 'fadeInUp 0.3s ease'
+          }}
+        >
+          {/* Header com transição de opacidade */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -156,6 +168,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             background: 'var(--bg-secondary)',
             boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
             flexShrink: 0,
+            opacity: isHeaderVisible ? 1 : 0,
+            transition: 'opacity 0.3s ease-in-out',
+            pointerEvents: isHeaderVisible ? 'auto' : 'none' // Impede cliques quando invisível
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ background: '#fff3e0', padding: '8px', borderRadius: '8px', display: 'flex' }}>
@@ -182,10 +197,11 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 fontSize: '14px',
               }}
             >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span>
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span> 
               <span>Fechar</span>
             </button>
           </div>
+          
           <div style={{
             flex: 1,
             width: '100%',
@@ -210,9 +226,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 allowFullScreen
                 style={{
                   width: '100%',
-                  // Aumentamos para 120px para garantir que a barra inferior do Power BI suma completamente
                   height: 'calc(100% + 100px)',
-                  // Reduzimos o marginTop para -10px ou 0px, para parar de cortar o topo do seu relatório
                   marginTop: '-30px',
                   border: 'none',
                   display: 'block',
