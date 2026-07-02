@@ -3,28 +3,45 @@ const API_URL = '/api/dataverse-proxy';
 export const dataverseApi = {
   async login(username, password) {
     try {
-      // Filtro exato: usuário AND senha
       const filter = `cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`;
-      
       const response = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas`, {
         method: 'GET',
-        headers: { 
+        headers: {
           'x-dataverse-filter': filter,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) return false;
+      if (!response.ok) return null;
 
       const data = await response.json();
-      
-      // SEGURANÇA: Só retorna true se encontrar EXATAMENTE 1 usuário.
-      // Se a senha estiver errada, o Dataverse retorna um array vazio [], e length será 0.
-      return !!(data && data.value && data.value.length === 1);
-      
+      if (!data.value || data.value.length !== 1) return null;
+
+      const user = data.value[0];
+
+      // Verifica se a coluna de role existe e se está vazia
+      // Nome da coluna: ajuste para 'cr4a1_role' ou o nome real da sua tabela
+      const roleField = 'cr4a1_role'; // ⚠️ ALTERE SE O NOME FOR DIFERENTE
+      if (!user[roleField]) {
+        // Atualiza o usuário com a role 'COMUM'
+        const updatePayload = { [roleField]: 'COMUM' };
+        const updateResponse = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${user.cr4a1_id_da_agenda}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload)
+        });
+
+        if (updateResponse.ok) {
+          user[roleField] = 'COMUM'; // Atualiza o objeto local
+        } else {
+          console.warn('Falha ao atribuir role padrão ao usuário:', await updateResponse.text());
+        }
+      }
+
+      return user; // Retorna o objeto completo do usuário (já com a role garantida)
     } catch (error) {
-      console.error("Erro na autenticação:", error);
-      return false;
+      console.error('Erro na autenticação:', error);
+      return null;
     }
   },
 
@@ -56,7 +73,7 @@ export const dataverseApi = {
       headers: { 'x-dataverse-filter': filter }
     });
     const data = await response.json();
-    
+
     // Como a coluna cr4a1_private (Sim/Não) já devolve true/false nativo, 
     // podemos retornar os dados diretos sem precisar mapear conversões de string.
     return data.value || [];
@@ -69,8 +86,8 @@ export const dataverseApi = {
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
       // Deleta a chave antiga em texto simples
-      delete payload.cr4a1_workspace_id; 
-      
+      delete payload.cr4a1_workspace_id;
+
       // Cria a chave nova exigida pelo Dataverse apontando para a tabela no plural
       payload["cr4a1_workspace_id@odata.bind"] = `/cr4a1_calendarios_workspaceses(${workspaceId})`;
     } else {
@@ -82,7 +99,7 @@ export const dataverseApi = {
     if (payload.cr4a1_evento_id) {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
-      
+
       // Apontando para a tabela de agendas que você já configurou no topo do arquivo
       payload["cr4a1_evento_id@odata.bind"] = `/cr4a1_agenda_kairoses(${eventoId})`;
     } else {
