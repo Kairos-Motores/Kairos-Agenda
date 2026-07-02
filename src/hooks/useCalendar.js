@@ -14,18 +14,11 @@ export const useCalendar = () => {
     const [notification, setNotification] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSyncing, setIsSyncing] = useState(false);
-
-    // --- ESTADOS COMERCIAIS ---
     const [organizacoes, setOrganizacoes] = useState([]);
     const [visitas, setVisitas] = useState([]);
-
-    // --- ESTADOS DE NOTAS (NOTION) ---
     const [notas, setNotas] = useState([]);
-
-    // --- ESTADOS DE WORKSPACE ---
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspaces, setActiveWorkspaces] = useState([]);
-
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
@@ -36,6 +29,73 @@ export const useCalendar = () => {
         const saved = localStorage.getItem('kairos_event_types');
         return saved ? JSON.parse(saved) : [{ id: '1', name: 'Tarefa', emoji: '📝' }, { id: '2', name: 'Reunião', emoji: '🤝' }];
     });
+
+    const adicionarUsuarioAoCalendarioComum = async (username) => {
+        try {
+            const filter = encodeURIComponent(`cr4a1_nome eq 'Calendário Comum'`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filter}`);
+            const data = await response.json();
+            if (data.value && data.value.length > 0) {
+                const workspace = data.value[0];
+                const wsId = workspace.cr4a1_calendarios_workspacesid;
+                let membrosAtuais = workspace.cr4a1_membros_logins || "";
+                if (!membrosAtuais.includes(username)) {
+                    const novosMembros = membrosAtuais ? `${membrosAtuais}, ${username}` : username;
+                    await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${wsId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cr4a1_membros_logins: novosMembros })
+                    });
+                }
+            }
+        } catch (err) { console.error("Erro ao adicionar ao Calendário Comum:", err); }
+    };
+
+    const login = async (username, password) => {
+        try {
+            const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+            if (!response.ok) return { success: false, reason: 'connection_error' };
+            const data = await response.json();
+            if (data.value && data.value.length === 1) {
+                const userData = data.value[0];
+                const userId = userData.cr4a1_usuarios_agendasid;
+                let roleAtual = userData.cr4a1_role;
+                if (!roleAtual || roleAtual === 'null' || roleAtual === '') {
+                    roleAtual = 'COMUM';
+                    await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cr4a1_role: roleAtual })
+                    });
+                    await adicionarUsuarioAoCalendarioComum(username);
+                }
+                localStorage.setItem('kairos_logged_user', username);
+                localStorage.setItem('kairos_user_role', roleAtual);
+                setUser(username);
+                setUserRole(roleAtual);
+                setViewedUser(username);
+                return { success: true };
+            }
+            return { success: false, reason: 'invalid_credentials' };
+        } catch (error) { return { success: false, reason: 'connection_error' }; }
+    };
+
+    const fetchEvents = useCallback(async () => {
+        if (workspaces.length === 0) { setEvents([]); return; }
+        setLoading(true);
+        try {
+            const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
+            const data = await response.json();
+            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => ({
+                ...e, cr4a1_data_inicio: e.cr4a1_data_inicio?.includes('Z') ? format(new Date(e.cr4a1_data_inicio), 'yyyy-MM-dd') : e.cr4a1_data_inicio,
+                cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
+                cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+            }));
+            setEvents(mapped);
+        } catch (error) { setEvents([]); } finally { setLoading(false); }
+    }, [workspaces, user]);
 
     const triggerAndroidNotification = (message) => {
         setNotification(message);
@@ -861,7 +921,7 @@ export const useCalendar = () => {
         updateUnit, updateProfile,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
-        notas, addNota, updateNota, deleteNota, // <-- Exportação das notas para usar no App
+        notas, addNota, updateNota, deleteNota,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };
