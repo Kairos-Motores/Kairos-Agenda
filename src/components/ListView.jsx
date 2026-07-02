@@ -27,6 +27,9 @@ export const ListView = ({
   const viewMode = externalViewMode ?? internalViewMode;
   const isMobile = useMediaQuery('(max-width: 768px)');
 
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [assigneeFilter, setAssigneeFilter] = useState('Todos');
+
   const setViewMode = useCallback((mode) => {
     if (onViewModeChange) onViewModeChange(mode);
     else setInternalViewMode(mode);
@@ -34,14 +37,48 @@ export const ListView = ({
 
   const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
   const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
+  const hasDevEvents = events.some(e => e.cr4a1_workspace_id === devWorkspaceId);
 
-  // ───── Hooks do carrossel (agora no escopo do componente) ─────
+  const uniqueAssignees = Array.from(new Set(
+    events
+      .filter(e => e.cr4a1_workspace_id === devWorkspaceId)
+      .map(e => e.cr4a1_user_login || 'Sem responsável')
+  ));
+
+  const processedEvents = events.filter(event => {
+    const isDevWorkspace = event.cr4a1_workspace_id === devWorkspaceId;
+    if (!isDevWorkspace) return true;
+
+    const subtasks = event.cr4a1_subtasks
+      ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks)
+      : [];
+    const completedCount = subtasks.filter(s => s.completed).length;
+    const totalSubtasks = subtasks.length;
+    const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
+    
+    let status = 'Em andamento';
+    if (totalSubtasks > 0 && percentage === 100) {
+      status = 'Concluído';
+    } else {
+      const dataFim = event.cr4a1_data_fim ? new Date(event.cr4a1_data_fim + 'T23:59:59') : null;
+      if (dataFim && dataFim < new Date() && percentage < 100) {
+        status = 'Atrasado';
+      }
+    }
+
+    if (statusFilter !== 'Todos' && status !== statusFilter) return false;
+
+    const assignee = event.cr4a1_user_login || 'Sem responsável';
+    if (assigneeFilter !== 'Todos' && assignee !== assigneeFilter) return false;
+
+    return true;
+  });
+
   const [activeIndex, setActiveIndex] = useState(0);
   const carouselRef = useRef(null);
-  const isMobileRef = useRef(isMobile);  // para evitar dependência em useEffect
+  const isMobileRef = useRef(isMobile);
   useEffect(() => { isMobileRef.current = isMobile; }, [isMobile]);
 
-  // Atualiza o slide ativo com base no scroll
   useEffect(() => {
     const container = carouselRef.current;
     if (!container) return;
@@ -56,7 +93,7 @@ export const ListView = ({
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, []);  // o listener é registrado uma vez; isMobile é capturado via ref
+  }, []);
 
   const scrollToSlide = (index) => {
     const container = carouselRef.current;
@@ -66,7 +103,6 @@ export const ListView = ({
     container.scrollTo({ left: index * slideWidth, behavior: 'smooth' });
   };
 
-  // ───── Renderizadores puros (SEM hooks dentro deles) ─────
   const renderCard = (event) => {
     const currentWorkspace = workspaces.find(
       ws => ws.cr4a1_calendarios_workspacesid === event.cr4a1_workspace_id
@@ -195,13 +231,13 @@ export const ListView = ({
       gap: isMobile ? '16px' : '20px',
       padding: '10px 0'
     }}>
-      {events.map(event => renderCard(event))}
+      {processedEvents.map(event => renderCard(event))}
     </div>
   );
 
   const renderList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '10px 0' }}>
-      {events.map(event => {
+      {processedEvents.map(event => {
         const currentWorkspace = workspaces.find(
           ws => ws.cr4a1_calendarios_workspacesid === event.cr4a1_workspace_id
         );
@@ -288,9 +324,8 @@ export const ListView = ({
     </div>
   );
 
-  // Carrossel – agora só renderiza JSX, sem hooks
   const renderCarousel = () => {
-    const grouped = events.reduce((acc, event) => {
+    const grouped = processedEvents.reduce((acc, event) => {
       const tipo = event.cr4a1_tipo || 'Sem tipo';
       if (!acc[tipo]) acc[tipo] = [];
       acc[tipo].push(event);
@@ -298,7 +333,7 @@ export const ListView = ({
     }, {});
 
     const tipos = Object.keys(grouped);
-    if (tipos.length === 0) return <p>Nenhum evento para exibir.</p>;
+    if (tipos.length === 0) return <p style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Nenhum evento corresponde aos filtros.</p>;
 
     return (
       <div style={{ padding: '10px 0' }}>
@@ -423,6 +458,49 @@ export const ListView = ({
   return (
     <div>
       {renderViewSelector()}
+
+      {hasDevEvents && (
+        <div style={{ 
+          display: 'flex', gap: '12px', marginBottom: '16px', 
+          padding: '12px', background: 'var(--bg-secondary)', 
+          borderRadius: '16px', border: '1px solid var(--border-color)',
+          flexWrap: 'wrap', alignItems: 'center'
+        }}>
+          <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+            Filtros DEV:
+          </span>
+          <select 
+            value={statusFilter} 
+            onChange={e => setStatusFilter(e.target.value)}
+            style={{ 
+              padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', 
+              background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px',
+              outline: 'none', cursor: 'pointer'
+            }}
+          >
+            <option value="Todos">Status: Todos</option>
+            <option value="Em andamento">🚧 Em andamento</option>
+            <option value="Concluído">✅ Concluído</option>
+            <option value="Atrasado">⚠️ Atrasado</option>
+          </select>
+
+          <select 
+            value={assigneeFilter} 
+            onChange={e => setAssigneeFilter(e.target.value)}
+            style={{ 
+              padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', 
+              background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px',
+              outline: 'none', cursor: 'pointer'
+            }}
+          >
+            <option value="Todos">Responsável: Todos</option>
+            {uniqueAssignees.map(user => (
+              <option key={user} value={user}>{user}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {viewMode === 'grid' && renderGrid()}
       {viewMode === 'list' && renderList()}
       {viewMode === 'carousel' && renderCarousel()}
