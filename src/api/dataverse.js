@@ -3,7 +3,6 @@ const API_URL = '/api/dataverse-proxy';
 export const dataverseApi = {
   async login(username, password) {
     try {
-      // Filtro exato: utilizador AND senha
       const filter = `cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`;
       
       const response = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas`, {
@@ -18,51 +17,57 @@ export const dataverseApi = {
 
       const data = await response.json();
       
-      // SEGURANÇA: Só entra se encontrar EXATAMENTE 1 utilizador.
       if (data && data.value && data.value.length === 1) {
         const user = data.value[0];
-        
-        // Nome lógico da coluna de texto da role no seu Dataverse
         const roleField = 'cr4a1_role'; 
 
-        // Se a role estiver vazia, nula ou string 'null'
+        // DETECTA PRIMEIRO LOGIN: Role está vazia
         if (!user[roleField] || String(user[roleField]).trim() === '' || String(user[roleField]).trim() === 'null') {
-          
-          // 1. DETEÇÃO DINÂMICA DO ID (Procura a propriedade que guarda a chave primária)
+          console.log("🚀 Primeiro login detectado! Iniciando configuração da conta...");
+
+          // 1. CAPTURA INFALÍVEL DO ID DO USUÁRIO
           let userId = null;
-          // Expressão regular para validar um ID do tipo GUID (padrão do Dataverse)
-          const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           
-          for (const key in user) {
-            // A chave primária nunca começa por "_" e geralmente termina com "id"
-            if (!key.startsWith('_') && key.endsWith('id') && guidRegex.test(user[key])) {
-              userId = user[key];
-              break;
+          // Tenta extrair o ID exato pelo link oficial do OData que o Dataverse retorna
+          if (user["@odata.editLink"]) {
+            const match = user["@odata.editLink"].match(/\(([^)]+)\)/);
+            if (match && match[1]) userId = match[1];
+          }
+
+          // Fallback: Procura qualquer coluna que seja um GUID válido e termine com 'id'
+          if (!userId) {
+            const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            for (const key in user) {
+              if (key.endsWith('id') && guidRegex.test(user[key])) {
+                userId = user[key];
+                break;
+              }
             }
           }
 
           if (userId) {
+            console.log(`✅ ID do Usuário encontrado: ${userId}`);
+            
+            // --- ATUALIZA A ROLE PARA COMUM ---
             const updatePayload = { [roleField]: 'COMUM' };
             
-            try {
-              // Executa o PATCH com o ID correto encontrado automaticamente
-              const patchRes = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatePayload)
-              });
+            await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload)
+            }).then(res => {
+              if (res.ok) console.log("✅ Role 'COMUM' salva com sucesso!");
+              else res.text().then(text => console.error("❌ Erro Dataverse (Role):", text));
+            }).catch(err => console.error("❌ Erro de rede (Role):", err));
 
-              if (!patchRes.ok) {
-                const errorDetails = await patchRes.text();
-                console.error("❌ ERRO DO DATAVERSE AO ATUALIZAR ROLE:", errorDetails);
-              } else {
-                console.log("✅ Role 'COMUM' injetada com sucesso na base de dados!");
-              }
-            } catch (err) {
-              console.error("❌ Falha de rede ao registar a role no proxy:", err);
-            }
+            // --- ADIÇÃO AO CALENDÁRIO COMUM ---
+            // ⚠️ COLOQUE AQUI A LÓGICA DO WORKSPACE APÓS ME ENVIAR O CÓDIGO DA UNIDADE
+            // Exemplo do que faremos:
+            // await addUsuarioAoWorkspace(userId, ID_DO_CALENDARIO_COMUM);
+            console.log("⏳ Aguardando lógica do workspace para adicionar ao Calendário Comum...");
+
           } else {
-             console.error("❌ Não foi possível encontrar a coluna de ID primário no objeto do utilizador.");
+            console.error("❌ Não foi possível encontrar o ID do usuário. Colunas retornadas:", Object.keys(user));
           }
         }
 
@@ -105,16 +110,12 @@ export const dataverseApi = {
       headers: { 'x-dataverse-filter': filter }
     });
     const data = await response.json();
-    
-    // Como a coluna cr4a1_private (Sim/Não) já devolve true/false nativo, 
-    // podemos retornar os dados diretos sem precisar mapear conversões de string.
     return data.value || [];
   },
 
   async createNote(noteData) {
     const payload = { ...noteData };
 
-    // 1. Transformação do Lookup de Workspace
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
       delete payload.cr4a1_workspace_id; 
@@ -123,7 +124,6 @@ export const dataverseApi = {
       delete payload.cr4a1_workspace_id;
     }
 
-    // 2. Transformação do Lookup de Evento
     if (payload.cr4a1_evento_id) {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
