@@ -20,6 +20,7 @@ export const ListView = ({
   onEdit,
   onDelete,
   workspaces = [],
+  activeWorkspaces = [], // Adicionado para controlar visibilidade
   viewMode: externalViewMode,
   onViewModeChange,
 }) => {
@@ -37,8 +38,8 @@ export const ListView = ({
 
   const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
   const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
-  const hasDevEvents = events.some(e => e.cr4a1_workspace_id === devWorkspaceId);
 
+  // Extrai responsáveis do workspace Dev
   const uniqueAssignees = Array.from(new Set(
     events
       .filter(e => e.cr4a1_workspace_id === devWorkspaceId)
@@ -46,9 +47,15 @@ export const ListView = ({
   ));
 
   const processedEvents = events.filter(event => {
+    // 1. Filtro Global de Workspaces (se houver algum selecionado)
+    if (activeWorkspaces.length > 0 && event.cr4a1_workspace_id) {
+       if (!activeWorkspaces.includes(event.cr4a1_workspace_id)) return false;
+    }
+
     const isDevWorkspace = event.cr4a1_workspace_id === devWorkspaceId;
     if (!isDevWorkspace) return true;
 
+    // 2. Filtros Específicos para Workspace DEV
     const subtasks = event.cr4a1_subtasks
       ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks)
       : [];
