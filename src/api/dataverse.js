@@ -3,7 +3,7 @@ const API_URL = '/api/dataverse-proxy';
 export const dataverseApi = {
   async login(username, password) {
     try {
-      // Filtro exato: usuário AND senha
+      // Filtro exato: utilizador AND senha
       const filter = `cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`;
       
       const response = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas`, {
@@ -18,7 +18,7 @@ export const dataverseApi = {
 
       const data = await response.json();
       
-      // SEGURANÇA: Só entra se encontrar EXATAMENTE 1 usuário.
+      // SEGURANÇA: Só entra se encontrar EXATAMENTE 1 utilizador.
       if (data && data.value && data.value.length === 1) {
         const user = data.value[0];
         
@@ -28,18 +28,41 @@ export const dataverseApi = {
         // Se a role estiver vazia, nula ou string 'null'
         if (!user[roleField] || String(user[roleField]).trim() === '' || String(user[roleField]).trim() === 'null') {
           
-          // O Dataverse injeta a chave primária automaticamente no JSON retornado com o padrão: nome_da_tabela + 'id'
-          const userId = user.cr4a1_usuarios_agendasid;
+          // 1. DETEÇÃO DINÂMICA DO ID (Procura a propriedade que guarda a chave primária)
+          let userId = null;
+          // Expressão regular para validar um ID do tipo GUID (padrão do Dataverse)
+          const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          
+          for (const key in user) {
+            // A chave primária nunca começa por "_" e geralmente termina com "id"
+            if (!key.startsWith('_') && key.endsWith('id') && guidRegex.test(user[key])) {
+              userId = user[key];
+              break;
+            }
+          }
 
           if (userId) {
             const updatePayload = { [roleField]: 'COMUM' };
             
-            // Executa o PATCH silenciosamente para atualizar o banco de dados
-            await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatePayload)
-            }).catch(err => console.error("Falha ao registrar a role COMUM no banco:", err));
+            try {
+              // Executa o PATCH com o ID correto encontrado automaticamente
+              const patchRes = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatePayload)
+              });
+
+              if (!patchRes.ok) {
+                const errorDetails = await patchRes.text();
+                console.error("❌ ERRO DO DATAVERSE AO ATUALIZAR ROLE:", errorDetails);
+              } else {
+                console.log("✅ Role 'COMUM' injetada com sucesso na base de dados!");
+              }
+            } catch (err) {
+              console.error("❌ Falha de rede ao registar a role no proxy:", err);
+            }
+          } else {
+             console.error("❌ Não foi possível encontrar a coluna de ID primário no objeto do utilizador.");
           }
         }
 
@@ -94,22 +117,16 @@ export const dataverseApi = {
     // 1. Transformação do Lookup de Workspace
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
-      // Deleta a chave antiga em texto simples
       delete payload.cr4a1_workspace_id; 
-      
-      // Cria a chave nova exigida pelo Dataverse apontando para a tabela no plural
       payload["cr4a1_workspace_id@odata.bind"] = `/cr4a1_calendarios_workspaceses(${workspaceId})`;
     } else {
-      // Se for vazio, apaga para não enviar nulo na chave de texto e gerar erro
       delete payload.cr4a1_workspace_id;
     }
 
-    // 2. Transformação do Lookup de Evento (se a nota estiver atrelada a um agendamento)
+    // 2. Transformação do Lookup de Evento
     if (payload.cr4a1_evento_id) {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
-      
-      // Apontando para a tabela de agendas
       payload["cr4a1_evento_id@odata.bind"] = `/cr4a1_agenda_kairoses(${eventoId})`;
     } else {
       delete payload.cr4a1_evento_id;
@@ -125,7 +142,6 @@ export const dataverseApi = {
   async updateNote(id, noteData) {
     const payload = { ...noteData };
 
-    // Mesma lógica de transformação para atualizações (PATCH)
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
       delete payload.cr4a1_workspace_id;
@@ -142,8 +158,6 @@ export const dataverseApi = {
       delete payload.cr4a1_evento_id;
     }
 
-    // Impede o envio do ID como propriedade no corpo da requisição PATCH,
-    // o que causaria um bloqueio pelo Dataverse
     delete payload.cr4a1_id_da_nota;
 
     return await fetch(`${API_URL}?table=cr4a1_notas_kairoses&id=${id}`, {
