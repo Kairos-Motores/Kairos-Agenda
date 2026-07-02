@@ -259,7 +259,7 @@ export const useCalendar = () => {
         }
     }, [user, userRole]);
 
-    const fetchEvents = useCallback(async () => {
+    /*const fetchEvents = useCallback(async () => {
         if (workspaces.length === 0) {
             setEvents([]);
             return;
@@ -293,7 +293,7 @@ export const useCalendar = () => {
         } catch (error) {
             setEvents(JSON.parse(localStorage.getItem('kairos_events_cache') || '[]'));
         } finally { setLoading(false); }
-    }, [workspaces, user]);
+    }, [workspaces, user]);*/
 
     // --- NOVA FUNÇÃO: BUSCAR NOTAS ---
     const fetchNotas = useCallback(async () => {
