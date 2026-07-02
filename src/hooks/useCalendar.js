@@ -355,7 +355,7 @@ export const useCalendar = () => {
         );
     };
 
-    const login = async (username, password) => {
+    /*const login = async (username, password) => {
         try {
             const filter = encodeURIComponent(`cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`);
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
@@ -377,7 +377,7 @@ export const useCalendar = () => {
         } catch (error) {
             return { success: false, reason: 'connection_error' };
         }
-    };
+    };*/
 
     const addEvent = async (eventData) => {
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
