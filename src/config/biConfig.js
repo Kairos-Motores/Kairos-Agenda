@@ -508,7 +508,7 @@ export const BI_CONFIG = [
     title: 'Dashboard Suprimentos',
     description: 'Suprimentos',
     icon: 'inventory',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'SUPRIMENTOS', 'QUALIDADE']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'SUPRIMENTOS', 'QUALIDADE','COORD']
   },
   {
     id: 'departamento-tecnico', //Dashboard Departamento Técni  co
