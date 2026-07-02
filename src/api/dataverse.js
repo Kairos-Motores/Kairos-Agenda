@@ -19,26 +19,34 @@ export const dataverseApi = {
 
       const user = data.value[0];
 
-      // Verifica se a coluna de role existe e se está vazia
-      // Nome da coluna: ajuste para 'cr4a1_role' ou o nome real da sua tabela
-      const roleField = 'cr4a1_role'; // ⚠️ ALTERE SE O NOME FOR DIFERENTE
-      if (!user[roleField]) {
-        // Atualiza o usuário com a role 'COMUM'
+      // Defina o nome exato da sua coluna de role no Dataverse
+      const roleField = 'cr4a1_role'; 
+      
+      // Verifica se o usuário não possui uma role definida ou se está vazia
+      if (!user[roleField] || String(user[roleField]).trim() === '') {
         const updatePayload = { [roleField]: 'COMUM' };
-        const updateResponse = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${user.cr4a1_id_da_agenda}`, {
+        
+        // Identificador primário do usuário (usando a propriedade fornecida)
+        const userId = user.cr4a1_id_da_agenda; 
+        
+        const updateResponse = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatePayload)
         });
 
         if (updateResponse.ok) {
-          user[roleField] = 'COMUM'; // Atualiza o objeto local
+          // Atualiza o objeto local após confirmar o salvamento no banco
+          user[roleField] = 'COMUM'; 
         } else {
-          console.warn('Falha ao atribuir role padrão ao usuário:', await updateResponse.text());
+          console.warn('Falha ao salvar a role padrão no banco:', await updateResponse.text());
+          // Garante que o usuário consiga acessar o sistema nesta sessão mesmo se o PATCH falhar
+          user[roleField] = 'COMUM';
         }
       }
 
-      return user; // Retorna o objeto completo do usuário (já com a role garantida)
+      // Retorna o objeto completo do usuário (com a role garantida)
+      return user; 
     } catch (error) {
       console.error('Erro na autenticação:', error);
       return null;
@@ -100,7 +108,7 @@ export const dataverseApi = {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
 
-      // Apontando para a tabela de agendas que você já configurou no topo do arquivo
+      // Apontando para a tabela de agendas
       payload["cr4a1_evento_id@odata.bind"] = `/cr4a1_agenda_kairoses(${eventoId})`;
     } else {
       delete payload.cr4a1_evento_id;
