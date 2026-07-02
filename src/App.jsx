@@ -1636,7 +1636,7 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Funcionários</div>
                   {/* Novo filtro de filial */}
                   <select
                     value={userUnitFilter}
