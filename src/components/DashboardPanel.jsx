@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { checkAccess } from '../utils/permissions';
 
@@ -13,7 +13,24 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   // Estados para a barra do BI (Auto-hide)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
-  // Lógica robusta do temporizador: reseta sempre que a barra fica visível
+  // Estados para o botão discreto (Auto-hide)
+  const [isButtonVisible, setIsButtonVisible] = useState(false);
+  const buttonTimerRef = useRef(null);
+
+  // Funções auxiliares para controle do botão
+  const showButton = () => {
+    if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+    setIsButtonVisible(true);
+  };
+
+  const hideButtonAfterDelay = (delay = 3000) => {
+    if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+    buttonTimerRef.current = setTimeout(() => {
+      setIsButtonVisible(false);
+    }, delay);
+  };
+
+  // Lógica do temporizador da barra
   useEffect(() => {
     let timer;
     if (biAberto && isHeaderVisible) {
@@ -22,6 +39,22 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
       }, 3000);
     }
     return () => clearTimeout(timer);
+  }, [biAberto, isHeaderVisible]);
+
+  // Efeito para controlar a visibilidade do botão
+  useEffect(() => {
+    if (biAberto && !isHeaderVisible) {
+      // Barra oculta → mostrar botão e programar ocultação
+      showButton();
+      hideButtonAfterDelay(4000);
+    } else {
+      // Barra visível ou BI fechado → esconder botão imediatamente
+      setIsButtonVisible(false);
+      if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+    }
+    return () => {
+      if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+    };
   }, [biAberto, isHeaderVisible]);
 
   const abrirBI = async (bi) => {
@@ -142,7 +175,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         )}
       </div>
 
-      {/* MODAL FULLSCREEN - A Magia Acontece Aqui */}
+      {/* MODAL FULLSCREEN */}
       {biAberto && ReactDOM.createPortal(
         <div style={{
           position: 'fixed',
@@ -176,38 +209,66 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             )}
           </div>
 
-          {/* BOTÃO DISCRETO (aparece só quando a barra está oculta) */}
+          {/* ZONA DE HOVER (ativa apenas quando a barra está oculta) */}
           {!isHeaderVisible && (
-            <button
-              onClick={() => setIsHeaderVisible(true)}
+            <div
+              onMouseEnter={() => {
+                showButton();
+              }}
+              onMouseLeave={() => {
+                hideButtonAfterDelay(2000);
+              }}
               style={{
                 position: 'absolute',
-                top: '12px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 11,
-                background: 'rgba(255, 255, 255, 0.75)',
-                backdropFilter: 'blur(4px)',
-                border: '1px solid rgba(0,0,0,0.08)',
-                borderRadius: '30px',
-                padding: '6px 14px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                color: '#333',
-                fontSize: '13px',
-                fontWeight: '500',
-                transition: 'all 0.2s'
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '60px',
+                zIndex: 10,
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.95)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.75)'}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>expand_more</span>
-              Mostrar barra
-            </button>
+            />
           )}
+
+          {/* BOTÃO DISCRETO – visibilidade controlada por opacidade e pointerEvents */}
+          <button
+            onClick={() => setIsHeaderVisible(true)}
+            onMouseEnter={() => {
+              if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+            }}
+            onMouseLeave={() => {
+              if (!isHeaderVisible) {
+                hideButtonAfterDelay(2000);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 11,
+              background: 'rgba(255, 255, 255, 0.75)',
+              backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(0,0,0,0.08)',
+              borderRadius: '30px',
+              padding: '6px 14px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: '#333',
+              fontSize: '13px',
+              fontWeight: '500',
+              transition: 'opacity 0.3s ease, background 0.2s',
+              opacity: isButtonVisible ? 1 : 0,
+              pointerEvents: isButtonVisible ? 'auto' : 'none',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.95)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.75)'}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>expand_more</span>
+            Mostrar barra
+          </button>
 
           {/* Cabeçalho (overlay) */}
           <div
