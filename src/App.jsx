@@ -858,6 +858,15 @@ function App() {
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], []);
 
+  // --- NOVOS ESTADOS DE BUSCA NO MENU SANDUÍCHE ---
+  const [workspaceSearchTerm, setWorkspaceSearchTerm] = useState('');
+  const [userUnitFilter, setUserUnitFilter] = useState('Todas');
+
+  const availableUserUnits = useMemo(() => {
+    const unitsSet = new Set(allUsers.map(u => u.cr4a1_unidade).filter(Boolean));
+    return ['Todas', ...Array.from(unitsSet)].sort();
+  }, [allUsers]);
+
   const handleDragStart = (start) => {
     if (start.draggableId.startsWith('member_')) {
       setIsDraggingMember(true);
@@ -1575,8 +1584,15 @@ function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {workspaces.map(ws => (
+                  {/* Nova barra de pesquisa de workspaces */}
+                  <input
+                    placeholder="Procurar workspace..."
+                    value={workspaceSearchTerm}
+                    onChange={e => setWorkspaceSearchTerm(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '12px', outline: 'none' }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+                    {workspaces.filter(ws => ws.cr4a1_nome && ws.cr4a1_nome.toLowerCase().includes(workspaceSearchTerm.toLowerCase())).map(ws => (
                       <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <label style={{
                           flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
@@ -1621,6 +1637,16 @@ function App() {
 
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Colegas de Equipa</div>
+                  {/* Novo filtro de filial */}
+                  <select
+                    value={userUnitFilter}
+                    onChange={e => setUserUnitFilter(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '8px', outline: 'none' }}
+                  >
+                    {availableUserUnits.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
                   <input
                     placeholder="Procurar colega..."
                     value={userSearchTerm}
@@ -1631,9 +1657,10 @@ function App() {
                     {allUsers.filter(u => {
                       const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
                         (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
+                      const matchesUnit = userUnitFilter === 'Todas' || u.cr4a1_unidade === userUnitFilter;
 
-                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && u.cr4a1_unidade === currentUser.cr4a1_unidade;
-                      return matchesSearch;
+                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && matchesUnit && u.cr4a1_unidade === currentUser.cr4a1_unidade;
+                      return matchesSearch && matchesUnit;
                     }).map(u => (
                       <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
                         <input
