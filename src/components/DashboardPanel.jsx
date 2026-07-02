@@ -5,7 +5,7 @@ import { checkAccess } from '../utils/permissions';
 export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   const [biAberto, setBiAberto] = useState(null);
   const [biUrl, setBiUrl] = useState('');
-  
+
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -47,13 +47,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
     const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
     const matchesSearch = bi.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesWorkspace = selectedWorkspace ? bi.workspaceName === selectedWorkspace : true;
-    
+
     return isWorkspaceAtivo && temPermissao && matchesSearch && matchesWorkspace;
   });
 
   return (
     <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      
+
       {/* Header e Filtros */}
       <div>
         <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center' }}>
@@ -64,9 +64,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)' }}>search</span>
-            <input 
-              type="text" 
-              placeholder="Pesquisar painéis..." 
+            <input
+              type="text"
+              placeholder="Pesquisar painéis..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -82,7 +82,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               }}
             />
           </div>
-          <button 
+          <button
             onClick={() => { setSearchTerm(''); setSelectedWorkspace(null); }}
             style={{ padding: '12px', borderRadius: '50%', border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
@@ -91,29 +91,29 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
-           <button 
-             onClick={() => setSelectedWorkspace(null)}
-             style={{ 
-               padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)', 
-               background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
-               whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-             }}
-           >
-             Todos
-           </button>
-           {activeWorkspaceNames.map(name => (
-             <button 
-               key={name}
-               onClick={() => setSelectedWorkspace(name)}
-               style={{ 
-                 padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)', 
-                 background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
-                 whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
-               }}
-             >
-               {name}
-             </button>
-           ))}
+          <button
+            onClick={() => setSelectedWorkspace(null)}
+            style={{
+              padding: '8px 16px', borderRadius: '20px', border: !selectedWorkspace ? 'none' : '1px solid var(--border-color)',
+              background: !selectedWorkspace ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspace ? 'white' : 'var(--text-title)',
+              whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+            }}
+          >
+            Todos
+          </button>
+          {activeWorkspaceNames.map(name => (
+            <button
+              key={name}
+              onClick={() => setSelectedWorkspace(name)}
+              style={{
+                padding: '8px 16px', borderRadius: '20px', border: selectedWorkspace === name ? 'none' : '1px solid var(--border-color)',
+                background: selectedWorkspace === name ? '#f57c00' : 'var(--bg-secondary)', color: selectedWorkspace === name ? 'white' : 'var(--text-title)',
+                whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '500'
+              }}
+            >
+              {name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -149,93 +149,114 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           inset: 0,
           zIndex: 999999,
           background: 'var(--bg-primary)',
-          overflow: 'hidden' // Garante que o iframe não crie barras de rolagem na tela inteira
+          overflow: 'hidden'
         }}>
-          
-          {/* CAMADA 1: O Iframe - Fica no fundo, pegando a tela TODA */}
+          {/* Iframe */}
           <div style={{ position: 'absolute', inset: 0, background: '#f5f5f5' }}>
-             {!biUrl && (
-               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-secondary)', gap: '8px' }}>
-                 <span className="material-symbols-rounded" style={{ animation: 'spin 1s linear infinite' }}>autorenew</span>
-                 Carregando painel...
-               </div>
-             )}
-             {biUrl && (
-               <iframe
-                 title={biAberto.title}
-                 src={biUrl}
-                 style={{
-                   position: 'absolute',
-                   top: 0,
-                   left: 0,
-                   width: '100%',
-                   // 42px é exatamente a altura da barra preta de rodapé padrão do Power BI. 
-                   // Ao dar 100% + 42px, o rodapé vaza para fora do container e some.
-                   height: 'calc(100% + 42px)', 
-                   border: 'none',
-                   display: 'block'
-                 }}
-               />
-             )}
+            {!biUrl && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-secondary)', gap: '8px' }}>
+                <span className="material-symbols-rounded" style={{ animation: 'spin 1s linear infinite' }}>autorenew</span>
+                Carregando painel...
+              </div>
+            )}
+            {biUrl && (
+              <iframe
+                title={biAberto.title}
+                src={biUrl}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: 'calc(100% + 42px)',
+                  border: 'none',
+                  display: 'block'
+                }}
+              />
+            )}
           </div>
 
-          {/* CAMADA 2: A Zona de Gatilho (Trigger Zone) 
-              Fica invisível no topo da tela. Se o mouse encostar aqui, a barra aparece. 
-              Isso burla a limitação do iframe roubar os eventos de mouse. */}
-          <div 
+          {/* BOTÃO DISCRETO (aparece só quando a barra está oculta) */}
+          {!isHeaderVisible && (
+            <button
+              onClick={() => setIsHeaderVisible(true)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 11,
+                background: 'rgba(255, 255, 255, 0.75)',
+                backdropFilter: 'blur(4px)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                borderRadius: '30px',
+                padding: '6px 14px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: '#333',
+                fontSize: '13px',
+                fontWeight: '500',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.95)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.75)'}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>expand_more</span>
+              Mostrar barra
+            </button>
+          )}
+
+          {/* Cabeçalho (overlay) */}
+          <div
             onMouseEnter={() => setIsHeaderVisible(true)}
             style={{
               position: 'absolute',
               top: 0,
               left: 0,
               width: '100%',
-              height: '60px',
-              zIndex: 10
-            }}
-          />
-
-          {/* CAMADA 3: O Cabeçalho (Overlay com Glassmorphism) */}
-          <div 
-            onMouseEnter={() => setIsHeaderVisible(true)} // Mantém visível enquanto o mouse estiver sobre ele
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
               padding: '12px 16px',
-              background: 'rgba(255, 255, 255, 0.90)', // Fundo translúcido
-              backdropFilter: 'blur(8px)', // Efeito de vidro embaçado (MD3)
+              background: 'rgba(255, 255, 255, 0.90)',
+              backdropFilter: 'blur(8px)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               boxSizing: 'border-box',
-              // Animação de deslizar para cima/baixo (muito mais elegante que só sumir)
               opacity: isHeaderVisible ? 1 : 0,
               transform: isHeaderVisible ? 'translateY(0)' : 'translateY(-100%)',
               transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              pointerEvents: isHeaderVisible ? 'auto' : 'none', // Se estiver invisível, os cliques atravessam para o iframe
+              pointerEvents: isHeaderVisible ? 'auto' : 'none',
               zIndex: 12
             }}
           >
-             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ background: '#fff3e0', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-                    <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{biAberto.icon}</span>
-                </div>
-                <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>{biAberto.title}</h3>
-             </div>
-             <button 
-               onClick={() => { setBiAberto(null); setBiUrl(''); }} 
-               style={{ 
-                 padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#ffebee', 
-                 color: '#c62828', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' 
-               }}
-             >
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
-                Fechar
-             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ background: '#fff3e0', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{biAberto.icon}</span>
+              </div>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>{biAberto.title}</h3>
+            </div>
+            <button
+              onClick={() => { setBiAberto(null); setBiUrl(''); }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#ffebee',
+                color: '#c62828',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+              Fechar
+            </button>
           </div>
-
         </div>,
         document.body
       )}
