@@ -3,53 +3,54 @@ const API_URL = '/api/dataverse-proxy';
 export const dataverseApi = {
   async login(username, password) {
     try {
+      // Filtro exato: usuário AND senha
       const filter = `cr4a1_username eq '${username}' and cr4a1_password eq '${password}'`;
+      
       const response = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas`, {
         method: 'GET',
-        headers: {
+        headers: { 
           'x-dataverse-filter': filter,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) return null;
+      if (!response.ok) return false;
 
       const data = await response.json();
-      if (!data.value || data.value.length !== 1) return null;
-
-      const user = data.value[0];
-
-      // Defina o nome exato da sua coluna de role no Dataverse
-      const roleField = 'cr4a1_role'; 
       
-      // Verifica se o usuário não possui uma role definida ou se está vazia
-      if (!user[roleField] || String(user[roleField]).trim() === '') {
-        const updatePayload = { [roleField]: 'COMUM' };
+      // SEGURANÇA: Só entra se encontrar EXATAMENTE 1 usuário.
+      if (data && data.value && data.value.length === 1) {
+        const user = data.value[0];
         
-        // Identificador primário do usuário (usando a propriedade fornecida)
-        const userId = user.cr4a1_id_da_agenda; 
-        
-        const updateResponse = await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatePayload)
-        });
+        // Nome lógico da coluna de texto da role no seu Dataverse
+        const roleField = 'cr4a1_role'; 
 
-        if (updateResponse.ok) {
-          // Atualiza o objeto local após confirmar o salvamento no banco
-          user[roleField] = 'COMUM'; 
-        } else {
-          console.warn('Falha ao salvar a role padrão no banco:', await updateResponse.text());
-          // Garante que o usuário consiga acessar o sistema nesta sessão mesmo se o PATCH falhar
-          user[roleField] = 'COMUM';
+        // Se a role estiver vazia, nula ou string 'null'
+        if (!user[roleField] || String(user[roleField]).trim() === '' || String(user[roleField]).trim() === 'null') {
+          
+          // O Dataverse injeta a chave primária automaticamente no JSON retornado com o padrão: nome_da_tabela + 'id'
+          const userId = user.cr4a1_usuarios_agendasid;
+
+          if (userId) {
+            const updatePayload = { [roleField]: 'COMUM' };
+            
+            // Executa o PATCH silenciosamente para atualizar o banco de dados
+            await fetch(`${API_URL}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload)
+            }).catch(err => console.error("Falha ao registrar a role COMUM no banco:", err));
+          }
         }
-      }
 
-      // Retorna o objeto completo do usuário (com a role garantida)
-      return user; 
+        return true;
+      }
+      
+      return false;
+      
     } catch (error) {
-      console.error('Erro na autenticação:', error);
-      return null;
+      console.error("Erro na autenticação:", error);
+      return false;
     }
   },
 
@@ -81,7 +82,7 @@ export const dataverseApi = {
       headers: { 'x-dataverse-filter': filter }
     });
     const data = await response.json();
-
+    
     // Como a coluna cr4a1_private (Sim/Não) já devolve true/false nativo, 
     // podemos retornar os dados diretos sem precisar mapear conversões de string.
     return data.value || [];
@@ -94,8 +95,8 @@ export const dataverseApi = {
     if (payload.cr4a1_workspace_id) {
       const workspaceId = payload.cr4a1_workspace_id;
       // Deleta a chave antiga em texto simples
-      delete payload.cr4a1_workspace_id;
-
+      delete payload.cr4a1_workspace_id; 
+      
       // Cria a chave nova exigida pelo Dataverse apontando para a tabela no plural
       payload["cr4a1_workspace_id@odata.bind"] = `/cr4a1_calendarios_workspaceses(${workspaceId})`;
     } else {
@@ -107,7 +108,7 @@ export const dataverseApi = {
     if (payload.cr4a1_evento_id) {
       const eventoId = payload.cr4a1_evento_id;
       delete payload.cr4a1_evento_id;
-
+      
       // Apontando para a tabela de agendas
       payload["cr4a1_evento_id@odata.bind"] = `/cr4a1_agenda_kairoses(${eventoId})`;
     } else {
