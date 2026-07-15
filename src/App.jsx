@@ -1771,7 +1771,7 @@ function App() {
             </button>
 
             {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
-              (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN')))) && (
+              (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN') || hasRole('QUALIDADE')))) && (
                 <button
                   onClick={() => setIsFilialTemporariaOpen(true)}
                   className="btn-secondary boing-effect filial-temp-btn"
