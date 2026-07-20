@@ -154,7 +154,7 @@ export const BI_CONFIG = [
     title: 'Faturamento BRC',
     description: 'Faturamento Barcarena',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'QUALIDADE LIDER']
   },
   {
     id: 'ind-comercial-brc', //Indicadores Comercial - BRC
