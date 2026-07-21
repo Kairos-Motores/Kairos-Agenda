@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     'relatorio-gerente-geral': process.env.POWERBI_BI_RELATORIO_GERENTE_GERAL,
     'saldos-orcamentarios': process.env.POWERBI_BI_SALDOS_ORCAMENTARIOS,
     'dre-2': process.env.POWERBI_BI_DRE_2,
-    'indicadores-comercial-coord-gerencial': process.env.POWERBI_BI_IND_COMERCIAL_COORD_GER,
+    'indicadores-comercial-coord-gerencial': process.env.POWERBI_BI_INDICADORES_COMERCIAL_COORD_GERENCIAL,
     'programacao-ferias': process.env.POWERBI_BI_PROGRAMACAO_FERIAS,
     'relatorio-margens': process.env.POWERBI_BI_RELATORIO_MARGENS,
     'relatorio-medro': process.env.POWERBI_BI_RELATORIO_MEDRO,
