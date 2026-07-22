@@ -39,6 +39,10 @@ export const ListView = ({
   const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
   const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
 
+  // VERIFICA SE DEVE MOSTRAR OS FILTROS DE DEV (Corrige o ReferenceError)
+  const isDevWorkspaceActive = activeWorkspaces.length === 0 || (devWorkspaceId && activeWorkspaces.includes(devWorkspaceId));
+  const hasDevEvents = isDevWorkspaceActive && events.some(e => e.cr4a1_workspace_id === devWorkspaceId);
+
   // Extrai responsáveis do workspace Dev
   const uniqueAssignees = Array.from(new Set(
     events
