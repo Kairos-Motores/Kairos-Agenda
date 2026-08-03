@@ -286,7 +286,7 @@ export const BI_CONFIG = [
     title: 'Faturamento PRP',
     description: 'Faturamento PRP',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD PRP', 'COMERCIAL']
   },
   {
     id: 'ind-comercial-prp', //Indicadores Comercial - PRP
@@ -294,7 +294,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Comercial - PRP',
     description: 'Indicadores comerciais PRP',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL', 'COORD PRP']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD COMERCIAL', 'COORD PRP', 'COMERCIAL']
   },
   {
     id: 'ind-operacao-prp', //Indicadores Operação - PRP
