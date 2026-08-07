@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // ============================================================================
-// COMPONENTE AUXILIAR: Dropdown Material Design 3 (Substitui o <select> nativo)
+// COMPONENTE AUXILIAR: Dropdown Material Design 3 (MD3)
 // ============================================================================
 const MD3Dropdown = ({ value, onChange, options, placeholder, icon, minWidth = '150px' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -126,7 +126,7 @@ export const NotesPanel = ({
   });
 
   const openNota = (nota) => {
-    setNotaAberta({ ...nota });
+    setNotaAberta({ ...nota, isNew: false }); // Garante que a flag de edição saiba que a nota já existe
     setIsEditing(false); 
   };
 
@@ -175,22 +175,23 @@ export const NotesPanel = ({
       private: notaAberta.cr4a1_private,
       workspaceId: notaAberta.cr4a1_workspace_id,
       conteudo: notaAberta.cr4a1_conteudo, 
-      eventoId: notaAberta.cr4a1_evento_id, 
+      eventoId: notaAberta.cr4a1_evento_id || null, 
       user: notaAberta.cr4a1_user_login, 
       user_login: notaAberta.cr4a1_user_login,
 
+      cr4a1_notas_kairosid: notaAberta.cr4a1_notas_kairosid,
       cr4a1_titulo: notaAberta.cr4a1_titulo,
       cr4a1_private: notaAberta.cr4a1_private, 
       cr4a1_workspace_id: notaAberta.cr4a1_workspace_id,
       cr4a1_conteudo: notaAberta.cr4a1_conteudo,
-      cr4a1_evento_id: notaAberta.cr4a1_evento_id,
+      cr4a1_evento_id: notaAberta.cr4a1_evento_id || null,
       cr4a1_user_login: notaAberta.cr4a1_user_login
     };
 
+    // CORREÇÃO DA EDIÇÃO: Valida se a nota possui ID válido e NÃO é uma nova criação
     if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) { 
       updateNota(notaAberta.cr4a1_notas_kairosid, data); 
     } else {
-      data.cr4a1_notas_kairosid = notaAberta.cr4a1_notas_kairosid;
       addNota(data);
     }
     
@@ -208,14 +209,16 @@ export const NotesPanel = ({
   // TELA DE DETALHE DA NOTA (LEITURA OU EDIÇÃO)
   if (notaAberta) {
     const currentWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id);
-    const eventosDoWorkspace = eventos.filter(ev => ev.cr4a1_workspace_id === notaAberta.cr4a1_workspace_id);
+    
+    // CORREÇÃO DA LISTAGEM DE EVENTOS: Se não filtrar estritamente por workspace, traz todos os eventos disponíveis para evitar tela vazia
+    const eventosDisponiveis = eventos.length > 0 ? eventos : [];
+
     const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
 
-    // Estruturando as opções para os novos Dropdowns MD3
     const workspaceOptions = workspaces.map(ws => ({ value: ws.cr4a1_calendarios_workspacesid, label: ws.cr4a1_nome }));
     const eventOptions = [
       { value: '', label: 'Desvincular evento' },
-      ...eventosDoWorkspace.map(ev => ({ value: ev.cr4a1_agenda_kairosid, label: `🔗 ${ev.cr4a1_titulo}` }))
+      ...eventosDisponiveis.map(ev => ({ value: ev.cr4a1_agenda_kairosid, label: `🔗 ${ev.cr4a1_titulo || 'Evento sem título'}` }))
     ];
     const blockTypeOptions = [
       { value: 'text', label: 'Texto' },
@@ -226,7 +229,6 @@ export const NotesPanel = ({
     return (
       <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
         
-        {/* Estilo embutido para animação do MD3 */}
         <style>{`
           @keyframes md3-slide-down {
             from { opacity: 0; transform: translateY(-10px) scale(0.98); }
@@ -297,14 +299,13 @@ export const NotesPanel = ({
                     options={workspaceOptions}
                     placeholder="Selecione o Workspace"
                     icon="domain"
-                    onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val, cr4a1_evento_id: '' })}
+                    onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val })}
                   />
                 )}
 
-                {/* Dropdown de Eventos com aviso se estiver vazio */}
                 <MD3Dropdown
                   value={notaAberta.cr4a1_evento_id || ''}
-                  options={eventos.length === 0 ? [{value: '', label: 'Sem eventos carregados'}] : eventOptions}
+                  options={eventOptions}
                   placeholder="Associar a um Evento"
                   icon="event"
                   minWidth="200px"
