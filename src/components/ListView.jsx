@@ -20,7 +20,7 @@ export const ListView = ({
   onEdit,
   onDelete,
   workspaces = [],
-  activeWorkspaces = [], // Adicionado para controlar visibilidade
+  activeWorkspaces = [], // Controla a visibilidade global
   viewMode: externalViewMode,
   onViewModeChange,
 }) => {
@@ -36,33 +36,31 @@ export const ListView = ({
     else setInternalViewMode(mode);
   }, [onViewModeChange]);
 
-  const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
-  const devWorkspaceId = devWorkspace?.cr4a1_calendarios_workspacesid;
-
-  // VERIFICA SE DEVE MOSTRAR OS FILTROS DE DEV (Corrige o ReferenceError)
-  const isDevWorkspaceActive = activeWorkspaces.length === 0 || (devWorkspaceId && activeWorkspaces.includes(devWorkspaceId));
-  const hasDevEvents = isDevWorkspaceActive && events.some(e => e.cr4a1_workspace_id === devWorkspaceId);
-
-  // Extrai responsáveis do workspace Dev
+  // Extrai responsáveis APENAS dos workspaces que estão ativos no momento (Lógica Universal)
   const uniqueAssignees = Array.from(new Set(
     events
-      .filter(e => e.cr4a1_workspace_id === devWorkspaceId)
+      .filter(e => activeWorkspaces.length === 0 || activeWorkspaces.includes(e.cr4a1_workspace_id))
       .map(e => e.cr4a1_user_login || 'Sem responsável')
   ));
 
+  // Verifica se há alguma tarefa com subtasks nos workspaces ativos para exibir a barra de filtros
+  const hasSubtaskEvents = events.some(e => {
+    if (activeWorkspaces.length > 0 && !activeWorkspaces.includes(e.cr4a1_workspace_id)) return false;
+    const sub = typeof e.cr4a1_subtasks === 'string' ? JSON.parse(e.cr4a1_subtasks || '[]') : (e.cr4a1_subtasks || []);
+    return sub.length > 0;
+  });
+
   const processedEvents = events.filter(event => {
-    // 1. Filtro Global de Workspaces (se houver algum selecionado)
+    // 1. Filtro Global de Workspaces
     if (activeWorkspaces.length > 0 && event.cr4a1_workspace_id) {
        if (!activeWorkspaces.includes(event.cr4a1_workspace_id)) return false;
     }
 
-    const isDevWorkspace = event.cr4a1_workspace_id === devWorkspaceId;
-    if (!isDevWorkspace) return true;
-
-    // 2. Filtros Específicos para Workspace DEV
+    // 2. Lógica Universal de Status (para qualquer card com subtarefas)
     const subtasks = event.cr4a1_subtasks
       ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks)
       : [];
+    
     const completedCount = subtasks.filter(s => s.completed).length;
     const totalSubtasks = subtasks.length;
     const percentage = totalSubtasks > 0 ? Math.round((completedCount / totalSubtasks) * 100) : 0;
@@ -120,7 +118,6 @@ export const ListView = ({
     );
     const workspaceColor = currentWorkspace?.cr4a1_cor_hex || 'var(--border-color)';
     const workspaceName = currentWorkspace?.cr4a1_nome || '';
-    const isDevWorkspace = event.cr4a1_workspace_id === devWorkspaceId;
 
     const subtasks = event.cr4a1_subtasks
       ? (typeof event.cr4a1_subtasks === 'string'
@@ -186,7 +183,7 @@ export const ListView = ({
           </p>
         </div>
 
-        {isDevWorkspace && totalSubtasks > 0 && (
+        {totalSubtasks > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', padding: '8px 12px',
             background: 'var(--bg-secondary)', borderRadius: '12px', marginBottom: '12px',
@@ -301,6 +298,8 @@ export const ListView = ({
                 {event.cr4a1_tipo || 'Compromisso'}
               </span>
             </div>
+            
+            {/* BOTÕES DE AÇÃO RESTAURADOS */}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
               <button
                 onClick={(e) => { e.stopPropagation(); onEdit(event); }}
@@ -329,6 +328,7 @@ export const ListView = ({
                 <span className="material-symbols-rounded">delete</span>
               </button>
             </div>
+
           </div>
         );
       })}
@@ -470,7 +470,7 @@ export const ListView = ({
     <div>
       {renderViewSelector()}
 
-      {hasDevEvents && (
+      {hasSubtaskEvents && (
         <div style={{ 
           display: 'flex', gap: '12px', marginBottom: '16px', 
           padding: '12px', background: 'var(--bg-secondary)', 
@@ -478,7 +478,7 @@ export const ListView = ({
           flexWrap: 'wrap', alignItems: 'center'
         }}>
           <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>
-            Filtros DEV:
+            Filtros de Tarefas:
           </span>
           <select 
             value={statusFilter} 
