@@ -1,16 +1,29 @@
 import React, { useState } from 'react';
 
-export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, currentUser, workspaces = [], activeWorkspaces = [] }) => {
+export const NotesPanel = ({ 
+  notas = [], 
+  eventos = [], // NOVO: Recebe a lista de eventos para o dropdown de associação
+  addNota, 
+  updateNota, 
+  deleteNota, 
+  currentUser, 
+  workspaces = [], 
+  activeWorkspaces = [],
+  eventId = null // Se o painel for aberto por dentro da ficha do evento
+}) => {
   const [notaAberta, setNotaAberta] = useState(null);
-  const [isEditing, setIsEditing] = useState(false); // NOVO: Controle do modo de leitura vs edição
+  const [isEditing, setIsEditing] = useState(false);
 
-  // Lógica de Privacidade e Workspace
+  // Lógica de Privacidade, Workspace e Filtro de Evento
   const activeNotas = notas.filter(n => {
-    // 1. Verifica se pertence aos workspaces selecionados (Restrição de Workspace)
+    // Se o painel foi aberto dentro de um evento, filtra apenas as notas dele
+    if (eventId && n.cr4a1_evento_id !== eventId) return false;
+
+    // Restrição de Workspace
     const isInWorkspace = activeWorkspaces.includes(n.cr4a1_workspace_id);
     if (!isInWorkspace) return false;
 
-    // 2. Regra de Público vs Pessoal
+    // Regra de Público vs Pessoal
     const isPrivate = n.cr4a1_private === true || n.cr4a1_private === 'true';
     const currentUserName = currentUser?.login || currentUser?.nome || currentUser?.name || '';
     const isAuthor = n.cr4a1_user_login === currentUserName;
@@ -23,7 +36,7 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
 
   const openNota = (nota) => {
     setNotaAberta({ ...nota });
-    setIsEditing(false); // Abre sempre no modo de leitura primeiro
+    setIsEditing(false); 
   };
 
   const createNewNota = () => {
@@ -33,10 +46,11 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
       cr4a1_titulo: '',
       cr4a1_private: false, 
       cr4a1_workspace_id: activeWorkspaces[0] || '',
+      cr4a1_evento_id: eventId || '', // Se criado dentro da ficha, já amarra. Se no Hub, fica vazio.
       cr4a1_user_login: currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
-    setIsEditing(true); // Abre direto na edição para criar
+    setIsEditing(true); 
   };
 
   const handleBlockChange = (id, value) => {
@@ -74,7 +88,7 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
       private: notaAberta.cr4a1_private,
       workspaceId: notaAberta.cr4a1_workspace_id,
       conteudo: notaAberta.cr4a1_conteudo, 
-      eventoId: notaAberta.cr4a1_evento_id,
+      eventoId: notaAberta.cr4a1_evento_id, // Salva o evento associado
       user: notaAberta.cr4a1_user_login, 
       user_login: notaAberta.cr4a1_user_login,
 
@@ -93,7 +107,6 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
       addNota(data);
     }
     
-    // Após salvar, não fecha a nota, apenas volta para o modo leitura
     setNotaAberta(prev => ({ ...prev, isNew: false }));
     setIsEditing(false);
   };
@@ -108,6 +121,12 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
   // TELA DE DETALHE DA NOTA (LEITURA OU EDIÇÃO)
   if (notaAberta) {
     const currentWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id);
+    
+    // Filtra os eventos disponíveis para associação (apenas os que pertencem ao mesmo workspace da nota)
+    const eventosDoWorkspace = eventos.filter(ev => ev.cr4a1_workspace_id === notaAberta.cr4a1_workspace_id);
+    
+    // Busca os dados do evento associado para exibição no modo leitura
+    const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
 
     return (
       <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
@@ -167,10 +186,14 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
                   <input type="checkbox" checked={!!notaAberta.cr4a1_private} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} />
                   🔒 Privada
                 </label>
+                
                 {workspaces.length > 0 && (
                   <select 
                     value={notaAberta.cr4a1_workspace_id} 
-                    onChange={e => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: e.target.value })}
+                    onChange={e => {
+                      // Se o usuário trocar de workspace, desassociamos o evento atual, pois ele não pertence mais àquela área
+                      setNotaAberta({ ...notaAberta, cr4a1_workspace_id: e.target.value, cr4a1_evento_id: '' });
+                    }}
                     style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '8px', fontSize: '12px', outline: 'none' }}
                   >
                     {workspaces.map(ws => (
@@ -178,6 +201,20 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
                     ))}
                   </select>
                 )}
+
+                {/* NOVO: SELECT PARA ASSOCIAR AO EVENTO */}
+                <select 
+                  value={notaAberta.cr4a1_evento_id || ''} 
+                  onChange={e => setNotaAberta({ ...notaAberta, cr4a1_evento_id: e.target.value })}
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '8px', fontSize: '12px', outline: 'none', maxWidth: '200px' }}
+                >
+                  <option value="">Nenhum evento associado</option>
+                  {eventosDoWorkspace.map(ev => (
+                    <option key={ev.cr4a1_agenda_kairosid} value={ev.cr4a1_agenda_kairosid}>
+                      🔗 {ev.cr4a1_titulo}
+                    </option>
+                  ))}
+                </select>
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
@@ -187,6 +224,15 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
                 <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-accent)', padding: '4px 8px', background: 'var(--bg-secondary)', borderRadius: '6px', textTransform: 'uppercase' }}>
                   {currentWorkspace?.cr4a1_nome || 'Sem Setor'}
                 </span>
+                
+                {/* Exibe o evento amarrado no modo de leitura */}
+                {eventoAssociado && (
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '12px' }}>link</span>
+                    {eventoAssociado.cr4a1_titulo}
+                  </span>
+                )}
+                
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Escrito por {notaAberta.cr4a1_user_login}</span>
               </div>
             )}
@@ -265,7 +311,7 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontStyle: 'italic' }}>Esta nota está vazia.</p>
               )}
               {(notaAberta.cr4a1_conteudo || []).map((bloco) => {
-                if (!bloco.value.trim()) return null; // Ignora blocos vazios na leitura
+                if (!bloco.value.trim()) return null; 
                 
                 if (bloco.type === 'heading') {
                   return <h2 key={bloco.id} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-title)', margin: '8px 0 0 0' }}>{bloco.value}</h2>;
@@ -330,9 +376,16 @@ export const NotesPanel = ({ notas = [], addNota, updateNota, deleteNota, curren
               <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? nota.cr4a1_conteudo.find(b => b.type === 'text' || b.type === 'todo')?.value || '...' : 'Vazio...'}
               </p>
-              <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
-                {nota.cr4a1_user_login}
+              <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>person</span>
+                  {nota.cr4a1_user_login}
+                </div>
+                {nota.cr4a1_evento_id && (
+                  <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--text-accent)' }} title="Nota associada a um evento">
+                    link
+                  </span>
+                )}
               </div>
             </div>
           ))}
