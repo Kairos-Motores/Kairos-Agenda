@@ -1,34 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// ============================================================================
+// COMPONENTE AUXILIAR: Dropdown Material Design 3 (Substitui o <select> nativo)
+// ============================================================================
+const MD3Dropdown = ({ value, onChange, options, placeholder, icon, minWidth = '150px' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: 'max-content', minWidth }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="boing-effect"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+          padding: '8px 14px', background: isOpen ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+          border: `1px solid ${isOpen ? 'var(--text-accent)' : 'var(--border-color)'}`,
+          borderRadius: '12px', cursor: 'pointer', 
+          transition: 'all 0.25s cubic-bezier(0.2, 0, 0, 1)',
+          color: isOpen ? 'var(--text-accent)' : 'var(--text-primary)', 
+          fontSize: '13px', fontWeight: '600',
+          boxShadow: isOpen ? '0 0 0 1px var(--text-accent) inset' : 'none'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{icon}</span>}
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+        <span 
+          className="material-symbols-rounded" 
+          style={{ 
+            fontSize: '20px', 
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', 
+            transition: 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)' 
+          }}
+        >
+          arrow_drop_down
+        </span>
+      </div>
+
+      {isOpen && (
+        <div 
+          style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 100,
+            background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+            borderRadius: '16px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            minWidth: '100%', maxHeight: '240px', overflowY: 'auto',
+            display: 'flex', flexDirection: 'column', padding: '6px',
+            animation: 'md3-slide-down 0.25s cubic-bezier(0.2, 0, 0, 1) forwards',
+            transformOrigin: 'top center'
+          }}
+        >
+          {options.length === 0 ? (
+            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic' }}>
+              Nenhuma opção disponível
+            </div>
+          ) : (
+            options.map(opt => (
+              <div
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                style={{
+                  padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: value === opt.value ? '700' : '500',
+                  color: value === opt.value ? 'var(--text-accent)' : 'var(--text-primary)',
+                  background: value === opt.value ? 'var(--bg-tertiary)' : 'transparent',
+                  transition: 'background 0.15s',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+                onMouseEnter={(e) => { if (value !== opt.value) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                onMouseLeave={(e) => { if (value !== opt.value) e.currentTarget.style.background = 'transparent'; }}
+              >
+                {opt.label}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+// ============================================================================
+
 
 export const NotesPanel = ({ 
   notas = [], 
-  eventos = [], // NOVO: Recebe a lista de eventos para o dropdown de associação
+  eventos = [], 
   addNota, 
   updateNota, 
   deleteNota, 
   currentUser, 
   workspaces = [], 
   activeWorkspaces = [],
-  eventId = null // Se o painel for aberto por dentro da ficha do evento
+  eventId = null 
 }) => {
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
   // Lógica de Privacidade, Workspace e Filtro de Evento
   const activeNotas = notas.filter(n => {
-    // Se o painel foi aberto dentro de um evento, filtra apenas as notas dele
     if (eventId && n.cr4a1_evento_id !== eventId) return false;
-
-    // Restrição de Workspace
     const isInWorkspace = activeWorkspaces.includes(n.cr4a1_workspace_id);
     if (!isInWorkspace) return false;
 
-    // Regra de Público vs Pessoal
     const isPrivate = n.cr4a1_private === true || n.cr4a1_private === 'true';
     const currentUserName = currentUser?.login || currentUser?.nome || currentUser?.name || '';
     const isAuthor = n.cr4a1_user_login === currentUserName;
-
-    // Se for privada e o usuário logado NÃO for o autor, oculta a nota
     if (isPrivate && !isAuthor) return false;
 
     return true;
@@ -46,7 +137,7 @@ export const NotesPanel = ({
       cr4a1_titulo: '',
       cr4a1_private: false, 
       cr4a1_workspace_id: activeWorkspaces[0] || '',
-      cr4a1_evento_id: eventId || '', // Se criado dentro da ficha, já amarra. Se no Hub, fica vazio.
+      cr4a1_evento_id: eventId || '', 
       cr4a1_user_login: currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
@@ -55,29 +146,25 @@ export const NotesPanel = ({
 
   const handleBlockChange = (id, value) => {
     setNotaAberta(prev => ({
-      ...prev,
-      cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, value } : b)
+      ...prev, cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, value } : b)
     }));
   };
 
   const handleTypeChange = (id, type) => {
     setNotaAberta(prev => ({
-      ...prev,
-      cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, type } : b)
+      ...prev, cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, type } : b)
     }));
   };
 
   const addBlock = (type = 'text') => {
     setNotaAberta(prev => ({
-      ...prev,
-      cr4a1_conteudo: [...(prev.cr4a1_conteudo || []), { id: crypto.randomUUID(), type, value: '' }]
+      ...prev, cr4a1_conteudo: [...(prev.cr4a1_conteudo || []), { id: crypto.randomUUID(), type, value: '' }]
     }));
   };
 
   const removeBlock = (id) => {
     setNotaAberta(prev => ({
-      ...prev,
-      cr4a1_conteudo: prev.cr4a1_conteudo.filter(b => b.id !== id)
+      ...prev, cr4a1_conteudo: prev.cr4a1_conteudo.filter(b => b.id !== id)
     }));
   };
 
@@ -88,7 +175,7 @@ export const NotesPanel = ({
       private: notaAberta.cr4a1_private,
       workspaceId: notaAberta.cr4a1_workspace_id,
       conteudo: notaAberta.cr4a1_conteudo, 
-      eventoId: notaAberta.cr4a1_evento_id, // Salva o evento associado
+      eventoId: notaAberta.cr4a1_evento_id, 
       user: notaAberta.cr4a1_user_login, 
       user_login: notaAberta.cr4a1_user_login,
 
@@ -121,16 +208,32 @@ export const NotesPanel = ({
   // TELA DE DETALHE DA NOTA (LEITURA OU EDIÇÃO)
   if (notaAberta) {
     const currentWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id);
-    
-    // Filtra os eventos disponíveis para associação (apenas os que pertencem ao mesmo workspace da nota)
     const eventosDoWorkspace = eventos.filter(ev => ev.cr4a1_workspace_id === notaAberta.cr4a1_workspace_id);
-    
-    // Busca os dados do evento associado para exibição no modo leitura
     const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
+
+    // Estruturando as opções para os novos Dropdowns MD3
+    const workspaceOptions = workspaces.map(ws => ({ value: ws.cr4a1_calendarios_workspacesid, label: ws.cr4a1_nome }));
+    const eventOptions = [
+      { value: '', label: 'Desvincular evento' },
+      ...eventosDoWorkspace.map(ev => ({ value: ev.cr4a1_agenda_kairosid, label: `🔗 ${ev.cr4a1_titulo}` }))
+    ];
+    const blockTypeOptions = [
+      { value: 'text', label: 'Texto' },
+      { value: 'todo', label: 'Tópico' },
+      { value: 'heading', label: 'Cabeçalho' }
+    ];
 
     return (
       <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
         
+        {/* Estilo embutido para animação do MD3 */}
+        <style>{`
+          @keyframes md3-slide-down {
+            from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <button onClick={() => setNotaAberta(null)} className="btn-secondary boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -163,7 +266,7 @@ export const NotesPanel = ({
         </div>
 
         {/* ÁREA DO TÍTULO E METADADOS */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
           
           {isEditing ? (
             <input 
@@ -171,53 +274,45 @@ export const NotesPanel = ({
               placeholder="Título da Nota..." 
               value={notaAberta.cr4a1_titulo} 
               onChange={e => setNotaAberta({ ...notaAberta, cr4a1_titulo: e.target.value })}
-              style={{ fontSize: '28px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', width: '60%' }}
+              style={{ fontSize: '28px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', width: '50%' }}
             />
           ) : (
-            <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: 'var(--text-title)', width: '60%' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: 'var(--text-title)', width: '50%' }}>
               {notaAberta.cr4a1_titulo || 'Nota sem título'}
             </h1>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', width: '50%' }}>
             {isEditing ? (
-              <>
-                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={!!notaAberta.cr4a1_private} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} />
-                  🔒 Privada
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', transition: 'all 0.2s' }}>
+                  <input type="checkbox" checked={!!notaAberta.cr4a1_private} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} style={{ display: 'none' }} />
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{notaAberta.cr4a1_private ? 'lock' : 'public'}</span>
+                  {notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}
                 </label>
                 
                 {workspaces.length > 0 && (
-                  <select 
-                    value={notaAberta.cr4a1_workspace_id} 
-                    onChange={e => {
-                      // Se o usuário trocar de workspace, desassociamos o evento atual, pois ele não pertence mais àquela área
-                      setNotaAberta({ ...notaAberta, cr4a1_workspace_id: e.target.value, cr4a1_evento_id: '' });
-                    }}
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '8px', fontSize: '12px', outline: 'none' }}
-                  >
-                    {workspaces.map(ws => (
-                      <option key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>{ws.cr4a1_nome}</option>
-                    ))}
-                  </select>
+                  <MD3Dropdown
+                    value={notaAberta.cr4a1_workspace_id}
+                    options={workspaceOptions}
+                    placeholder="Selecione o Workspace"
+                    icon="domain"
+                    onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val, cr4a1_evento_id: '' })}
+                  />
                 )}
 
-                {/* NOVO: SELECT PARA ASSOCIAR AO EVENTO */}
-                <select 
-                  value={notaAberta.cr4a1_evento_id || ''} 
-                  onChange={e => setNotaAberta({ ...notaAberta, cr4a1_evento_id: e.target.value })}
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '8px', fontSize: '12px', outline: 'none', maxWidth: '200px' }}
-                >
-                  <option value="">Nenhum evento associado</option>
-                  {eventosDoWorkspace.map(ev => (
-                    <option key={ev.cr4a1_agenda_kairosid} value={ev.cr4a1_agenda_kairosid}>
-                      🔗 {ev.cr4a1_titulo}
-                    </option>
-                  ))}
-                </select>
-              </>
+                {/* Dropdown de Eventos com aviso se estiver vazio */}
+                <MD3Dropdown
+                  value={notaAberta.cr4a1_evento_id || ''}
+                  options={eventos.length === 0 ? [{value: '', label: 'Sem eventos carregados'}] : eventOptions}
+                  placeholder="Associar a um Evento"
+                  icon="event"
+                  minWidth="200px"
+                  onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_evento_id: val })}
+                />
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   {notaAberta.cr4a1_private ? <><span className="material-symbols-rounded" style={{ fontSize: '14px', color: '#f57c00' }}>lock</span> Nota Pessoal</> : <><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>public</span> Nota Pública</>}
                 </span>
@@ -225,10 +320,9 @@ export const NotesPanel = ({
                   {currentWorkspace?.cr4a1_nome || 'Sem Setor'}
                 </span>
                 
-                {/* Exibe o evento amarrado no modo de leitura */}
                 {eventoAssociado && (
                   <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '12px' }}>link</span>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--text-accent)' }}>link</span>
                     {eventoAssociado.cr4a1_titulo}
                   </span>
                 )}
@@ -239,23 +333,21 @@ export const NotesPanel = ({
           </div>
         </div>
 
-        {/* CORPO DA NOTA (MODO LEITURA VS EDIÇÃO) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
+        {/* CORPO DA NOTA */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '300px' }}>
           
-          {/* MODO EDIÇÃO: EDITOR ESTILO NOTION */}
           {isEditing ? (
             <>
               {(notaAberta.cr4a1_conteudo || []).map((bloco) => (
-                <div key={bloco.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <select 
-                    value={bloco.type} 
-                    onChange={e => handleTypeChange(bloco.id, e.target.value)}
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px', padding: '6px', borderRadius: '8px', outline: 'none', cursor: 'pointer', marginTop: '4px' }}
-                  >
-                    <option value="text">Texto</option>
-                    <option value="todo">Tópico</option>
-                    <option value="heading">H1</option>
-                  </select>
+                <div key={bloco.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', background: 'var(--bg-primary)', padding: '4px', borderRadius: '12px', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'} onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}>
+                  
+                  <MD3Dropdown
+                    value={bloco.type}
+                    options={blockTypeOptions}
+                    placeholder="Tipo"
+                    minWidth="120px"
+                    onChange={(val) => handleTypeChange(bloco.id, val)}
+                  />
 
                   {bloco.type === 'heading' ? (
                     <input 
@@ -263,7 +355,7 @@ export const NotesPanel = ({
                       value={bloco.value} 
                       onChange={e => handleBlockChange(bloco.id, e.target.value)}
                       placeholder="Cabeçalho principal..." 
-                      style={{ flex: 1, fontSize: '22px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', padding: '4px 0' }}
+                      style={{ flex: 1, fontSize: '22px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', padding: '8px 0' }}
                     />
                   ) : bloco.type === 'todo' ? (
                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '8px' }}>
@@ -273,7 +365,7 @@ export const NotesPanel = ({
                         value={bloco.value} 
                         onChange={e => handleBlockChange(bloco.id, e.target.value)}
                         placeholder="Listar item..." 
-                        style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '4px 0' }}
+                        style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '8px 0' }}
                       />
                     </div>
                   ) : (
@@ -285,27 +377,27 @@ export const NotesPanel = ({
                         handleBlockChange(bloco.id, e.target.value);
                       }}
                       placeholder="Escreva um texto..." 
-                      style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '6px 0', resize: 'none', overflow: 'hidden', minHeight: '28px', lineHeight: '1.5' }}
+                      style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '10px 0', resize: 'none', overflow: 'hidden', minHeight: '38px', lineHeight: '1.5' }}
                       rows={1}
                     />
                   )}
 
-                  <button onClick={() => removeBlock(bloco.id)} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', marginTop: '4px' }} title="Remover bloco">
+                  <button onClick={() => removeBlock(bloco.id)} className="boing-effect" style={{ border: 'none', background: '#ffebee', color: '#c62828', borderRadius: '10px', cursor: 'pointer', padding: '8px', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Remover bloco">
                     <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                   </button>
                 </div>
               ))}
 
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <button type="button" onClick={() => addBlock('text')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Texto</button>
-                <button type="button" onClick={() => addBlock('todo')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Tópico</button>
-                <button type="button" onClick={() => addBlock('heading')} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ H1</button>
+                <button type="button" onClick={() => addBlock('text')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Texto</button>
+                <button type="button" onClick={() => addBlock('todo')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Tópico</button>
+                <button type="button" onClick={() => addBlock('heading')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Cabeçalho</button>
               </div>
             </>
 
           ) : (
             
-            /* MODO LEITURA: RENDERIZAÇÃO ESTÁTICA */
+            /* MODO LEITURA */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 8px' }}>
               {(notaAberta.cr4a1_conteudo || []).length === 0 && (
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontStyle: 'italic' }}>Esta nota está vazia.</p>
