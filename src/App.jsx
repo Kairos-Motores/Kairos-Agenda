@@ -943,7 +943,7 @@ function App() {
   };
 
   const notifiedRef = useRef(new Set());
-  const [appMode, setAppMode] = useState('calendar');
+  const [appMode, setAppMode] = useState(() => localStorage.getItem('kairos_app_mode') || 'calendar');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVisitaModalOpen, setIsVisitaModalOpen] = useState(false);
@@ -1254,6 +1254,10 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('kairos_app_mode', appMode);
+  }, [appMode]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--text-accent', accentColor);
