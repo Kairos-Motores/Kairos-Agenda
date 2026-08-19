@@ -9,16 +9,21 @@ export const ROLES = {
   FINANCEIRO: 'FINANCEIRO'
 };
 
+// Normaliza a role do Dataverse (string única, string separada por vírgula, ou já um array) em array limpo
+export const parseRoles = (userRoleValue) => {
+  if (!userRoleValue) return [];
+  if (Array.isArray(userRoleValue)) return userRoleValue.map(r => String(r).trim()).filter(Boolean);
+  return String(userRoleValue).split(',').map(r => r.trim()).filter(Boolean);
+};
+
 // Função central de checagem
-export const checkAccess = (userRoleString, allowedRoles) => {
-  if (!userRoleString) return false;
-  
-  // Transforma a string do Dataverse em array limpo
-  const rolesArray = userRoleString.split(',').map(r => r.trim());
-  
+export const checkAccess = (userRoleValue, allowedRoles) => {
+  const rolesArray = parseRoles(userRoleValue);
+  if (rolesArray.length === 0) return false;
+
   // ADMIN sempre tem acesso a tudo
   if (rolesArray.includes(ROLES.ADMIN)) return true;
-  
+
   // Verifica se o usuário tem PELO MENOS UMA das roles permitidas
   return rolesArray.some(role => allowedRoles.includes(role));
 };

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
+import { checkAccess } from '../utils/permissions';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -59,15 +60,20 @@ export const useCalendar = () => {
             const data = await response.json();
             if (data.value && data.value.length === 1) {
                 const userData = data.value[0];
-                const userId = userData.cr4a1_usuarios_agendasid;
+                const userId = userData.cr4a1_usuarios_agendaid;
                 let roleAtual = userData.cr4a1_role;
                 if (!roleAtual || roleAtual === 'null' || roleAtual === '') {
                     roleAtual = 'COMUM';
-                    await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cr4a1_role: roleAtual })
-                    });
+                    if (userId) {
+                        const patchRes = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cr4a1_role: roleAtual })
+                        });
+                        if (!patchRes.ok) console.warn('Falha ao salvar role COMUM no Dataverse.');
+                    } else {
+                        console.warn('Não foi possível identificar o ID do usuário para salvar a role.');
+                    }
                     await adicionarUsuarioAoCalendarioComum(username);
                 }
                 localStorage.setItem('kairos_logged_user', username);
@@ -116,11 +122,26 @@ export const useCalendar = () => {
                 const data = await response.json();
                 if (!data.value || data.value.length === 0) throw new Error('User not found');
 
-                const freshRole = data.value[0]?.cr4a1_role;
-                if (freshRole) {
-                    setUserRole(freshRole);
-                    localStorage.setItem('kairos_user_role', freshRole);
+                const dbUser = data.value[0];
+                let freshRole = dbUser.cr4a1_role;
+
+                // Autocura: usuário sem role no Dataverse (bug antigo ou conta nova) vira COMUM
+                if (!freshRole || String(freshRole).trim() === '' || String(freshRole).trim() === 'null') {
+                    freshRole = 'COMUM';
+                    const userId = dbUser.cr4a1_usuarios_agendaid;
+                    if (userId) {
+                        await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cr4a1_role: freshRole })
+                        });
+                        await adicionarUsuarioAoCalendarioComum(storedUser);
+                    }
                 }
+
+                // O Dataverse é sempre a fonte da verdade: nunca ficamos presos a um cache local desatualizado
+                setUserRole(freshRole);
+                localStorage.setItem('kairos_user_role', freshRole);
             } catch (e) {
                 console.warn('Sessão inválida:', e.message);
                 localStorage.clear();
@@ -247,7 +268,7 @@ export const useCalendar = () => {
 
             let filtroVisitas = '';
             const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            if (!permissoesElevadas.includes(userRole)) {
+            if (!checkAccess(userRole, permissoesElevadas)) {
                 filtroVisitas = `&$filter=cr4a1_visitante eq '${user}'`;
             }
 
@@ -381,7 +402,7 @@ export const useCalendar = () => {
 
     const addEvent = async (eventData) => {
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        const targetUser = eventData.targetUser || (permissoesElevadas.includes(userRole) ? viewedUser : user);
+        const targetUser = eventData.targetUser || (checkAccess(userRole, permissoesElevadas) ? viewedUser : user);
 
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
@@ -489,7 +510,7 @@ export const useCalendar = () => {
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!permissoesElevadas.includes(userRole) && finalOwner !== user) {
+        if (!checkAccess(userRole, permissoesElevadas) && finalOwner !== user) {
             toast.error("Permissão negada.");
             return;
         }
@@ -507,7 +528,7 @@ export const useCalendar = () => {
     const moveEvent = async (eventId, newDate) => {
         const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!event || (!permissoesElevadas.includes(userRole) && event.cr4a1_user_login !== user)) return;
+        if (!event || (!checkAccess(userRole, permissoesElevadas) && event.cr4a1_user_login !== user)) return;
 
         await updateEvent({
             ...event,
@@ -803,7 +824,7 @@ export const useCalendar = () => {
     const addVisitas = async (visitasArray) => {
         try {
             const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+            const podeAgendarParaOutros = checkAccess(userRole, permissoesElevadas);
 
             const visitasParaEnviar = await Promise.all(visitasArray.map(async ({ cr4a1_id, cr4a1_visita_id, cr4a1_data_visita, ...resto }) => {
                 const loginParaBusca = podeAgendarParaOutros ? (resto.cr4a1_visitante || user) : user;
@@ -848,7 +869,7 @@ export const useCalendar = () => {
     const updateVisitas = async (visitaData) => {
         try {
             const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-            const podeAgendarParaOutros = permissoesElevadas.includes(userRole);
+            const podeAgendarParaOutros = checkAccess(userRole, permissoesElevadas);
 
             const loginParaBusca = podeAgendarParaOutros ? (visitaData.cr4a1_visitante || user) : user;
             const titleReal = await getVisitanteTitle(loginParaBusca);

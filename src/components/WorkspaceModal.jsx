@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { checkAccess, parseRoles } from '../utils/permissions';
 
 export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRole, editingWorkspace = null }) => {
     const [formData, setFormData] = useState({
@@ -49,7 +50,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
     };
 
     const handleAddAll = () => {
-        if (userRole !== 'ADMIN' && userRole !== 'RH') return;
+        if (!checkAccess(userRole, ['ADMIN', 'RH'])) return;
         const allLogins = allUsers.map(u => u.cr4a1_username);
         const merged = [...new Set([...selectedMembers, ...allLogins])];
         setFormData({ ...formData, membros: merged.join(',') });
@@ -112,7 +113,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                             onChange={e => setFormData({ ...formData, tipo: e.target.value })}
                         >
                             <option value="COMPARTILHADO">COMPARTILHADO (Equipe)</option>
-                            {userRole === 'RH' && <option value="RH">INSTITUCIONAL (RH)</option>}
+                            {parseRoles(userRole).includes('RH') && <option value="RH">INSTITUCIONAL (RH)</option>}
                             <option value="PESSOAL">PESSOAL (Privado)</option>
                         </select>
                     </div>
@@ -121,7 +122,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>ADICIONAR POR GRUPO</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                                {(userRole === 'ADMIN' || userRole === 'RH') && (
+                                {checkAccess(userRole, ['ADMIN', 'RH']) && (
                                     <button type="button" onClick={handleAddAll} style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', background: 'var(--text-accent)', color: 'white', border: 'none', cursor: 'pointer' }}>🌐 Toda a Kairós</button>
                                 )}
                                 {unidades.map(u => (

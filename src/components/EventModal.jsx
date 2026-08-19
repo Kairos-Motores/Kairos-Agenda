@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { checkAccess } from '../utils/permissions';
 
 export const EventModal = ({
     isOpen, onClose, onSave, initialDate, editingEvent, userRole,
@@ -331,7 +332,7 @@ export const EventModal = ({
                             onSelect={val => setFormData({...formData, type: val})}
                         />
 
-                        {['SECRETARIA', 'COORD', 'ADMIN', 'DIRETORIA'].includes(userRole) && (
+                        {checkAccess(userRole, ['SECRETARIA', 'COORD', 'ADMIN', 'DIRETORIA']) && (
                             <MD3DropdownField 
                                 label="Responsável" 
                                 icon="person"

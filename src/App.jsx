@@ -20,6 +20,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
+import { parseRoles } from './utils/permissions';
 
 import avanteImg from './assets/avante.png';
 import echoeImg from './assets/echoe.png';
@@ -361,7 +362,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const usuariosComerciais = useMemo(() => {
     return allUsers.filter(u => {
-      const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
+      const userRoles = parseRoles(u.cr4a1_role);
 
       const temRolePermitida = userRoles.includes('COMERCIAL') ||
         userRoles.includes('COORD COMERCIAL') ||
@@ -385,7 +386,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   const visitantesFiltrados = useMemo(() => {
     const baseUsuarios = allUsers.filter(u => {
-      const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
+      const userRoles = parseRoles(u.cr4a1_role);
       const temRolePermitida = userRoles.includes('COMERCIAL') ||
         userRoles.includes('COORD COMERCIAL') ||
         userRoles.includes('ADMIN');
@@ -600,7 +601,7 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
   const usuariosDisponiveis = useMemo(() => {
     if (mostrarTodos) return allUsers;
     return allUsers.filter(u => {
-      const userRoles = u.cr4a1_role ? u.cr4a1_role.split(',').map(r => r.trim()) : [];
+      const userRoles = parseRoles(u.cr4a1_role);
       return userRoles.includes('COMERCIAL');
     });
   }, [allUsers, mostrarTodos]);
@@ -847,7 +848,7 @@ function App() {
     notas = [], addNota, updateNota, deleteNota
   } = useCalendar();
 
-  const roles = useMemo(() => Array.isArray(userRole) ? userRole : (typeof userRole === 'string' ? userRole.split(',').map(r => r.trim()) : []), [userRole]);
+  const roles = useMemo(() => parseRoles(userRole), [userRole]);
   const hasRole = (role) => roles.includes('ADMIN') || roles.includes(role);
 
   const viewsConfig = useMemo(() => [
@@ -1659,7 +1660,7 @@ function App() {
                         (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
                       const matchesUnit = userUnitFilter === 'Todas' || u.cr4a1_unidade === userUnitFilter;
 
-                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && matchesUnit && u.cr4a1_unidade === currentUser.cr4a1_unidade;
+                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && matchesUnit && u.cr4a1_unidade === currentUser?.cr4a1_unidade;
                       return matchesSearch && matchesUnit;
                     }).map(u => (
                       <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>

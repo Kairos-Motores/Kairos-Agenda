@@ -1,6 +1,8 @@
+import { checkAccess } from '../utils/permissions';
+
 const NavigationSidebar = ({ isTaskView, setIsTaskView, userRole }) => {
   // Se não for liderança, talvez você queira esconder ou mostrar apenas o que for relevante
-  const canSeeTasks = ['DIRETORIA', 'ADMIN', 'COORD'].includes(userRole);
+  const canSeeTasks = checkAccess(userRole, ['DIRETORIA', 'ADMIN', 'COORD']);
   
   if (!canSeeTasks) return null;
 
