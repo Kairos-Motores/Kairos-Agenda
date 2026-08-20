@@ -476,7 +476,7 @@ export const BI_CONFIG = [
     title: 'Dashboard Planejador',
     description: 'Planejamento',
     icon: 'calendar_month',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'QUALIDADE', 'COORD PCP', 'PCP']
   },
   {
     id: 'qualidade', //Dashboard Qualidade
