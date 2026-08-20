@@ -2015,6 +2015,7 @@ function App() {
               ) : appMode === 'notas' ? (
                 <NotesPanel
                   notas={notas || []}
+                  eventos={events || []}
                   addNota={addNota}
                   updateNota={updateNota}
                   deleteNota={deleteNota}
@@ -2491,7 +2492,7 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: 500 }}>
+          <div style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
@@ -2523,14 +2524,14 @@ function App() {
                 )}
               </div>
             )}
-            <button className="fab-btn boing-effect" onClick={() => setIsFabMenuOpen(!isFabMenuOpen)} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'), color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button className="fab-btn boing-effect" onClick={() => { setIsFabMenuOpen(!isFabMenuOpen); setIsPowerAppsFabOpen(false); }} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'), color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
         )}
 
         {/* POWERAPPS FAB (MOBILE ONLY) */}
-        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: isPowerAppsFabOpen ? 2100 : 400, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
           {isPowerAppsFabOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start', marginBottom: '8px', marginLeft: '6px' }}>
               <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0s' }}>
@@ -2559,7 +2560,7 @@ function App() {
               </div>
             </div>
           )}
-          <button className="boing-effect" onClick={() => setIsPowerAppsFabOpen(!isPowerAppsFabOpen)} style={{ animation: 'fabEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards', width: '60px', height: '60px', borderRadius: '20px', background: isPowerAppsFabOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isPowerAppsFabOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button className="boing-effect" onClick={() => { setIsPowerAppsFabOpen(!isPowerAppsFabOpen); setIsFabMenuOpen(false); }} style={{ animation: 'fabEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards', width: '60px', height: '60px', borderRadius: '20px', background: isPowerAppsFabOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isPowerAppsFabOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isPowerAppsFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isPowerAppsFabOpen ? 'close' : 'apps'}</span>
           </button>
         </div>

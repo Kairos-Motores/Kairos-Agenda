@@ -211,7 +211,7 @@ export const NotesPanel = ({
     if (!isInWorkspace) return false;
 
     const isPrivate = n.cr4a1_private === true || n.cr4a1_private === 'true';
-    const currentUserName = currentUser?.login || currentUser?.nome || currentUser?.name || '';
+    const currentUserName = currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || '';
     const isAuthor = n.cr4a1_user_login === currentUserName;
     if (isPrivate && !isAuthor) return false;
 
@@ -240,7 +240,7 @@ export const NotesPanel = ({
       cr4a1_private: false,
       cr4a1_workspace_id: activeWorkspaces[0] || '',
       cr4a1_evento_id: eventId || '',
-      cr4a1_user_login: currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
+      cr4a1_user_login: currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
     });
     setIsEditing(true);
