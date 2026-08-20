@@ -13,6 +13,7 @@ import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { NotesPanel } from './components/NotesPanel';
 import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
+import { GuidedTour } from './components/GuidedTour';
 import { dataverseApi } from './api/dataverse';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
@@ -957,6 +958,7 @@ function App() {
   const [isDraggingMember, setIsDraggingMember] = useState(false);
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
@@ -1461,6 +1463,64 @@ function App() {
     });
   };
 
+  // Tour guiado (spotlight) com o fluxo essencial do app, acionado pelo botão de ajuda no cabeçalho
+  const TUTORIAL_STEPS = [
+    {
+      id: 'welcome',
+      title: 'Bem-vindo ao Kairós! 👋',
+      description: 'Vamos fazer um tour rápido pelas principais funções do app. Você pode sair a qualquer momento em "Pular tour".',
+      getTarget: () => null,
+      onEnter: () => setAppMode('calendar')
+    },
+    {
+      id: 'menu',
+      title: 'Menu lateral',
+      description: 'Aqui você abre o menu com as vistas do calendário, a cor do tema e a lista de workspaces.',
+      getTarget: () => document.querySelector('[data-tutorial="menu-toggle"]')
+    },
+    {
+      id: 'nav-modes',
+      title: 'Troque de área',
+      description: 'Alterne entre Agenda, Notas, Painéis BI, Tarefas e Visitas por aqui. As Notas funcionam como um hub de checklists e anotações do time.',
+      getTarget: () => {
+        const desktopNav = document.querySelector('[data-tutorial="nav-modes-desktop"]');
+        if (desktopNav && desktopNav.getBoundingClientRect().width > 0) return desktopNav;
+        return document.querySelector('[data-tutorial="nav-modes-mobile"]');
+      },
+      onEnter: () => {
+        const desktopNav = document.querySelector('[data-tutorial="nav-modes-desktop"]');
+        const isDesktopVisible = desktopNav && desktopNav.getBoundingClientRect().width > 0;
+        if (!isDesktopVisible) setIsSidebarOpen(true);
+      }
+    },
+    {
+      id: 'workspaces',
+      title: 'Workspaces',
+      description: 'Cada workspace é um calendário compartilhado. Marque quais quer ver de uma vez, edite os seus, e defina um padrão com a estrela.',
+      getTarget: () => document.querySelector('[data-tutorial="workspaces-list"]'),
+      onEnter: () => setIsSidebarOpen(true),
+      onLeave: () => setIsSidebarOpen(false)
+    },
+    {
+      id: 'fab',
+      title: 'Criar rapidamente',
+      description: 'O botão "+" abre atalhos para criar um Evento, uma Visita ou um Workspace novo, sem sair de onde você está.',
+      getTarget: () => document.querySelector('[data-tutorial="fab-add"]')
+    },
+    {
+      id: 'profile',
+      title: 'Seu perfil',
+      description: 'Clique aqui para trocar sua foto, nome de exibição e data de aniversário.',
+      getTarget: () => document.querySelector('[data-tutorial="profile"]')
+    },
+    {
+      id: 'help',
+      title: 'Precisa rever isso?',
+      description: 'Você pode reabrir este tutorial a qualquer momento clicando neste botão.',
+      getTarget: () => document.querySelector('[data-tutorial="tutorial-trigger"]')
+    }
+  ];
+
   return (
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
@@ -1494,7 +1554,7 @@ function App() {
               </button>
             </div>
 
-            <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+            <div className="mobile-only" data-tutorial="nav-modes-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Modo de Visualização</div>
               <button onClick={() => { setAppMode('calendar'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
                 justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
@@ -1585,7 +1645,7 @@ function App() {
                   <input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
                 </div>
 
-                <div>
+                <div data-tutorial="workspaces-list">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
@@ -1725,7 +1785,7 @@ function App() {
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
 
           <div className="header-left">
-            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" style={{ color: 'var(--text-primary)' }}>
+            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" data-tutorial="menu-toggle" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
             </button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1800,7 +1860,7 @@ function App() {
               )}
           </div>
 
-          <div className="header-profile">
+          <div className="header-profile" data-tutorial="profile">
             <div
               onClick={() => setIsProfileModalOpen(true)}
               className="boing-effect"
@@ -1848,6 +1908,9 @@ function App() {
               </button>
               <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect">
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+              </button>
+              <button onClick={() => setIsTutorialOpen(true)} className="icon-btn boing-effect" data-tutorial="tutorial-trigger" title="Tutorial guiado">
+                <span className="material-symbols-rounded">help</span>
               </button>
               {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
                 <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn boing-effect" title="Gerir Utilizadores">
@@ -2297,7 +2360,7 @@ function App() {
           </aside>
 
           {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
-          <aside className="right-menu-sidebar desktop-only">
+          <aside className="right-menu-sidebar desktop-only" data-tutorial="nav-modes-desktop">
             <div className="sidebar-collapsed-indicator">
               <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>side_navigation</span>
             </div>
@@ -2344,6 +2407,8 @@ function App() {
             </div>
           </aside>
         </div>
+
+        <GuidedTour isOpen={isTutorialOpen} onClose={() => { setIsTutorialOpen(false); setIsSidebarOpen(false); }} steps={TUTORIAL_STEPS} />
 
         {/* MODAIS E COMPONENTES FIXOS */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
@@ -2492,7 +2557,7 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
+          <div data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
