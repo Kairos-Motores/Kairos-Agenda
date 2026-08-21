@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const MODAL_WIDTH = 480;
 const MODAL_HEIGHT = 560;
@@ -11,6 +12,7 @@ const TRANSITION = '0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
 // (container transform) em vez de simplesmente aparecer. Só mostra os dados;
 // quem chama decide o que "Editar" faz (normalmente abrir o EventModal real).
 export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces = [], onClose, onEdit }) => {
+  const trapRef = useFocusTrap(!!event);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -92,7 +94,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
     <div style={{ position: 'fixed', inset: 0, zIndex: 100000 }}>
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(12,12,16,0.55)', opacity: grown ? 1 : 0, transition: 'opacity 0.3s ease', cursor: 'pointer' }} />
 
-      <div style={cardStyle}>
+      <div ref={trapRef} tabIndex={-1} style={cardStyle}>
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
@@ -115,7 +117,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
                 {event.cr4a1_titulo || 'Sem título'}
               </h2>
             </div>
-            <button onClick={handleClose} className="icon-btn boing-effect" style={{ flexShrink: 0 }}>
+            <button onClick={handleClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ flexShrink: 0 }}>
               <span className="material-symbols-rounded">close</span>
             </button>
           </div>

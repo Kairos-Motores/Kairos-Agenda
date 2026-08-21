@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { checkAccess, parseRoles } from '../utils/permissions';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRole, editingWorkspace = null }) => {
+    const trapRef = useFocusTrap(isOpen);
     const [formData, setFormData] = useState({
         nome: '',
         tipo: 'COMPARTILHADO',
@@ -12,6 +14,13 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
     const [memberMode, setMemberMode] = useState('text');
     const [userFilter, setUserFilter] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         if (editingWorkspace) {
@@ -87,10 +96,10 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
     return (
         <div className="modal-overlay" style={{ zIndex: 10000 }}>
-            <div className="modal-container" style={{ maxWidth: '500px', width: '90%' }}>
+            <div ref={trapRef} tabIndex={-1} className="modal-container" style={{ maxWidth: '500px', width: '90%' }}>
                 <div className="modal-header">
                     <h3 style={{ margin: 0 }}>{editingWorkspace ? '🚀 Editar Workspace' : '🚀 Novo Workspace'}</h3>
-                    <button onClick={onClose} className="icon-btn boing-effect">
+                    <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar">
                         <span className="material-symbols-rounded">close</span>
                     </button>
                 </div>

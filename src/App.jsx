@@ -15,6 +15,7 @@ import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import { GuidedTour } from './components/GuidedTour';
 import { EventDetailModal } from './components/EventDetailModal';
+import { useFocusTrap } from './hooks/useFocusTrap';
 import { dataverseApi } from './api/dataverse';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
@@ -147,6 +148,7 @@ const WhatsAppInput = ({ initialValue, onSave, userId }) => {
           <button
             onClick={() => onSave(userId, `${selectedCountry.code.replace('+', '')}${phoneNumber}`)}
             className="icon-btn boing-effect"
+            aria-label="Salvar número de WhatsApp"
             style={{ background: 'var(--text-accent)', color: 'white', width: '48px', height: '48px', borderRadius: '12px', flex: '0 0 auto' }}
           >
             <span className="material-symbols-rounded">save</span>
@@ -332,6 +334,15 @@ const OnboardingModal = ({ user, onSaveUnit }) => {
 
 // --- COMPONENTE DE VISITAS ---
 const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], allUsers = [], hasRole, editingVisita, holidays }) => {
+  const trapRef = useFocusTrap(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
   const getInitialDate = () => {
     if (editingVisita?.cr4a1_data_visita) return editingVisita.cr4a1_data_visita.split('T')[0];
     return '';
@@ -479,7 +490,7 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '500px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+      <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ width: '90%', maxWidth: '500px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
         <h2 style={{ marginTop: 0, marginBottom: '24px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>location_on</span>
           {editingVisita ? 'Editar Visita' : 'Agendar Visita'}
@@ -593,10 +604,18 @@ const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes = [], 
 
 // --- MODAL DE GESTÃO DE FILIAL TEMPORÁRIA ---
 const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos = false }) => {
+  const trapRef = useFocusTrap(isOpen);
   const [selectedUser, setSelectedUser] = useState('');
   const [unidade, setUnidade] = useState('');
   const [inicio, setInicio] = useState('');
   const [fim, setFim] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
 
   const units = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
 
@@ -627,7 +646,7 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10500, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '450px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)' }}>
+      <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ width: '90%', maxWidth: '450px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '32px', border: '1px solid var(--border-color)' }}>
         <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>swap_horiz</span>
           Filial Temporária {mostrarTodos ? '(Todos)' : '(Comercial)'}
@@ -683,7 +702,17 @@ const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostrarTodos
 
 // --- MODAL DE LISTAGEM DE VISITAS DO DIA ---
 const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
-  if (!isOpen || !visitas || visitas.length === 0) return null;
+  const isReallyOpen = !!(isOpen && visitas && visitas.length > 0);
+  const trapRef = useFocusTrap(isReallyOpen);
+
+  useEffect(() => {
+    if (!isReallyOpen) return;
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isReallyOpen, onClose]);
+
+  if (!isReallyOpen) return null;
 
   const getUserName = (login) => {
     const user = allUsers.find(u => u.cr4a1_username === login);
@@ -700,13 +729,13 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+      <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0, color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>view_agenda</span>
             Visitas do Dia
           </h3>
-          <button onClick={onClose} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+          <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ color: 'var(--text-primary)' }}>
             <span className="material-symbols-rounded">close</span>
           </button>
         </div>
@@ -1594,7 +1623,7 @@ function App() {
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
               </h1>
-              <button onClick={() => setIsSidebarOpen(false)} className="icon-btn" style={{ color: 'var(--text-primary)' }}>
+              <button onClick={() => setIsSidebarOpen(false)} className="icon-btn boing-effect" aria-label="Fechar menu" style={{ color: 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded">close</span>
               </button>
             </div>
@@ -1830,7 +1859,7 @@ function App() {
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
 
           <div className="header-left">
-            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" data-tutorial="menu-toggle" style={{ color: 'var(--text-primary)' }}>
+            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" data-tutorial="menu-toggle" aria-label="Abrir menu" style={{ color: 'var(--text-primary)' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
             </button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1929,11 +1958,11 @@ function App() {
 
           <div className="header-bottom">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect">
+              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect" aria-label="Período anterior">
                 <span className="material-symbols-rounded">chevron_left</span>
               </button>
               <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect">
+              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect" aria-label="Próximo período">
                 <span className="material-symbols-rounded">chevron_right</span>
               </button>
             </div>
@@ -1948,7 +1977,15 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div onClick={() => setCurrentDate(new Date())} className="today-badge boing-effect" title="Ir para hoje" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', height: '36px', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+              <div
+                onClick={() => setCurrentDate(new Date())}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentDate(new Date()); } }}
+                role="button"
+                tabIndex={0}
+                className="today-badge boing-effect"
+                title="Ir para hoje"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', height: '36px', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+              >
                 <span className="material-symbols-rounded" style={{ fontSize: '15px', color: 'var(--text-accent)' }}>today</span>
                 <span style={{ textTransform: 'capitalize' }}>{format(now, "EEE, d 'de' MMM", { locale: ptBR })}</span>
                 <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
@@ -1957,7 +1994,7 @@ function App() {
               <button onClick={requestNotificationPermission} className="icon-btn boing-effect" title="Ativar Notificações">
                 <span className="material-symbols-rounded">notifications</span>
               </button>
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect">
+              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect" aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
               </button>
               <button onClick={() => setIsTutorialOpen(true)} className="icon-btn boing-effect" data-tutorial="tutorial-trigger" title="Tutorial guiado">
@@ -2520,7 +2557,7 @@ function App() {
               <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>O Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect">
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect" aria-label="Fechar perfil">
                     <span className="material-symbols-rounded">close</span>
                   </button>
                 </div>

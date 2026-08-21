@@ -3,6 +3,7 @@ import { addMonths, subMonths, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
 import { checkAccess } from '../utils/permissions';
+import { renderUndoToast } from '../components/UndoToast';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -198,7 +199,7 @@ export const useCalendar = () => {
 
         for (const task of queue) {
             try {
-                let url = `${API_PROXY}?table=cr4a1_agenda_kairoses`;
+                let url = `${API_PROXY}?table=${task.table || 'cr4a1_agenda_kairoses'}`;
                 if (task.method !== 'POST') url += `&id=${task.id}`;
 
                 await fetch(url, {
@@ -217,7 +218,24 @@ export const useCalendar = () => {
         if (successCount > 0) {
             toast.success(`${successCount} item(ns) sincronizado(s) com sucesso!`);
             fetchEvents();
+            fetchNotas();
         }
+    };
+
+    // Mostra um toast com "Desfazer": se ninguém clicar dentro do prazo, onConfirm roda de verdade.
+    const showUndoToast = (message, onUndo, onConfirm, duration = 5000) => {
+        let undone = false;
+        const toastId = toast(
+            renderUndoToast(message, () => {
+                undone = true;
+                toast.dismiss(toastId);
+                onUndo();
+            }),
+            { duration }
+        );
+        setTimeout(() => {
+            if (!undone) onConfirm();
+        }, duration + 50);
     };
 
     const fetchWorkspaces = useCallback(async () => {
@@ -515,14 +533,20 @@ export const useCalendar = () => {
             return;
         }
 
+        const removedEvent = events.find(e => e.cr4a1_agenda_kairosid === finalId);
         setEvents(prev => prev.filter(e => e.cr4a1_agenda_kairosid !== finalId));
 
-        if (!isOnline) { addToQueue({ method: 'DELETE', id: finalId }); return; }
-
-        try {
-            await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${finalId}`, { method: 'DELETE' });
-            fetchEvents();
-        } catch (error) { addToQueue({ method: 'DELETE', id: finalId }); }
+        showUndoToast(
+            'Evento excluído.',
+            () => { if (removedEvent) setEvents(prev => [...prev, removedEvent]); },
+            async () => {
+                if (!isOnline) { addToQueue({ method: 'DELETE', id: finalId }); return; }
+                try {
+                    await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&id=${finalId}`, { method: 'DELETE' });
+                    fetchEvents();
+                } catch (error) { addToQueue({ method: 'DELETE', id: finalId }); }
+            }
+        );
     };
 
     const moveEvent = async (eventId, newDate) => {
@@ -729,6 +753,11 @@ export const useCalendar = () => {
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
 
+        if (!isOnline) {
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB });
+            return;
+        }
+
         try { // Corrigindo o nome da tabela
             const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses`, {
                 method: 'POST',
@@ -740,7 +769,8 @@ export const useCalendar = () => {
             toast.success("Nota criada com sucesso!");
         } catch (error) {
             console.error(error);
-            toast.error("Erro ao salvar nota.");
+            toast.error("Sem conexão. A nota será salva assim que a internet voltar.");
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB });
         }
     };
 
@@ -751,6 +781,11 @@ export const useCalendar = () => {
             cr4a1_evento_id: notaData.eventoId || null,
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
+
+        if (!isOnline) {
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'PATCH', id: notaId, body: payload });
+            return;
+        }
 
         try { // Corrigindo o nome da tabela
             const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
@@ -763,22 +798,31 @@ export const useCalendar = () => {
             toast.success("Nota atualizada!");
         } catch (error) {
             console.error(error);
-            toast.error("Erro ao atualizar nota.");
+            toast.error("Sem conexão. A atualização será sincronizada quando a internet voltar.");
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'PATCH', id: notaId, body: payload });
         }
     };
 
     const deleteNota = async (notaId) => {
-        try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
-                method: 'DELETE'
-            });
-            if (!response.ok) throw new Error('Erro ao deletar nota');
-            fetchNotas();
-            toast.success("Nota removida.");
-        } catch (error) {
-            console.error(error);
-            toast.error("Erro ao remover nota.");
-        }
+        const removedNota = notas.find(n => n.cr4a1_notas_kairosid === notaId);
+        setNotas(prev => prev.filter(n => n.cr4a1_notas_kairosid !== notaId));
+
+        showUndoToast(
+            'Nota excluída.',
+            () => { if (removedNota) setNotas(prev => [...prev, removedNota]); },
+            async () => {
+                if (!isOnline) { addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: notaId }); return; }
+                try {
+                    const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) throw new Error('Erro ao deletar nota');
+                } catch (error) {
+                    console.error(error);
+                    addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: notaId });
+                }
+            }
+        );
     };
 
     const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {

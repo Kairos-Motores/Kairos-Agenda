@@ -3,12 +3,14 @@ import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { checkAccess } from '../utils/permissions';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const EventModal = ({
     isOpen, onClose, onSave, initialDate, editingEvent, userRole,
     allUsers = [], eventTypes = [], viewedUser, workspaces = [],
     preselectedTargetUser, preselectedWorkspaceId
 }) => {
+    const trapRef = useFocusTrap(isOpen);
     const [formData, setFormData] = useState({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
@@ -85,6 +87,21 @@ export const EventModal = ({
         document.addEventListener('mousedown', handleOutsideClick);
         return () => document.removeEventListener('mousedown', handleOutsideClick);
     }, [openDropdown]);
+
+    // Fecha com Esc -- só quando não há um seletor (data/hora) ou dropdown aberto por cima,
+    // pra Esc fechar aquele primeiro em vez de pular direto pro modal inteiro
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e) => {
+            if (e.key !== 'Escape') return;
+            if (activePicker) { setActivePicker(null); return; }
+            if (openDropdown) { setOpenDropdown(null); return; }
+            if (isEmojiPickerOpen) { setIsEmojiPickerOpen(false); return; }
+            onClose();
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, activePicker, openDropdown, isEmojiPickerOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -226,11 +243,11 @@ export const EventModal = ({
 
     return (
         <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div className="modal-content view-enter" style={{ maxWidth: '520px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '32px', padding: '26px', position: 'relative', border: '1px solid var(--border-color)', boxShadow: '0 24px 60px rgba(0,0,0,0.15)' }}>
+            <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ maxWidth: '520px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '32px', padding: '26px', position: 'relative', border: '1px solid var(--border-color)', boxShadow: '0 24px 60px rgba(0,0,0,0.15)' }}>
                 
                 {/* BARRA DE AÇÕES SUPERIOR */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <button onClick={onClose} className="icon-btn boing-effect" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
+                    <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
                         <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                     </button>
                     <h2 style={{ fontSize: '17px', fontWeight: '700', margin: 0, color: 'var(--text-title)' }}>
@@ -268,7 +285,7 @@ export const EventModal = ({
                             onChange={e => setFormData({...formData, title: e.target.value})}
                             style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '17px', padding: '8px 0', outline: 'none', color: 'var(--text-primary)', fontWeight: '600' }}
                         />
-                        <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn boing-effect" style={{ background: isEmojiPickerOpen ? 'var(--bg-tertiary)' : 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: `1px solid ${isEmojiPickerOpen ? tintColor : 'var(--border-color)'}` }}>
+                        <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn boing-effect" aria-label="Escolher emoji" style={{ background: isEmojiPickerOpen ? 'var(--bg-tertiary)' : 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: `1px solid ${isEmojiPickerOpen ? tintColor : 'var(--border-color)'}` }}>
                             <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>mood</span>
                         </button>
 
@@ -376,7 +393,7 @@ export const EventModal = ({
                                             <input type="checkbox" checked={task.completed} onChange={e => { const updated = [...subtasks]; updated[index].completed = e.target.checked; setSubtasks(updated); }} style={{ accentColor: tintColor, width: '16px', height: '16px' }} />
                                             <span style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: '500' }}>{task.text}</span>
                                         </div>
-                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} className="icon-btn boing-effect" style={{ width: '28px', height: '28px', color: '#e74c3c' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
+                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} className="icon-btn boing-effect" aria-label={`Remover subtarefa "${task.text}"`} style={{ width: '28px', height: '28px', color: '#e74c3c' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
                                     </div>
                                 ))}
                             </div>
@@ -402,7 +419,7 @@ export const EventModal = ({
                                         <a href={file.base64} download={file.name} style={{ fontSize: '13px', color: tintColor, textDecoration: 'none', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>
                                             📄 {file.name} <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '400' }}>({Math.round(file.size / 1024)} KB)</span>
                                         </a>
-                                        <button onClick={() => removeFile(i)} className="icon-btn boing-effect" style={{ width: '28px', height: '28px', color: '#e74c3c' }}>
+                                        <button onClick={() => removeFile(i)} className="icon-btn boing-effect" aria-label={`Remover anexo "${file.name}"`} style={{ width: '28px', height: '28px', color: '#e74c3c' }}>
                                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                                         </button>
                                     </div>
@@ -420,8 +437,8 @@ export const EventModal = ({
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <span style={{ fontWeight: '700', textTransform: 'capitalize', fontSize: '14px', color: 'var(--text-title)' }}>{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
                                 <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_left</span></button>
-                                    <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_right</span></button>
+                                    <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn boing-effect" aria-label="Mês anterior"><span className="material-symbols-rounded">chevron_left</span></button>
+                                    <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn boing-effect" aria-label="Próximo mês"><span className="material-symbols-rounded">chevron_right</span></button>
                                 </div>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '8px' }}>

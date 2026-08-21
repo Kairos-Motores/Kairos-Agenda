@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, deleteEventType }) => {
+    const trapRef = useFocusTrap(isOpen);
     const [activeTab, setActiveTab] = useState('users');
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, onClose]);
 
     const commonEmojis = [
         // Trabalho e Reuniões
@@ -35,10 +44,10 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
 
     return (
         <div className="modal-overlay">
-            <div className="modal-container">
+            <div ref={trapRef} tabIndex={-1} className="modal-container">
                 <div className="modal-header">
                     <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>⚙️ Configurações</h3>
-                    <button onClick={onClose} className="icon-btn boing-effect" style={{ color: 'var(--text-secondary)' }}>
+                    <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ color: 'var(--text-secondary)' }}>
                         <span className="material-symbols-rounded">close</span>
                     </button>
                 </div>
@@ -104,7 +113,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                             <span style={{ fontSize: '16px' }}>{t.emoji}</span>
                                             <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{t.name}</span>
                                         </div>
-                                        <button onClick={() => deleteEventType(t.id)} className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
+                                        <button onClick={() => deleteEventType(t.id)} className="icon-btn boing-effect" aria-label={`Remover tipo de evento "${t.name}"`} style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
                                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
                                         </button>
                                     </div>
