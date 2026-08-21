@@ -959,6 +959,7 @@ function App() {
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [now, setNow] = useState(new Date());
   const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
@@ -1239,6 +1240,11 @@ function App() {
     const timer = setInterval(checkNotifications, 30000);
     return () => clearInterval(timer);
   }, [events]);
+
+  useEffect(() => {
+    const clockTimer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(clockTimer);
+  }, []);
 
   useEffect(() => {
     applyDynamicTheme(accentColor, theme === 'dark');
@@ -1903,6 +1909,12 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div onClick={() => setCurrentDate(new Date())} className="today-badge boing-effect" title="Ir para hoje" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', height: '36px', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '15px', color: 'var(--text-accent)' }}>today</span>
+                <span style={{ textTransform: 'capitalize' }}>{format(now, "EEE, d 'de' MMM", { locale: ptBR })}</span>
+                <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
+                <span>{format(now, 'HH:mm')}</span>
+              </div>
               <button onClick={requestNotificationPermission} className="icon-btn boing-effect" title="Ativar Notificações">
                 <span className="material-symbols-rounded">notifications</span>
               </button>

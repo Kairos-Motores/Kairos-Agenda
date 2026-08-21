@@ -105,6 +105,7 @@ export const MiniMonth = ({
   onDayClick,
 }) => {
   const days = generateMonthDays(monthDate);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredRect, setHoveredRect] = useState(null);
   const [isTooltipHovered, setIsTooltipHovered] = useState(false);
@@ -197,6 +198,7 @@ export const MiniMonth = ({
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = getEventsForDay(day);
           const isCurrentMonth = day.getMonth() === monthDate.getMonth();
+          const isToday = isCurrentMonth && dateStr === todayStr;
           const holiday = isCurrentMonth ? holidays.find(h => h.date === dateStr) : null;
           const hasContent = isCurrentMonth && (dayEvents.length > 0 || holiday);
 
@@ -216,13 +218,22 @@ export const MiniMonth = ({
             </div>
           );
 
-          // Número do dia
+          // Número do dia (com destaque circular quando é hoje)
           const dayNumber = (
             <span style={{
               position: 'relative',
               zIndex: 1,
-              fontWeight: holiday ? '700' : '500',
+              fontWeight: (holiday || isToday) ? '700' : '500',
               fontSize: isDetailed ? '16px' : '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              width: isToday ? (isDetailed ? '26px' : '17px') : undefined,
+              height: isToday ? (isDetailed ? '26px' : '17px') : undefined,
+              backgroundColor: isToday ? 'var(--text-accent)' : 'transparent',
+              color: isToday ? '#fff' : undefined,
+              transition: 'background-color 0.2s ease',
             }}>
               {format(day, 'd')}
             </span>
