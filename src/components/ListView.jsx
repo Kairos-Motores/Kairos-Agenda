@@ -205,7 +205,7 @@ export const ListView = ({
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: 'auto' }}>
           <button
-            onClick={() => onEdit(event)}
+            onClick={(e) => onEdit(event, e.currentTarget.getBoundingClientRect())}
             className="btn-secondary"
             style={{
               flex: 1, padding: isMobile ? '12px' : '10px', fontSize: '13px', fontWeight: '600',
@@ -269,7 +269,7 @@ export const ListView = ({
               flexWrap: 'wrap',
               gap: '8px'
             }}
-            onClick={() => onEdit(event)}
+            onClick={(e) => onEdit(event, e.currentTarget.getBoundingClientRect())}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: isMobile ? '1 1 auto' : 2 }}>
               <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-title)', wordBreak: 'break-word' }}>

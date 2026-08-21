@@ -595,17 +595,18 @@ body {
   transition: var(--transition-elastic), transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* --- HOVER CARD: Visualização Anual --- */
+/* --- HOVER CARD: Visualização Anual ---
+   Em vez de escalar o card (o que distorcia a borda em arco-íris e empurrava
+   os vizinhos), só o brilho ao redor cresce, como uma sombra colorida pulsando
+   por baixo. O card fica no lugar e a borda continua girando sem interrupção. */
 .mini-month-card:hover {
   box-shadow:
     0 0 0 2px var(--text-accent),
+    0 0 28px 6px rgba(255, 77, 77, 0.22),
+    0 0 40px 10px rgba(77, 166, 255, 0.16),
     0 24px 56px rgba(0,0,0,0.22),
     0 10px 24px rgba(0,0,0,0.14) !important;
-  transform: scale(1.06) translateY(-6px) !important;
   z-index: 50 !important;
-  background:
-    linear-gradient(var(--bg-primary), var(--bg-primary)) padding-box,
-    conic-gradient(from var(--border-angle), #ff4d4d, #ffb84d, #4dff4d, #4da6ff, #b84dff, #ff4d4d) border-box !important;
 }
 
 .mini-month-container {

@@ -5,6 +5,7 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
+import { EventDetailModal } from './EventDetailModal';
 
 /* ================================================================
    MarqueeText (mantido)
@@ -100,6 +101,7 @@ export const MiniMonth = ({
   getEventsForDay,
   holidays = [],
   allUsers = [],
+  workspaces = [],
   onEditEvent,
   isDetailed = false,
   onDayClick,
@@ -109,6 +111,8 @@ export const MiniMonth = ({
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredRect, setHoveredRect] = useState(null);
   const [isTooltipHovered, setIsTooltipHovered] = useState(false);
+  const [detailEvent, setDetailEvent] = useState(null);
+  const [detailSourceRect, setDetailSourceRect] = useState(null);
   const leaveTimer = useRef(null);
 
   // Mapa de cores por usuário
@@ -131,6 +135,21 @@ export const MiniMonth = ({
     setIsTooltipHovered(false);
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
   }, [isDetailed]);
+
+  // Fecha o tooltip imediatamente ao rolar a tela — ele é posicionado com um
+  // retângulo capturado no momento do hover e não acompanha o scroll, então
+  // ficava "grudado" na tela em vez de sumir ou seguir o dia.
+  useEffect(() => {
+    if (!hoveredDay) return;
+    const closeOnScroll = () => {
+      if (leaveTimer.current) clearTimeout(leaveTimer.current);
+      setHoveredDay(null);
+      setHoveredRect(null);
+      setIsTooltipHovered(false);
+    };
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => window.removeEventListener('scroll', closeOnScroll, true);
+  }, [hoveredDay]);
 
   // Controle do tooltip (sem flicker)
   const tryCloseTooltip = () => {
@@ -416,11 +435,13 @@ export const MiniMonth = ({
                 .map((ev, idx) => (
                   <div
                     key={idx}
-                    onClick={() => {
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
                       setIsTooltipHovered(false);
                       setHoveredDay(null);
                       setHoveredRect(null);
-                      onEditEvent(ev);
+                      setDetailSourceRect(rect);
+                      setDetailEvent(ev);
                     }}
                     style={{
                       display: 'flex',
@@ -443,6 +464,15 @@ export const MiniMonth = ({
           </div>
         </TooltipPortal>
       )}
+
+      <EventDetailModal
+        event={detailEvent}
+        sourceRect={detailSourceRect}
+        allUsers={allUsers}
+        workspaces={workspaces}
+        onClose={() => setDetailEvent(null)}
+        onEdit={(ev) => { setDetailEvent(null); onEditEvent(ev); }}
+      />
     </div>
   );
 };

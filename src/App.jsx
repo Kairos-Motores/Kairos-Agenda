@@ -14,6 +14,7 @@ import { NotesPanel } from './components/NotesPanel';
 import { generateMonthDays } from './utils/dateHelpers';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import { GuidedTour } from './components/GuidedTour';
+import { EventDetailModal } from './components/EventDetailModal';
 import { dataverseApi } from './api/dataverse';
 import {
   format, addMonths, subMonths, addYears, subYears, addDays, subDays, startOfWeek
@@ -769,7 +770,7 @@ const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = []
 };
 
 // --- COMPONENTE DE TOOLTIP PARA A VISUALIZAÇÃO MENSAL ---
-const DayTooltip = ({ dayData, allUsers, onEditEvent, onMouseEnter, onMouseLeave }) => {
+const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMouseLeave }) => {
   if (!dayData) return null;
   const { dateStr, events, rect } = dayData;
   if (!rect) return null;
@@ -812,7 +813,7 @@ const DayTooltip = ({ dayData, allUsers, onEditEvent, onMouseEnter, onMouseLeave
           {events.map((ev, idx) => (
             <div
               key={idx}
-              onClick={() => onEditEvent(ev)}
+              onClick={(e) => onViewEvent(ev, e.currentTarget.getBoundingClientRect())}
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px',
                 borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s',
@@ -950,6 +951,8 @@ function App() {
   const [isVisitaModalOpen, setIsVisitaModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [editingVisita, setEditingVisita] = useState(null);
+  const [detailEvent, setDetailEvent] = useState(null);
+  const [detailSourceRect, setDetailSourceRect] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
@@ -1001,6 +1004,19 @@ function App() {
       setDayTooltip(null);
     }, 200);
   };
+
+  // Fecha o tooltip do dia imediatamente ao rolar a tela -- ele usa um retângulo
+  // capturado no hover e não acompanha o scroll, então ficava preso na tela.
+  useEffect(() => {
+    if (!dayTooltip) return;
+    const closeOnScroll = () => {
+      if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+      setIsTooltipHovered(false);
+      setDayTooltip(null);
+    };
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => window.removeEventListener('scroll', closeOnScroll, true);
+  }, [dayTooltip]);
 
   const handleEditWorkspaceClick = (ws) => {
     setEditingWorkspace(ws);
@@ -1390,6 +1406,12 @@ function App() {
       await deleteEvent(eventToDelete.cr4a1_agenda_kairosid, eventToDelete.cr4a1_user_login);
       toast.success("Eliminado."); setIsDeleteModalOpen(false); setEventToDelete(null);
     } catch (err) { toast.error("Falha ao eliminar."); }
+  };
+
+  const handleViewEvent = (event, rect) => {
+    if (event.isVisitaPrincipal || event.isIntervalo) { handleEditClick(event); return; }
+    setDetailSourceRect(rect);
+    setDetailEvent(event);
   };
 
   const handleEditClick = (event) => {
@@ -2240,6 +2262,7 @@ function App() {
                                 getEventsForDay={handleGetEventsForDay}
                                 holidays={holidays}
                                 allUsers={allUsers}
+                                workspaces={workspaces}
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
 
@@ -2339,7 +2362,7 @@ function App() {
                                       <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e} index={idx}>
                                         <div
                                           className="event-badge boing-effect"
-                                          onClick={(ev) => { ev.stopPropagation(); handleEditClick(e); }}
+                                          onClick={(ev) => { ev.stopPropagation(); handleViewEvent(e, ev.currentTarget.getBoundingClientRect()); }}
                                           style={badgeStyle}
                                         >
                                           {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
@@ -2357,10 +2380,10 @@ function App() {
                     </div>
                   )}
 
-                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleEditClick} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
+                  {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
                   {['day', '3days', 'week'].includes(view) && (
-                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleEditClick} dayViewMode={dayViewMode} />
+                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleViewEvent} dayViewMode={dayViewMode} />
                   )}
                 </>
               )}
@@ -2438,6 +2461,15 @@ function App() {
         </div>
 
         <GuidedTour isOpen={isTutorialOpen} onClose={() => { setIsTutorialOpen(false); setIsSidebarOpen(false); }} steps={TUTORIAL_STEPS} />
+
+        <EventDetailModal
+          event={detailEvent}
+          sourceRect={detailSourceRect}
+          allUsers={allUsers}
+          workspaces={workspaces}
+          onClose={() => setDetailEvent(null)}
+          onEdit={(ev) => { setDetailEvent(null); handleEditClick(ev); }}
+        />
 
         {/* MODAIS E COMPONENTES FIXOS */}
         <div style={{ position: 'relative', zIndex: 9999 }}>
@@ -2579,7 +2611,12 @@ function App() {
             <DayTooltip
               dayData={dayTooltip}
               allUsers={allUsers}
-              onEditEvent={handleEditClick}
+              onViewEvent={(ev, rect) => {
+                setIsTooltipHovered(false);
+                setDayTooltip(null);
+                setDetailSourceRect(rect);
+                setDetailEvent(ev);
+              }}
               onMouseEnter={handleTooltipMouseEnter}
               onMouseLeave={handleTooltipMouseLeave}
             />
