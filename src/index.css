@@ -526,6 +526,17 @@ body {
   border-color: var(--text-accent) !important;
 }
 
+.date-picker-day:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+.cancel-text-btn:hover {
+  color: var(--text-primary) !important;
+}
+.unit-quick-btn:hover {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--text-accent) !important;
+}
+
 .premium-tooltip {
   background-color: var(--bg-primary);
   border-radius: 16px;

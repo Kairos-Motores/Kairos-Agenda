@@ -241,7 +241,7 @@ const LoginScreen = ({ onLogin }) => {
     setIsAuthenticating(true);
     const result = await onLogin(username, password);
     if (!result.success) {
-      toast.error(result.reason === 'connection_error' ? 'Erro de conexão.' : 'Utilizador ou senha inválidos.', { style: { borderRadius: '32px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '12px 24px' } });
+      toast.error(result.reason === 'connection_error' ? 'Erro de conexão.' : 'Utilizador ou senha inválidos.');
       setIsAuthenticating(false);
     }
   };
@@ -1535,7 +1535,24 @@ function App() {
         onTouchEnd={onTouchEnd}
         style={{ minHeight: '100vh', backgroundColor: 'var(--bg-page)', display: 'flex', flexDirection: 'column' }}
       >
-        <Toaster position="bottom-center" />
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              background: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+            },
+            success: { iconTheme: { primary: '#34a853', secondary: 'var(--bg-primary)' } },
+            error: { iconTheme: { primary: '#e74c3c', secondary: 'var(--bg-primary)' } },
+            loading: { iconTheme: { primary: 'var(--text-accent)', secondary: 'var(--bg-primary)' } },
+          }}
+        />
 
         {showBirthday && <BirthdayCelebration name={currentUser?.cr4a1_nome_exibicao || user} onClose={() => setShowBirthday(false)} />}
 

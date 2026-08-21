@@ -90,7 +90,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
             <div className="modal-container" style={{ maxWidth: '500px', width: '90%' }}>
                 <div className="modal-header">
                     <h3 style={{ margin: 0 }}>{editingWorkspace ? '🚀 Editar Workspace' : '🚀 Novo Workspace'}</h3>
-                    <button onClick={onClose} className="icon-btn">
+                    <button onClick={onClose} className="icon-btn boing-effect">
                         <span className="material-symbols-rounded">close</span>
                     </button>
                 </div>
@@ -123,10 +123,10 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                             <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>ADICIONAR POR GRUPO</label>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                                 {checkAccess(userRole, ['ADMIN', 'RH']) && (
-                                    <button type="button" onClick={handleAddAll} style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', background: 'var(--text-accent)', color: 'white', border: 'none', cursor: 'pointer' }}>🌐 Toda a Kairós</button>
+                                    <button type="button" onClick={handleAddAll} className="boing-effect" style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', background: 'var(--text-accent)', color: 'white', border: 'none', cursor: 'pointer' }}>🌐 Toda a Kairós</button>
                                 )}
                                 {unidades.map(u => (
-                                    <button type="button" key={u} onClick={() => handleAddUnit(u)} style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)' }}>📍 {u}</button>
+                                    <button type="button" key={u} onClick={() => handleAddUnit(u)} className="boing-effect unit-quick-btn" style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)' }}>📍 {u}</button>
                                 ))}
                             </div>
 
@@ -135,6 +135,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                 <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border-color)' }}>
                                     <button
                                         onClick={() => setMemberMode('text')}
+                                        className="boing-effect"
                                         style={{
                                             padding: '4px 12px', fontSize: '12px', borderRadius: '6px', border: 'none',
                                             background: memberMode === 'text' ? 'var(--text-accent)' : 'transparent',
@@ -146,6 +147,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                     </button>
                                     <button
                                         onClick={() => setMemberMode('visual')}
+                                        className="boing-effect"
                                         style={{
                                             padding: '4px 12px', fontSize: '12px', borderRadius: '6px', border: 'none',
                                             background: memberMode === 'visual' ? 'var(--text-accent)' : 'transparent',
@@ -227,7 +229,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                     </div>
 
                     <button
-                        className="btn-primary"
+                        className="btn-primary boing-effect"
                         style={{ width: '100%' }}
                         onClick={async () => {
                             if (!formData.nome) return;

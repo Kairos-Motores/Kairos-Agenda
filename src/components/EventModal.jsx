@@ -230,7 +230,7 @@ export const EventModal = ({
                 
                 {/* BARRA DE AÇÕES SUPERIOR */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <button onClick={onClose} className="icon-btn" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
+                    <button onClick={onClose} className="icon-btn boing-effect" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
                         <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                     </button>
                     <h2 style={{ fontSize: '17px', fontWeight: '700', margin: 0, color: 'var(--text-title)' }}>
@@ -251,7 +251,8 @@ export const EventModal = ({
                                 });
                             } catch (e) { setIsSaving(false); }
                         }}
-                        style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: 'pointer', fontSize: '13px', padding: '8px 20px', borderRadius: '100px', letterSpacing: '0.2px' }}
+                        className="boing-effect"
+                        style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: isSaving ? 'default' : 'pointer', fontSize: '13px', padding: '8px 20px', borderRadius: '100px', letterSpacing: '0.2px', opacity: isSaving ? 0.7 : 1 }}
                     >
                         {isSaving ? 'A GUARDAR...' : 'SALVAR'}
                     </button>
@@ -267,7 +268,7 @@ export const EventModal = ({
                             onChange={e => setFormData({...formData, title: e.target.value})}
                             style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '17px', padding: '8px 0', outline: 'none', color: 'var(--text-primary)', fontWeight: '600' }}
                         />
-                        <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn" style={{ background: 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: '1px solid var(--border-color)' }}>
+                        <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn boing-effect" style={{ background: isEmojiPickerOpen ? 'var(--bg-tertiary)' : 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: `1px solid ${isEmojiPickerOpen ? tintColor : 'var(--border-color)'}` }}>
                             <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>mood</span>
                         </button>
 
@@ -366,7 +367,7 @@ export const EventModal = ({
                             <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', display: 'block', marginBottom: '8px', letterSpacing: '0.3px' }}>Sprint Checklist (Subtasks)</label>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                                 <input type="text" placeholder="Adicionar sub-item técnico..." value={newSubtask} onChange={e => setNewSubtask(e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
-                                <button onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }} className="btn-primary" style={{ padding: '0 16px', borderRadius: '14px', fontSize: '13px', background: tintColor }}>Incluir</button>
+                                <button onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }} className="btn-primary boing-effect" style={{ padding: '0 16px', borderRadius: '14px', fontSize: '13px', background: tintColor }}>Incluir</button>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {subtasks.map((task, index) => (
@@ -375,7 +376,7 @@ export const EventModal = ({
                                             <input type="checkbox" checked={task.completed} onChange={e => { const updated = [...subtasks]; updated[index].completed = e.target.checked; setSubtasks(updated); }} style={{ accentColor: tintColor, width: '16px', height: '16px' }} />
                                             <span style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: '500' }}>{task.text}</span>
                                         </div>
-                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} style={{ border: 'none', background: 'transparent', color: '#e74c3c', cursor: 'pointer', display: 'flex' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
+                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} className="icon-btn boing-effect" style={{ width: '28px', height: '28px', color: '#e74c3c' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
                                     </div>
                                 ))}
                             </div>
@@ -386,7 +387,7 @@ export const EventModal = ({
                     <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Documentação Técnica</label>
-                            <button onClick={() => document.getElementById('modal-file-attach').click()} className="btn-secondary" style={{ padding: '6px 14px', borderRadius: '100px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                            <button onClick={() => document.getElementById('modal-file-attach').click()} className="btn-secondary boing-effect" style={{ padding: '6px 14px', borderRadius: '100px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>upload_file</span> Carregar
                             </button>
                             <input id="modal-file-attach" type="file" multiple hidden onChange={handleFileChange} />
@@ -401,7 +402,7 @@ export const EventModal = ({
                                         <a href={file.base64} download={file.name} style={{ fontSize: '13px', color: tintColor, textDecoration: 'none', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>
                                             📄 {file.name} <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '400' }}>({Math.round(file.size / 1024)} KB)</span>
                                         </a>
-                                        <button onClick={() => removeFile(i)} style={{ border: 'none', background: 'transparent', color: '#e74c3c', cursor: 'pointer', display: 'flex' }}>
+                                        <button onClick={() => removeFile(i)} className="icon-btn boing-effect" style={{ width: '28px', height: '28px', color: '#e74c3c' }}>
                                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                                         </button>
                                     </div>
@@ -419,8 +420,8 @@ export const EventModal = ({
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <span style={{ fontWeight: '700', textTransform: 'capitalize', fontSize: '14px', color: 'var(--text-title)' }}>{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
                                 <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn"><span className="material-symbols-rounded">chevron_left</span></button>
-                                    <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn"><span className="material-symbols-rounded">chevron_right</span></button>
+                                    <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_left</span></button>
+                                    <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn boing-effect"><span className="material-symbols-rounded">chevron_right</span></button>
                                 </div>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '8px' }}>
@@ -432,9 +433,10 @@ export const EventModal = ({
                                     const isSelected = formData[activePicker] === dateStr;
                                     const isCurrentMonth = day.getMonth() === pickerMonth.getMonth();
                                     return (
-                                        <button 
-                                            key={i} 
+                                        <button
+                                            key={i}
                                             onClick={() => handleSelectDate(day)}
+                                            className={`boing-effect${isSelected ? '' : ' date-picker-day'}`}
                                             style={{
                                                 width: '34px', height: '34px', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', fontWeight: '700',
                                                 background: isSelected ? tintColor : 'transparent',
@@ -447,7 +449,7 @@ export const EventModal = ({
                                     );
                                 })}
                             </div>
-                            <button onClick={() => setActivePicker(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', width: '100%', textAlign: 'right', marginTop: '12px', paddingRight: '8px' }}>CANCELAR</button>
+                            <button onClick={() => setActivePicker(null)} className="boing-effect cancel-text-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', width: '100%', textAlign: 'right', marginTop: '12px', paddingRight: '8px' }}>CANCELAR</button>
                         </div>
                     </div>
                 )}
@@ -477,14 +479,15 @@ export const EventModal = ({
                             </div>
                             
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button onClick={() => setActivePicker(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 10px' }}>CANCELAR</button>
-                                <button 
+                                <button onClick={() => setActivePicker(null)} className="boing-effect cancel-text-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 10px' }}>CANCELAR</button>
+                                <button
                                     onClick={() => {
                                         const hInput = document.getElementById('h-picker').value || '00';
                                         const mInput = document.getElementById('m-picker').value || '00';
                                         setFormData(prev => ({ ...prev, [activePicker === 'startTime' ? 'startHour' : 'endHour']: `${hInput.padStart(2, '0')}:${mInput.padStart(2, '0')}` }));
                                         setActivePicker(null);
                                     }}
+                                    className="boing-effect"
                                     style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 14px', borderRadius: '100px' }}
                                 >OK</button>
                             </div>
