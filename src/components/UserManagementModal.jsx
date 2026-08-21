@@ -26,6 +26,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const tabStyle = (active) => ({
         padding: '10px 20px',
         cursor: 'pointer',
+        userSelect: 'none',
         borderBottom: active ? '3px solid var(--text-accent)' : '3px solid transparent',
         color: active ? 'var(--text-accent)' : 'var(--text-secondary)',
         fontWeight: '600',
@@ -37,7 +38,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
             <div className="modal-container">
                 <div className="modal-header">
                     <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '20px', fontWeight: '600' }}>⚙️ Configurações</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-secondary)' }}>✕</button>
+                    <button onClick={onClose} className="icon-btn boing-effect" style={{ color: 'var(--text-secondary)' }}>
+                        <span className="material-symbols-rounded">close</span>
+                    </button>
                 </div>
 
                 <div className="modal-body">
@@ -63,16 +66,17 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                             <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <div style={{ position: 'relative' }}>
-                                        <button 
+                                        <button
                                             onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                                            style={{ width: '45px', height: '45px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            className="boing-effect"
+                                            style={{ width: '45px', height: '45px', borderRadius: '12px', border: `1px solid ${isEmojiPickerOpen ? 'var(--text-accent)' : 'var(--border-color)'}`, background: isEmojiPickerOpen ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
                                             {newTypeEmoji}
                                         </button>
                                         {isEmojiPickerOpen && (
                                             <div style={{ position: 'absolute', top: '50px', left: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px', zIndex: 1100, boxShadow: 'var(--shadow-md)', maxHeight: '200px', overflowY: 'auto' }}>
                                                 {commonEmojis.map(emoji => (
-                                                    <button key={emoji} onClick={() => { setNewTypeEmoji(emoji); setIsEmojiPickerOpen(false); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '5px' }}>{emoji}</button>
+                                                    <button key={emoji} onClick={() => { setNewTypeEmoji(emoji); setIsEmojiPickerOpen(false); }} className="boing-effect emoji-pick-btn" style={{ background: 'none', border: 'none', borderRadius: '8px', fontSize: '20px', cursor: 'pointer', padding: '5px' }}>{emoji}</button>
                                                 ))}
                                             </div>
                                         )}
@@ -100,7 +104,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                             <span style={{ fontSize: '16px' }}>{t.emoji}</span>
                                             <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{t.name}</span>
                                         </div>
-                                        <button onClick={() => deleteEventType(t.id)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+                                        <button onClick={() => deleteEventType(t.id)} className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
+                                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                                        </button>
                                     </div>
                                 ))}
                             </div>

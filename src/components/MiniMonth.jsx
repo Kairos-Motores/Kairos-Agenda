@@ -256,11 +256,11 @@ export const MiniMonth = ({
                   }}
                   onMouseEnter={(e) => hasContent && !isDetailed && handleDayEnter(dateStr, e)}
                   onMouseLeave={!isDetailed ? handleDayLeave : undefined}
+                  className="mini-day-cell"
                   style={{
                     position: 'relative',
-                    backgroundColor: snapshot.isDraggingOver ? 'var(--bg-tertiary)' : 'transparent',
+                    backgroundColor: snapshot.isDraggingOver ? 'var(--bg-tertiary)' : undefined,
                     borderRadius: '4px',
-                    transition: 'background-color 0.2s',
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',

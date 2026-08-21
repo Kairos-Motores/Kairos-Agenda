@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
 const TOUR_STYLES = `
@@ -13,14 +13,27 @@ const TOUR_STYLES = `
   .kairos-tour-btn:active { transform: scale(0.9); }
 `;
 
-const CARD_WIDTH = 320;
+const CARD_MAX_WIDTH = 320;
 const GAP = 16;
 const PADDING = 10;
+const EDGE_MARGIN = 16;
 
 export const GuidedTour = ({ isOpen, onClose, steps = [] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
   const prevIndexRef = useRef(null);
+  const cardRef = useRef(null);
+  const [cardSize, setCardSize] = useState({ width: CARD_MAX_WIDTH, height: 240 });
+
+  // Mede o tamanho real do cartão (o texto muda de passo pra passo) para garantir
+  // que ele nunca fique posicionado fora da tela, em vez de estimar uma altura fixa.
+  useLayoutEffect(() => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    if (rect.width && rect.height && (Math.abs(rect.width - cardSize.width) > 1 || Math.abs(rect.height - cardSize.height) > 1)) {
+      setCardSize({ width: rect.width, height: rect.height });
+    }
+  });
 
   const step = steps[currentIndex];
 
@@ -79,26 +92,40 @@ export const GuidedTour = ({ isOpen, onClose, steps = [] }) => {
   const goNext = () => { if (isLast) onClose?.(); else setCurrentIndex(i => i + 1); };
   const goPrev = () => { if (!isFirst) setCurrentIndex(i => i - 1); };
 
-  // Calcula onde o cartão de explicação deve ficar em torno do elemento destacado
+  // Calcula onde o cartão de explicação deve ficar em torno do elemento destacado,
+  // usando o tamanho real medido do cartão para garantir que ele fique sempre 100% visível.
   const cardStyle = (() => {
-    const base = { position: 'fixed', width: `min(${CARD_WIDTH}px, calc(100vw - 32px))`, zIndex: 2 };
-    if (!targetRect) {
-      return { ...base, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-    }
+    const base = { position: 'fixed', width: `min(${CARD_MAX_WIDTH}px, calc(100vw - ${EDGE_MARGIN * 2}px))`, zIndex: 2 };
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
-    const spaceBelow = viewportH - targetRect.bottom;
-    const spaceAbove = targetRect.top;
+    const cardW = cardSize.width;
+    const cardH = cardSize.height;
+    const maxTop = Math.max(EDGE_MARGIN, viewportH - cardH - EDGE_MARGIN);
+    const maxLeft = Math.max(EDGE_MARGIN, viewportW - cardW - EDGE_MARGIN);
 
-    let top;
-    if (spaceBelow > 220 || spaceBelow > spaceAbove) {
-      top = Math.min(targetRect.bottom + GAP, viewportH - 260);
-    } else {
-      top = Math.max(16, targetRect.top - GAP - 220);
+    if (!targetRect) {
+      const top = Math.min(Math.max((viewportH - cardH) / 2, EDGE_MARGIN), maxTop);
+      const left = Math.min(Math.max((viewportW - cardW) / 2, EDGE_MARGIN), maxLeft);
+      return { ...base, top: `${top}px`, left: `${left}px` };
     }
 
-    let left = targetRect.left + targetRect.width / 2 - CARD_WIDTH / 2;
-    left = Math.max(16, Math.min(left, viewportW - CARD_WIDTH - 16));
+    const spaceBelow = viewportH - targetRect.bottom - GAP;
+    const spaceAbove = targetRect.top - GAP;
+
+    let top;
+    if (spaceBelow >= cardH) {
+      top = targetRect.bottom + GAP;
+    } else if (spaceAbove >= cardH) {
+      top = targetRect.top - GAP - cardH;
+    } else {
+      // Não cabe inteiro nem acima nem abaixo do alvo (ex: alvo muito alto na tela):
+      // prioriza manter o cartão 100% visível em vez de encostado no alvo.
+      top = spaceBelow >= spaceAbove ? maxTop : EDGE_MARGIN;
+    }
+    top = Math.min(Math.max(top, EDGE_MARGIN), maxTop);
+
+    let left = targetRect.left + targetRect.width / 2 - cardW / 2;
+    left = Math.min(Math.max(left, EDGE_MARGIN), maxLeft);
 
     return { ...base, top: `${top}px`, left: `${left}px` };
   })();
@@ -127,10 +154,11 @@ export const GuidedTour = ({ isOpen, onClose, steps = [] }) => {
       )}
 
       {/* Cartão de explicação */}
-      <div key={currentIndex} className="kairos-tour-card" style={cardStyle}>
+      <div key={currentIndex} ref={cardRef} className="kairos-tour-card" style={cardStyle}>
         <div style={{
           background: 'var(--bg-primary)', borderRadius: '24px', padding: '20px',
-          border: '1px solid var(--border-color)', boxShadow: '0 16px 48px rgba(0,0,0,0.25)'
+          border: '1px solid var(--border-color)', boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+          maxHeight: `calc(100vh - ${EDGE_MARGIN * 2}px)`, overflowY: 'auto', boxSizing: 'border-box'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '12px' }}>
             <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: 'var(--text-title)' }}>{step.title}</h3>

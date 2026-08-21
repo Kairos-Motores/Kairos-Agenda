@@ -2459,7 +2459,9 @@ function App() {
               <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>O Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect">✕</button>
+                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect">
+                    <span className="material-symbols-rounded">close</span>
+                  </button>
                 </div>
                 {currentUser && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

@@ -255,6 +255,7 @@ export const ListView = ({
         return (
           <div
             key={event.cr4a1_agenda_kairosid}
+            className="list-row-card boing-effect"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -264,7 +265,6 @@ export const ListView = ({
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-              transition: 'background 0.15s',
               cursor: 'pointer',
               flexWrap: 'wrap',
               gap: '8px'

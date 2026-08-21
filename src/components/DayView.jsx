@@ -94,7 +94,7 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                                 {eventsInHour.map(event => {
                                     const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
                                     return (
-                                        <div key={event.cr4a1_agenda_kairosid} onClick={() => onEdit(event)} style={{ backgroundColor: userColor, color: 'white', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', overflow: 'hidden', width: '100%' }}>
+                                        <div key={event.cr4a1_agenda_kairosid} onClick={() => onEdit(event)} className="day-view-event boing-effect" style={{ backgroundColor: userColor, color: 'white', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', overflow: 'hidden', width: '100%', borderLeft: '5px solid rgba(0,0,0,0.2)' }}>
                                             <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.cr4a1_titulo}</div>
                                             <div style={{ fontSize: '10px', opacity: 0.9 }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
                                         </div>
@@ -187,9 +187,10 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                                 {eventsWithPosition.map(event => {
                                     const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
                                     return (
-                                        <div 
+                                        <div
                                             key={event.cr4a1_agenda_kairosid}
                                             onClick={() => onEdit(event)}
+                                            className="day-view-event-timeline"
                                             style={{
                                                 position: 'absolute',
                                                 top: `${event.startMins}px`,

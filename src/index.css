@@ -407,6 +407,19 @@ body {
   box-shadow: 0 5px 15px rgba(0,0,0,0.15);
 }
 
+/* Igual ao .day-view-event, mas sem min-height: usado na timeline onde a
+   altura do bloco representa a duração real do evento em minutos. */
+.day-view-event-timeline {
+  transition: filter 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.day-view-event-timeline:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
+}
+.day-view-event-timeline:active {
+  transform: scale(0.98);
+}
+
 .list-event-card {
   background-color: var(--bg-primary);
   border-radius: var(--radius-premium);
@@ -479,6 +492,31 @@ body {
 
 .modal-header { padding: 24px 24px 8px 24px; display: flex; justify-content: space-between; align-items: center; }
 .modal-body { padding: 8px 24px 24px 24px; }
+
+.list-row-card {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.list-row-card:hover {
+  background-color: var(--bg-secondary) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+.mini-day-cell {
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mini-day-cell:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+.mini-day-cell:active {
+  transform: scale(0.92);
+}
+
+.emoji-pick-btn:hover {
+  background-color: var(--bg-tertiary) !important;
+  transform: scale(1.15);
+}
 
 .premium-tooltip {
   background-color: var(--bg-primary);
