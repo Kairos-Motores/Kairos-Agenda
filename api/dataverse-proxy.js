@@ -48,7 +48,32 @@ export default async function handler(req, res) {
     }
 
     const dataverseRes = await axios(axiosConfig);
-    res.status(200).json(dataverseRes.data);
+    let responseData = dataverseRes.data;
+
+    // O Dataverse pagina coleções grandes via "@odata.nextLink" em vez de devolver tudo
+    // de uma vez; sem seguir esse link, tabelas que passam do limite de página (tipicamente
+    // 5000 linhas) tinham registos truncados silenciosamente, sem nenhum erro visível.
+    if (req.method === 'GET' && Array.isArray(responseData.value)) {
+      let nextLink = responseData['@odata.nextLink'];
+      const allValues = responseData.value;
+      let safetyCounter = 0;
+
+      while (nextLink && safetyCounter < 50) {
+        const nextRes = await axios({
+          method: 'GET',
+          url: nextLink,
+          headers: axiosConfig.headers
+        });
+        allValues.push(...(nextRes.data.value || []));
+        nextLink = nextRes.data['@odata.nextLink'];
+        safetyCounter++;
+      }
+
+      responseData = { ...responseData, value: allValues };
+      delete responseData['@odata.nextLink'];
+    }
+
+    res.status(200).json(responseData);
 
   } catch (error) {
     console.error("Erro Proxy:", error.response?.data || error.message);
