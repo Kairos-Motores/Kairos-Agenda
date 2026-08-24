@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { parseAssignees } from '../utils/assignees';
 
 const MODAL_WIDTH = 480;
 const MODAL_HEIGHT = 560;
@@ -44,8 +45,10 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
   };
 
   const workspace = workspaces.find(w => w.cr4a1_calendarios_workspacesid === event.cr4a1_workspace_id);
-  const responsavel = allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login);
-  const accentColor = event.cr4a1_cor || responsavel?.cr4a1_cor || workspace?.cr4a1_cor_hex || 'var(--text-accent)';
+  const responsaveis = parseAssignees(event.cr4a1_user_login)
+    .map(login => allUsers.find(u => u.cr4a1_username === login) || { cr4a1_username: login })
+    .filter(Boolean);
+  const accentColor = event.cr4a1_cor || responsaveis[0]?.cr4a1_cor || workspace?.cr4a1_cor_hex || 'var(--text-accent)';
 
   let subtasks = [];
   try { subtasks = event.cr4a1_subtasks ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks) : []; } catch { subtasks = []; }
@@ -136,10 +139,17 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
               </div>
             </div>
 
-            {responsavel && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-secondary)' }}>person</span>
-                <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{responsavel.cr4a1_nome_exibicao || responsavel.cr4a1_username}</span>
+            {responsaveis.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-secondary)', marginTop: '1px' }}>group</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {responsaveis.map((r, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: r.cr4a1_cor || '#ccc', flexShrink: 0 }} />
+                      <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{r.cr4a1_nome_exibicao || r.cr4a1_username}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

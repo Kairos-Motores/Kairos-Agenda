@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { checkAccess, hasCoordRole } from '../utils/permissions';
+import { parseAssignees } from '../utils/assignees';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const EventModal = ({
@@ -15,7 +16,7 @@ export const EventModal = ({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
         details: '', type: '', files: [],
-        targetUser: '', allDay: false,
+        targetUser: [], allDay: false,
         workspaceId: ''
     });
 
@@ -56,7 +57,7 @@ export const EventModal = ({
                 details: editingEvent.cr4a1_detalhes || editingEvent.cr4a1_descricao || '',
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
                 files: JSON.parse(editingEvent.cr4a1_arquivos || "[]"),
-                targetUser: editingEvent.cr4a1_user_login || viewedUser,
+                targetUser: parseAssignees(editingEvent.cr4a1_user_login).length > 0 ? parseAssignees(editingEvent.cr4a1_user_login) : (viewedUser ? [viewedUser] : []),
                 workspaceId: editingEvent.cr4a1_workspace_id || (workspaces[0]?.cr4a1_calendarios_workspacesid || '')
             });
             setIsPrivate(editingEvent.cr4a1_privado || false);
@@ -69,7 +70,7 @@ export const EventModal = ({
                 title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
                 startHour: '08:00', endHour: '09:00',
                 details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
-                targetUser: preselectedTargetUser || viewedUser || '', allDay: false,
+                targetUser: preselectedTargetUser ? [preselectedTargetUser] : (viewedUser ? [viewedUser] : []), allDay: false,
                 workspaceId: preselectedWorkspaceId || workspaces[0]?.cr4a1_calendarios_workspacesid || ''
             });
             setSubtasks([]);
@@ -154,7 +155,7 @@ export const EventModal = ({
     const activeItemBg = `${tintColor}1c`; // 11% de opacidade para itens ativos
 
     // COMPONENTE CUSTOMIZADO: Campo de Seleção Estilo MD3 (Sem Dropdown Nativo)
-    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey, searchable = false, searchTerm = '', onSearchChange, emptyMessage = 'Nenhuma opção encontrada.' }) => {
+    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey, searchable = false, searchTerm = '', onSearchChange, emptyMessage = 'Nenhuma opção encontrada.', multiple = false }) => {
         const isDropdownOpen = openDropdown === dropdownKey;
         const filteredOptions = searchable && searchTerm.trim()
             ? options.filter(opt => opt.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
@@ -211,11 +212,19 @@ export const EventModal = ({
                         {filteredOptions.length === 0 ? (
                             <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)' }}>{emptyMessage}</div>
                         ) : filteredOptions.map(opt => {
-                            const isSelected = opt.id === value;
+                            const isSelected = multiple ? value.includes(opt.id) : opt.id === value;
                             return (
                                 <div
                                     key={opt.id}
-                                    onClick={() => { onSelect(opt.id); setOpenDropdown(null); if (searchable) onSearchChange(''); }}
+                                    onClick={() => {
+                                        if (multiple) {
+                                            onSelect(isSelected ? value.filter(v => v !== opt.id) : [...value, opt.id]);
+                                        } else {
+                                            onSelect(opt.id);
+                                            setOpenDropdown(null);
+                                            if (searchable) onSearchChange('');
+                                        }
+                                    }}
                                     style={{
                                         padding: '12px 14px', borderRadius: '14px', fontSize: '14px', fontWeight: isSelected ? '700' : '500',
                                         color: isSelected ? tintColor : 'var(--text-primary)',
@@ -225,9 +234,19 @@ export const EventModal = ({
                                     onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'var(--bg-secondary)')}
                                     onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
                                 >
+                                    {multiple && (
+                                        <span style={{
+                                            width: '16px', height: '16px', borderRadius: '5px', flexShrink: 0,
+                                            border: `1.5px solid ${isSelected ? tintColor : 'var(--border-strong)'}`,
+                                            background: isSelected ? tintColor : 'transparent',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            {isSelected && <span className="material-symbols-rounded" style={{ fontSize: '12px', color: '#fff' }}>check</span>}
+                                        </span>
+                                    )}
                                     {opt.emoji && <span>{opt.emoji}</span>}
                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.name}</span>
-                                    {isSelected && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', fontSize: '16px' }}>check</span>}
+                                    {!multiple && isSelected && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', fontSize: '16px' }}>check</span>}
                                 </div>
                             );
                         })}
@@ -388,18 +407,25 @@ export const EventModal = ({
 
                         {(checkAccess(userRole, ['SECRETARIA', 'ADMIN', 'DIRETORIA']) || hasCoordRole(userRole)) && (
                             <MD3DropdownField
-                                label="Responsável"
-                                icon="person"
+                                label="Responsável(is)"
+                                icon="group"
                                 dropdownKey="targetUser"
                                 containerRef={targetUserRef}
                                 value={formData.targetUser}
-                                displayValue={allUsers.find(u => u.cr4a1_username === formData.targetUser)?.cr4a1_nome_exibicao || formData.targetUser || 'Selecione'}
+                                displayValue={
+                                    formData.targetUser.length === 0
+                                        ? 'Selecione'
+                                        : formData.targetUser.length === 1
+                                            ? (allUsers.find(u => u.cr4a1_username === formData.targetUser[0])?.cr4a1_nome_exibicao || formData.targetUser[0])
+                                            : `${formData.targetUser.length} responsáveis`
+                                }
                                 options={workspaceUsers.map(u => ({ id: u.cr4a1_username, name: u.cr4a1_nome_exibicao || u.cr4a1_username }))}
                                 onSelect={val => setFormData({...formData, targetUser: val})}
                                 searchable
                                 searchTerm={targetUserSearch}
                                 onSearchChange={setTargetUserSearch}
                                 emptyMessage="Nenhum utilizador encontrado neste workspace."
+                                multiple
                             />
                         )}
                     </div>

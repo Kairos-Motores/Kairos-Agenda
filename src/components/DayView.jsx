@@ -1,6 +1,7 @@
 import React from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseAssignees } from '../utils/assignees';
 
 export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, allUsers = [], onEdit, dayViewMode = 'timeline' }) => {
     
@@ -21,6 +22,18 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
         acc[u.cr4a1_username] = u.cr4a1_cor || '#3498db';
         return acc;
     }, {});
+
+    // Pontinhos extra quando o evento tem mais de um responsável
+    const AssigneeDots = ({ assignees }) => {
+        if (assignees.length <= 1) return null;
+        return (
+            <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
+                {assignees.slice(0, 4).map((u, i) => (
+                    <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: userColorMap[u] || 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.6)' }} />
+                ))}
+            </div>
+        );
+    };
 
     // Helper para processar sobreposição geométrica de eventos POR DIA
     const processEventsForTimeline = (hourlyEvents, targetDateStr) => {
@@ -92,11 +105,13 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                             </div>
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', padding: '5px', backgroundColor: eventsInHour.length > 0 ? 'var(--bg-tertiary)' : 'transparent', minWidth: 0, boxSizing: 'border-box' }}>
                                 {eventsInHour.map(event => {
-                                    const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                    const assignees = parseAssignees(event.cr4a1_user_login);
+                                    const userColor = event.cr4a1_cor || userColorMap[assignees[0]] || '#3498db';
                                     return (
                                         <div key={event.cr4a1_agenda_kairosid} onClick={(e) => onEdit(event, e.currentTarget.getBoundingClientRect())} className="day-view-event boing-effect" style={{ backgroundColor: userColor, color: 'white', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', overflow: 'hidden', width: '100%', borderLeft: '5px solid rgba(0,0,0,0.2)' }}>
                                             <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.cr4a1_titulo}</div>
                                             <div style={{ fontSize: '10px', opacity: 0.9 }}>{event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}</div>
+                                            <AssigneeDots assignees={assignees} />
                                         </div>
                                     );
                                 })}
@@ -141,7 +156,7 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                                         </div>
                                     ))}
                                     {allDayEvents.map(event => {
-                                        const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                        const userColor = event.cr4a1_cor || userColorMap[parseAssignees(event.cr4a1_user_login)[0]] || '#3498db';
                                         return (
                                             <div key={event.cr4a1_agenda_kairosid} onClick={(e) => onEdit(event, e.currentTarget.getBoundingClientRect())} style={{ backgroundColor: userColor, color: 'white', padding: '2px 4px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {event.cr4a1_privado ? '🔒 ' : ''}{event.cr4a1_titulo}
@@ -185,7 +200,8 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                         return (
                             <div key={targetDateStr} style={{ flex: 1, minWidth: viewType === 'day' ? '100%' : '120px', position: 'relative', borderRight: '1px solid var(--border-color)', height: `${24 * 60}px` }}>
                                 {eventsWithPosition.map(event => {
-                                    const userColor = event.cr4a1_cor || userColorMap[event.cr4a1_user_login] || '#3498db';
+                                    const assignees = parseAssignees(event.cr4a1_user_login);
+                                    const userColor = event.cr4a1_cor || userColorMap[assignees[0]] || '#3498db';
                                     return (
                                         <div
                                             key={event.cr4a1_agenda_kairosid}
@@ -216,6 +232,7 @@ export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, all
                                             <div style={{ opacity: 0.9, fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {event.cr4a1_hora_inicio} - {event.cr4a1_hora_fim}
                                             </div>
+                                            <AssigneeDots assignees={assignees} />
                                         </div>
                                     )
                                 })}

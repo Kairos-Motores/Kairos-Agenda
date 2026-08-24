@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
+import { parseAssignees } from '../utils/assignees';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { EventDetailModal } from './EventDetailModal';
 
@@ -224,8 +225,8 @@ export const MiniMonth = ({
           // Eventos que podem ser arrastados (exclui intervalos)
           const activeEvents = dayEvents.filter(e => !e.isIntervalo);
 
-          // Cores dos usuários que têm eventos nesse dia
-          const uniqueUsersOnDay = [...new Set(activeEvents.map(e => e.cr4a1_user_login))];
+          // Cores dos usuários que têm eventos nesse dia (um evento pode ter vários responsáveis)
+          const uniqueUsersOnDay = [...new Set(activeEvents.flatMap(e => parseAssignees(e.cr4a1_user_login)))];
           const colorsForDay = uniqueUsersOnDay.map(username => userColorMap[username]).filter(Boolean);
 
           // Fundo colorido sutil
@@ -331,7 +332,7 @@ export const MiniMonth = ({
                         </div>
                       ) : (
                         activeEvents.map((event, idx) => {
-                          const eventColor = userColorMap[event.cr4a1_user_login] || '#ccc';
+                          const eventColor = userColorMap[parseAssignees(event.cr4a1_user_login)[0]] || '#ccc';
                           return (
                             <Draggable
                               key={event.cr4a1_agenda_kairosid}
@@ -374,7 +375,7 @@ export const MiniMonth = ({
                        ============================================================ */
                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '3px', marginTop: '4px' }}>
                       {activeEvents
-                        .map(e => userColorMap[e.cr4a1_user_login] || '#ccc')
+                        .flatMap(e => parseAssignees(e.cr4a1_user_login).map(u => userColorMap[u] || '#ccc'))
                         .filter((color, idx, arr) => arr.indexOf(color) === idx)
                         .slice(0, 3)
                         .map((color, idx) => (
@@ -432,34 +433,41 @@ export const MiniMonth = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {getEventsForDay(new Date(hoveredDay + 'T12:00:00'))
                 .filter(e => e.cr4a1_user_login)
-                .map((ev, idx) => (
-                  <div
-                    key={idx}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setIsTooltipHovered(false);
-                      setHoveredDay(null);
-                      setHoveredRect(null);
-                      setDetailSourceRect(rect);
-                      setDetailEvent(ev);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '10px',
-                      padding: '8px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'background 0.2s',
-                      backgroundColor: 'var(--bg-secondary)',
-                    }}
-                  >
-                    <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px' }} />
-                    <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                      <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>{ev.cr4a1_user_login}:</span> {ev.cr4a1_titulo}
+                .map((ev, idx) => {
+                  const assignees = parseAssignees(ev.cr4a1_user_login);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setIsTooltipHovered(false);
+                        setHoveredDay(null);
+                        setHoveredRect(null);
+                        setDetailSourceRect(rect);
+                        setDetailEvent(ev);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '10px',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                        backgroundColor: 'var(--bg-secondary)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '2px', marginTop: '5px', flexShrink: 0 }}>
+                        {assignees.slice(0, 3).map((u, i) => (
+                          <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[u] || '#ccc' }} />
+                        ))}
+                      </div>
+                      <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                        <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>{assignees.join(', ')}:</span> {ev.cr4a1_titulo}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         </TooltipPortal>

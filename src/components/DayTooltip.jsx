@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseAssignees } from '../utils/assignees';
 
 export const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMouseLeave }) => {
   if (!dayData) return null;
@@ -42,27 +43,31 @@ export const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMou
           {format(new Date(dateStr + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {events.map((ev, idx) => (
-            <div
-              key={idx}
-              onClick={(e) => onViewEvent(ev, e.currentTarget.getBoundingClientRect())}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px',
-                borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s',
-                backgroundColor: 'var(--bg-secondary)',
-              }}
-            >
-              <div style={{
-                minWidth: '8px', height: '8px', borderRadius: '50%',
-                backgroundColor: userColorMap[ev.cr4a1_user_login] || '#ccc', marginTop: '5px'
-              }} />
-              <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                <span style={{ fontWeight: '700', color: userColorMap[ev.cr4a1_user_login] || '#7f8c8d' }}>
-                  {ev.cr4a1_user_login}:
-                </span> {ev.cr4a1_titulo}
+          {events.map((ev, idx) => {
+            const assignees = parseAssignees(ev.cr4a1_user_login);
+            return (
+              <div
+                key={idx}
+                onClick={(e) => onViewEvent(ev, e.currentTarget.getBoundingClientRect())}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px',
+                  borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s',
+                  backgroundColor: 'var(--bg-secondary)',
+                }}
+              >
+                <div style={{ display: 'flex', gap: '2px', marginTop: '5px', flexShrink: 0 }}>
+                  {assignees.slice(0, 3).map((u, i) => (
+                    <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[u] || '#ccc' }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                  <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>
+                    {assignees.join(', ')}:
+                  </span> {ev.cr4a1_titulo}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>,

@@ -34,7 +34,8 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
-import { parseRoles } from './utils/permissions';
+import { parseRoles, hasCoordRole } from './utils/permissions';
+import { parseAssignees, isAssignedTo } from './utils/assignees';
 
 import avanteImg from './assets/avante.png';
 import echoeImg from './assets/echoe.png';
@@ -685,7 +686,7 @@ function App() {
 
     if (event.isIntervalo) return;
 
-    if (hasRole('SECRETARIA') || hasRole('COORD') || hasRole('ADMIN') || event.cr4a1_user_login === user) {
+    if (hasRole('SECRETARIA') || hasCoordRole(userRole) || hasRole('ADMIN') || isAssignedTo(event.cr4a1_user_login, user)) {
       setEditingEvent(event); setIsModalOpen(true);
     } else {
       toast.error("Acesso Negado.", { icon: '🚫' });
@@ -697,7 +698,10 @@ function App() {
     setDayVisitasModalOpen(true);
   };
 
-  const getEventColor = (event) => event.cr4a1_cor || (allUsers.find(u => u.cr4a1_username === event.cr4a1_user_login)?.cr4a1_cor || '#3498db');
+  const getEventColor = (event) => {
+    const firstAssignee = parseAssignees(event.cr4a1_user_login)[0];
+    return event.cr4a1_cor || (allUsers.find(u => u.cr4a1_username === firstAssignee)?.cr4a1_cor || '#3498db');
+  };
 
   const handleNavigate = (direction) => {
     const isNext = direction === 'next';
@@ -1620,9 +1624,10 @@ function App() {
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
                                   {dayEvents.filter(e => !e.isIntervalo).map((e, idx) => {
+                                    const eventAssignees = parseAssignees(e.cr4a1_user_login);
                                     const eventColor = e.cr4a1_cor || getEventColor(e);
                                     let badgeStyle = {
-                                      borderRadius: '4px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                      borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', overflow: 'hidden',
                                       width: '100%', boxSizing: 'border-box', fontSize: '11px', fontWeight: '600', padding: '2px 4px',
                                       color: '#fff', background: eventColor, opacity: 1, border: '1px solid rgba(255,255,255,0.2)',
                                     };
@@ -1639,8 +1644,17 @@ function App() {
                                           onClick={(ev) => { ev.stopPropagation(); handleViewEvent(e, ev.currentTarget.getBoundingClientRect()); }}
                                           style={badgeStyle}
                                         >
-                                          {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
-                                          {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
+                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
+                                          </span>
+                                          {eventAssignees.length > 1 && (
+                                            <span style={{ display: 'flex', gap: '2px', flexShrink: 0 }} title={eventAssignees.join(', ')}>
+                                              {eventAssignees.slice(0, 3).map((u, i) => (
+                                                <span key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: allUsers.find(au => au.cr4a1_username === u)?.cr4a1_cor || 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.8)' }} />
+                                              ))}
+                                            </span>
+                                          )}
                                         </div>
                                       </DraggableEvent>
                                     );

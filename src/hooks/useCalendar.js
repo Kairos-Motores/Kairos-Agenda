@@ -3,6 +3,7 @@ import { addMonths, subMonths, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
 import { checkAccess } from '../utils/permissions';
+import { parseAssignees, joinAssignees, isAssignedTo } from '../utils/assignees';
 import { renderUndoToast } from '../components/UndoToast';
 
 const API_PROXY = '/api/dataverse-proxy';
@@ -95,7 +96,7 @@ export const useCalendar = () => {
             const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
-            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || e.cr4a1_user_login === user).map(e => ({
+            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || isAssignedTo(e.cr4a1_user_login, user)).map(e => ({
                 ...e, cr4a1_data_inicio: e.cr4a1_data_inicio?.includes('Z') ? format(new Date(e.cr4a1_data_inicio), 'yyyy-MM-dd') : e.cr4a1_data_inicio,
                 cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
                 cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
@@ -382,7 +383,7 @@ export const useCalendar = () => {
         return events.filter(event => {
             const matchesWorkspace = activeWorkspaces.includes(event.cr4a1_workspace_id);
             const matchesText = !filters.text || (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) || (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
-            const matchesUser = filters.users.length === 0 || filters.users.includes(event.cr4a1_user_login);
+            const matchesUser = filters.users.length === 0 || parseAssignees(event.cr4a1_user_login).some(u => filters.users.includes(u));
             const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
             return matchesWorkspace && matchesText && matchesUser && matchesType;
         });
@@ -420,7 +421,9 @@ export const useCalendar = () => {
 
     const addEvent = async (eventData) => {
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        const targetUser = eventData.targetUser || (checkAccess(userRole, permissoesElevadas) ? viewedUser : user);
+        const requestedUsers = parseAssignees(eventData.targetUser);
+        const targetUsers = requestedUsers.length > 0 ? requestedUsers : [checkAccess(userRole, permissoesElevadas) ? viewedUser : user];
+        const targetUser = joinAssignees(targetUsers);
 
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
         const generatedId = crypto.randomUUID();
@@ -482,6 +485,8 @@ export const useCalendar = () => {
     const updateEvent = async (eventData) => {
         const id = eventData.cr4a1_agenda_kairosid;
         const detailsField = eventData.allDay ? `[DIA_INTEIRO] ${eventData.details || ''}` : eventData.details;
+        const requestedUsers = parseAssignees(eventData.targetUser);
+        const updatedTargetUser = joinAssignees(requestedUsers.length > 0 ? requestedUsers : [user]);
 
         let utcStartDate = eventData.startDate;
         let utcEndDate = eventData.endDate;
@@ -492,7 +497,7 @@ export const useCalendar = () => {
 
         const updatedEventDB = {
             cr4a1_titulo: eventData.cr4a1_titulo,
-            cr4a1_user_login: eventData.targetUser,
+            cr4a1_user_login: updatedTargetUser,
             cr4a1_data_inicio: utcStartDate,
             cr4a1_data_fim: utcEndDate,
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
@@ -528,7 +533,7 @@ export const useCalendar = () => {
         const finalOwner = (typeof id === 'object') ? id.cr4a1_user_login : owner;
 
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!checkAccess(userRole, permissoesElevadas) && finalOwner !== user) {
+        if (!checkAccess(userRole, permissoesElevadas) && !isAssignedTo(finalOwner, user)) {
             toast.error("Permissão negada.");
             return;
         }
@@ -552,7 +557,7 @@ export const useCalendar = () => {
     const moveEvent = async (eventId, newDate) => {
         const event = events.find(e => e.cr4a1_agenda_kairosid === eventId);
         const permissoesElevadas = ['SECRETARIA', 'ADMIN', 'COORD COMERCIAL'];
-        if (!event || (!checkAccess(userRole, permissoesElevadas) && event.cr4a1_user_login !== user)) return;
+        if (!event || (!checkAccess(userRole, permissoesElevadas) && !isAssignedTo(event.cr4a1_user_login, user))) return;
 
         await updateEvent({
             ...event,

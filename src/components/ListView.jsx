@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseAssignees } from '../utils/assignees';
 
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
@@ -37,10 +38,14 @@ export const ListView = ({
   }, [onViewModeChange]);
 
   // Extrai responsáveis APENAS dos workspaces que estão ativos no momento (Lógica Universal)
+  // Um evento pode ter mais de um responsável, então cada um entra individualmente na lista.
   const uniqueAssignees = Array.from(new Set(
     events
       .filter(e => activeWorkspaces.length === 0 || activeWorkspaces.includes(e.cr4a1_workspace_id))
-      .map(e => e.cr4a1_user_login || 'Sem responsável')
+      .flatMap(e => {
+        const assignees = parseAssignees(e.cr4a1_user_login);
+        return assignees.length > 0 ? assignees : ['Sem responsável'];
+      })
   ));
 
   // Verifica se há alguma tarefa com subtasks nos workspaces ativos para exibir a barra de filtros
@@ -77,8 +82,10 @@ export const ListView = ({
 
     if (statusFilter !== 'Todos' && status !== statusFilter) return false;
 
-    const assignee = event.cr4a1_user_login || 'Sem responsável';
-    if (assigneeFilter !== 'Todos' && assignee !== assigneeFilter) return false;
+    const assignees = parseAssignees(event.cr4a1_user_login);
+    const matchesAssignee = assigneeFilter === 'Todos'
+      || (assignees.length > 0 ? assignees.includes(assigneeFilter) : assigneeFilter === 'Sem responsável');
+    if (!matchesAssignee) return false;
 
     return true;
   });
