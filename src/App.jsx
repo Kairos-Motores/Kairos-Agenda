@@ -492,6 +492,62 @@ function App() {
     localStorage.setItem('kairos_accent_color', accentColor);
   }, [accentColor]);
 
+  // Atalhos de teclado globais (desativados enquanto o foco está num campo de
+  // texto ou com algum modal aberto, para não interferir na digitação normal).
+  // Precisa ficar antes dos "returns" condicionais abaixo (login/onboarding),
+  // já que hooks não podem ser chamados de forma condicional.
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || document.activeElement?.isContentEditable) return;
+      if (document.querySelector('.modal-overlay, [data-modal="true"]')) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          setCurrentDate(prev => {
+            if (view === 'year') return subYears(prev, 1);
+            if (view === 'week') return subDays(prev, 7);
+            if (view === '3days') return subDays(prev, 3);
+            if (view === 'day') return subDays(prev, 1);
+            return subMonths(prev, 1);
+          });
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          setCurrentDate(prev => {
+            if (view === 'year') return addYears(prev, 1);
+            if (view === 'week') return addDays(prev, 7);
+            if (view === '3days') return addDays(prev, 3);
+            if (view === 'day') return addDays(prev, 1);
+            return addMonths(prev, 1);
+          });
+          break;
+        case 't':
+        case 'T':
+          setCurrentDate(new Date());
+          break;
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          setEditingEvent(null);
+          setIsModalOpen(true);
+          break;
+        case '1': setView('year'); break;
+        case '2': setView('month'); break;
+        case '3': setView('week'); break;
+        case '4': setView('3days'); break;
+        case '5': setView('day'); break;
+        case '6': setView('list'); break;
+        default: break;
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [view, setCurrentDate, setView, setEditingEvent]);
+
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
       <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>A verificar sessão...</p>
@@ -1055,6 +1111,7 @@ function App() {
                     key={v.id}
                     onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }}
                     className={`boing-effect ${isActive ? 'active' : ''}`}
+                    title={`${v.label} (${viewsConfig.indexOf(v) + 1})`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
                       background: isActive ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent',
@@ -1072,6 +1129,7 @@ function App() {
             <button
               onClick={() => { setView('list'); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }}
               className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode) ? 'active' : ''}`}
+              title="Fichas (6)"
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
                 border: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
@@ -1133,11 +1191,11 @@ function App() {
 
           <div className="header-bottom">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect" aria-label="Período anterior">
+              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect" aria-label="Período anterior" title="Período anterior (←)">
                 <span className="material-symbols-rounded">chevron_left</span>
               </button>
-              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect" aria-label="Próximo período">
+              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect" title="Ir para hoje (T)"><span>Hoje</span></button>
+              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect" aria-label="Próximo período" title="Próximo período (→)">
                 <span className="material-symbols-rounded">chevron_right</span>
               </button>
             </div>
@@ -1158,7 +1216,7 @@ function App() {
                 role="button"
                 tabIndex={0}
                 className="today-badge boing-effect"
-                title="Ir para hoje"
+                title="Ir para hoje (T)"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', height: '36px', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap', cursor: 'pointer' }}
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '15px', color: 'var(--text-accent)' }}>today</span>
@@ -1852,7 +1910,7 @@ function App() {
                 {!['visitas', 'notas', 'bi'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
-                    <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" title="Novo evento (N)" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                       <span className="material-symbols-rounded">calendar_add_on</span>
                     </button>
                   </div>

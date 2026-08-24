@@ -91,7 +91,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
   };
 
   return ReactDOM.createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100000 }}>
+    <div data-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 100000 }}>
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(12,12,16,0.55)', opacity: grown ? 1 : 0, transition: 'opacity 0.3s ease', cursor: 'pointer' }} />
 
       <div ref={trapRef} tabIndex={-1} style={cardStyle}>
