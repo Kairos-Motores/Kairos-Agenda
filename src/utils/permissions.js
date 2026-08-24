@@ -27,3 +27,10 @@ export const checkAccess = (userRoleValue, allowedRoles) => {
   // Verifica se o usuário tem PELO MENOS UMA das roles permitidas
   return rolesArray.some(role => allowedRoles.includes(role));
 };
+
+// Verifica se o usuário tem alguma role de coordenação, seja ela de que tipo for
+// (COORD COMERCIAL, COORD ADM, COORD RH, COORD BRC, etc.) — diferente de checkAccess,
+// que só reconhece a string exata "COORD" e ignora as variantes com sufixo de área.
+export const hasCoordRole = (userRoleValue) => {
+  return parseRoles(userRoleValue).some(role => role.startsWith('COORD'));
+};

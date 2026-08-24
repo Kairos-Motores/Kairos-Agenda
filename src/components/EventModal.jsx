@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { checkAccess } from '../utils/permissions';
+import { checkAccess, hasCoordRole } from '../utils/permissions';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const EventModal = ({
@@ -29,6 +29,7 @@ export const EventModal = ({
     const [activePicker, setActivePicker] = useState(null); // 'startDate', 'endDate', 'startTime', 'endTime'
     const [openDropdown, setOpenDropdown] = useState(null); // 'workspace', 'type', 'targetUser'
     const [pickerMonth, setPickerMonth] = useState(new Date());
+    const [targetUserSearch, setTargetUserSearch] = useState('');
 
     // Refs para monitorizar fecho de dropdowns customizados
     const workspaceRef = useRef(null);
@@ -82,7 +83,7 @@ export const EventModal = ({
         const handleOutsideClick = (e) => {
             if (openDropdown === 'workspace' && workspaceRef.current && !workspaceRef.current.contains(e.target)) setOpenDropdown(null);
             if (openDropdown === 'type' && typeRef.current && !typeRef.current.contains(e.target)) setOpenDropdown(null);
-            if (openDropdown === 'targetUser' && targetUserRef.current && !targetUserRef.current.contains(e.target)) setOpenDropdown(null);
+            if (openDropdown === 'targetUser' && targetUserRef.current && !targetUserRef.current.contains(e.target)) { setOpenDropdown(null); setTargetUserSearch(''); }
         };
         document.addEventListener('mousedown', handleOutsideClick);
         return () => document.removeEventListener('mousedown', handleOutsideClick);
@@ -136,18 +137,36 @@ export const EventModal = ({
         setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
     };
 
+    // Utilizadores do workspace selecionado (criador + membros), para restringir a quem
+    // pode ser atribuída a responsabilidade do evento dentro desse workspace específico.
+    const selectedWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === formData.workspaceId);
+    const workspaceUsers = selectedWorkspace
+        ? allUsers.filter(u => {
+            if (u.cr4a1_username === selectedWorkspace.cr4a1_criador_login) return true;
+            const membros = (selectedWorkspace.cr4a1_membros_logins || '').split(',').map(s => s.trim()).filter(Boolean);
+            return membros.includes(u.cr4a1_username);
+        })
+        : [];
+
     // Estilos de Cores Dinâmicas baseados no Accent Color (Material You Tonal Mappings)
     const tintColor = 'var(--text-accent)';
     const surfaceVariant = `${tintColor}0d`; // 5% de opacidade para fundo suave
     const activeItemBg = `${tintColor}1c`; // 11% de opacidade para itens ativos
 
     // COMPONENTE CUSTOMIZADO: Campo de Seleção Estilo MD3 (Sem Dropdown Nativo)
-    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey }) => {
+    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey, searchable = false, searchTerm = '', onSearchChange, emptyMessage = 'Nenhuma opção encontrada.' }) => {
         const isDropdownOpen = openDropdown === dropdownKey;
+        const filteredOptions = searchable && searchTerm.trim()
+            ? options.filter(opt => opt.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+            : options;
         return (
             <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-                <div 
-                    onClick={() => setOpenDropdown(isDropdownOpen ? null : dropdownKey)}
+                <div
+                    onClick={() => {
+                        const willClose = isDropdownOpen;
+                        setOpenDropdown(willClose ? null : dropdownKey);
+                        if (willClose && searchable) onSearchChange('');
+                    }}
                     style={{
                         display: 'flex', flexDirection: 'column', padding: '10px 16px', minHeight: '62px',
                         borderRadius: '20px', border: isDropdownOpen ? `2px solid ${tintColor}` : '1px solid var(--border-color)',
@@ -174,12 +193,29 @@ export const EventModal = ({
                         borderRadius: '20px', padding: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                         maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px'
                     }}>
-                        {options.map(opt => {
+                        {searchable && (
+                            <input
+                                type="text"
+                                autoFocus
+                                placeholder="Pesquisar..."
+                                value={searchTerm}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => onSearchChange(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '10px 12px', marginBottom: '4px', borderRadius: '12px',
+                                    border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)', fontSize: '13px', outline: 'none', boxSizing: 'border-box'
+                                }}
+                            />
+                        )}
+                        {filteredOptions.length === 0 ? (
+                            <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)' }}>{emptyMessage}</div>
+                        ) : filteredOptions.map(opt => {
                             const isSelected = opt.id === value;
                             return (
                                 <div
                                     key={opt.id}
-                                    onClick={() => { onSelect(opt.id); setOpenDropdown(null); }}
+                                    onClick={() => { onSelect(opt.id); setOpenDropdown(null); if (searchable) onSearchChange(''); }}
                                     style={{
                                         padding: '12px 14px', borderRadius: '14px', fontSize: '14px', fontWeight: isSelected ? '700' : '500',
                                         color: isSelected ? tintColor : 'var(--text-primary)',
@@ -350,16 +386,20 @@ export const EventModal = ({
                             onSelect={val => setFormData({...formData, type: val})}
                         />
 
-                        {checkAccess(userRole, ['SECRETARIA', 'COORD', 'ADMIN', 'DIRETORIA']) && (
-                            <MD3DropdownField 
-                                label="Responsável" 
+                        {(checkAccess(userRole, ['SECRETARIA', 'ADMIN', 'DIRETORIA']) || hasCoordRole(userRole)) && (
+                            <MD3DropdownField
+                                label="Responsável"
                                 icon="person"
                                 dropdownKey="targetUser"
                                 containerRef={targetUserRef}
                                 value={formData.targetUser}
                                 displayValue={allUsers.find(u => u.cr4a1_username === formData.targetUser)?.cr4a1_nome_exibicao || formData.targetUser || 'Selecione'}
-                                options={allUsers.map(u => ({ id: u.cr4a1_username, name: u.cr4a1_nome_exibicao || u.cr4a1_username }))}
+                                options={workspaceUsers.map(u => ({ id: u.cr4a1_username, name: u.cr4a1_nome_exibicao || u.cr4a1_username }))}
                                 onSelect={val => setFormData({...formData, targetUser: val})}
+                                searchable
+                                searchTerm={targetUserSearch}
+                                onSearchChange={setTargetUserSearch}
+                                emptyMessage="Nenhum utilizador encontrado neste workspace."
                             />
                         )}
                     </div>
