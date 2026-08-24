@@ -320,6 +320,18 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                   }}
                 />
               )}
+
+              {/* A barra de navegação de páginas do Power BI (ex: "‹ 2 de 2 ›") vem junto com
+                  o link "Microsoft Power BI" e os botões de partilhar/abrir numa nova aba, na
+                  mesma faixa horizontal. Como é conteúdo de outra origem (iframe), não dá para
+                  remover só essas partes — cobrimos com retângulos na mesma cor da barra,
+                  deixando só o navegador de páginas do meio visível e clicável. */}
+              {tab.url && !tab.loading && tab.bi.showPageNav && (
+                <>
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, width: '180px', height: '36px', background: '#f3f2f1', zIndex: 1 }} />
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '90px', height: '36px', background: '#f3f2f1', zIndex: 1 }} />
+                </>
+              )}
             </div>
           ))}
 
