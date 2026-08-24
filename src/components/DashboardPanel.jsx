@@ -311,7 +311,10 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                     top: 0,
                     left: 0,
                     width: '100%',
-                    height: 'calc(100% + 42px)',
+                    // Painéis com mais de uma página (ex: Kanban Operacional/Sintético) precisam da
+                    // barra de navegação de páginas do Power BI visível; nos demais, cortamos os
+                    // últimos 42px para esconder o rodapé de marca d'água do Power BI.
+                    height: tab.bi.showPageNav ? '100%' : 'calc(100% + 42px)',
                     border: 'none',
                     display: tab.loading ? 'none' : 'block'
                   }}

@@ -122,6 +122,7 @@ export const BI_CONFIG = [
     title: 'Kanban - BRC',
     description: 'Quadro Kanban Barcarena',
     icon: 'view_kanban',
+    showPageNav: true,
     allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
@@ -188,6 +189,7 @@ export const BI_CONFIG = [
     title: 'Kanban - SLZ',
     description: 'Quadro Kanban São Luís',
     icon: 'view_kanban',
+    showPageNav: true,
     allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
@@ -254,6 +256,7 @@ export const BI_CONFIG = [
     title: 'Kanban - PRP',
     description: 'Quadro Kanban Parauapebas',
     icon: 'view_kanban',
+    showPageNav: true,
     allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
@@ -320,6 +323,7 @@ export const BI_CONFIG = [
     title: 'Kanban - SJC',
     description: 'Quadro Kanban SJC',
     icon: 'view_kanban',
+    showPageNav: true,
     allowedRoles: ['COMUM', 'ADMIN', 'DIRETORIA']
   },
   {
@@ -386,6 +390,7 @@ export const BI_CONFIG = [
     title: 'Kanban - Aveiro',
     description: 'Quadro Kanban Aveiro',
     icon: 'view_kanban',
+    showPageNav: true,
     allowedRoles: ['ADMIN', 'COMUM', 'DIRETORIA', 'COORD AVR']
   },
   {
