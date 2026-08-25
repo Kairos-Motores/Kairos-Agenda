@@ -598,6 +598,27 @@ export const useCalendar = () => {
         }
     };
 
+    const updateEventType = async (id, name, emoji, layer = 'nenhuma') => {
+        try {
+            setEventTypes(prev => {
+                const updated = prev.map(t => t.id === id ? { ...t, name, emoji, layer } : t);
+                localStorage.setItem('kairos_event_types', JSON.stringify(updated));
+                return updated;
+            });
+
+            await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji, cr4a1_camada: layer })
+            });
+
+            fetchEventTypes();
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao atualizar tipo de evento");
+        }
+    };
+
     const deleteEventType = async (id) => {
         try {
             await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses&id=${id}`, { method: 'DELETE' });
@@ -984,7 +1005,7 @@ export const useCalendar = () => {
 
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
-        allUsers, eventTypes, addEventType, deleteEventType, notification,
+        allUsers, eventTypes, addEventType, updateEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,

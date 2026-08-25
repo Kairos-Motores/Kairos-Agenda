@@ -1,13 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, deleteEventType }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType }) => {
     const trapRef = useFocusTrap(isOpen);
     const [activeTab, setActiveTab] = useState('users');
+    const [editingTypeId, setEditingTypeId] = useState(null);
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
     const [newTypeLayer, setNewTypeLayer] = useState('nenhuma');
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+    const startEditingType = (t) => {
+        setEditingTypeId(t.id);
+        setNewTypeName(t.name);
+        setNewTypeEmoji(t.emoji);
+        setNewTypeLayer(t.layer || 'nenhuma');
+    };
+
+    const cancelEditingType = () => {
+        setEditingTypeId(null);
+        setNewTypeName('');
+        setNewTypeEmoji('📝');
+        setNewTypeLayer('nenhuma');
+    };
+
+    // Ao trocar de aba, volta o scroll do modal para o topo — sem isso, quem estivesse
+    // rolado lá embaixo na lista de Membros via a nova aba renderizada fora da área
+    // visível e parecia que os membros continuavam ali, sobrepostos aos tipos de evento.
+    useEffect(() => {
+        if (trapRef.current) trapRef.current.scrollTop = 0;
+    }, [activeTab, trapRef]);
 
     const layerOptions = [
         { id: 'icone', label: 'Ícone', description: 'Mostra o emoji do tipo no card do evento' },
@@ -81,6 +103,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                     ) : (
                         <div>
                             <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: editingTypeId ? 'var(--text-accent)' : 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                    {editingTypeId ? '✏️ Editando tipo' : 'Novo tipo'}
+                                </span>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <div style={{ position: 'relative' }}>
                                         <button
@@ -105,12 +130,29 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                         placeholder="Nome do novo tipo..."
                                     />
                                     <button
-                                        onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji, newTypeLayer); setNewTypeName(''); setNewTypeLayer('nenhuma'); } }}
+                                        onClick={() => {
+                                            if (!newTypeName) return;
+                                            if (editingTypeId) {
+                                                updateEventType(editingTypeId, newTypeName, newTypeEmoji, newTypeLayer);
+                                            } else {
+                                                addEventType(newTypeName, newTypeEmoji, newTypeLayer);
+                                            }
+                                            cancelEditingType();
+                                        }}
                                         className="btn-primary"
                                         style={{ padding: '10px 20px', borderRadius: '12px' }}
                                     >
-                                        Add
+                                        {editingTypeId ? 'Salvar' : 'Add'}
                                     </button>
+                                    {editingTypeId && (
+                                        <button
+                                            onClick={cancelEditingType}
+                                            className="btn-secondary"
+                                            style={{ padding: '10px 16px', borderRadius: '12px' }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div>
@@ -140,7 +182,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {eventTypes.map(t => (
-                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '10px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: editingTypeId === t.id ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', padding: '10px 16px', borderRadius: '12px', border: editingTypeId === t.id ? '2px solid var(--text-accent)' : '1px solid var(--border-color)' }}>
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <span style={{ fontSize: '16px' }}>{t.emoji}</span>
                                             <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{t.name}</span>
@@ -148,9 +190,14 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                                 {layerOptions.find(o => o.id === (t.layer || 'nenhuma'))?.label || 'Nenhuma'}
                                             </span>
                                         </div>
-                                        <button onClick={() => deleteEventType(t.id)} className="icon-btn boing-effect" aria-label={`Remover tipo de evento "${t.name}"`} style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
-                                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button onClick={() => startEditingType(t)} className="icon-btn boing-effect" aria-label={`Editar tipo de evento "${t.name}"`} style={{ width: '32px', height: '32px', color: 'var(--text-accent)' }}>
+                                                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+                                            </button>
+                                            <button onClick={() => { if (editingTypeId === t.id) cancelEditingType(); deleteEventType(t.id); }} className="icon-btn boing-effect" aria-label={`Remover tipo de evento "${t.name}"`} style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
+                                                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
