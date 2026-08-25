@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseAssignees } from '../utils/assignees';
+import { getEventTypeLayer } from '../utils/eventTypeLayer';
 
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
@@ -125,6 +126,7 @@ export const ListView = ({
     );
     const workspaceColor = currentWorkspace?.cr4a1_cor_hex || 'var(--border-color)';
     const workspaceName = currentWorkspace?.cr4a1_nome || '';
+    const typeLayer = getEventTypeLayer(event.cr4a1_tipo, eventTypes);
 
     const subtasks = event.cr4a1_subtasks
       ? (typeof event.cr4a1_subtasks === 'string'
@@ -178,7 +180,7 @@ export const ListView = ({
                 padding: '2px 6px', background: 'var(--bg-tertiary)', borderRadius: '6px',
                 whiteSpace: 'nowrap'
               }}>
-                {event.cr4a1_tipo || 'Compromisso'}
+                {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{event.cr4a1_tipo || 'Compromisso'}
               </span>
             </div>
           </div>
@@ -258,6 +260,7 @@ export const ListView = ({
         );
         const workspaceColor = currentWorkspace?.cr4a1_cor_hex || 'var(--border-color)';
         const workspaceName = currentWorkspace?.cr4a1_nome || '';
+        const typeLayer = getEventTypeLayer(event.cr4a1_tipo, eventTypes);
 
         return (
           <div
@@ -271,6 +274,7 @@ export const ListView = ({
               background: 'var(--bg-primary)',
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
+              borderLeft: typeLayer.layer === 'borda' ? `4px solid ${typeLayer.color}` : '1px solid var(--border-color)',
               boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
               cursor: 'pointer',
               flexWrap: 'wrap',
@@ -302,7 +306,7 @@ export const ListView = ({
                 fontSize: '11px', fontWeight: '700', color: 'var(--text-accent)',
                 padding: '2px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px'
               }}>
-                {event.cr4a1_tipo || 'Compromisso'}
+                {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{event.cr4a1_tipo || 'Compromisso'}
               </span>
             </div>
             

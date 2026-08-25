@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseAssignees } from '../utils/assignees';
+import { getEventTypeLayer } from '../utils/eventTypeLayer';
 
 const MODAL_WIDTH = 480;
 const MODAL_HEIGHT = 560;
@@ -12,7 +13,7 @@ const TRANSITION = '0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
 // Modal de leitura de um evento, que "cresce" a partir do card/linha clicada
 // (container transform) em vez de simplesmente aparecer. Só mostra os dados;
 // quem chama decide o que "Editar" faz (normalmente abrir o EventModal real).
-export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces = [], onClose, onEdit }) => {
+export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes = [], workspaces = [], onClose, onEdit }) => {
   const trapRef = useFocusTrap(!!event);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -49,6 +50,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
     .map(login => allUsers.find(u => u.cr4a1_username === login) || { cr4a1_username: login })
     .filter(Boolean);
   const accentColor = event.cr4a1_cor || responsaveis[0]?.cr4a1_cor || workspace?.cr4a1_cor_hex || 'var(--text-accent)';
+  const typeLayer = getEventTypeLayer(event.cr4a1_tipo, eventTypes);
 
   let subtasks = [];
   try { subtasks = event.cr4a1_subtasks ? (typeof event.cr4a1_subtasks === 'string' ? JSON.parse(event.cr4a1_subtasks) : event.cr4a1_subtasks) : []; } catch { subtasks = []; }
@@ -103,7 +105,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], workspaces 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: accentColor, background: `${accentColor}1f`, padding: '4px 10px', borderRadius: '8px' }}>
-                  {event.cr4a1_tipo || 'Evento'}
+                  {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{event.cr4a1_tipo || 'Evento'}
                 </span>
                 {event.cr4a1_privado && (
                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#f57c00', background: '#fff3e01f', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>

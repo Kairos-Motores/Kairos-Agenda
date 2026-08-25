@@ -36,6 +36,7 @@ import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
 import { parseRoles, hasCoordRole } from './utils/permissions';
 import { parseAssignees, isAssignedTo } from './utils/assignees';
+import { getEventTypeLayer, typeLayerBorderStyle, typeLayerPatternStyle } from './utils/eventTypeLayer';
 
 import avanteImg from './assets/avante.png';
 import echoeImg from './assets/echoe.png';
@@ -1540,6 +1541,7 @@ function App() {
                                 getEventsForDay={handleGetEventsForDay}
                                 holidays={holidays}
                                 allUsers={allUsers}
+                                eventTypes={eventTypes}
                                 workspaces={workspaces}
                                 onEditEvent={handleEditClick}
                                 isDetailed={appMode === 'visitas'}
@@ -1626,10 +1628,13 @@ function App() {
                                   {dayEvents.filter(e => !e.isIntervalo).map((e, idx) => {
                                     const eventAssignees = parseAssignees(e.cr4a1_user_login);
                                     const eventColor = e.cr4a1_cor || getEventColor(e);
+                                    const typeLayer = getEventTypeLayer(e.cr4a1_tipo, eventTypes);
                                     let badgeStyle = {
                                       borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', overflow: 'hidden',
                                       width: '100%', boxSizing: 'border-box', fontSize: '11px', fontWeight: '600', padding: '2px 4px',
                                       color: '#fff', background: eventColor, opacity: 1, border: '1px solid rgba(255,255,255,0.2)',
+                                      ...(typeLayer.layer === 'borda' ? typeLayerBorderStyle(typeLayer.color) : {}),
+                                      ...(typeLayer.layer === 'padrao' ? typeLayerPatternStyle(typeLayer.color) : {}),
                                     };
                                     if (appMode === 'visitas' && e.isVisitaPrincipal) {
                                       badgeStyle.fontWeight = 'bold';
@@ -1645,6 +1650,7 @@ function App() {
                                           style={badgeStyle}
                                         >
                                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                                            {typeLayer.layer === 'icone' && typeLayer.emoji && <span style={{ marginRight: '3px' }}>{typeLayer.emoji}</span>}
                                             {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
                                             {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
                                           </span>
@@ -1671,7 +1677,7 @@ function App() {
                   {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
                   {['day', '3days', 'week'].includes(view) && (
-                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} onEdit={handleViewEvent} dayViewMode={dayViewMode} />
+                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} dayViewMode={dayViewMode} />
                   )}
                 </>
               )}
@@ -1758,6 +1764,7 @@ function App() {
           event={detailEvent}
           sourceRect={detailSourceRect}
           allUsers={allUsers}
+          eventTypes={eventTypes}
           workspaces={workspaces}
           onClose={() => setDetailEvent(null)}
           onEdit={(ev) => { setDetailEvent(null); handleEditClick(ev); }}
@@ -1903,6 +1910,7 @@ function App() {
             <DayTooltip
               dayData={dayTooltip}
               allUsers={allUsers}
+              eventTypes={eventTypes}
               onViewEvent={(ev, rect) => {
                 setIsTooltipHovered(false);
                 setDayTooltip(null);

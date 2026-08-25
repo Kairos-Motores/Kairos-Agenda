@@ -30,7 +30,7 @@ export const useCalendar = () => {
     const [allUsers, setAllUsers] = useState([]);
     const [eventTypes, setEventTypes] = useState(() => {
         const saved = localStorage.getItem('kairos_event_types');
-        return saved ? JSON.parse(saved) : [{ id: '1', name: 'Tarefa', emoji: '📝' }, { id: '2', name: 'Reunião', emoji: '🤝' }];
+        return saved ? JSON.parse(saved) : [{ id: '1', name: 'Tarefa', emoji: '📝', layer: 'nenhuma' }, { id: '2', name: 'Reunião', emoji: '🤝', layer: 'nenhuma' }];
     });
 
     const adicionarUsuarioAoCalendarioComum = async (username) => {
@@ -270,7 +270,8 @@ export const useCalendar = () => {
                     const formatted = data.value.map(t => ({
                         id: t.cr4a1_tipos_eventoid,
                         name: t.cr4a1_nome,
-                        emoji: t.cr4a1_emoji
+                        emoji: t.cr4a1_emoji,
+                        layer: t.cr4a1_camada || 'nenhuma'
                     }));
                     setEventTypes(formatted);
                     localStorage.setItem('kairos_event_types', JSON.stringify(formatted));
@@ -573,10 +574,10 @@ export const useCalendar = () => {
         });
     };
 
-    const addEventType = async (name, emoji) => {
+    const addEventType = async (name, emoji, layer = 'nenhuma') => {
         try {
             const tempId = crypto.randomUUID();
-            const newType = { id: tempId, name: name, emoji: emoji };
+            const newType = { id: tempId, name: name, emoji: emoji, layer: layer };
 
             setEventTypes(prev => {
                 const updated = [...prev, newType];
@@ -587,7 +588,7 @@ export const useCalendar = () => {
             await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji })
+                body: JSON.stringify({ cr4a1_nome: name, cr4a1_emoji: emoji, cr4a1_camada: layer })
             });
 
             fetchEventTypes();

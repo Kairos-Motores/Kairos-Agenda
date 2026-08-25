@@ -2,8 +2,9 @@ import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseAssignees } from '../utils/assignees';
+import { getEventTypeLayer } from '../utils/eventTypeLayer';
 
-export const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMouseLeave }) => {
+export const DayTooltip = ({ dayData, allUsers, eventTypes = [], onViewEvent, onMouseEnter, onMouseLeave }) => {
   if (!dayData) return null;
   const { dateStr, events, rect } = dayData;
   if (!rect) return null;
@@ -45,6 +46,7 @@ export const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMou
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {events.map((ev, idx) => {
             const assignees = parseAssignees(ev.cr4a1_user_login);
+            const typeLayer = getEventTypeLayer(ev.cr4a1_tipo, eventTypes);
             return (
               <div
                 key={idx}
@@ -63,7 +65,7 @@ export const DayTooltip = ({ dayData, allUsers, onViewEvent, onMouseEnter, onMou
                 <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
                   <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>
                     {assignees.join(', ')}:
-                  </span> {ev.cr4a1_titulo}
+                  </span> {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{ev.cr4a1_titulo}
                 </div>
               </div>
             );

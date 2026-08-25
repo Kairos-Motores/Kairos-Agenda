@@ -5,6 +5,7 @@ import { format, isWeekend } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateMonthDays } from '../utils/dateHelpers';
 import { parseAssignees } from '../utils/assignees';
+import { getEventTypeLayer } from '../utils/eventTypeLayer';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { EventDetailModal } from './EventDetailModal';
 
@@ -102,6 +103,7 @@ export const MiniMonth = ({
   getEventsForDay,
   holidays = [],
   allUsers = [],
+  eventTypes = [],
   workspaces = [],
   onEditEvent,
   isDetailed = false,
@@ -435,6 +437,7 @@ export const MiniMonth = ({
                 .filter(e => e.cr4a1_user_login)
                 .map((ev, idx) => {
                   const assignees = parseAssignees(ev.cr4a1_user_login);
+                  const typeLayer = getEventTypeLayer(ev.cr4a1_tipo, eventTypes);
                   return (
                     <div
                       key={idx}
@@ -463,7 +466,7 @@ export const MiniMonth = ({
                         ))}
                       </div>
                       <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                        <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>{assignees.join(', ')}:</span> {ev.cr4a1_titulo}
+                        <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>{assignees.join(', ')}:</span> {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{ev.cr4a1_titulo}
                       </div>
                     </div>
                   );
@@ -477,6 +480,7 @@ export const MiniMonth = ({
         event={detailEvent}
         sourceRect={detailSourceRect}
         allUsers={allUsers}
+        eventTypes={eventTypes}
         workspaces={workspaces}
         onClose={() => setDetailEvent(null)}
         onEdit={(ev) => { setDetailEvent(null); onEditEvent(ev); }}

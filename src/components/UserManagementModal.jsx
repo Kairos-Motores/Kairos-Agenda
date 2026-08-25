@@ -6,7 +6,15 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const [activeTab, setActiveTab] = useState('users');
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
+    const [newTypeLayer, setNewTypeLayer] = useState('nenhuma');
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+    const layerOptions = [
+        { id: 'icone', label: 'Ícone', description: 'Mostra o emoji do tipo no card do evento' },
+        { id: 'borda', label: 'Borda', description: 'Faixa colorida na lateral do card' },
+        { id: 'padrao', label: 'Padrão', description: 'Textura sutil sobre a cor do responsável' },
+        { id: 'nenhuma', label: 'Nenhuma', description: 'Sem destaque extra além da cor do responsável' }
+    ];
 
     useEffect(() => {
         if (!isOpen) return;
@@ -90,19 +98,43 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                             </div>
                                         )}
                                     </div>
-                                    <input 
-                                        value={newTypeName} 
-                                        onChange={e => setNewTypeName(e.target.value)} 
-                                        style={{ flex: 1, padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} 
+                                    <input
+                                        value={newTypeName}
+                                        onChange={e => setNewTypeName(e.target.value)}
+                                        style={{ flex: 1, padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                                         placeholder="Nome do novo tipo..."
                                     />
-                                    <button 
-                                        onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji); setNewTypeName(''); } }}
+                                    <button
+                                        onClick={() => { if(newTypeName) { addEventType(newTypeName, newTypeEmoji, newTypeLayer); setNewTypeName(''); setNewTypeLayer('nenhuma'); } }}
                                         className="btn-primary"
                                         style={{ padding: '10px 20px', borderRadius: '12px' }}
                                     >
                                         Add
                                     </button>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                                        Camada visual no calendário
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {layerOptions.map(opt => (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => setNewTypeLayer(opt.id)}
+                                                title={opt.description}
+                                                className="boing-effect"
+                                                style={{
+                                                    padding: '8px 12px', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                                                    border: newTypeLayer === opt.id ? '2px solid var(--text-accent)' : '1px solid var(--border-color)',
+                                                    background: newTypeLayer === opt.id ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                                                    color: newTypeLayer === opt.id ? 'var(--text-accent)' : 'var(--text-primary)'
+                                                }}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 
@@ -112,6 +144,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <span style={{ fontSize: '16px' }}>{t.emoji}</span>
                                             <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{t.name}</span>
+                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                                {layerOptions.find(o => o.id === (t.layer || 'nenhuma'))?.label || 'Nenhuma'}
+                                            </span>
                                         </div>
                                         <button onClick={() => deleteEventType(t.id)} className="icon-btn boing-effect" aria-label={`Remover tipo de evento "${t.name}"`} style={{ width: '32px', height: '32px', color: '#e74c3c' }}>
                                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
