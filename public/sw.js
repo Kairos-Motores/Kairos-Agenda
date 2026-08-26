@@ -18,7 +18,7 @@ self.addEventListener('activate', (event) => {
     })
   );
 });
-const CACHE_NAME = 'kairos-v2';
+const CACHE_NAME = 'kairos-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -45,9 +45,27 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ESTRATÉGIA DE FETCH (Mantendo sua lógica original)
+// ESTRATÉGIA DE FETCH
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Navegação/HTML: network-first, para nunca prender o usuário numa build antiga
+  // (com CACHE_NAME fixo, servir o index.html do cache indefinidamente fazia o app
+  // parecer "sem atualizar" mesmo após novos deploys, já que ele referencia os
+  // nomes hasheados antigos dos bundles JS/CSS).
+  if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   if (url.pathname.includes('/assets/')) {
     event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
