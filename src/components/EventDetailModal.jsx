@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileText, Pencil } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer } from '../utils/eventTypeLayer';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
 const MODAL_WIDTH = 480;
 const MODAL_HEIGHT = 560;
@@ -104,32 +107,32 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: accentColor, background: `${accentColor}1f`, padding: '4px 10px', borderRadius: '8px' }}>
+                <Badge className="uppercase" style={{ color: accentColor, background: `${accentColor}1f` }}>
                   {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{event.cr4a1_tipo || 'Evento'}
-                </span>
+                </Badge>
                 {event.cr4a1_privado && (
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#f57c00', background: '#fff3e01f', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '13px' }}>lock</span> Privado
-                  </span>
+                  <Badge variant="warning">
+                    <Lock className="size-3" /> Privado
+                  </Badge>
                 )}
                 {workspace && (
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: '8px' }}>
+                  <Badge variant="secondary">
                     {workspace.cr4a1_nome}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <h2 style={{ margin: 0, fontSize: '21px', fontWeight: '800', color: 'var(--text-title)', lineHeight: 1.3, wordBreak: 'break-word' }}>
                 {event.cr4a1_titulo || 'Sem título'}
               </h2>
             </div>
-            <button onClick={handleClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ flexShrink: 0 }}>
-              <span className="material-symbols-rounded">close</span>
-            </button>
+            <Button onClick={handleClose} variant="ghost" size="icon" aria-label="Fechar" className="shrink-0 rounded-full">
+              <X className="size-5" />
+            </Button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-secondary)', marginTop: '1px' }}>calendar_month</span>
+              <CalendarDays className="size-[19px] mt-px text-muted-foreground shrink-0" />
               <div style={{ fontSize: '14px', color: 'var(--text-primary)', textTransform: 'capitalize' }}>
                 {formatDateLabel(event.cr4a1_data_inicio)}
                 {!sameDay && event.cr4a1_data_fim && <> até {formatDateLabel(event.cr4a1_data_fim)}</>}
@@ -143,7 +146,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
 
             {responsaveis.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-secondary)', marginTop: '1px' }}>group</span>
+                <Users className="size-[19px] mt-px text-muted-foreground shrink-0" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {responsaveis.map((r, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -157,7 +160,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
 
             {details && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-secondary)', marginTop: '1px' }}>notes</span>
+                <NotebookText className="size-[19px] mt-px text-muted-foreground shrink-0" />
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{details}</p>
               </div>
             )}
@@ -171,9 +174,9 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {subtasks.map((task, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: '16px', color: task.completed ? '#34a853' : 'var(--border-strong)' }}>
-                        {task.completed ? 'check_circle' : 'radio_button_unchecked'}
-                      </span>
+                      {task.completed
+                        ? <CheckCircle2 className="size-4 text-success shrink-0" />
+                        : <Circle className="size-4 text-border shrink-0" />}
                       <span style={{ color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: task.completed ? 'line-through' : 'none' }}>{task.text}</span>
                     </div>
                   ))}
@@ -185,7 +188,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {files.map((file, i) => (
                   <a key={i} href={file.base64} download={file.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-accent)', textDecoration: 'none', padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '17px' }}>description</span>
+                    <FileText className="size-[17px]" />
                     {file.name}
                   </a>
                 ))}
@@ -194,10 +197,10 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '28px' }}>
-            <button onClick={handleClose} className="btn-secondary boing-effect" style={{ flex: 1 }}>Fechar</button>
-            <button onClick={() => onEdit(event)} className="btn-primary boing-effect" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span> Editar
-            </button>
+            <Button onClick={handleClose} variant="secondary" className="flex-1">Fechar</Button>
+            <Button onClick={() => onEdit(event)} className="flex-1">
+              <Pencil className="size-[18px]" /> Editar
+            </Button>
           </div>
         </div>
       </div>

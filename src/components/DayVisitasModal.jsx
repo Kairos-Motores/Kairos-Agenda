@@ -1,18 +1,9 @@
-import { useEffect } from 'react';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { CalendarClock, Clock, User } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Badge } from './ui/badge';
 
 export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
   const isReallyOpen = !!(isOpen && visitas && visitas.length > 0);
-  const trapRef = useFocusTrap(isReallyOpen);
-
-  useEffect(() => {
-    if (!isReallyOpen) return;
-    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isReallyOpen, onClose]);
-
-  if (!isReallyOpen) return null;
 
   const getUserName = (login) => {
     const user = allUsers.find(u => u.cr4a1_username === login);
@@ -28,72 +19,51 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-primary)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>view_agenda</span>
-            Visitas do Dia
-          </h3>
-          <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ color: 'var(--text-primary)' }}>
-            <span className="material-symbols-rounded">close</span>
-          </button>
-        </div>
+    <Dialog open={isReallyOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle><CalendarClock className="size-5 text-[#f57c00]" /> Visitas do Dia</DialogTitle>
+        </DialogHeader>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
-          {visitas.map((v, idx) => (
+        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
+          {visitas?.map((v, idx) => (
             <div
               key={v.cr4a1_agenda_kairosid || idx}
               onClick={() => {
                 onEditVisita(v);
                 onClose();
               }}
-              style={{
-                padding: '16px',
-                borderRadius: '16px',
-                background: 'var(--bg-secondary)',
-                cursor: 'pointer',
-                transition: 'background 0.2s, transform 0.2s',
-                border: '1px solid var(--border-color)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}
-              className="boing-effect"
+              className="boing-effect flex flex-col gap-2 rounded-2xl border border-border bg-secondary p-4 cursor-pointer transition-transform"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontWeight: '700', color: 'var(--text-title)', fontSize: '15px' }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-[15px] font-bold" style={{ color: 'var(--text-title)' }}>
                   {v.cr4a1_titulo.replace('📍 Visita: ', '')}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fff3e0', color: '#f57c00', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', flexShrink: 0 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>schedule</span>
+                <Badge className="shrink-0" style={{ background: '#fff3e0', color: '#f57c00' }}>
+                  <Clock className="size-[14px]" />
                   {getVisitaTime(v)}
-                </div>
+                </Badge>
               </div>
 
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>person</span>
+              <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <User className="size-4" />
                 {getUserName(v.cr4a1_user_login)}
               </div>
 
               {(v.originalData?.cr4a1_motivo || v.originalData?.cr4a1_filial) && (
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
+                <div className="mt-1 border-t border-border pt-2 text-xs text-muted-foreground">
                   {v.originalData?.cr4a1_motivo && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <strong>Motivo:</strong> {v.originalData.cr4a1_motivo}
-                    </div>
+                    <div className="mb-1"><strong>Motivo:</strong> {v.originalData.cr4a1_motivo}</div>
                   )}
                   {v.originalData?.cr4a1_filial && (
-                    <div>
-                      <strong>Unidade:</strong> {v.originalData.cr4a1_filial}
-                    </div>
+                    <div><strong>Unidade:</strong> {v.originalData.cr4a1_filial}</div>
                   )}
                 </div>
               )}
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
