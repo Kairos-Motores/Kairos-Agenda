@@ -305,11 +305,11 @@ export const useCalendar = () => {
 
     const fetchSsmaDados = useCallback(async () => {
         try {
-            const resAtividades = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses`);
+            const resAtividades = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades`);
             const dataAtividades = await resAtividades.json();
             setSsmaAtividades(dataAtividades.value || []);
 
-            const resGastos = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses`);
+            const resGastos = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastos`);
             const dataGastos = await resGastos.json();
             setSsmaGastos(dataGastos.value || []);
         } catch (error) {
@@ -860,7 +860,7 @@ export const useCalendar = () => {
 
     const addSsmaAtividade = async (atividade) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(atividade)
@@ -876,7 +876,7 @@ export const useCalendar = () => {
 
     const updateSsmaAtividade = async (id, atividade) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses&id=${id}`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades&id=${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(atividade)
@@ -892,7 +892,7 @@ export const useCalendar = () => {
 
     const deleteSsmaAtividade = async (id) => {
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses&id=${id}`, { method: 'DELETE' });
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades&id=${id}`, { method: 'DELETE' });
             await fetchSsmaDados();
             toast.success('Atividade removida.');
         } catch (error) {
@@ -903,7 +903,7 @@ export const useCalendar = () => {
 
     const addSsmaGasto = async (gasto) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(gasto)
@@ -919,7 +919,7 @@ export const useCalendar = () => {
 
     const updateSsmaGasto = async (id, gasto) => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses&id=${id}`, {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastos&id=${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(gasto)
@@ -935,7 +935,7 @@ export const useCalendar = () => {
 
     const deleteSsmaGasto = async (id) => {
         try {
-            await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses&id=${id}`, { method: 'DELETE' });
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_gastos&id=${id}`, { method: 'DELETE' });
             await fetchSsmaDados();
             toast.success('Gasto removido.');
         } catch (error) {
