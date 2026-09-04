@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CheckCircle2, Package, Pencil, Trash2, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, GalleryHorizontal } from 'lucide-react';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer } from '../utils/eventTypeLayer';
+import { Button } from './ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { cn } from '@/lib/utils';
 
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(window.matchMedia(query).matches);
@@ -200,9 +204,7 @@ export const ListView = ({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: percentage === 100 ? '#22c55e' : 'var(--text-accent)' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>
-                  {percentage === 100 ? 'task_alt' : 'inventory'}
-                </span>
+                {percentage === 100 ? <CheckCircle2 className="size-[18px]" /> : <Package className="size-[18px]" />}
                 <span>{percentage}% concluído</span>
               </div>
               <span style={{ color: 'var(--text-secondary)', opacity: 0.8 }}>
@@ -213,29 +215,23 @@ export const ListView = ({
         )}
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: 'auto' }}>
-          <button
+          <Button
             onClick={(e) => onEdit(event, e.currentTarget.getBoundingClientRect())}
-            className="btn-secondary"
-            style={{
-              flex: 1, padding: isMobile ? '12px' : '10px', fontSize: '13px', fontWeight: '600',
-              borderRadius: btnRadius, minHeight: btnSize, display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
+            variant="secondary"
+            className="h-auto flex-1 text-[13px]"
+            style={{ padding: isMobile ? '12px' : '10px', borderRadius: btnRadius, minHeight: btnSize }}
           >
             Editar Ficha
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => onDelete(event)}
-            className="icon-btn"
-            style={{
-              width: btnSize, height: btnSize, borderRadius: btnRadius,
-              border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-              color: '#e74c3c', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              minWidth: btnSize, minHeight: btnSize
-            }}
+            variant="outline"
+            className="shrink-0 p-0 text-destructive"
+            style={{ width: btnSize, height: btnSize, borderRadius: btnRadius, minWidth: btnSize, minHeight: btnSize }}
             aria-label="Excluir evento"
           >
-            <span className="material-symbols-rounded" style={{ fontSize: isMobile ? '20px' : '18px' }}>delete</span>
-          </button>
+            <Trash2 className={isMobile ? "size-5" : "size-[18px]"} />
+          </Button>
         </div>
       </div>
     );
@@ -312,32 +308,24 @@ export const ListView = ({
             
             {/* BOTÕES DE AÇÃO RESTAURADOS */}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-              <button
+              <Button
                 onClick={(e) => { e.stopPropagation(); onEdit(event); }}
-                style={{
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-secondary)', fontSize: isMobile ? '20px' : '18px',
-                  padding: isMobile ? '8px' : '4px', borderRadius: '50%',
-                  width: isMobile ? '44px' : 'auto', height: isMobile ? '44px' : 'auto',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
+                variant="ghost"
+                size="icon"
+                className={cn("text-muted-foreground", isMobile ? "size-11" : "size-9")}
                 aria-label="Editar evento"
               >
-                <span className="material-symbols-rounded">edit</span>
-              </button>
-              <button
+                <Pencil className={isMobile ? "size-5" : "size-[18px]"} />
+              </Button>
+              <Button
                 onClick={(e) => { e.stopPropagation(); onDelete(event); }}
-                style={{
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: '#e74c3c', fontSize: isMobile ? '20px' : '18px',
-                  padding: isMobile ? '8px' : '4px', borderRadius: '50%',
-                  width: isMobile ? '44px' : 'auto', height: isMobile ? '44px' : 'auto',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
+                variant="ghost"
+                size="icon"
+                className={cn("text-destructive hover:bg-destructive/15 hover:text-destructive", isMobile ? "size-11" : "size-9")}
                 aria-label="Excluir evento"
               >
-                <span className="material-symbols-rounded">delete</span>
-              </button>
+                <Trash2 className={isMobile ? "size-5" : "size-[18px]"} />
+              </Button>
             </div>
 
           </div>
@@ -401,13 +389,15 @@ export const ListView = ({
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-          <button
+          <Button
             onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
-            style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            variant="secondary"
+            size="icon"
+            className="size-9 rounded-full"
             aria-label="Slide anterior"
           >
-            <span className="material-symbols-rounded">chevron_left</span>
-          </button>
+            <ChevronLeft className="size-[18px]" />
+          </Button>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             {tipos.map((_, index) => (
@@ -424,56 +414,48 @@ export const ListView = ({
             ))}
           </div>
 
-          <button
+          <Button
             onClick={() => carouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
-            style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            variant="secondary"
+            size="icon"
+            className="size-9 rounded-full"
             aria-label="Próximo slide"
           >
-            <span className="material-symbols-rounded">chevron_right</span>
-          </button>
+            <ChevronRight className="size-[18px]" />
+          </Button>
         </div>
       </div>
     );
   };
+
+  const VIEW_ICONS = { grid: LayoutGrid, list: ListIcon, carousel: GalleryHorizontal };
+  const VIEW_LABELS = { grid: 'Grade', list: 'Lista', carousel: 'Carrossel' };
 
   const renderViewSelector = () => (
     <div style={{
       display: 'flex', justifyContent: isMobile ? 'space-between' : 'flex-start',
       gap: '8px', marginBottom: '16px', flexWrap: 'wrap'
     }}>
-      {['grid', 'list', 'carousel'].map(mode => (
-        <button
-          key={mode}
-          onClick={() => setViewMode(mode)}
-          style={{
-            padding: isMobile ? '8px 12px' : '8px 16px',
-            borderRadius: '20px',
-            border: viewMode === mode ? '2px solid var(--text-accent)' : '1px solid var(--border-color)',
-            background: viewMode === mode ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-            fontWeight: viewMode === mode ? '700' : '500',
-            cursor: 'pointer',
-            fontSize: isMobile ? '13px' : '14px',
-            color: viewMode === mode ? 'var(--text-accent)' : 'var(--text-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            flex: isMobile ? '1 1 auto' : '0 0 auto',
-            justifyContent: 'center',
-            transition: 'all 0.2s',
-            minWidth: '0',
-          }}
-          title={`Visualização em ${mode === 'grid' ? 'grade' : mode === 'list' ? 'lista' : 'carrossel'}`}
-        >
-          <span className="material-symbols-rounded" style={{ fontSize: isMobile ? '20px' : '18px' }}>
-            {mode === 'grid' ? 'grid_view' : mode === 'list' ? 'view_list' : 'view_carousel'}
-          </span>
-          {isMobile ? (
-            <span style={{ fontSize: '12px' }}>{mode === 'grid' ? 'Grade' : mode === 'list' ? 'Lista' : 'Carrossel'}</span>
-          ) : (
-            <span>{mode === 'grid' ? 'Grade' : mode === 'list' ? 'Lista' : 'Carrossel'}</span>
-          )}
-        </button>
-      ))}
+      {['grid', 'list', 'carousel'].map(mode => {
+        const Icon = VIEW_ICONS[mode];
+        const isActive = viewMode === mode;
+        return (
+          <Button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            variant={isActive ? undefined : 'outline'}
+            className={cn(
+              "rounded-full",
+              isMobile ? "flex-1 px-3 text-[13px]" : "flex-none px-4",
+              !isActive && "bg-background font-medium text-foreground"
+            )}
+            title={`Visualização em ${mode === 'grid' ? 'grade' : mode === 'list' ? 'lista' : 'carrossel'}`}
+          >
+            <Icon className={isMobile ? "size-5" : "size-[18px]"} />
+            <span style={{ fontSize: isMobile ? '12px' : undefined }}>{VIEW_LABELS[mode]}</span>
+          </Button>
+        );
+      })}
     </div>
   );
 
@@ -491,35 +473,25 @@ export const ListView = ({
           <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>
             Filtros de Tarefas:
           </span>
-          <select 
-            value={statusFilter} 
-            onChange={e => setStatusFilter(e.target.value)}
-            style={{ 
-              padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', 
-              background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px',
-              outline: 'none', cursor: 'pointer'
-            }}
-          >
-            <option value="Todos">Status: Todos</option>
-            <option value="Em andamento">🚧 Em andamento</option>
-            <option value="Concluído">✅ Concluído</option>
-            <option value="Atrasado">⚠️ Atrasado</option>
-          </select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-auto w-auto rounded-[10px] py-2 text-[13px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todos">Status: Todos</SelectItem>
+              <SelectItem value="Em andamento">🚧 Em andamento</SelectItem>
+              <SelectItem value="Concluído">✅ Concluído</SelectItem>
+              <SelectItem value="Atrasado">⚠️ Atrasado</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <select 
-            value={assigneeFilter} 
-            onChange={e => setAssigneeFilter(e.target.value)}
-            style={{ 
-              padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', 
-              background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px',
-              outline: 'none', cursor: 'pointer'
-            }}
-          >
-            <option value="Todos">Responsável: Todos</option>
-            {uniqueAssignees.map(user => (
-              <option key={user} value={user}>{user}</option>
-            ))}
-          </select>
+          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+            <SelectTrigger className="h-auto w-auto rounded-[10px] py-2 text-[13px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todos">Responsável: Todos</SelectItem>
+              {uniqueAssignees.map(user => (
+                <SelectItem key={user} value={user}>{user}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
