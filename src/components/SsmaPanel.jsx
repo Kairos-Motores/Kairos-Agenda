@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { SSMA_TIPOS, SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO, tipoParaIndicador } from '../config/ssmaConfig';
-import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso } from '../utils/ssmaIndicators';
+import { SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO } from '../config/ssmaConfig';
+import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso, tipoParaIndicador } from '../utils/ssmaIndicators';
 
 const ACCENT = '#2e7d32';
 const ACCENT_BG = '#e8f5e9';
@@ -31,11 +31,34 @@ const StatusBadge = ({ status }) => {
     return <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', background: c.bg, color: c.fg, whiteSpace: 'nowrap' }}>{status}</span>;
 };
 
-export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssmaGastos, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto }) => {
+// Normaliza as linhas cruas do Dataverse (cr4a1_codigo, cr4a1_meta como fração 0-1 etc.)
+// para o formato {pk, codigo, nome, tipo, meta} usado pelos cálculos e pela UI.
+const normalizarIndicadores = (raw) => (raw || [])
+    .map(i => ({
+        pk: i.cr4a1_ssma_indicadorid,
+        codigo: i.cr4a1_codigo || '',
+        nome: i.cr4a1_nome || '',
+        tipo: i.cr4a1_tipo || '',
+        meta: Number(i.cr4a1_meta) || 0,
+        ordem: Number(i.cr4a1_ordem) || 0
+    }))
+    .sort((a, b) => a.ordem - b.ordem || a.codigo.localeCompare(b.codigo));
+
+export const SsmaPanel = ({
+    currentUser, hasRole, allUsers,
+    ssmaAtividades, ssmaGastos, ssmaIndicadores,
+    addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade,
+    addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
+    addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador
+}) => {
     const isAdmin = hasRole('ADMIN');
-    const isTecnico = hasRole('TECNICO SSMA');
+    const isTecnico = hasRole('SSMA');
     const isChefe = hasRole('COORD SSMA');
-    const podeEditar = isAdmin || isTecnico;
+    const podeEditarLancamentos = isAdmin || isTecnico;
+    const podeGerenciarIndicadores = isAdmin || isChefe;
+
+    const indicadores = useMemo(() => normalizarIndicadores(ssmaIndicadores), [ssmaIndicadores]);
+    const tiposDisponiveis = useMemo(() => Array.from(new Set(indicadores.map(i => i.tipo).filter(Boolean))), [indicadores]);
 
     const [subTab, setSubTab] = useState('indicadores');
     const [competencia, setCompetencia] = useState(format(new Date(), 'MM/yyyy'));
@@ -46,11 +69,14 @@ export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssma
         return Array.from(set).sort();
     }, [allUsers]);
 
+    // Admin não tem restrição de unidade; técnico está sempre preso à própria unidade,
+    // mesmo que o estado `unidade` seja mexido em algum lugar — é a filial ligada ao
+    // login dele, não uma escolha.
     const unidadeEfetiva = (isAdmin || isChefe) ? unidade : (currentUser?.cr4a1_unidade || '');
 
     const resumo = useMemo(
-        () => computeSsmaResumo(ssmaAtividades, ssmaGastos, competencia, unidadeEfetiva),
-        [ssmaAtividades, ssmaGastos, competencia, unidadeEfetiva]
+        () => computeSsmaResumo(ssmaAtividades, ssmaGastos, competencia, unidadeEfetiva, indicadores),
+        [ssmaAtividades, ssmaGastos, competencia, unidadeEfetiva, indicadores]
     );
     const gastosPorCategoria = useMemo(
         () => computeGastosPorCategoria(ssmaGastos, SSMA_CATEGORIAS_GASTO, competencia, unidadeEfetiva),
@@ -62,6 +88,7 @@ export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssma
 
     const [editingAtividade, setEditingAtividade] = useState(null);
     const [editingGasto, setEditingGasto] = useState(null);
+    const [editingIndicador, setEditingIndicador] = useState(null);
 
     const tabStyle = (active) => ({
         padding: '10px 20px', cursor: 'pointer', userSelect: 'none', borderRadius: '100px', fontWeight: '600', fontSize: '13px',
@@ -100,12 +127,13 @@ export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssma
 
             <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
                 <div onClick={() => setSubTab('indicadores')} style={tabStyle(subTab === 'indicadores')}>Indicadores</div>
-                {podeEditar && <div onClick={() => setSubTab('atividades')} style={tabStyle(subTab === 'atividades')}>Atividades e Ocorrências</div>}
-                {podeEditar && <div onClick={() => setSubTab('gastos')} style={tabStyle(subTab === 'gastos')}>Gastos SSMA</div>}
+                {podeEditarLancamentos && <div onClick={() => setSubTab('atividades')} style={tabStyle(subTab === 'atividades')}>Atividades e Ocorrências</div>}
+                {podeEditarLancamentos && <div onClick={() => setSubTab('gastos')} style={tabStyle(subTab === 'gastos')}>Gastos SSMA</div>}
+                {podeGerenciarIndicadores && <div onClick={() => setSubTab('gerenciar')} style={tabStyle(subTab === 'gerenciar')}>Gerenciar Indicadores</div>}
             </div>
 
             {subTab === 'indicadores' && <IndicadoresTab resumo={resumo} gastosPorCategoria={gastosPorCategoria} />}
-            {subTab === 'atividades' && podeEditar && (
+            {subTab === 'atividades' && podeEditarLancamentos && (
                 <AtividadesTab
                     atividades={atividadesFiltradas}
                     competencia={competencia}
@@ -113,13 +141,15 @@ export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssma
                     currentUser={currentUser}
                     isAdmin={isAdmin}
                     allUsers={allUsers}
+                    indicadores={indicadores}
+                    tiposDisponiveis={tiposDisponiveis}
                     editing={editingAtividade}
                     setEditing={setEditingAtividade}
                     onSave={(id, data) => id ? updateSsmaAtividade(id, data) : addSsmaAtividade(data)}
                     onDelete={deleteSsmaAtividade}
                 />
             )}
-            {subTab === 'gastos' && podeEditar && (
+            {subTab === 'gastos' && podeEditarLancamentos && (
                 <GastosTab
                     gastos={gastosFiltrados}
                     competencia={competencia}
@@ -131,6 +161,15 @@ export const SsmaPanel = ({ currentUser, hasRole, allUsers, ssmaAtividades, ssma
                     setEditing={setEditingGasto}
                     onSave={(id, data) => id ? updateSsmaGasto(id, data) : addSsmaGasto(data)}
                     onDelete={deleteSsmaGasto}
+                />
+            )}
+            {subTab === 'gerenciar' && podeGerenciarIndicadores && (
+                <GerenciarIndicadoresTab
+                    indicadores={indicadores}
+                    editing={editingIndicador}
+                    setEditing={setEditingIndicador}
+                    onSave={(pk, data) => pk ? updateSsmaIndicador(pk, data) : addSsmaIndicador(data)}
+                    onDelete={deleteSsmaIndicador}
                 />
             )}
         </div>
@@ -174,35 +213,41 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
 
         <div style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--text-title)' }}>Indicadores — Status na Competência</h3>
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                        <tr style={{ textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '8px' }}>ID</th>
-                            <th style={{ padding: '8px' }}>Indicador</th>
-                            <th style={{ padding: '8px' }}>Meta</th>
-                            <th style={{ padding: '8px' }}>Memória de Cálculo</th>
-                            <th style={{ padding: '8px' }}>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {resumo.indicadores.map(ind => (
-                            <tr key={ind.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                                <td style={{ padding: '8px', fontWeight: '700', color: 'var(--text-primary)' }}>{ind.id}</td>
-                                <td style={{ padding: '8px', color: 'var(--text-primary)' }}>{ind.nome}</td>
-                                <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{(ind.meta * 100).toFixed(0)}%</td>
-                                <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{ind.memoria}</td>
-                                <td style={{ padding: '8px' }}><StatusBadge status={ind.status} /></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <div style={{ display: 'flex', gap: '16px', marginTop: '16px', fontSize: '13px', flexWrap: 'wrap' }}>
-                <span>✅ Atingidos: <b>{resumo.atingidos}</b></span>
-                <span>⚠️ Abaixo da meta: <b>{resumo.abaixoDaMeta}</b></span>
-                <span>➖ Não informados: <b>{resumo.naoInformados}</b></span>
-            </div>
+            {resumo.indicadores.length === 0 ? (
+                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>Nenhum indicador cadastrado ainda. Peça ao chefe da equipe para cadastrar em "Gerenciar Indicadores".</p>
+            ) : (
+                <>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead>
+                                <tr style={{ textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>
+                                    <th style={{ padding: '8px' }}>Código</th>
+                                    <th style={{ padding: '8px' }}>Indicador</th>
+                                    <th style={{ padding: '8px' }}>Meta</th>
+                                    <th style={{ padding: '8px' }}>Memória de Cálculo</th>
+                                    <th style={{ padding: '8px' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {resumo.indicadores.map(ind => (
+                                    <tr key={ind.pk} style={{ borderTop: '1px solid var(--border-color)' }}>
+                                        <td style={{ padding: '8px', fontWeight: '700', color: 'var(--text-primary)' }}>{ind.codigo}</td>
+                                        <td style={{ padding: '8px', color: 'var(--text-primary)' }}>{ind.nome}</td>
+                                        <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{(ind.meta * 100).toFixed(0)}%</td>
+                                        <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{ind.memoria}</td>
+                                        <td style={{ padding: '8px' }}><StatusBadge status={ind.status} /></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', marginTop: '16px', fontSize: '13px', flexWrap: 'wrap' }}>
+                        <span>✅ Atingidos: <b>{resumo.atingidos}</b></span>
+                        <span>⚠️ Abaixo da meta: <b>{resumo.abaixoDaMeta}</b></span>
+                        <span>➖ Não informados: <b>{resumo.naoInformados}</b></span>
+                    </div>
+                </>
+            )}
         </div>
 
         <div style={cardStyle}>
@@ -234,11 +279,11 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
     </div>
 );
 
-const emptyAtividade = (currentUser, unidade, competencia) => ({
+const emptyAtividade = (currentUser, unidade, competencia, tiposDisponiveis) => ({
     cr4a1_competencia: competencia,
     cr4a1_unidade: unidade,
     cr4a1_tecnico_login: currentUser?.cr4a1_username || '',
-    cr4a1_tipo: SSMA_TIPOS[0],
+    cr4a1_tipo: tiposDisponiveis[0] || '',
     cr4a1_tema: '',
     cr4a1_data_inicio: '',
     cr4a1_prazo: '',
@@ -252,14 +297,18 @@ const emptyAtividade = (currentUser, unidade, competencia) => ({
     cr4a1_observacao: ''
 });
 
-const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin, allUsers, editing, setEditing, onSave, onDelete }) => {
-    const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('TECNICO SSMA'));
+const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin, allUsers, indicadores, tiposDisponiveis, editing, setEditing, onSave, onDelete }) => {
+    const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('SSMA'));
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button onClick={() => setEditing(emptyAtividade(currentUser, unidade, competencia))} className="btn-primary boing-effect" style={{ alignSelf: 'flex-start', padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>
-                + Nova atividade
-            </button>
+            {tiposDisponiveis.length === 0 ? (
+                <p style={{ color: '#f57c00', fontSize: '13px' }}>Nenhum indicador cadastrado ainda — peça ao chefe da equipe para cadastrar em "Gerenciar Indicadores" antes de lançar atividades.</p>
+            ) : (
+                <button onClick={() => setEditing(emptyAtividade(currentUser, unidade, competencia, tiposDisponiveis))} className="btn-primary boing-effect" style={{ alignSelf: 'flex-start', padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>
+                    + Nova atividade
+                </button>
+            )}
 
             {editing && (
                 <AtividadeForm
@@ -267,6 +316,7 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
                     isAdmin={isAdmin}
                     tecnicos={tecnicos}
                     allUsers={allUsers}
+                    tiposDisponiveis={tiposDisponiveis}
                     onCancel={() => setEditing(null)}
                     onSave={(data) => { onSave(editing.cr4a1_ssma_atividadeid, data); setEditing(null); }}
                 />
@@ -281,7 +331,7 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
                         <div key={a.cr4a1_ssma_atividadeid} style={{ ...cardStyle, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: ACCENT, background: ACCENT_BG, padding: '2px 8px', borderRadius: '8px' }}>{tipoParaIndicador(a.cr4a1_tipo)}</span>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: ACCENT, background: ACCENT_BG, padding: '2px 8px', borderRadius: '8px' }}>{tipoParaIndicador(a.cr4a1_tipo, indicadores)}</span>
                                     <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{a.cr4a1_tipo}</span>
                                     {a.cr4a1_tema && <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>— {a.cr4a1_tema}</span>}
                                 </div>
@@ -306,7 +356,7 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
     );
 };
 
-const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, onCancel, onSave }) => {
+const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, tiposDisponiveis, onCancel, onSave }) => {
     const [form, setForm] = useState(data);
     const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -330,7 +380,7 @@ const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, onCancel, onSave }) 
                 <div>
                     <label style={labelStyle}>Tipo</label>
                     <select value={form.cr4a1_tipo} onChange={set('cr4a1_tipo')} style={inputStyle}>
-                        {SSMA_TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+                        {tiposDisponiveis.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                 </div>
                 <div>
@@ -391,7 +441,7 @@ const emptyGasto = (currentUser, unidade, competencia) => ({
 });
 
 const GastosTab = ({ gastos, competencia, unidade, currentUser, isAdmin, allUsers, editing, setEditing, onSave, onDelete }) => {
-    const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('TECNICO SSMA'));
+    const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('SSMA'));
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -489,6 +539,98 @@ const GastoForm = ({ data, isAdmin, tecnicos, allUsers, onCancel, onSave }) => {
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
                 <button onClick={onCancel} className="btn-secondary" style={{ padding: '10px 18px', borderRadius: '12px' }}>Cancelar</button>
                 <button onClick={() => onSave(form)} className="btn-primary" style={{ padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>Salvar</button>
+            </div>
+        </div>
+    );
+};
+
+const emptyIndicador = () => ({ cr4a1_codigo: '', cr4a1_nome: '', cr4a1_tipo: '', cr4a1_meta: 100, cr4a1_ordem: 0 });
+
+// Tela do COORD SSMA/ADMIN para cadastrar, editar e excluir indicadores (código, nome,
+// tipo de atividade associado e meta) — persistidos em cr4a1_ssma_indicadors. É o que
+// alimenta tanto a aba Indicadores (leitura) quanto o dropdown "Tipo" que o técnico usa
+// ao lançar uma atividade.
+const GerenciarIndicadoresTab = ({ indicadores, editing, setEditing, onSave, onDelete }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+            Cada indicador vira uma linha na aba Indicadores e um tipo disponível para os técnicos lançarem atividades.
+        </p>
+        <button
+            onClick={() => setEditing({ pk: null, form: emptyIndicador() })}
+            className="btn-primary boing-effect"
+            style={{ alignSelf: 'flex-start', padding: '10px 18px', borderRadius: '12px', background: ACCENT }}
+        >
+            + Novo indicador
+        </button>
+
+        {editing && (
+            <IndicadorForm
+                data={editing.form}
+                onCancel={() => setEditing(null)}
+                onSave={(data) => { onSave(editing.pk, data); setEditing(null); }}
+            />
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {indicadores.length === 0 && <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>Nenhum indicador cadastrado.</p>}
+            {indicadores.map(ind => (
+                <div key={ind.pk} style={{ ...cardStyle, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: ACCENT, background: ACCENT_BG, padding: '2px 8px', borderRadius: '8px' }}>{ind.codigo}</span>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{ind.nome}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tipo: {ind.tipo} — Meta: {(ind.meta * 100).toFixed(0)}%</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                            onClick={() => setEditing({ pk: ind.pk, form: { cr4a1_codigo: ind.codigo, cr4a1_nome: ind.nome, cr4a1_tipo: ind.tipo, cr4a1_meta: Math.round(ind.meta * 100), cr4a1_ordem: ind.ordem } })}
+                            className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: ACCENT }}
+                        >
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+                        </button>
+                        <button
+                            onClick={() => { if (window.confirm(`Remover o indicador "${ind.codigo}"? Ele deixará de aparecer na apuração e os técnicos não poderão mais lançar atividades desse tipo.`)) onDelete(ind.pk); }}
+                            className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}
+                        >
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+const IndicadorForm = ({ data, onCancel, onSave }) => {
+    const [form, setForm] = useState(data);
+    const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+    const handleSave = () => {
+        if (!form.cr4a1_codigo.trim() || !form.cr4a1_tipo.trim()) return;
+        onSave({
+            cr4a1_codigo: form.cr4a1_codigo.trim(),
+            cr4a1_nome: form.cr4a1_nome.trim(),
+            cr4a1_tipo: form.cr4a1_tipo.trim(),
+            cr4a1_meta: Math.max(0, Math.min(100, Number(form.cr4a1_meta) || 0)) / 100,
+            cr4a1_ordem: Number(form.cr4a1_ordem) || 0
+        });
+    };
+
+    return (
+        <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                <div><label style={labelStyle}>Código (ex: TST-11)</label><input value={form.cr4a1_codigo} onChange={set('cr4a1_codigo')} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Tipo de atividade</label><input value={form.cr4a1_tipo} onChange={set('cr4a1_tipo')} placeholder="ex: Novo Treinamento" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Meta (%)</label><input type="number" min="0" max="100" value={form.cr4a1_meta} onChange={set('cr4a1_meta')} style={inputStyle} /></div>
+            </div>
+            <div>
+                <label style={labelStyle}>Nome / Descrição do indicador</label>
+                <input value={form.cr4a1_nome} onChange={set('cr4a1_nome')} style={{ ...inputStyle, width: '100%' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
+                <button onClick={onCancel} className="btn-secondary" style={{ padding: '10px 18px', borderRadius: '12px' }}>Cancelar</button>
+                <button onClick={handleSave} className="btn-primary" style={{ padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>Salvar</button>
             </div>
         </div>
     );

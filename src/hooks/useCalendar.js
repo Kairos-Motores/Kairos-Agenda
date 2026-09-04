@@ -22,6 +22,7 @@ export const useCalendar = () => {
     const [visitas, setVisitas] = useState([]);
     const [ssmaAtividades, setSsmaAtividades] = useState([]);
     const [ssmaGastos, setSsmaGastos] = useState([]);
+    const [ssmaIndicadores, setSsmaIndicadores] = useState([]);
     const [notas, setNotas] = useState([]);
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspaces, setActiveWorkspaces] = useState([]);
@@ -312,6 +313,10 @@ export const useCalendar = () => {
             const resGastos = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastos`);
             const dataGastos = await resGastos.json();
             setSsmaGastos(dataGastos.value || []);
+
+            const resIndicadores = await fetch(`${API_PROXY}?table=cr4a1_ssma_indicadors`);
+            const dataIndicadores = await resIndicadores.json();
+            setSsmaIndicadores(dataIndicadores.value || []);
         } catch (error) {
             console.error("Erro ao carregar dados de SSMA:", error);
         }
@@ -944,6 +949,49 @@ export const useCalendar = () => {
         }
     };
 
+    const addSsmaIndicador = async (indicador) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_indicadors`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(indicador)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Indicador criado!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao criar indicador.');
+        }
+    };
+
+    const updateSsmaIndicador = async (id, indicador) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_indicadors&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(indicador)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Indicador atualizado!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar indicador.');
+        }
+    };
+
+    const deleteSsmaIndicador = async (id) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_indicadors&id=${id}`, { method: 'DELETE' });
+            await fetchSsmaDados();
+            toast.success('Indicador removido.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao remover indicador.');
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             const newWS = {
@@ -1278,7 +1326,8 @@ export const useCalendar = () => {
         updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
-        ssmaAtividades, ssmaGastos, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
+        ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
+        addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         notas, addNota, updateNota, deleteNota,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

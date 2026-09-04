@@ -1,9 +1,7 @@
-import { SSMA_INDICATORS, tipoParaIndicador } from '../config/ssmaConfig';
-
 // Uma atividade só conta como "realizado válido" se tiver evidência anexada — mesma regra
 // enunciada na planilha original ("Evidência é obrigatória para que o realizado seja
 // considerado"), aplicada aqui de forma consistente a todos os indicadores (a planilha
-// só tinha essa regra formalizada para o TST-07; generalizamos para os 10).
+// só tinha essa regra formalizada para o TST-07; generalizamos para todos).
 const filtrarPorCompetenciaUnidade = (lista, competencia, unidade) =>
     (lista || []).filter(item => item.cr4a1_competencia === competencia && item.cr4a1_unidade === unidade);
 
@@ -23,11 +21,16 @@ export const realizadoValidoRow = (atividade) => {
     return Number(atividade.cr4a1_realizado) || 0;
 };
 
-// Calcula os 10 indicadores TST para uma competência+unidade, a partir das atividades brutas.
-export const computeSsmaIndicadores = (atividades, competencia, unidade) => {
+// tipoParaIndicador: dado o tipo de uma atividade, acha o código do indicador (TST-XX)
+// correspondente na lista de indicadores cadastrados pelo COORD SSMA/ADMIN.
+export const tipoParaIndicador = (tipo, indicadores) => (indicadores || []).find(i => i.tipo === tipo)?.codigo || '';
+
+// Calcula os indicadores TST cadastrados para uma competência+unidade, a partir das
+// atividades brutas. `indicadores` vem de cr4a1_ssma_indicadors (editável em tela).
+export const computeSsmaIndicadores = (atividades, competencia, unidade, indicadores) => {
     const filtradas = filtrarPorCompetenciaUnidade(atividades, competencia, unidade);
 
-    return SSMA_INDICATORS.map(ind => {
+    return (indicadores || []).map(ind => {
         const doTipo = filtradas.filter(a => a.cr4a1_tipo === ind.tipo);
         const previsto = doTipo.reduce((sum, a) => sum + (Number(a.cr4a1_previsto) || 0), 0);
         const realizadoValido = doTipo.reduce((sum, a) => sum + realizadoValidoRow(a), 0);
@@ -43,12 +46,17 @@ export const computeSsmaIndicadores = (atividades, competencia, unidade) => {
 
 // KPIs do topo do "Resumo Supervisor": atingimento geral, atividades realizadas, atrasos,
 // gasto realizado, itens sem evidência e pendências.
-export const computeSsmaResumo = (atividades, gastos, competencia, unidade) => {
-    const indicadores = computeSsmaIndicadores(atividades, competencia, unidade);
+export const computeSsmaResumo = (atividades, gastos, competencia, unidade, indicadores) => {
+    const indicadoresCalculados = computeSsmaIndicadores(atividades, competencia, unidade, indicadores);
     const filtradas = filtrarPorCompetenciaUnidade(atividades, competencia, unidade);
     const gastosFiltrados = filtrarPorCompetenciaUnidade(gastos, competencia, unidade);
+    const totalIndicadores = indicadoresCalculados.length;
 
-    const atingimentoGeral = indicadores.filter(i => i.status === 'ATINGIDO').length / SSMA_INDICATORS.length;
+    const atingidos = indicadoresCalculados.filter(i => i.status === 'ATINGIDO').length;
+    const abaixoDaMeta = indicadoresCalculados.filter(i => i.status === 'ABAIXO DA META').length;
+    const naoInformados = indicadoresCalculados.filter(i => i.status === 'NÃO INFORMADO').length;
+
+    const atingimentoGeral = totalIndicadores === 0 ? 0 : atingidos / totalIndicadores;
     const atividadesRealizadas = filtradas.reduce((sum, a) => sum + (Number(a.cr4a1_realizado) || 0), 0);
     const registrosAtrasados = filtradas.filter(a => diasEmAtraso(a) > 0).length;
     const gastoRealizado = gastosFiltrados.reduce((sum, g) => sum + (Number(g.cr4a1_realizado) || 0), 0);
@@ -56,16 +64,16 @@ export const computeSsmaResumo = (atividades, gastos, competencia, unidade) => {
     const pendencias = filtradas.filter(a => a.cr4a1_status === 'Pendente').length;
 
     return {
-        indicadores,
+        indicadores: indicadoresCalculados,
         atingimentoGeral,
         atividadesRealizadas,
         registrosAtrasados,
         gastoRealizado,
         semEvidencia,
         pendencias,
-        atingidos: indicadores.filter(i => i.status === 'ATINGIDO').length,
-        abaixoDaMeta: indicadores.filter(i => i.status === 'ABAIXO DA META').length,
-        naoInformados: indicadores.filter(i => i.status === 'NÃO INFORMADO').length
+        atingidos,
+        abaixoDaMeta,
+        naoInformados
     };
 };
 
@@ -80,5 +88,3 @@ export const computeGastosPorCategoria = (gastos, categorias, competencia, unida
         };
     });
 };
-
-export { tipoParaIndicador };

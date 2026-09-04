@@ -54,7 +54,8 @@ function App() {
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
-    ssmaAtividades = [], ssmaGastos = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
+    ssmaAtividades = [], ssmaGastos = [], ssmaIndicadores = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
+    addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
     notas = [], addNota, updateNota, deleteNota
   } = useCalendar();
 
@@ -918,7 +919,7 @@ function App() {
                 <span className="material-symbols-rounded">bar_chart</span> Painéis BI
               </button>
 
-              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('TECNICO SSMA')) && (
+              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('SSMA')) && (
                 <button onClick={() => { setAppMode('ssma'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
                   justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
                   backgroundColor: appMode === 'ssma' ? '#e8f5e9' : 'transparent',
@@ -1441,12 +1442,16 @@ function App() {
                     allUsers={allUsers}
                     ssmaAtividades={ssmaAtividades}
                     ssmaGastos={ssmaGastos}
+                    ssmaIndicadores={ssmaIndicadores}
                     addSsmaAtividade={addSsmaAtividade}
                     updateSsmaAtividade={updateSsmaAtividade}
                     deleteSsmaAtividade={deleteSsmaAtividade}
                     addSsmaGasto={addSsmaGasto}
                     updateSsmaGasto={updateSsmaGasto}
                     deleteSsmaGasto={deleteSsmaGasto}
+                    addSsmaIndicador={addSsmaIndicador}
+                    updateSsmaIndicador={updateSsmaIndicador}
+                    deleteSsmaIndicador={deleteSsmaIndicador}
                   />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
@@ -1766,7 +1771,7 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>bar_chart</span>
               </button>
 
-              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('TECNICO SSMA')) && (
+              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('SSMA')) && (
                 <button onClick={() => setAppMode('ssma')} className={`boing-effect ${appMode === 'ssma' ? 'active' : ''}`} title="SSMA" style={{
                   width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: appMode === 'ssma' ? '#e8f5e9' : 'transparent', color: appMode === 'ssma' ? '#2e7d32' : 'var(--text-primary)'
