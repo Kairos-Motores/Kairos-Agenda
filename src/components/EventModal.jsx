@@ -1,17 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+    X, Smile, CalendarDays, CalendarClock, Clock, History, LayoutGrid, Bookmark, Users,
+    ChevronLeft, ChevronRight, Check, Upload, FileText, Plus, Trash2, Lock
+} from 'lucide-react';
 import { checkAccess, hasCoordRole } from '../utils/permissions';
 import { parseAssignees } from '../utils/assignees';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { Dialog, DialogContent } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
+import { Badge } from './ui/badge';
+import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './ui/popover';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
+import { Checkbox } from './ui/checkbox';
+
+const commonEmojis = [
+    '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
+    '🚗', '🏍️', '✈️', '🏨', '📍', '🗺️', '⛽', '🚚', '📦', '🔑', '🏠',
+    '🛠️', '🏗️', '🔧', '🔨', '⚡', '🔋', '🛡️', '🎨', '🔍', '🧪'
+];
 
 export const EventModal = ({
     isOpen, onClose, onSave, initialDate, editingEvent, userRole,
     allUsers = [], eventTypes = [], viewedUser, workspaces = [],
     preselectedTargetUser, preselectedWorkspaceId
 }) => {
-    const trapRef = useFocusTrap(isOpen);
     const [formData, setFormData] = useState({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
@@ -22,26 +41,9 @@ export const EventModal = ({
 
     const [subtasks, setSubtasks] = useState([]);
     const [newSubtask, setNewSubtask] = useState('');
-    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Controlo de Estados dos Menus MD3 Customizados
-    const [activePicker, setActivePicker] = useState(null); // 'startDate', 'endDate', 'startTime', 'endTime'
-    const [openDropdown, setOpenDropdown] = useState(null); // 'workspace', 'type', 'targetUser'
-    const [pickerMonth, setPickerMonth] = useState(new Date());
     const [targetUserSearch, setTargetUserSearch] = useState('');
-
-    // Refs para monitorizar fecho de dropdowns customizados
-    const workspaceRef = useRef(null);
-    const typeRef = useRef(null);
-    const targetUserRef = useRef(null);
-
-    const commonEmojis = [
-        '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
-        '🚗', '🏍️', '✈️', '🏨', '📍', '🗺️', '⛽', '🚚', '📦', '🔑', '🏠',
-        '🛠️', '🏗️', '🔧', '🔨', '⚡', '🔋', '🛡️', '🎨', '🔍', '🧪'
-    ];
 
     useEffect(() => {
         if (editingEvent) {
@@ -63,7 +65,7 @@ export const EventModal = ({
             setIsPrivate(editingEvent.cr4a1_privado || false);
             try {
                 setSubtasks(editingEvent.cr4a1_subtasks ? (typeof editingEvent.cr4a1_subtasks === 'string' ? JSON.parse(editingEvent.cr4a1_subtasks) : editingEvent.cr4a1_subtasks) : []);
-            } catch (e) { setSubtasks([]); }
+            } catch { setSubtasks([]); }
         } else {
             const cleanInitialDate = initialDate ? initialDate.split('T')[0] : format(new Date(), 'yyyy-MM-dd');
             setFormData({
@@ -79,45 +81,11 @@ export const EventModal = ({
         setIsSaving(false);
     }, [editingEvent, initialDate, isOpen, viewedUser, eventTypes, workspaces, preselectedTargetUser, preselectedWorkspaceId]);
 
-    // Fechar dropdowns ao clicar fora
-    useEffect(() => {
-        const handleOutsideClick = (e) => {
-            if (openDropdown === 'workspace' && workspaceRef.current && !workspaceRef.current.contains(e.target)) setOpenDropdown(null);
-            if (openDropdown === 'type' && typeRef.current && !typeRef.current.contains(e.target)) setOpenDropdown(null);
-            if (openDropdown === 'targetUser' && targetUserRef.current && !targetUserRef.current.contains(e.target)) { setOpenDropdown(null); setTargetUserSearch(''); }
-        };
-        document.addEventListener('mousedown', handleOutsideClick);
-        return () => document.removeEventListener('mousedown', handleOutsideClick);
-    }, [openDropdown]);
-
-    // Fecha com Esc -- só quando não há um seletor (data/hora) ou dropdown aberto por cima,
-    // pra Esc fechar aquele primeiro em vez de pular direto pro modal inteiro
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKey = (e) => {
-            if (e.key !== 'Escape') return;
-            if (activePicker) { setActivePicker(null); return; }
-            if (openDropdown) { setOpenDropdown(null); return; }
-            if (isEmojiPickerOpen) { setIsEmojiPickerOpen(false); return; }
-            onClose();
-        };
-        document.addEventListener('keydown', handleKey);
-        return () => document.removeEventListener('keydown', handleKey);
-    }, [isOpen, activePicker, openDropdown, isEmojiPickerOpen, onClose]);
-
-    if (!isOpen) return null;
-
     const safeFormatDate = (dateStr, pattern = "EEE, d 'de' MMM") => {
         if (!dateStr) return 'Selecionar data';
         const parsedDate = new Date(dateStr + 'T12:00:00');
         if (isNaN(parsedDate.getTime())) return 'Data inválida';
         return format(parsedDate, pattern, { locale: ptBR });
-    };
-
-    const handleSelectDate = (date) => {
-        const formattedDate = format(date, 'yyyy-MM-dd');
-        setFormData(prev => ({ ...prev, [activePicker]: formattedDate }));
-        setActivePicker(null);
     };
 
     const handleFileChange = (e) => {
@@ -126,17 +94,12 @@ export const EventModal = ({
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    files: [...prev.files, { name: file.name, size: file.size, base64: reader.result }]
-                }));
+                setFormData(prev => ({ ...prev, files: [...prev.files, { name: file.name, size: file.size, base64: reader.result }] }));
             };
         });
     };
 
-    const removeFile = (index) => {
-        setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
-    };
+    const removeFile = (index) => setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
 
     // Utilizadores do workspace selecionado (criador + membros), para restringir a quem
     // pode ser atribuída a responsabilidade do evento dentro desse workspace específico.
@@ -149,438 +112,308 @@ export const EventModal = ({
         })
         : [];
 
-    // Estilos de Cores Dinâmicas baseados no Accent Color (Material You Tonal Mappings)
-    const tintColor = 'var(--text-accent)';
-    const surfaceVariant = `${tintColor}0d`; // 5% de opacidade para fundo suave
-    const activeItemBg = `${tintColor}1c`; // 11% de opacidade para itens ativos
-
-    // COMPONENTE CUSTOMIZADO: Campo de Seleção Estilo MD3 (Sem Dropdown Nativo)
-    const MD3DropdownField = ({ label, icon, options, value, onSelect, displayValue, containerRef, dropdownKey, searchable = false, searchTerm = '', onSearchChange, emptyMessage = 'Nenhuma opção encontrada.', multiple = false }) => {
-        const isDropdownOpen = openDropdown === dropdownKey;
-        const filteredOptions = searchable && searchTerm.trim()
-            ? options.filter(opt => opt.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
-            : options;
-        return (
-            <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-                <div
-                    onClick={() => {
-                        const willClose = isDropdownOpen;
-                        setOpenDropdown(willClose ? null : dropdownKey);
-                        if (willClose && searchable) onSearchChange('');
-                    }}
-                    style={{
-                        display: 'flex', flexDirection: 'column', padding: '10px 16px', minHeight: '62px',
-                        borderRadius: '20px', border: isDropdownOpen ? `2px solid ${tintColor}` : '1px solid var(--border-color)',
-                        background: 'var(--bg-secondary)', cursor: 'pointer', boxSizing: 'border-box',
-                        justifyContent: 'center', transition: 'all 0.2s ease-in-out'
-                    }}
-                >
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '2px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
-                        {label}
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>{icon}</span>}
-                            <span>{displayValue}</span>
-                        </div>
-                        <span className="material-symbols-rounded" style={{ transition: 'transform 0.2s', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', color: 'var(--text-secondary)', fontSize: '20px' }}>expand_more</span>
-                    </div>
-                </div>
-
-                {isDropdownOpen && (
-                    <div style={{
-                        position: 'absolute', top: '68px', left: 0, right: 0, zIndex: 12600,
-                        background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
-                        borderRadius: '20px', padding: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-                        maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px'
-                    }}>
-                        {searchable && (
-                            <input
-                                type="text"
-                                autoFocus
-                                placeholder="Pesquisar..."
-                                value={searchTerm}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => onSearchChange(e.target.value)}
-                                style={{
-                                    width: '100%', padding: '10px 12px', marginBottom: '4px', borderRadius: '12px',
-                                    border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-                                    color: 'var(--text-primary)', fontSize: '13px', outline: 'none', boxSizing: 'border-box'
-                                }}
-                            />
-                        )}
-                        {filteredOptions.length === 0 ? (
-                            <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)' }}>{emptyMessage}</div>
-                        ) : filteredOptions.map(opt => {
-                            const isSelected = multiple ? value.includes(opt.id) : opt.id === value;
-                            return (
-                                <div
-                                    key={opt.id}
-                                    onClick={() => {
-                                        if (multiple) {
-                                            onSelect(isSelected ? value.filter(v => v !== opt.id) : [...value, opt.id]);
-                                        } else {
-                                            onSelect(opt.id);
-                                            setOpenDropdown(null);
-                                            if (searchable) onSearchChange('');
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '12px 14px', borderRadius: '14px', fontSize: '14px', fontWeight: isSelected ? '700' : '500',
-                                        color: isSelected ? tintColor : 'var(--text-primary)',
-                                        background: isSelected ? activeItemBg : 'transparent',
-                                        cursor: 'pointer', transition: 'background 0.15s ease', display: 'flex', alignItems: 'center', gap: '8px'
-                                    }}
-                                    onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                                    onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    {multiple && (
-                                        <span style={{
-                                            width: '16px', height: '16px', borderRadius: '5px', flexShrink: 0,
-                                            border: `1.5px solid ${isSelected ? tintColor : 'var(--border-strong)'}`,
-                                            background: isSelected ? tintColor : 'transparent',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            {isSelected && <span className="material-symbols-rounded" style={{ fontSize: '12px', color: '#fff' }}>check</span>}
-                                        </span>
-                                    )}
-                                    {opt.emoji && <span>{opt.emoji}</span>}
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.name}</span>
-                                    {!multiple && isSelected && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', fontSize: '16px' }}>check</span>}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-        );
+    const handleSave = async () => {
+        if (!formData.title.trim()) return toast.error('O título do evento é obrigatório.');
+        setIsSaving(true);
+        try {
+            await onSave({ ...formData, cr4a1_titulo: formData.title, cr4a1_descricao: formData.details, cr4a1_subtasks: JSON.stringify(subtasks), cr4a1_privado: isPrivate });
+        } catch {
+            setIsSaving(false);
+        }
     };
 
-    // COMPONENTE CUSTOMIZADO: Campo de Data/Hora Integrado
-    const MD3InputField = ({ label, value, icon, onClick }) => (
-        <div 
-            onClick={onClick}
-            style={{
-                display: 'flex', flexDirection: 'column', padding: '10px 16px', minHeight: '62px',
-                borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-                cursor: 'pointer', boxSizing: 'border-box', justifyHeight: 'center', justifyContent: 'center', transition: 'all 0.2s'
-            }}
-            className="md3-input-hover"
-        >
-            <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '2px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
-                {label}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>{icon}</span>}
-                <span>{value}</span>
-            </div>
-        </div>
-    );
-
-    const MD3Switch = ({ label, checked, onChange }) => (
-        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '6px 0' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-title)' }}>{label}</span>
-            <div onClick={() => onChange(!checked)} style={{
-                width: '50px', height: '28px', borderRadius: '100px', padding: '2px',
-                background: checked ? tintColor : 'var(--bg-tertiary)',
-                position: 'relative', transition: 'all 0.2s ease', boxSizing: 'border-box'
-            }}>
-                <div style={{
-                    width: '24px', height: '24px', borderRadius: '50%', background: '#ffffff',
-                    position: 'absolute', left: checked ? '24px' : '2px', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
-                }}>
-                    {checked && <span className="material-symbols-rounded" style={{ fontSize: '14px', color: tintColor, fontWeight: '900' }}>check</span>}
-                </div>
-            </div>
-        </label>
-    );
+    const isSprintWorkspace = workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome === "Desenvolvimento e Inovação";
+    const canAssign = checkAccess(userRole, ['SECRETARIA', 'ADMIN', 'DIRETORIA']) || hasCoordRole(userRole);
 
     return (
-        <div className="modal-overlay" style={{ zIndex: 11000, backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div ref={trapRef} tabIndex={-1} className="modal-content view-enter" style={{ maxWidth: '520px', width: '100%', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '32px', padding: '26px', position: 'relative', border: '1px solid var(--border-color)', boxShadow: '0 24px 60px rgba(0,0,0,0.15)' }}>
-                
-                {/* BARRA DE AÇÕES SUPERIOR */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <button onClick={onClose} className="icon-btn boing-effect" aria-label="Fechar" style={{ background: 'var(--bg-secondary)', borderRadius: '50%', width: '36px', height: '36px' }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-xl" showClose={false}>
+                <div className="mb-5 flex items-center justify-between">
+                    <button onClick={onClose} aria-label="Fechar" className="flex size-9 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <X className="size-[18px]" />
                     </button>
-                    <h2 style={{ fontSize: '17px', fontWeight: '700', margin: 0, color: 'var(--text-title)' }}>
-                        {editingEvent ? 'Editar Ficha' : 'Nova Ficha'}
-                    </h2>
-                    <button 
-                        disabled={isSaving}
-                        onClick={async () => {
-                            if (!formData.title.trim()) return toast.error('O título do evento é obrigatório.');
-                            setIsSaving(true);
-                            try {
-                                await onSave({ 
-                                    ...formData, 
-                                    cr4a1_titulo: formData.title,
-                                    cr4a1_descricao: formData.details,
-                                    cr4a1_subtasks: JSON.stringify(subtasks),
-                                    cr4a1_privado: isPrivate 
-                                });
-                            } catch (e) { setIsSaving(false); }
-                        }}
-                        className="boing-effect"
-                        style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: isSaving ? 'default' : 'pointer', fontSize: '13px', padding: '8px 20px', borderRadius: '100px', letterSpacing: '0.2px', opacity: isSaving ? 0.7 : 1 }}
-                    >
-                        {isSaving ? 'A GUARDAR...' : 'SALVAR'}
-                    </button>
+                    <h2 className="text-[17px] font-bold text-foreground">{editingEvent ? 'Editar Ficha' : 'Nova Ficha'}</h2>
+                    <Button size="sm" disabled={isSaving} onClick={handleSave}>{isSaving ? 'A guardar...' : 'Salvar'}</Button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                    
-                    {/* ENTRADA DE TÍTULO */}
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-secondary)', padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', position: 'relative' }}>
-                        <input 
+                <div className="flex flex-col gap-[18px]">
+                    <div className="flex items-center gap-3 rounded-[20px] border border-border bg-secondary px-3.5 py-1.5">
+                        <input
                             placeholder="Nome do Evento ou Tarefa..."
                             value={formData.title}
-                            onChange={e => setFormData({...formData, title: e.target.value})}
-                            style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '17px', padding: '8px 0', outline: 'none', color: 'var(--text-primary)', fontWeight: '600' }}
+                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                            className="flex-1 border-none bg-transparent py-2 text-[17px] font-semibold text-foreground outline-none placeholder:text-muted-foreground placeholder:font-normal"
                         />
-                        <button onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} className="icon-btn boing-effect" aria-label="Escolher emoji" style={{ background: isEmojiPickerOpen ? 'var(--bg-tertiary)' : 'var(--bg-primary)', borderRadius: '14px', width: '38px', height: '38px', border: `1px solid ${isEmojiPickerOpen ? tintColor : 'var(--border-color)'}` }}>
-                            <span className="material-symbols-rounded" style={{ fontSize: '18px', color: tintColor }}>mood</span>
-                        </button>
-
-                        {isEmojiPickerOpen && (
-                            <div style={{ position: 'absolute', right: '12px', top: '58px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '12px', zIndex: 12000, maxWidth: '230px', display: 'flex', flexWrap: 'wrap', gap: '6px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}>
-                                {commonEmojis.map(emoji => (
-                                    <span 
-                                        key={emoji} 
-                                        onClick={() => { setFormData({ ...formData, title: emoji + ' ' + formData.title }); setIsEmojiPickerOpen(false); }} 
-                                        style={{ fontSize: '19px', cursor: 'pointer', padding: '4px', borderRadius: '8px', transition: 'transform 0.1s' }}
-                                        onMouseEnter={e => e.target.style.transform = 'scale(1.2)'}
-                                        onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-                                    >
-                                        {emoji}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button aria-label="Escolher emoji" className="flex size-[38px] items-center justify-center rounded-[14px] border border-border bg-card text-primary transition-colors hover:bg-muted active:scale-90 duration-200">
+                                    <Smile className="size-[18px]" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-60">
+                                <div className="flex flex-wrap gap-1.5">
+                                    {commonEmojis.map(emoji => (
+                                        <PopoverClose key={emoji} asChild>
+                                            <button
+                                                onClick={() => setFormData(prev => ({ ...prev, title: emoji + ' ' + prev.title }))}
+                                                className="flex size-9 items-center justify-center rounded-lg text-lg transition-transform hover:scale-125"
+                                            >
+                                                {emoji}
+                                            </button>
+                                        </PopoverClose>
+                                    ))}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
-                    {/* SELETORES DE DATA INTEGRADOS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <MD3InputField label="Data Inicial" value={safeFormatDate(formData.startDate)} icon="calendar_month" onClick={() => setActivePicker('startDate')} />
-                        <MD3InputField label="Data Final" value={safeFormatDate(formData.endDate)} icon="event_upcoming" onClick={() => setActivePicker('endDate')} />
+                    <div className="grid grid-cols-2 gap-3">
+                        <DateField label="Data Inicial" icon={CalendarDays} value={safeFormatDate(formData.startDate)} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d }))} />
+                        <DateField label="Data Final" icon={CalendarClock} value={safeFormatDate(formData.endDate)} selectedDate={formData.endDate} onSelect={d => setFormData(p => ({ ...p, endDate: d }))} />
                     </div>
 
-                    {/* SELETORES DE HORÁRIO INTEGRADOS */}
                     {!formData.allDay && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <MD3InputField label="Hora de Início" value={formData.startHour} icon="schedule" onClick={() => setActivePicker('startTime')} />
-                            <MD3InputField label="Hora de Término" value={formData.endHour} icon="history" onClick={() => setActivePicker('endTime')} />
+                        <div className="grid grid-cols-2 gap-3">
+                            <TimeField label="Hora de Início" icon={Clock} value={formData.startHour} onSelect={h => setFormData(p => ({ ...p, startHour: h }))} />
+                            <TimeField label="Hora de Término" icon={History} value={formData.endHour} onSelect={h => setFormData(p => ({ ...p, endHour: h }))} />
                         </div>
                     )}
 
-                    {/* SWITCHES OVALADOS CONTRASTANTES */}
-                    <div style={{ background: surfaceVariant, padding: '10px 18px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '4px', border: `1px solid ${tintColor}15` }}>
-                        <MD3Switch label="Compromisso de Dia Inteiro" checked={formData.allDay} onChange={val => setFormData({...formData, allDay: val})} />
-                        <MD3Switch label="Restringir Visibilidade (Privado 🔒)" checked={isPrivate} onChange={setIsPrivate} />
+                    <div className="flex flex-col gap-1 rounded-3xl border border-primary/10 bg-primary/5 px-4.5 py-2.5">
+                        <SwitchRow label="Compromisso de Dia Inteiro" checked={formData.allDay} onChange={val => setFormData({ ...formData, allDay: val })} />
+                        <SwitchRow label="Restringir Visibilidade" icon={Lock} checked={isPrivate} onChange={setIsPrivate} />
                     </div>
 
-                    {/* DROPDOWNS REFORMULADOS MD3 CUSTOMIZADOS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                        <MD3DropdownField 
-                            label="Workspace Vinculado" 
-                            icon="workspaces"
-                            dropdownKey="workspace"
-                            containerRef={workspaceRef}
-                            value={formData.workspaceId}
-                            displayValue={workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome || 'Selecione'}
-                            options={workspaces.map(w => ({ id: w.cr4a1_calendarios_workspacesid, name: w.cr4a1_nome }))}
-                            onSelect={val => setFormData({...formData, workspaceId: val})}
-                        />
-                        
-                        <MD3DropdownField 
-                            label="Categoria / Tipo" 
-                            icon="bookmarks"
-                            dropdownKey="type"
-                            containerRef={typeRef}
-                            value={formData.type}
-                            displayValue={formData.type || 'Selecione'}
-                            options={eventTypes.map(t => ({ id: t.name, name: t.name, emoji: t.emoji }))}
-                            onSelect={val => setFormData({...formData, type: val})}
-                        />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                            <Label>Workspace Vinculado</Label>
+                            <Select value={formData.workspaceId} onValueChange={v => setFormData({ ...formData, workspaceId: v })}>
+                                <SelectTrigger><LayoutGrid className="size-4 text-primary" /><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                    {workspaces.map(w => <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>{w.cr4a1_nome}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                        {(checkAccess(userRole, ['SECRETARIA', 'ADMIN', 'DIRETORIA']) || hasCoordRole(userRole)) && (
-                            <MD3DropdownField
-                                label="Responsável(is)"
-                                icon="group"
-                                dropdownKey="targetUser"
-                                containerRef={targetUserRef}
-                                value={formData.targetUser}
-                                displayValue={
-                                    formData.targetUser.length === 0
-                                        ? 'Selecione'
-                                        : formData.targetUser.length === 1
-                                            ? (allUsers.find(u => u.cr4a1_username === formData.targetUser[0])?.cr4a1_nome_exibicao || formData.targetUser[0])
-                                            : `${formData.targetUser.length} responsáveis`
-                                }
-                                options={workspaceUsers.map(u => ({ id: u.cr4a1_username, name: u.cr4a1_nome_exibicao || u.cr4a1_username }))}
-                                onSelect={val => setFormData({...formData, targetUser: val})}
-                                searchable
-                                searchTerm={targetUserSearch}
-                                onSearchChange={setTargetUserSearch}
-                                emptyMessage="Nenhum utilizador encontrado neste workspace."
-                                multiple
-                            />
+                        <div>
+                            <Label>Categoria / Tipo</Label>
+                            <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v })}>
+                                <SelectTrigger><Bookmark className="size-4 text-primary" /><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                    {eventTypes.map(t => <SelectItem key={t.name} value={t.name}>{t.emoji} {t.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {canAssign && (
+                            <div>
+                                <Label>Responsável(is)</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button className="flex h-11 w-full items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2 text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15">
+                                            <Users className="size-4 shrink-0 text-primary" />
+                                            <span className="flex-1 truncate text-left">
+                                                {formData.targetUser.length === 0
+                                                    ? 'Selecione'
+                                                    : formData.targetUser.length === 1
+                                                        ? (allUsers.find(u => u.cr4a1_username === formData.targetUser[0])?.cr4a1_nome_exibicao || formData.targetUser[0])
+                                                        : `${formData.targetUser.length} responsáveis`}
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="start" className="w-72 p-0">
+                                        <Command shouldFilter={false}>
+                                            <CommandInput value={targetUserSearch} onValueChange={setTargetUserSearch} placeholder="Pesquisar..." />
+                                            <CommandList>
+                                                <CommandEmpty>Nenhum utilizador encontrado neste workspace.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {workspaceUsers
+                                                        .filter(u => (u.cr4a1_nome_exibicao || u.cr4a1_username).toLowerCase().includes(targetUserSearch.toLowerCase()))
+                                                        .map(u => {
+                                                            const isSelected = formData.targetUser.includes(u.cr4a1_username);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={u.cr4a1_username}
+                                                                    onSelect={() => setFormData(p => ({
+                                                                        ...p,
+                                                                        targetUser: isSelected ? p.targetUser.filter(v => v !== u.cr4a1_username) : [...p.targetUser, u.cr4a1_username]
+                                                                    }))}
+                                                                >
+                                                                    <span className={`flex size-4 items-center justify-center rounded-md border ${isSelected ? 'border-primary bg-primary' : 'border-border'}`}>
+                                                                        {isSelected && <Check className="size-3 text-white" strokeWidth={3} />}
+                                                                    </span>
+                                                                    {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                                                                </CommandItem>
+                                                            );
+                                                        })}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         )}
                     </div>
 
-                    {/* CORPO DA DESCRIÇÃO INTEGRADO */}
-                    <div style={{ display: 'flex', flexDirection: 'column', padding: '10px 16px', borderRadius: '20px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', boxSizing: 'border-box' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: tintColor, marginBottom: '6px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
-                            Descrição Detalhada
-                        </span>
-                        <textarea 
+                    <div className="flex flex-col rounded-[20px] border border-border bg-secondary px-4 py-2.5">
+                        <Label>Descrição Detalhada</Label>
+                        <Textarea
                             rows={3}
                             placeholder="Adicione as pautas ou informações da entrega..."
                             value={formData.details}
-                            onChange={e => setFormData({...formData, details: e.target.value})}
-                            style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', resize: 'none', fontSize: '14px', fontFamily: 'inherit', lineHeight: '1.5', padding: 0 }}
+                            onChange={e => setFormData({ ...formData, details: e.target.value })}
+                            className="resize-none border-none bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
                         />
                     </div>
 
-                    {/* SPRINT SUBTASKS (CHECKLIST DINÂMICO) */}
-                    {workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome === "Desenvolvimento e Inovação" && (
-                        <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-                            <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', display: 'block', marginBottom: '8px', letterSpacing: '0.3px' }}>Sprint Checklist (Subtasks)</label>
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                                <input type="text" placeholder="Adicionar sub-item técnico..." value={newSubtask} onChange={e => setNewSubtask(e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} />
-                                <button onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }} className="btn-primary boing-effect" style={{ padding: '0 16px', borderRadius: '14px', fontSize: '13px', background: tintColor }}>Incluir</button>
+                    {isSprintWorkspace && (
+                        <div className="rounded-3xl border border-border bg-secondary p-4">
+                            <Label>Sprint Checklist (Subtasks)</Label>
+                            <div className="mb-3 flex gap-2">
+                                <Input placeholder="Adicionar sub-item técnico..." value={newSubtask} onChange={e => setNewSubtask(e.target.value)} className="flex-1 bg-card" />
+                                <Button size="sm" onClick={() => { if (!newSubtask.trim()) return; setSubtasks([...subtasks, { text: newSubtask.trim(), completed: false }]); setNewSubtask(''); }}>
+                                    <Plus className="size-4" /> Incluir
+                                </Button>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div className="flex flex-col gap-1.5">
                                 {subtasks.map((task, index) => (
-                                    <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                                            <input type="checkbox" checked={task.completed} onChange={e => { const updated = [...subtasks]; updated[index].completed = e.target.checked; setSubtasks(updated); }} style={{ accentColor: tintColor, width: '16px', height: '16px' }} />
-                                            <span style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: '500' }}>{task.text}</span>
-                                        </div>
-                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} className="icon-btn boing-effect" aria-label={`Remover subtarefa "${task.text}"`} style={{ width: '28px', height: '28px', color: '#e74c3c' }}><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span></button>
+                                    <div key={index} className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5">
+                                        <label className="flex items-center gap-2.5 text-[13px] cursor-pointer">
+                                            <Checkbox checked={task.completed} onCheckedChange={checked => { const updated = [...subtasks]; updated[index].completed = !!checked; setSubtasks(updated); }} />
+                                            <span className={task.completed ? 'text-muted-foreground line-through' : 'font-medium text-foreground'}>{task.text}</span>
+                                        </label>
+                                        <button onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} aria-label={`Remover subtarefa "${task.text}"`} className="text-destructive">
+                                            <Trash2 className="size-[18px]" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* DOCUMENTAÇÃO E ANEXOS */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: '700', color: tintColor, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Documentação Técnica</label>
-                            <button onClick={() => document.getElementById('modal-file-attach').click()} className="btn-secondary boing-effect" style={{ padding: '6px 14px', borderRadius: '100px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
-                                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>upload_file</span> Carregar
-                            </button>
+                    <div className="rounded-3xl border border-border bg-secondary p-4">
+                        <div className="mb-2.5 flex items-center justify-between">
+                            <Label className="mb-0">Documentação Técnica</Label>
+                            <Button size="sm" variant="outline" onClick={() => document.getElementById('modal-file-attach').click()}>
+                                <Upload className="size-4" /> Carregar
+                            </Button>
                             <input id="modal-file-attach" type="file" multiple hidden onChange={handleFileChange} />
                         </div>
 
                         {formData.files.length === 0 ? (
-                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', opacity: 0.6, textAlign: 'center', padding: '12px 0' }}>Nenhum ficheiro anexado.</p>
+                            <p className="py-3 text-center text-xs text-muted-foreground opacity-70">Nenhum ficheiro anexado.</p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div className="flex flex-col gap-1.5">
                                 {formData.files.map((file, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                        <a href={file.base64} download={file.name} style={{ fontSize: '13px', color: tintColor, textDecoration: 'none', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: '10px' }}>
-                                            📄 {file.name} <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '400' }}>({Math.round(file.size / 1024)} KB)</span>
+                                    <div key={i} className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2">
+                                        <a href={file.base64} download={file.name} className="flex flex-1 items-center gap-1.5 truncate text-[13px] font-semibold text-primary no-underline">
+                                            <FileText className="size-4 shrink-0" />
+                                            <span className="truncate">{file.name}</span>
+                                            <span className="shrink-0 text-[10px] font-normal text-muted-foreground">({Math.round(file.size / 1024)} KB)</span>
                                         </a>
-                                        <button onClick={() => removeFile(i)} className="icon-btn boing-effect" aria-label={`Remover anexo "${file.name}"`} style={{ width: '28px', height: '28px', color: '#e74c3c' }}>
-                                            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+                                        <button onClick={() => removeFile(i)} aria-label={`Remover anexo "${file.name}"`} className="shrink-0 text-destructive">
+                                            <X className="size-[18px]" />
                                         </button>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
-
                 </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
-                {/* --- DIÁLOGO FIXED DE ESCOLA DE DATAS --- */}
-                {(activePicker === 'startDate' || activePicker === 'endDate') && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 13000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ width: '310px', background: 'var(--bg-primary)', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', padding: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <span style={{ fontWeight: '700', textTransform: 'capitalize', fontSize: '14px', color: 'var(--text-title)' }}>{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} className="icon-btn boing-effect" aria-label="Mês anterior"><span className="material-symbols-rounded">chevron_left</span></button>
-                                    <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} className="icon-btn boing-effect" aria-label="Próximo mês"><span className="material-symbols-rounded">chevron_right</span></button>
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '8px' }}>
-                                {['D','S','T','Q','Q','S','S'].map(d => <span key={d} style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>{d}</span>)}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-                                {eachDayOfInterval({ start: startOfWeek(startOfMonth(pickerMonth)), end: endOfWeek(endOfMonth(pickerMonth)) }).map((day, i) => {
-                                    const dateStr = format(day, 'yyyy-MM-dd');
-                                    const isSelected = formData[activePicker] === dateStr;
-                                    const isCurrentMonth = day.getMonth() === pickerMonth.getMonth();
-                                    return (
-                                        <button
-                                            key={i}
-                                            onClick={() => handleSelectDate(day)}
-                                            className={`boing-effect${isSelected ? '' : ' date-picker-day'}`}
-                                            style={{
-                                                width: '34px', height: '34px', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', fontWeight: '700',
-                                                background: isSelected ? tintColor : 'transparent',
-                                                color: isSelected ? '#ffffff' : (isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                                opacity: isCurrentMonth ? 1 : 0.3
-                                            }}
-                                        >
-                                            {format(day, 'd')}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <button onClick={() => setActivePicker(null)} className="boing-effect cancel-text-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', width: '100%', textAlign: 'right', marginTop: '12px', paddingRight: '8px' }}>CANCELAR</button>
-                        </div>
-                    </div>
-                )}
+const SwitchRow = ({ label, icon: Icon, checked, onChange }) => (
+    <div className="flex items-center justify-between py-1.5">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">{Icon && <Icon className="size-3.5 text-muted-foreground" />} {label}</span>
+        <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+);
 
-                {/* --- DIÁLOGO FIXED DE ESCOLHA DE HORÁRIO --- */}
-                {(activePicker === 'startTime' || activePicker === 'endTime') && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 13000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ padding: '20px', background: 'var(--bg-primary)', borderRadius: '32px', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', width: '240px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '16px', color: tintColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Definir Horário</span>
-                            
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
-                                <input 
-                                    type="text" 
-                                    maxLength={2}
-                                    defaultValue={formData[activePicker === 'startTime' ? 'startHour' : 'endHour'].split(':')[0]} 
-                                    id="h-picker"
-                                    style={{ width: '68px', height: '64px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '28px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
-                                />
-                                <span style={{ fontSize: '28px', fontWeight: '300', color: 'var(--text-secondary)' }}>:</span>
-                                <input 
-                                    type="text" 
-                                    maxLength={2}
-                                    defaultValue={formData[activePicker === 'startTime' ? 'startHour' : 'endHour'].split(':')[1]} 
-                                    id="m-picker"
-                                    style={{ width: '68px', height: '64px', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '28px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: '700', outline: 'none' }}
-                                />
-                            </div>
-                            
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button onClick={() => setActivePicker(null)} className="boing-effect cancel-text-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 10px' }}>CANCELAR</button>
-                                <button
-                                    onClick={() => {
-                                        const hInput = document.getElementById('h-picker').value || '00';
-                                        const mInput = document.getElementById('m-picker').value || '00';
-                                        setFormData(prev => ({ ...prev, [activePicker === 'startTime' ? 'startHour' : 'endHour']: `${hInput.padStart(2, '0')}:${mInput.padStart(2, '0')}` }));
-                                        setActivePicker(null);
-                                    }}
-                                    className="boing-effect"
-                                    style={{ background: tintColor, border: 'none', color: '#ffffff', fontWeight: '700', cursor: 'pointer', fontSize: '12px', padding: '6px 14px', borderRadius: '100px' }}
-                                >OK</button>
-                            </div>
-                        </div>
+const DateField = ({ label, icon: Icon, value, selectedDate, onSelect }) => {
+    const [open, setOpen] = useState(false);
+    const [pickerMonth, setPickerMonth] = useState(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date());
+
+    return (
+        <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setPickerMonth(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()); }}>
+            <PopoverTrigger asChild>
+                <button className="flex min-h-[62px] w-full flex-col justify-center rounded-[20px] border border-border bg-secondary px-4 py-2.5 text-left transition-colors hover:bg-muted">
+                    <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{label}</span>
+                    <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                        <Icon className="size-[18px] text-primary" /> {value}
+                    </span>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[270px] p-4">
+                <div className="mb-4 flex items-center justify-between">
+                    <span className="text-sm font-bold capitalize text-foreground">{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
+                    <div className="flex gap-1">
+                        <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} aria-label="Mês anterior" className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"><ChevronLeft className="size-4" /></button>
+                        <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} aria-label="Próximo mês" className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"><ChevronRight className="size-4" /></button>
                     </div>
-                )}
-            </div>
-            <style>{`
-                .md3-input-hover:hover { background: var(--bg-tertiary) !important; border-color: var(--text-accent) !important; }
-            `}</style>
-        </div>
+                </div>
+                <div className="mb-2 grid grid-cols-7 text-center">
+                    {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <span key={i} className="text-[11px] font-bold text-muted-foreground">{d}</span>)}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                    {eachDayOfInterval({ start: startOfWeek(startOfMonth(pickerMonth)), end: endOfWeek(endOfMonth(pickerMonth)) }).map((day, i) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const isSelected = selectedDate === dateStr;
+                        const isCurrentMonth = day.getMonth() === pickerMonth.getMonth();
+                        return (
+                            <button
+                                key={i}
+                                onClick={() => { onSelect(dateStr); setOpen(false); }}
+                                className={`flex size-[34px] items-center justify-center rounded-full text-xs font-bold transition-transform active:scale-90 ${isSelected ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-secondary'} ${isCurrentMonth ? '' : 'opacity-30'}`}
+                            >
+                                {format(day, 'd')}
+                            </button>
+                        );
+                    })}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
+const TimeField = ({ label, icon: Icon, value, onSelect }) => {
+    const [open, setOpen] = useState(false);
+    const [h, m] = value.split(':');
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button className="flex min-h-[62px] w-full flex-col justify-center rounded-[20px] border border-border bg-secondary px-4 py-2.5 text-left transition-colors hover:bg-muted">
+                    <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{label}</span>
+                    <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                        <Icon className="size-[18px] text-primary" /> {value}
+                    </span>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 text-center">
+                <span className="mb-4 block text-xs font-bold uppercase tracking-wide text-primary">Definir Horário</span>
+                <div className="mb-5 flex items-center justify-center gap-2">
+                    <input type="text" maxLength={2} defaultValue={h} id={`h-picker-${label}`} className="h-16 w-[68px] rounded-2xl border border-border bg-card text-center text-2xl font-bold text-foreground outline-none" />
+                    <span className="text-2xl font-light text-muted-foreground">:</span>
+                    <input type="text" maxLength={2} defaultValue={m} id={`m-picker-${label}`} className="h-16 w-[68px] rounded-2xl border border-border bg-card text-center text-2xl font-bold text-foreground outline-none" />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
+                    <Button
+                        size="sm"
+                        onClick={() => {
+                            const hVal = document.getElementById(`h-picker-${label}`).value || '00';
+                            const mVal = document.getElementById(`m-picker-${label}`).value || '00';
+                            onSelect(`${hVal.padStart(2, '0')}:${mVal.padStart(2, '0')}`);
+                            setOpen(false);
+                        }}
+                    >
+                        OK
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 };
