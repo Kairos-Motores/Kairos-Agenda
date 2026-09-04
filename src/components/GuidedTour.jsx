@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { X, ArrowRight, Check } from 'lucide-react';
+import { Button } from './ui/button';
 
 const TOUR_STYLES = `
   @keyframes kairos-tour-ring-pulse {
@@ -9,8 +11,6 @@ const TOUR_STYLES = `
   @keyframes kairos-tour-card-in { from { opacity: 0; transform: scale(0.94) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   .kairos-tour-spotlight { transition: top 0.4s cubic-bezier(0.2,0.8,0.2,1), left 0.4s cubic-bezier(0.2,0.8,0.2,1), width 0.4s cubic-bezier(0.2,0.8,0.2,1), height 0.4s cubic-bezier(0.2,0.8,0.2,1); }
   .kairos-tour-card { animation: kairos-tour-card-in 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
-  .kairos-tour-btn { transition: transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275), background 0.2s, color 0.2s, opacity 0.2s; }
-  .kairos-tour-btn:active { transform: scale(0.9); }
 `;
 
 const CARD_MAX_WIDTH = 320;
@@ -162,9 +162,9 @@ export const GuidedTour = ({ isOpen, onClose, steps = [] }) => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '12px' }}>
             <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: 'var(--text-title)' }}>{step.title}</h3>
-            <button onClick={onClose} className="kairos-tour-btn" title="Fechar tutorial" style={{ flexShrink: 0, border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>close</span>
-            </button>
+            <Button onClick={onClose} variant="secondary" size="icon" title="Fechar tutorial" className="size-7 shrink-0 rounded-full">
+              <X className="size-4" />
+            </Button>
           </div>
 
           <p style={{ margin: '0 0 18px 0', fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.55' }}>
@@ -179,19 +179,19 @@ export const GuidedTour = ({ isOpen, onClose, steps = [] }) => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-            <button onClick={onClose} className="kairos-tour-btn" style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', padding: '8px 4px' }}>
+            <Button onClick={onClose} variant="ghost" size="sm" className="text-muted-foreground">
               Pular tour
-            </button>
+            </Button>
             <div style={{ display: 'flex', gap: '8px' }}>
               {!isFirst && (
-                <button onClick={goPrev} className="kairos-tour-btn" style={{ border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', padding: '9px 16px', borderRadius: '100px' }}>
+                <Button onClick={goPrev} variant="outline" size="sm" className="rounded-full">
                   Voltar
-                </button>
+                </Button>
               )}
-              <button onClick={goNext} className="kairos-tour-btn" style={{ border: 'none', background: 'var(--text-accent)', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', padding: '9px 18px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Button onClick={goNext} size="sm" className="rounded-full">
                 {isLast ? 'Concluir' : 'Próximo'}
-                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>{isLast ? 'check' : 'arrow_forward'}</span>
-              </button>
+                {isLast ? <Check className="size-4" /> : <ArrowRight className="size-4" />}
+              </Button>
             </div>
           </div>
         </div>

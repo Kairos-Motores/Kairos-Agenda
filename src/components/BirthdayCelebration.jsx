@@ -1,10 +1,12 @@
+import { Button } from './ui/button';
+
 export const BirthdayCelebration = ({ name, onClose }) => (
-  <div className="view-enter" style={{ position: 'fixed', inset: 0, zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <div className="birthday-float" style={{ fontSize: '80px', marginBottom: '20px' }}>🎂</div>
-      <h1 style={{ color: 'white', fontSize: '32px', margin: '0 0 10px' }}>Parabéns, {name}! 🥳</h1>
-      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', marginBottom: '30px' }}>A equipe Kairós deseja-te um dia incrível!</p>
-      <button onClick={onClose} className="btn-primary boing-effect" style={{ padding: '12px 32px' }}>Obrigado!</button>
+  <div className="view-enter fixed inset-0 z-[30000] flex items-center justify-center backdrop-blur-md" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
+    <div className="p-10 text-center">
+      <div className="birthday-float mb-5 text-8xl">🎂</div>
+      <h1 className="mb-2.5 text-3xl text-white">Parabéns, {name}! 🥳</h1>
+      <p className="mb-8 text-lg text-white/70">A equipe Kairós deseja-te um dia incrível!</p>
+      <Button onClick={onClose} size="lg" className="px-8">Obrigado!</Button>
     </div>
     <style>{`
       @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
