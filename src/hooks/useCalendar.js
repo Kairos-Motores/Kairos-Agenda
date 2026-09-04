@@ -994,12 +994,17 @@ export const useCalendar = () => {
 
     const addWorkspace = async (wsData) => {
         try {
+            // WorkspaceModal sempre manda os campos já no formato do Dataverse
+            // (cr4a1_nome, cr4a1_tipo_workspace...) — o mesmo formato que updateWorkspace
+            // já espera. Antes esta função esperava um formato próprio (wsData.nome,
+            // wsData.tipo...) que o modal nunca enviava, então criar um workspace novo
+            // gravava um registro praticamente vazio (só cr4a1_criador_login).
             const newWS = {
-                cr4a1_nome: wsData.nome,
-                cr4a1_tipo_workspace: wsData.tipo,
-                cr4a1_cor_hex: wsData.cor,
+                cr4a1_nome: wsData.cr4a1_nome,
+                cr4a1_tipo_workspace: wsData.cr4a1_tipo_workspace,
+                cr4a1_cor_hex: wsData.cr4a1_cor_hex,
                 cr4a1_criador_login: user,
-                cr4a1_membros_logins: wsData.tipo === 'PESSOAL' ? user : wsData.membros
+                cr4a1_membros_logins: wsData.cr4a1_tipo_workspace === 'PESSOAL' ? user : wsData.cr4a1_membros_logins
             };
 
             const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`, {
