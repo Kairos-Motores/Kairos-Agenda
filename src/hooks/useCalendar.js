@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { addMonths, subMonths, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
-import { checkAccess } from '../utils/permissions';
+import { checkAccess, parseRoles, joinRoles } from '../utils/permissions';
 import { parseAssignees, joinAssignees, isAssignedTo } from '../utils/assignees';
 import { renderUndoToast } from '../components/UndoToast';
+import { ROLE_WORKSPACE_MAP } from '../config/roleWorkspaceMap';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -679,6 +680,101 @@ export const useCalendar = () => {
         }
     };
 
+    // Busca um workspace pelo nome exato — mesmo padrão usado no onboarding de filial
+    // (App.jsx) e em adicionarUsuarioAoCalendarioComum, acima.
+    const fetchWorkspaceByName = async (name) => {
+        const filter = encodeURIComponent(`cr4a1_nome eq '${name}'`);
+        const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filter}`);
+        const data = await response.json();
+        return data.value && data.value.length > 0 ? data.value[0] : null;
+    };
+
+    const addMemberToWorkspaceByName = async (name, username) => {
+        const ws = await fetchWorkspaceByName(name);
+        if (!ws) { console.warn(`Workspace "${name}" não encontrado ao vincular role de ${username}.`); return; }
+        const membros = ws.cr4a1_membros_logins ? ws.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (membros.includes(username)) return;
+        await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${ws.cr4a1_calendarios_workspacesid}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cr4a1_membros_logins: joinAssignees([...membros, username]) })
+        });
+    };
+
+    const removeMemberFromWorkspaceByName = async (name, username) => {
+        const ws = await fetchWorkspaceByName(name);
+        if (!ws) return;
+        if (ws.cr4a1_criador_login === username) return; // nunca remove o criador do próprio workspace
+        const membros = ws.cr4a1_membros_logins ? ws.cr4a1_membros_logins.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (!membros.includes(username)) return;
+        await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${ws.cr4a1_calendarios_workspacesid}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cr4a1_membros_logins: joinAssignees(membros.filter(m => m !== username)) })
+        });
+    };
+
+    // Sincroniza a participação do usuário nos workspaces de acordo com o mapeamento
+    // role -> workspace derivado do biConfig.js (ROLE_WORKSPACE_MAP): roles ganhas
+    // somam o(s) workspace(s) correspondentes; roles perdidas só removem o usuário de
+    // um workspace se nenhuma role remanescente ainda justificar essa participação —
+    // e nunca mexe na unidade (filial) do usuário, que tem vínculo próprio (onboarding).
+    const reconcileWorkspacesForRoleChange = async (username, oldRoleValue, newRoleValue, userUnit) => {
+        const oldRoles = parseRoles(oldRoleValue);
+        const newRoles = parseRoles(newRoleValue);
+        const addedRoles = newRoles.filter(r => !oldRoles.includes(r));
+        const removedRoles = oldRoles.filter(r => !newRoles.includes(r));
+        if (addedRoles.length === 0 && removedRoles.length === 0) return;
+
+        const wsToAdd = new Set();
+        addedRoles.forEach(r => (ROLE_WORKSPACE_MAP[r] || []).forEach(ws => wsToAdd.add(ws)));
+
+        const stillJustified = new Set();
+        newRoles.forEach(r => (ROLE_WORKSPACE_MAP[r] || []).forEach(ws => stillJustified.add(ws)));
+
+        const wsToRemove = new Set();
+        removedRoles.forEach(r => (ROLE_WORKSPACE_MAP[r] || []).forEach(ws => {
+            if (!stillJustified.has(ws) && ws !== userUnit && !wsToAdd.has(ws)) wsToRemove.add(ws);
+        }));
+
+        await Promise.all([
+            ...[...wsToAdd].map(ws => addMemberToWorkspaceByName(ws, username)),
+            ...[...wsToRemove].map(ws => removeMemberFromWorkspaceByName(ws, username))
+        ]);
+    };
+
+    const updateUserRoles = async (targetUsername, newRolesArray) => {
+        try {
+            const userRecord = allUsers.find(u => u.cr4a1_username === targetUsername);
+            if (!userRecord) throw new Error('Usuário não encontrado.');
+
+            const oldRoleValue = userRecord.cr4a1_role;
+            const newRoleValue = joinRoles(newRolesArray);
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userRecord.cr4a1_usuarios_agendaid}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_role: newRoleValue })
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+
+            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userRecord.cr4a1_usuarios_agendaid ? { ...u, cr4a1_role: newRoleValue } : u));
+
+            await reconcileWorkspacesForRoleChange(targetUsername, oldRoleValue, newRoleValue, userRecord.cr4a1_unidade);
+
+            if (targetUsername === user) {
+                setUserRole(newRoleValue);
+                localStorage.setItem('kairos_user_role', newRoleValue);
+                await fetchWorkspaces();
+            }
+
+            toast.success('Roles atualizadas!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar roles.');
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             const newWS = {
@@ -1010,7 +1106,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
-        updateUnit, updateProfile,
+        updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         notas, addNota, updateNota, deleteNota,

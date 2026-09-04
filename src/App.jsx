@@ -50,7 +50,7 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile,
+    updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     notas = [], addNota, updateNota, deleteNota
@@ -566,6 +566,11 @@ function App() {
       try {
         // 1. Atualiza a unidade do usuário
         await updateUnit(currentUser.cr4a1_usuarios_agendaid, unit);
+
+        // 1b. Garante a entrada no Calendário Comum neste mesmo passo — antes isso só
+        // acontecia no primeiro login sem role; assim funciona sempre que a filial é
+        // escolhida, independente do estado da role.
+        await adicionarUsuarioAoCalendarioComum(user);
 
         // 2. Busca o workspace filtrando pelo nome exato (contorna a restrição de permissão)
         // Usamos encodeURIComponent para garantir que acentos (ex: São Luís) sejam tratados corretamente na URL
@@ -1802,7 +1807,7 @@ function App() {
             />
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
-          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && (
             <WorkspaceModal

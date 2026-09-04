@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { parseRoles } from '../utils/permissions';
+import { ALL_KNOWN_ROLES } from '../config/roleWorkspaceMap';
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles }) => {
     const trapRef = useFocusTrap(isOpen);
     const [activeTab, setActiveTab] = useState('users');
     const [editingTypeId, setEditingTypeId] = useState(null);
@@ -9,6 +11,31 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
     const [newTypeLayer, setNewTypeLayer] = useState('nenhuma');
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+    const [editingRolesFor, setEditingRolesFor] = useState(null);
+    const [draftRoles, setDraftRoles] = useState([]);
+    const [roleSearch, setRoleSearch] = useState('');
+    const [userSearch, setUserSearch] = useState('');
+
+    const startEditingRoles = (u) => {
+        setEditingRolesFor(u.cr4a1_username);
+        setDraftRoles(parseRoles(u.cr4a1_role));
+        setRoleSearch('');
+    };
+
+    const cancelEditingRoles = () => {
+        setEditingRolesFor(null);
+        setDraftRoles([]);
+        setRoleSearch('');
+    };
+
+    const toggleDraftRole = (role) => {
+        setDraftRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+    };
+
+    const saveRoles = () => {
+        updateUserRoles(editingRolesFor, draftRoles);
+        cancelEditingRoles();
+    };
 
     const startEditingType = (t) => {
         setEditingTypeId(t.id);
@@ -90,13 +117,70 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
 
                     {activeTab === 'users' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {allUsers.map(u => (
-                                <div key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', gap: '10px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }} />
-                                        <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{u.cr4a1_username}</span>
+                            <input
+                                value={userSearch}
+                                onChange={e => setUserSearch(e.target.value)}
+                                placeholder="Buscar utilizador..."
+                                style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '14px' }}
+                            />
+                            {allUsers.filter(u => u.cr4a1_username.toLowerCase().includes(userSearch.toLowerCase())).map(u => (
+                                <div key={u.cr4a1_username} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: u.cr4a1_cor || '#3498db' }} />
+                                            <span style={{ fontWeight: '500', color: 'var(--text-primary)', fontSize: '14px' }}>{u.cr4a1_username}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {isAdmin && (
+                                                <button onClick={() => startEditingRoles(u)} className="icon-btn boing-effect" aria-label={`Editar roles de "${u.cr4a1_username}"`} style={{ width: '28px', height: '28px', color: 'var(--text-accent)' }}>
+                                                    <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>badge</span>
+                                                </button>
+                                            )}
+                                            <input type="color" value={u.cr4a1_cor || '#3498db'} onChange={(e) => updateUserColor(u.cr4a1_usuarios_agendaid, e.target.value)} style={{ border: 'none', width: '28px', height: '28px', cursor: 'pointer', background: 'none' }} />
+                                        </div>
                                     </div>
-                                    <input type="color" value={u.cr4a1_cor || '#3498db'} onChange={(e) => updateUserColor(u.cr4a1_usuarios_agendaid, e.target.value)} style={{ border: 'none', width: '28px', height: '28px', cursor: 'pointer', background: 'none' }} />
+
+                                    {isAdmin && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            {parseRoles(u.cr4a1_role).length === 0 ? (
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Sem role</span>
+                                            ) : parseRoles(u.cr4a1_role).map(r => (
+                                                <span key={r} style={{ fontSize: '10px', fontWeight: '600', color: 'var(--text-secondary)', background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>{r}</span>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {isAdmin && editingRolesFor === u.cr4a1_username && (
+                                        <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <input
+                                                value={roleSearch}
+                                                onChange={e => setRoleSearch(e.target.value)}
+                                                placeholder="Buscar role..."
+                                                style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}
+                                            />
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                                                {ALL_KNOWN_ROLES.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                                    <button
+                                                        key={role}
+                                                        onClick={() => toggleDraftRole(role)}
+                                                        className="boing-effect"
+                                                        style={{
+                                                            padding: '6px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                                                            border: draftRoles.includes(role) ? '2px solid var(--text-accent)' : '1px solid var(--border-color)',
+                                                            background: draftRoles.includes(role) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                                                            color: draftRoles.includes(role) ? 'var(--text-accent)' : 'var(--text-primary)'
+                                                        }}
+                                                    >
+                                                        {role}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                <button onClick={cancelEditingRoles} className="btn-secondary" style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>Cancelar</button>
+                                                <button onClick={saveRoles} className="btn-primary" style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>Salvar roles</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

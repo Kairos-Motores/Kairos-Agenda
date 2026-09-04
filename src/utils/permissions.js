@@ -16,6 +16,10 @@ export const parseRoles = (userRoleValue) => {
   return String(userRoleValue).split(',').map(r => r.trim()).filter(Boolean);
 };
 
+// Mesmo padrão de joinAssignees (utils/assignees.js): junta a lista de volta na
+// string separada por vírgula que o Dataverse guarda em cr4a1_role.
+export const joinRoles = (rolesArray) => (rolesArray || []).filter(Boolean).join(', ');
+
 // Função central de checagem
 export const checkAccess = (userRoleValue, allowedRoles) => {
   const rolesArray = parseRoles(userRoleValue);
