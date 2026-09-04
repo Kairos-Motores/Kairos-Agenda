@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { checkAccess } from '../utils/permissions';
+import { BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { cn } from '@/lib/utils';
 
 const TABS_STORAGE_KEY = 'kairos_bi_open_tabs';
 const ACTIVE_TAB_STORAGE_KEY = 'kairos_bi_active_tab';
@@ -164,8 +168,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
 
       {/* Header e Filtros */}
       <div>
-        <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center' }}>
-          <span className="material-symbols-rounded" style={{ color: '#f57c00', marginRight: '8px' }}>bar_chart</span>
+        <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BarChart3 className="size-5 text-[#f57c00]" />
           Painéis e Indicadores
         </h2>
 
@@ -175,54 +179,37 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
               <button
                 key={tab.bi.id}
                 onClick={() => { setActiveTabId(tab.bi.id); setIsFullscreenVisible(true); }}
-                className="boing-effect"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '20px',
-                  border: '1px solid #f57c00', background: '#fff3e0', color: '#f57c00', fontWeight: '600',
-                  whiteSpace: 'nowrap', cursor: 'pointer', fontSize: '13px'
-                }}
+                className="boing-effect flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold"
+                style={{ border: '1px solid #f57c00', background: '#fff3e0', color: '#f57c00' }}
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>{tab.bi.icon}</span>
                 {tab.bi.title}
-                <span
-                  className="material-symbols-rounded"
-                  onClick={(e) => { e.stopPropagation(); fecharTab(tab.bi.id); }}
-                  style={{ fontSize: '15px' }}
-                >
-                  close
-                </span>
+                <X className="size-[15px]" onClick={(e) => { e.stopPropagation(); fecharTab(tab.bi.id); }} />
               </button>
             ))}
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)' }}>search</span>
-            <input
+        <div className="mb-4 flex gap-2">
+          <div className="relative flex flex-1 items-center">
+            <Search className="pointer-events-none absolute left-3.5 size-5 text-muted-foreground" />
+            <Input
               type="text"
               placeholder="Pesquisar painéis..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px 12px 12px 40px',
-                borderRadius: '28px',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-title)',
-                fontSize: '16px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className="h-auto rounded-full py-3 pl-11 text-base"
             />
           </div>
-          <button
+          <Button
             onClick={() => { setSearchTerm(''); setSelectedWorkspace(null); }}
-            style={{ padding: '12px', borderRadius: '50%', border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            variant="secondary"
+            size="icon"
+            className="shrink-0 rounded-full"
+            title="Limpar filtros"
           >
-            <span className="material-symbols-rounded">filter_alt_off</span>
-          </button>
+            <FilterX className="size-5" />
+          </Button>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
@@ -255,8 +242,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
       {/* Grid de Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto' }}>
         {bisPermitidos.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px', gridColumn: '1 / -1' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '48px', opacity: 0.5 }}>visibility_off</span>
+          <div className="col-span-full mt-10 text-center text-muted-foreground">
+            <EyeOff className="mx-auto size-12 opacity-50" />
             <p>Nenhum painel encontrado.</p>
           </div>
         ) : (
@@ -358,41 +345,19 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
           {/* BOTÃO DISCRETO – visibilidade controlada por opacidade e pointerEvents */}
           <button
             onClick={() => setIsHeaderVisible(true)}
-            onMouseEnter={() => {
-              if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
-            }}
-            onMouseLeave={() => {
-              if (!isHeaderVisible) {
-                hideButtonAfterDelay(2000);
-              }
-            }}
+            onMouseEnter={(e) => { if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current); e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; }}
+            onMouseLeave={(e) => { if (!isHeaderVisible) hideButtonAfterDelay(2000); e.currentTarget.style.background = 'rgba(255,255,255,0.75)'; }}
+            className="boing-effect absolute left-1/2 top-3 z-[11] flex -translate-x-1/2 items-center gap-1 rounded-[30px] px-3.5 py-1.5 text-[13px] font-medium backdrop-blur-sm transition-opacity"
             style={{
-              position: 'absolute',
-              top: '12px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 11,
               background: 'rgba(255, 255, 255, 0.75)',
-              backdropFilter: 'blur(4px)',
               border: '1px solid rgba(0,0,0,0.08)',
-              borderRadius: '30px',
-              padding: '6px 14px',
               boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
               color: '#333',
-              fontSize: '13px',
-              fontWeight: '500',
-              transition: 'opacity 0.3s ease, background 0.2s',
               opacity: isButtonVisible ? 1 : 0,
               pointerEvents: isButtonVisible ? 'auto' : 'none',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.95)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.75)'}
           >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>expand_more</span>
+            <ChevronDown className="size-[18px]" />
             Mostrar barra
           </button>
 
@@ -453,62 +418,32 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>{activeTab.bi.title}</h3>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
+                <Button
                   onClick={() => setIsFullscreenVisible(false)}
                   title="Escolher outro painel (mantém este aberto em segundo plano)"
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#fff3e0',
-                    color: '#f57c00',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="font-bold"
+                  style={{ background: '#fff3e0', color: '#f57c00' }}
                 >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>add</span>
+                  <Plus className="size-[18px]" />
                   Novo painel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => recarregarBI(activeTab.bi.id)}
                   title="Recarregar apenas este painel"
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#e3f2fd',
-                    color: '#1565c0',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="font-bold"
+                  style={{ background: '#e3f2fd', color: '#1565c0' }}
                 >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px', animation: activeTab.loading ? 'spin 1s linear infinite' : 'none' }}>autorenew</span>
+                  <RotateCw className={cn("size-[18px]", activeTab.loading && "animate-spin")} />
                   Recarregar
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => fecharTab(activeTab.bi.id)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#ffebee',
-                    color: '#c62828',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="font-bold"
+                  style={{ background: '#ffebee', color: '#c62828' }}
                 >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+                  <X className="size-[18px]" />
                   Fechar
-                </button>
+                </Button>
               </div>
             </div>
           </div>
