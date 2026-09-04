@@ -155,7 +155,7 @@ export const BI_CONFIG = [
     title: 'Faturamento BRC',
     description: 'Faturamento Barcarena',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'QUALIDADE LIDER']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD BRC', 'QUALIDADE LIDER', 'COMERCIAL']
   },
   {
     id: 'ind-comercial-brc', //Indicadores Comercial - BRC
@@ -222,7 +222,7 @@ export const BI_CONFIG = [
     title: 'Faturamento SLZ',
     description: 'Faturamento SLZ',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD ADM', 'COORD PCP', 'COMERCIAL']
   },
   {
     id: 'ind-comercial-slz', //Indicadores Comercial - SLZ
@@ -356,7 +356,7 @@ export const BI_CONFIG = [
     title: 'Faturamento SJC',
     description: 'Faturamento SJC',
     icon: 'attach_money',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'COMERCIAL']
   },
   {
     id: 'ind-comercial-sjc', //Indicadores Comercial - SJC
@@ -364,7 +364,7 @@ export const BI_CONFIG = [
     title: 'Indicadores Comercial - SJC',
     description: 'Indicadores comerciais SJC',
     icon: 'insert_chart',
-    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'QUALIDADE']
+    allowedRoles: ['ADMIN', 'DIRETORIA', 'COORD SJC', 'QUALIDADE', 'COMERCIAL']
   },
   {
     id: 'ind-operacao-sjc', //Indicadores Operação - SJC
