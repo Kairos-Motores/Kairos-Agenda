@@ -3,7 +3,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseRoles } from '../utils/permissions';
 import { ALL_KNOWN_ROLES } from '../config/roleWorkspaceMap';
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername }) => {
     const trapRef = useFocusTrap(isOpen);
     const [activeTab, setActiveTab] = useState('users');
     const [editingTypeId, setEditingTypeId] = useState(null);
@@ -15,6 +15,23 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
     const [userSearch, setUserSearch] = useState('');
+    const [newUsername, setNewUsername] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+
+    const handleAddUser = async () => {
+        const result = await addUser(newUsername, newPassword);
+        if (result?.success) {
+            setNewUsername('');
+            setNewPassword('');
+        }
+    };
+
+    const handleDeleteUser = (u) => {
+        if (u.cr4a1_username === currentUsername) return;
+        if (window.confirm(`Remover o usuário "${u.cr4a1_username}"? Ele perde o acesso ao sistema imediatamente.`)) {
+            deleteUser(u.cr4a1_username);
+        }
+    };
 
     const startEditingRoles = (u) => {
         setEditingRolesFor(u.cr4a1_username);
@@ -117,6 +134,28 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
 
                     {activeTab === 'users' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {isAdmin && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Novo utilizador</span>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <input
+                                            value={newUsername}
+                                            onChange={e => setNewUsername(e.target.value)}
+                                            placeholder="Nome de utilizador"
+                                            style={{ flex: '1 1 140px', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                                        />
+                                        <input
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            placeholder="Senha"
+                                            type="text"
+                                            style={{ flex: '1 1 140px', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                                        />
+                                        <button onClick={handleAddUser} className="btn-primary" style={{ padding: '10px 20px', borderRadius: '12px' }}>Criar</button>
+                                    </div>
+                                </div>
+                            )}
+
                             <input
                                 value={userSearch}
                                 onChange={e => setUserSearch(e.target.value)}
@@ -134,6 +173,18 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                             {isAdmin && (
                                                 <button onClick={() => startEditingRoles(u)} className="icon-btn boing-effect" aria-label={`Editar roles de "${u.cr4a1_username}"`} style={{ width: '28px', height: '28px', color: 'var(--text-accent)' }}>
                                                     <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>badge</span>
+                                                </button>
+                                            )}
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={() => handleDeleteUser(u)}
+                                                    disabled={u.cr4a1_username === currentUsername}
+                                                    className="icon-btn boing-effect"
+                                                    aria-label={`Remover utilizador "${u.cr4a1_username}"`}
+                                                    title={u.cr4a1_username === currentUsername ? 'Você não pode remover a si mesmo' : undefined}
+                                                    style={{ width: '28px', height: '28px', color: u.cr4a1_username === currentUsername ? 'var(--text-secondary)' : '#e74c3c', opacity: u.cr4a1_username === currentUsername ? 0.4 : 1, cursor: u.cr4a1_username === currentUsername ? 'not-allowed' : 'pointer' }}
+                                                >
+                                                    <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>person_remove</span>
                                                 </button>
                                             )}
                                             <input type="color" value={u.cr4a1_cor || '#3498db'} onChange={(e) => updateUserColor(u.cr4a1_usuarios_agendaid, e.target.value)} style={{ border: 'none', width: '28px', height: '28px', cursor: 'pointer', background: 'none' }} />

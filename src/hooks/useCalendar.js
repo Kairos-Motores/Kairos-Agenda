@@ -775,6 +775,72 @@ export const useCalendar = () => {
         }
     };
 
+    const addUser = async (username, password) => {
+        try {
+            const trimmed = username.trim();
+            if (!trimmed || !password) { toast.error('Preencha usuário e senha.'); return { success: false }; }
+
+            const filter = encodeURIComponent(`cr4a1_username eq '${trimmed}'`);
+            const checkRes = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+            const checkData = await checkRes.json();
+            if (checkData.value && checkData.value.length > 0) {
+                toast.error('Já existe um usuário com esse nome.');
+                return { success: false };
+            }
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_username: trimmed, cr4a1_password: password, cr4a1_role: '', cr4a1_unidade: '' })
+            });
+            if (!response.ok) throw new Error('Falha ao criar no Dataverse.');
+
+            await fetchUsers();
+            toast.success('Usuário criado! Ele escolhe a filial no primeiro login.');
+            return { success: true };
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao criar usuário.');
+            return { success: false };
+        }
+    };
+
+    const deleteUser = async (targetUsername) => {
+        try {
+            if (targetUsername === user) { toast.error('Você não pode remover a si mesmo.'); return; }
+
+            const userRecord = allUsers.find(u => u.cr4a1_username === targetUsername);
+            if (!userRecord) throw new Error('Usuário não encontrado.');
+
+            await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userRecord.cr4a1_usuarios_agendaid}`, { method: 'DELETE' });
+
+            // Tira o login de qualquer workspace onde ele ainda apareça como membro, pra
+            // não deixar um login fantasma em cr4a1_membros_logins. Busca a tabela toda
+            // e confere por igualdade exata após split (mesmo padrão usado no resto do
+            // arquivo) — contains() sozinho pegaria falsos positivos por substring.
+            const wsRes = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses`);
+            const wsData = await wsRes.json();
+            const affected = (wsData.value || []).filter(ws =>
+                (ws.cr4a1_membros_logins || '').split(',').map(s => s.trim()).filter(Boolean).includes(targetUsername)
+            );
+            await Promise.all(affected.map(ws => {
+                const membros = (ws.cr4a1_membros_logins || '').split(',').map(s => s.trim()).filter(Boolean).filter(m => m !== targetUsername);
+                return fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&id=${ws.cr4a1_calendarios_workspacesid}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_membros_logins: joinAssignees(membros) })
+                });
+            }));
+
+            setAllUsers(prev => prev.filter(u => u.cr4a1_username !== targetUsername));
+            await fetchWorkspaces();
+            toast.success('Usuário removido.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao remover usuário.');
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             const newWS = {
@@ -1106,7 +1172,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
-        updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum,
+        updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         notas, addNota, updateNota, deleteNota,
