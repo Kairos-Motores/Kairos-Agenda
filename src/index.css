@@ -1,11 +1,18 @@
 /* src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
+/* Precisa viver em @layer base: sem isso, este reset (sem layer) vence QUALQUER
+   utilitário do Tailwind (que fica em @layer utilities) independente de especificidade
+   — regra sem layer sempre supera regra em layer, por spec do CSS Cascade Layers. Sem
+   este wrap, classes como px-4/py-2 nos componentes shadcn eram zeradas silenciosamente. */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 :root {
@@ -19,7 +26,7 @@
   --text-accent: #1a73e8;
   --border-color: #dadce0;
   --border-strong: #bdc1c6;
-  
+
   --md-primary-container: #d3e3fd;
   --md-on-primary-container: #041e49;
   --text-accent-rgb: 26, 115, 232;
@@ -27,6 +34,28 @@
   --easing-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
   --transition-elastic: all 0.5s var(--easing-elastic);
   --radius-premium: 32px;
+
+  /* Paleta combinada (roda de dados + Google/Microsoft) para estados semânticos e
+     gráficos — vive ao lado do accent dinâmico do usuário (--text-accent), nunca o
+     substitui. Usada por Badge, Button variant="destructive", e pelos gráficos
+     (ChartContainer / recharts) via --chart-1..6. */
+  --success: #1e8e3e;
+  --success-foreground: #ffffff;
+  --warning: #f29900;
+  --warning-foreground: #402d00;
+  --destructive: #d93025;
+  --destructive-foreground: #ffffff;
+  --info: #0b57d0;
+  --info-foreground: #ffffff;
+
+  --chart-1: #1e8e3e;
+  --chart-2: #0b57d0;
+  --chart-3: #d93025;
+  --chart-4: #f29900;
+  --chart-5: #8e24aa;
+  --chart-6: #00897b;
+
+  --radius: 1rem;
 }
 
 [data-theme='dark'] {
@@ -40,9 +69,94 @@
   --text-accent: #8ab4f8;
   --border-color: #3c4043;
   --border-strong: #5f6368;
-  
+
   --md-primary-container: #004a77;
   --md-on-primary-container: #c2e7ff;
+
+  --success: #6dd58c;
+  --success-foreground: #0a3818;
+  --warning: #ffc247;
+  --warning-foreground: #4a2b00;
+  --destructive: #f2917f;
+  --destructive-foreground: #410e0b;
+  --info: #a8c7fa;
+  --info-foreground: #062e6f;
+
+  --chart-1: #6dd58c;
+  --chart-2: #a8c7fa;
+  --chart-3: #f2917f;
+  --chart-4: #ffc247;
+  --chart-5: #d0a8ea;
+  --chart-6: #59c9bb;
+}
+
+/* Ponte shadcn <-> variáveis do app: os componentes ui/* usam as classes utilitárias
+   do Tailwind (bg-background, text-primary-foreground, rounded-lg etc.), mas cada
+   token aqui aponta para a MESMA variável que o seletor de cor e o modo escuro já
+   controlam — então trocar o accent ou o tema não exige tocar em nenhum componente
+   shadcn, ele já reage automaticamente. */
+@theme inline {
+  --color-background: var(--bg-page);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-primary);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-primary);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--text-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--bg-secondary);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--bg-tertiary);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--md-primary-container);
+  --color-accent-foreground: var(--md-on-primary-container);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border-color);
+  --color-input: var(--border-color);
+  --color-ring: var(--text-accent);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 8px);
+
+  --font-sans: 'Poppins', sans-serif;
+
+  --ease-elastic: var(--easing-elastic);
+}
+
+/* Animações usadas pelos primitivos shadcn (Dialog, Popover, Select, DropdownMenu) */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dialog-in {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.94); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -46%) scale(0.96); }
+}
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes popover-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-6px) scale(0.96); }
 }
 
 /* Estado de foco MD3 (state layer) para navegação por teclado */

@@ -1,7 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
 import { SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO } from '../config/ssmaConfig';
 import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso, tipoParaIndicador } from '../utils/ssmaIndicators';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from './ui/chart';
+import { Badge } from './ui/badge';
+
+const STATUS_CHART_COLOR = {
+    'ATINGIDO': 'var(--chart-1)',
+    'ABAIXO DA META': 'var(--chart-3)',
+    'NÃO INFORMADO': 'var(--muted-foreground)'
+};
+const GASTO_CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
 
 const ACCENT = '#2e7d32';
 const ACCENT_BG = '#e8f5e9';
@@ -21,15 +31,8 @@ const inputStyle = { padding: '10px 12px', borderRadius: '12px', border: '1px so
 const labelStyle = { fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' };
 const cardStyle = { background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '20px' };
 
-const StatusBadge = ({ status }) => {
-    const colors = {
-        'ATINGIDO': { bg: '#dcfce7', fg: '#16a34a' },
-        'ABAIXO DA META': { bg: '#fee2e2', fg: '#dc2626' },
-        'NÃO INFORMADO': { bg: '#f1f5f9', fg: '#64748b' }
-    };
-    const c = colors[status] || colors['NÃO INFORMADO'];
-    return <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', background: c.bg, color: c.fg, whiteSpace: 'nowrap' }}>{status}</span>;
-};
+const STATUS_BADGE_VARIANT = { 'ATINGIDO': 'success', 'ABAIXO DA META': 'destructive', 'NÃO INFORMADO': 'secondary' };
+const StatusBadge = ({ status }) => <Badge variant={STATUS_BADGE_VARIANT[status] || 'secondary'} className="whitespace-nowrap">{status}</Badge>;
 
 // Normaliza as linhas cruas do Dataverse (cr4a1_codigo, cr4a1_meta como fração 0-1 etc.)
 // para o formato {pk, codigo, nome, tipo, meta} usado pelos cálculos e pela UI.
@@ -192,6 +195,70 @@ const UnidadeSelect = ({ value, onChange, options, inline }) => (
     </select>
 );
 
+// Barras agrupadas Realizado vs Meta por indicador, coloridas por status
+// (verde=atingido, vermelho=abaixo da meta, cinza=sem base) usando a paleta
+// combinada --chart-1..6 definida em index.css.
+const IndicadoresBarChart = ({ indicadores }) => {
+    const data = indicadores.map(ind => ({
+        codigo: ind.codigo,
+        nome: ind.nome,
+        resultado: ind.resultado != null ? Math.round(ind.resultado * 100) : 0,
+        meta: Math.round(ind.meta * 100),
+        status: ind.status
+    }));
+
+    const config = {
+        resultado: { label: 'Realizado' },
+        meta: { label: 'Meta', color: 'var(--border-strong)' }
+    };
+
+    return (
+        <ChartContainer config={config} className="aspect-auto h-64 w-full">
+            <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barGap={4}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="codigo" tickLine={false} axisLine={false} fontSize={11} interval={0} angle={-35} textAnchor="end" height={50} />
+                <YAxis tickLine={false} axisLine={false} fontSize={11} unit="%" width={40} domain={[0, 100]} />
+                <ChartTooltip
+                    cursor={{ fill: 'var(--secondary)' }}
+                    content={<ChartTooltipContent
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?.nome}
+                        formatter={(value, name) => [`${value}%`, name === 'resultado' ? 'Realizado' : 'Meta']}
+                    />}
+                />
+                <Bar dataKey="meta" fill="var(--border-strong)" radius={[6, 6, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+                <Bar dataKey="resultado" radius={[6, 6, 0, 0]} maxBarSize={18} isAnimationActive={false}>
+                    {data.map((entry) => <Cell key={entry.codigo} fill={STATUS_CHART_COLOR[entry.status]} />)}
+                </Bar>
+            </BarChart>
+        </ChartContainer>
+    );
+};
+
+// Donut do gasto realizado por categoria — só entram categorias com valor > 0, cada
+// fatia usando uma cor da paleta combinada, ciclando se houver mais categorias que cores.
+const GastosDonutChart = ({ gastosPorCategoria }) => {
+    const data = gastosPorCategoria.filter(g => g.realizado > 0);
+    if (data.length === 0) return null;
+
+    const config = Object.fromEntries(data.map((g, i) => [g.categoria, { label: g.categoria, color: GASTO_CHART_COLORS[i % GASTO_CHART_COLORS.length] }]));
+
+    // isAnimationActive=false é necessário: com StrictMode (que monta/desmonta os efeitos
+    // uma vez a mais em dev), a animação de entrada do <Pie> fica interrompida no meio e
+    // ele nunca termina de desenhar os sectors — o SVG fica com o layer do pie vazio,
+    // sem nenhum erro no console. key força remontar do zero quando as categorias mudam.
+    return (
+        <ChartContainer key={data.map(d => d.categoria).join('|')} config={config} className="aspect-auto h-64 w-full">
+            <PieChart>
+                <ChartTooltip content={<ChartTooltipContent hideLabel formatter={(value) => `R$ ${Number(value).toLocaleString('pt-BR')}`} />} />
+                <Pie data={data} dataKey="realizado" nameKey="categoria" innerRadius={60} outerRadius={95} strokeWidth={2} stroke="var(--card)" isAnimationActive={false}>
+                    {data.map((entry, i) => <Cell key={entry.categoria} fill={GASTO_CHART_COLORS[i % GASTO_CHART_COLORS.length]} />)}
+                </Pie>
+                <ChartLegend content={<ChartLegendContent />} />
+            </PieChart>
+        </ChartContainer>
+    );
+};
+
 const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
@@ -210,6 +277,13 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
                 </div>
             ))}
         </div>
+
+        {resumo.indicadores.length > 0 && (
+            <div style={cardStyle}>
+                <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: 'var(--text-title)' }}>Realizado × Meta por Indicador</h3>
+                <IndicadoresBarChart indicadores={resumo.indicadores} />
+            </div>
+        )}
 
         <div style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--text-title)' }}>Indicadores — Status na Competência</h3>
@@ -252,6 +326,7 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
 
         <div style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--text-title)' }}>Gasto por Categoria</h3>
+            <GastosDonutChart gastosPorCategoria={gastosPorCategoria} />
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>

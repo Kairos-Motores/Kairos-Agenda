@@ -26,4 +26,13 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Primitivos shadcn/ui: cada arquivo exporta o componente junto de suas variantes
+    // (buttonVariants, badgeVariants...) por convenção da própria biblioteca — não é
+    // código de tela sujeito a Fast Refresh, então a regra não se aplica aqui.
+    files: ['src/components/ui/**/*.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
