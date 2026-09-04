@@ -23,6 +23,12 @@ import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
 import { materialColors } from './constants/materialColors';
 import { compressImage } from './utils/compressImage';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Checkbox } from './components/ui/checkbox';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './components/ui/select';
 
 const DashboardPanel = React.lazy(() => import('./components/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const NotesPanel = React.lazy(() => import('./components/NotesPanel').then(m => ({ default: m.NotesPanel })));
@@ -867,9 +873,9 @@ function App() {
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
               </h1>
-              <button onClick={() => setIsSidebarOpen(false)} className="icon-btn boing-effect" aria-label="Fechar menu" style={{ color: 'var(--text-primary)' }}>
+              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} aria-label="Fechar menu">
                 <span className="material-symbols-rounded">close</span>
-              </button>
+              </Button>
             </div>
 
             <div className="mobile-only" data-tutorial="nav-modes-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
@@ -952,15 +958,19 @@ function App() {
           <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+              <div className="grid grid-cols-5 gap-2.5">
                 {materialColors.map(c => (
-                  <div key={c.id} onClick={() => setAccentColor(c.hex)} className="boing-effect" style={{
-                    width: '36px', height: '36px', borderRadius: '50%', backgroundColor: c.hex, cursor: 'pointer', margin: 'auto',
-                    border: accentColor === c.hex ? '3px solid var(--bg-primary)' : 'none',
-                    boxShadow: accentColor === c.hex ? `0 0 0 2px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
-                    transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
-                  }}
+                  <button
+                    key={c.id}
+                    onClick={() => setAccentColor(c.hex)}
                     title={c.label}
+                    aria-label={c.label}
+                    className="mx-auto size-9 rounded-full transition-transform duration-200 active:scale-90"
+                    style={{
+                      backgroundColor: c.hex,
+                      boxShadow: accentColor === c.hex ? `0 0 0 3px var(--bg-primary), 0 0 0 5px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
+                      transform: accentColor === c.hex ? 'scale(1.15)' : 'scale(1)'
+                    }}
                   />
                 ))}
               </div>
@@ -970,7 +980,7 @@ function App() {
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
-                  <input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} style={{ width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' }} />
+                  <Input placeholder="Procurar evento..." value={filters.text} onChange={e => setFilters({ ...filters, text: e.target.value })} />
                 </div>
 
                 <div data-tutorial="workspaces-list">
@@ -978,11 +988,11 @@ function App() {
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
                   {/* Nova barra de pesquisa de workspaces */}
-                  <input
+                  <Input
                     placeholder="Procurar workspace..."
                     value={workspaceSearchTerm}
                     onChange={e => setWorkspaceSearchTerm(e.target.value)}
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '12px', outline: 'none' }}
+                    className="mb-3"
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
                     {workspaces.filter(ws => ws.cr4a1_nome && ws.cr4a1_nome.toLowerCase().includes(workspaceSearchTerm.toLowerCase())).map(ws => (
@@ -991,11 +1001,9 @@ function App() {
                           flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
                           backgroundColor: activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid) ? 'var(--bg-tertiary)' : 'transparent',
                         }}>
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid)}
-                            onChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
-                            style={{ accentColor: ws.cr4a1_cor_hex || 'var(--text-accent)', width: '18px', height: '18px' }}
+                            onCheckedChange={() => toggleWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
                           />
                           <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1031,20 +1039,19 @@ function App() {
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Funcionários</div>
                   {/* Novo filtro de filial */}
-                  <select
-                    value={userUnitFilter}
-                    onChange={e => setUserUnitFilter(e.target.value)}
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '8px', outline: 'none' }}
-                  >
-                    {availableUserUnits.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
-                  </select>
-                  <input
+                  <Select value={userUnitFilter} onValueChange={setUserUnitFilter}>
+                    <SelectTrigger className="mb-2"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {availableUserUnits.map(unit => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
                     placeholder="Procurar colega..."
                     value={userSearchTerm}
                     onChange={e => setUserSearchTerm(e.target.value)}
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '16px', outline: 'none' }}
+                    className="mb-4"
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                     {allUsers.filter(u => {
@@ -1056,11 +1063,9 @@ function App() {
                       return matchesSearch && matchesUnit;
                     }).map(u => (
                       <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={filters.users.includes(u.cr4a1_username)}
-                          onChange={() => toggleFilter('users', u.cr4a1_username)}
-                          style={{ accentColor: u.cr4a1_cor || 'var(--text-accent)' }}
+                          onCheckedChange={() => toggleFilter('users', u.cr4a1_username)}
                         />
 
                         {u.cr4a1_foto ? (
@@ -1094,7 +1099,7 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {eventTypes.map(t => (
                       <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                        <input type="checkbox" checked={filters.types.includes(t.name)} onChange={() => toggleFilter('types', t.name)} style={{ accentColor: 'var(--text-accent)', width: '18px', height: '18px' }} />
+                        <Checkbox checked={filters.types.includes(t.name)} onCheckedChange={() => toggleFilter('types', t.name)} />
                         <span>{t.emoji} {t.name}</span>
                       </label>
                     ))}
@@ -1102,7 +1107,7 @@ function App() {
                 </div>
 
                 {(filters.text || filters.users.length > 0 || filters.types.length > 0) && (
-                  <button onClick={() => setFilters({ text: '', users: [], types: [] })} className="btn-secondary boing-effect" style={{ width: '100%', borderRadius: '16px' }}>Limpar Filtros</button>
+                  <Button variant="outline" className="w-full" onClick={() => setFilters({ text: '', users: [], types: [] })}>Limpar Filtros</Button>
                 )}
               </>
             )}
@@ -1113,9 +1118,9 @@ function App() {
         <header className={`app-header ${isScrolled ? 'scrolled' : ''}`}>
 
           <div className="header-left">
-            <button onClick={() => setIsSidebarOpen(true)} className="icon-btn boing-effect" data-tutorial="menu-toggle" aria-label="Abrir menu" style={{ color: 'var(--text-primary)' }}>
+            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)} data-tutorial="menu-toggle" aria-label="Abrir menu">
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
-            </button>
+            </Button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="material-symbols-rounded" style={{ color: appMode === 'ssma' ? '#2e7d32' : (appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)')), fontSize: '28px' }}>
                 {appMode === 'ssma' ? 'health_and_safety' : (appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : (appMode === 'bi' ? 'bar_chart' : 'calendar_month')))}
@@ -1207,20 +1212,20 @@ function App() {
                 {currentUser?.cr4a1_nome_exibicao || user}
               </span>
             </div>
-            <button onClick={logout} className="icon-btn boing-effect" title="Sair do sistema" style={{ color: '#e74c3c' }}>
+            <Button variant="ghost" size="icon" onClick={logout} title="Sair do sistema" className="text-destructive hover:text-destructive">
               <span className="material-symbols-rounded">logout</span>
-            </button>
+            </Button>
           </div>
 
           <div className="header-bottom">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => handleNavigate('prev')} className="icon-btn boing-effect" aria-label="Período anterior" title="Período anterior (←)">
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate('prev')} aria-label="Período anterior" title="Período anterior (←)">
                 <span className="material-symbols-rounded">chevron_left</span>
-              </button>
-              <button onClick={() => setCurrentDate(new Date())} className="nav-pill boing-effect" title="Ir para hoje (T)"><span>Hoje</span></button>
-              <button onClick={() => handleNavigate('next')} className="icon-btn boing-effect" aria-label="Próximo período" title="Próximo período (→)">
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setCurrentDate(new Date())} title="Ir para hoje (T)">Hoje</Button>
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate('next')} aria-label="Próximo período" title="Próximo período (→)">
                 <span className="material-symbols-rounded">chevron_right</span>
-              </button>
+              </Button>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1247,19 +1252,19 @@ function App() {
                 <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
                 <span>{format(now, 'HH:mm')}</span>
               </div>
-              <button onClick={requestNotificationPermission} className="icon-btn boing-effect" title="Ativar Notificações">
+              <Button variant="ghost" size="icon" onClick={requestNotificationPermission} title="Ativar Notificações">
                 <span className="material-symbols-rounded">notifications</span>
-              </button>
-              <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="icon-btn boing-effect" aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-              </button>
-              <button onClick={() => setIsTutorialOpen(true)} className="icon-btn boing-effect" data-tutorial="tutorial-trigger" title="Tutorial guiado">
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsTutorialOpen(true)} data-tutorial="tutorial-trigger" title="Tutorial guiado">
                 <span className="material-symbols-rounded">help</span>
-              </button>
+              </Button>
               {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
-                <button onClick={() => setIsUserManagementModalOpen(true)} className="icon-btn boing-effect" title="Gerir Utilizadores">
+                <Button variant="ghost" size="icon" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
                   <span className="material-symbols-rounded">group</span>
-                </button>
+                </Button>
               )}
             </div>
 
@@ -1861,80 +1866,64 @@ function App() {
               editingWorkspace={editingWorkspace}
             />
           )}
-          {isProfileModalOpen && (
-            <div className="modal-overlay" style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-              <div className="modal-content profile-modal" style={{ maxWidth: '450px', width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', padding: '28px', borderRadius: '32px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-title)' }}>O Meu Perfil</h2>
-                  <button onClick={() => setIsProfileModalOpen(false)} className="icon-btn boing-effect" aria-label="Fechar perfil">
-                    <span className="material-symbols-rounded">close</span>
-                  </button>
-                </div>
-                {currentUser && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                      {currentUser.cr4a1_foto ? (
-                        <img src={currentUser.cr4a1_foto} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--text-accent)' }} />
-                      ) : (
-                        <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--text-accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '700', margin: '0 auto' }}>
-                          {user?.[0]?.toUpperCase()}
-                        </div>
-                      )}
-                      <br />
-                      <button onClick={() => document.getElementById('p-up').click()} className="btn-secondary boing-effect" style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '8px' }}>Mudar Foto</button>
-                      <input
-                        type="file"
-                        id="p-up"
-                        hidden
-                        accept="image/*"
-                        onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
-                          nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
-                          aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
-                          foto: res
-                        }))}
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Nome de Exibição</label>
-                      <input
-                        type="text"
-                        defaultValue={currentUser.cr4a1_nome_exibicao || user}
-                        id="n-up"
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>Aniversário</label>
-                      <input
-                        type="date"
-                        defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''}
-                        id="b-up"
-                        style={{ width: '100%', padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
-                        nomeExibicao: document.getElementById('n-up').value,
-                        aniversario: document.getElementById('b-up').value,
-                        foto: currentUser.cr4a1_foto
-                      })}
-                      className="btn-primary boing-effect"
-                      style={{ width: '100%', padding: '14px', borderRadius: '12px', fontWeight: '600', marginTop: '4px' }}
-                    >
-                      Salvar Dados do Perfil
-                    </button>
-
-                    <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '10px 0' }} />
-
-                    <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
+          <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>O Meu Perfil</DialogTitle>
+              </DialogHeader>
+              {currentUser && (
+                <div className="flex flex-col gap-5">
+                  <div className="mb-2 text-center">
+                    {currentUser.cr4a1_foto ? (
+                      <img src={currentUser.cr4a1_foto} className="mx-auto size-[100px] rounded-full border-[3px] border-primary object-cover" />
+                    ) : (
+                      <div className="mx-auto flex size-[100px] items-center justify-center rounded-full bg-primary text-[32px] font-bold text-primary-foreground">
+                        {user?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <Button variant="outline" size="sm" className="mt-3" onClick={() => document.getElementById('p-up').click()}>Mudar Foto</Button>
+                    <input
+                      type="file"
+                      id="p-up"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
+                        nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
+                        aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
+                        foto: res
+                      }))}
+                    />
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+
+                  <div>
+                    <Label>Nome de Exibição</Label>
+                    <Input type="text" defaultValue={currentUser.cr4a1_nome_exibicao || user} id="n-up" />
+                  </div>
+
+                  <div>
+                    <Label>Aniversário</Label>
+                    <Input type="date" defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''} id="b-up" />
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
+                      nomeExibicao: document.getElementById('n-up').value,
+                      aniversario: document.getElementById('b-up').value,
+                      foto: currentUser.cr4a1_foto
+                    })}
+                  >
+                    Salvar Dados do Perfil
+                  </Button>
+
+                  <hr className="border-border" />
+
+                  <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {dayVisitasModalOpen && (
             <DayVisitasModal
