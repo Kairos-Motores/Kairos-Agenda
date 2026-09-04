@@ -26,6 +26,7 @@ import { compressImage } from './utils/compressImage';
 
 const DashboardPanel = React.lazy(() => import('./components/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const NotesPanel = React.lazy(() => import('./components/NotesPanel').then(m => ({ default: m.NotesPanel })));
+const SsmaPanel = React.lazy(() => import('./components/SsmaPanel').then(m => ({ default: m.SsmaPanel })));
 const GuidedTour = React.lazy(() => import('./components/GuidedTour').then(m => ({ default: m.GuidedTour })));
 import { dataverseApi } from './api/dataverse';
 import {
@@ -53,6 +54,7 @@ function App() {
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
+    ssmaAtividades = [], ssmaGastos = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
     notas = [], addNota, updateNota, deleteNota
   } = useCalendar();
 
@@ -915,21 +917,31 @@ function App() {
               }}>
                 <span className="material-symbols-rounded">bar_chart</span> Painéis BI
               </button>
+
+              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('TECNICO SSMA')) && (
+                <button onClick={() => { setAppMode('ssma'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{
+                  justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer',
+                  backgroundColor: appMode === 'ssma' ? '#e8f5e9' : 'transparent',
+                  color: appMode === 'ssma' ? '#2e7d32' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded">health_and_safety</span> SSMA
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                  fontWeight: (view === v.id && !['tasks', 'notas', 'bi'].includes(appMode)) ? '700' : '500', backgroundColor: (view === v.id && !['tasks', 'notas', 'bi'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !['tasks', 'notas', 'bi'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                  fontWeight: (view === v.id && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? '700' : '500', backgroundColor: (view === v.id && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
               ))}
-              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                 display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                fontWeight: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? '700' : '500', backgroundColor: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                fontWeight: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? '700' : '500', backgroundColor: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>view_agenda</span> Fichas
               </button>
@@ -953,7 +965,7 @@ function App() {
               </div>
             </div>
 
-            {!['visitas', 'notas', 'bi'].includes(appMode) && (
+            {!['visitas', 'notas', 'bi', 'ssma'].includes(appMode) && (
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
@@ -1104,10 +1116,10 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>menu</span>
             </button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)'), fontSize: '28px' }}>
-                {appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : (appMode === 'bi' ? 'bar_chart' : 'calendar_month'))}
+              <span className="material-symbols-rounded" style={{ color: appMode === 'ssma' ? '#2e7d32' : (appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)')), fontSize: '28px' }}>
+                {appMode === 'ssma' ? 'health_and_safety' : (appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : (appMode === 'bi' ? 'bar_chart' : 'calendar_month')))}
               </span>
-              <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : (appMode === 'bi' ? 'Painéis BI' : 'Kairós'))}</span>
+              <span className="nav-label-collapse">{appMode === 'ssma' ? 'SSMA' : (appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : (appMode === 'bi' ? 'Painéis BI' : 'Kairós')))}</span>
             </h1>
 
             <div className="segmented-views" style={{
@@ -1115,11 +1127,11 @@ function App() {
               borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
             }}>
               {viewsConfig.map(v => {
-                const isActive = view === v.id && !['tasks', 'notas', 'bi'].includes(appMode);
+                const isActive = view === v.id && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode);
                 return (
                   <button
                     key={v.id}
-                    onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }}
+                    onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) setAppMode('calendar'); }}
                     className={`boing-effect ${isActive ? 'active' : ''}`}
                     title={`${v.label} (${viewsConfig.indexOf(v) + 1})`}
                     style={{
@@ -1137,14 +1149,14 @@ function App() {
             </div>
 
             <button
-              onClick={() => { setView('list'); if (['tasks', 'notas', 'bi'].includes(appMode)) setAppMode('calendar'); }}
-              className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode) ? 'active' : ''}`}
+              onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) setAppMode('calendar'); }}
+              className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode) ? 'active' : ''}`}
               title="Fichas (6)"
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                border: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
-                background: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                color: (view === 'list' && !['tasks', 'notas', 'bi'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
+                border: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
+                background: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                color: (view === 'list' && !['tasks', 'notas', 'bi', 'ssma'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer'
               }}
             >
@@ -1250,7 +1262,7 @@ function App() {
               )}
             </div>
 
-            {!['tasks', 'notas', 'bi'].includes(appMode) && view === 'day' && (
+            {!['tasks', 'notas', 'bi', 'ssma'].includes(appMode) && view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
                 <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
@@ -1270,7 +1282,7 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible', justifyContent: 'center' }}>
           {/* BARRA LATERAL ESQUERDA DE PARTICIPANTES (HOVER EXPANDE) */}
-          {isDevWorkspaceActive && !['visitas', 'notas', 'bi'].includes(appMode) && (
+          {isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'ssma'].includes(appMode) && (
             <aside className={`left-avatar-sidebar desktop-only ${isDraggingMember ? 'dragging-active' : ''}`}>
               <div className="sidebar-collapsed-indicator">
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>groups</span>
@@ -1391,10 +1403,10 @@ function App() {
 
           <main className="main-container" style={{
             flex: 1,
-            padding: ['tasks', 'notas', 'bi'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
+            padding: ['tasks', 'notas', 'bi', 'ssma'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
             paddingBottom: '80px',
             overflow: 'visible',
-            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi'].includes(appMode)) ? '24px' : '0',
+            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'ssma'].includes(appMode)) ? '24px' : '0',
             maxWidth: '1400px',
             margin: '0 auto'
           }}>
@@ -1419,6 +1431,22 @@ function App() {
                     currentUser={currentUser}
                     workspaces={workspaces}
                     activeWorkspaces={activeWorkspaces}
+                  />
+                </React.Suspense>
+              ) : appMode === 'ssma' ? (
+                <React.Suspense fallback={null}>
+                  <SsmaPanel
+                    currentUser={currentUser}
+                    hasRole={hasRole}
+                    allUsers={allUsers}
+                    ssmaAtividades={ssmaAtividades}
+                    ssmaGastos={ssmaGastos}
+                    addSsmaAtividade={addSsmaAtividade}
+                    updateSsmaAtividade={updateSsmaAtividade}
+                    deleteSsmaAtividade={deleteSsmaAtividade}
+                    addSsmaGasto={addSsmaGasto}
+                    updateSsmaGasto={updateSsmaGasto}
+                    deleteSsmaGasto={deleteSsmaGasto}
                   />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
@@ -1738,6 +1766,15 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>bar_chart</span>
               </button>
 
+              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('TECNICO SSMA')) && (
+                <button onClick={() => setAppMode('ssma')} className={`boing-effect ${appMode === 'ssma' ? 'active' : ''}`} title="SSMA" style={{
+                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: appMode === 'ssma' ? '#e8f5e9' : 'transparent', color: appMode === 'ssma' ? '#2e7d32' : 'var(--text-primary)'
+                }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>health_and_safety</span>
+                </button>
+              )}
+
               {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
                 <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
                   width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1930,11 +1967,11 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
+          <div data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'ssma'].includes(appMode) ? '80px' : '24px', right: '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
-                {!['visitas', 'notas', 'bi'].includes(appMode) && (
+                {!['visitas', 'notas', 'bi', 'ssma'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
                     <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" title="Novo evento (N)" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -1952,7 +1989,7 @@ function App() {
                   </div>
                 )}
 
-                {(hasRole('ADMIN') || hasRole('RH')) && !['visitas', 'notas', 'bi'].includes(appMode) && (
+                {(hasRole('ADMIN') || hasRole('RH')) && !['visitas', 'notas', 'bi', 'ssma'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
                     <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>

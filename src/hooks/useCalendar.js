@@ -20,6 +20,8 @@ export const useCalendar = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [organizacoes, setOrganizacoes] = useState([]);
     const [visitas, setVisitas] = useState([]);
+    const [ssmaAtividades, setSsmaAtividades] = useState([]);
+    const [ssmaGastos, setSsmaGastos] = useState([]);
     const [notas, setNotas] = useState([]);
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspaces, setActiveWorkspaces] = useState([]);
@@ -301,6 +303,20 @@ export const useCalendar = () => {
         }
     }, [user, userRole]);
 
+    const fetchSsmaDados = useCallback(async () => {
+        try {
+            const resAtividades = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses`);
+            const dataAtividades = await resAtividades.json();
+            setSsmaAtividades(dataAtividades.value || []);
+
+            const resGastos = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses`);
+            const dataGastos = await resGastos.json();
+            setSsmaGastos(dataGastos.value || []);
+        } catch (error) {
+            console.error("Erro ao carregar dados de SSMA:", error);
+        }
+    }, []);
+
     /*const fetchEvents = useCallback(async () => {
         if (workspaces.length === 0) {
             setEvents([]);
@@ -370,8 +386,9 @@ export const useCalendar = () => {
             fetchEventTypes();
             fetchWorkspaces();
             fetchDadosComerciais();
+            fetchSsmaDados();
         }
-    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais]);
+    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais, fetchSsmaDados]);
 
     useEffect(() => {
         if (user && workspaces.length > 0) {
@@ -841,6 +858,92 @@ export const useCalendar = () => {
         }
     };
 
+    const addSsmaAtividade = async (atividade) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(atividade)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Atividade registrada!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao registrar atividade.');
+        }
+    };
+
+    const updateSsmaAtividade = async (id, atividade) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(atividade)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Atividade atualizada!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar atividade.');
+        }
+    };
+
+    const deleteSsmaAtividade = async (id) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_atividadeses&id=${id}`, { method: 'DELETE' });
+            await fetchSsmaDados();
+            toast.success('Atividade removida.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao remover atividade.');
+        }
+    };
+
+    const addSsmaGasto = async (gasto) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(gasto)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Gasto registrado!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao registrar gasto.');
+        }
+    };
+
+    const updateSsmaGasto = async (id, gasto) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(gasto)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Gasto atualizado!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar gasto.');
+        }
+    };
+
+    const deleteSsmaGasto = async (id) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_gastoses&id=${id}`, { method: 'DELETE' });
+            await fetchSsmaDados();
+            toast.success('Gasto removido.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao remover gasto.');
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             const newWS = {
@@ -1175,6 +1278,7 @@ export const useCalendar = () => {
         updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
+        ssmaAtividades, ssmaGastos, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         notas, addNota, updateNota, deleteNota,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

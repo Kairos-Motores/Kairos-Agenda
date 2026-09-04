@@ -15,7 +15,7 @@ const ROLES_EXCLUDED_FROM_AUTO_MEMBERSHIP = ['COMUM'];
 // Roles usadas em checagens de permissão pelo app (hasRole/checkAccess) mas que não
 // aparecem em nenhum painel do biConfig — precisam existir na lista de seleção do
 // editor de roles mesmo sem gerar entrada no mapeamento acima.
-const EXTRA_KNOWN_ROLES = ['SECRETARIA'];
+const EXTRA_KNOWN_ROLES = ['SECRETARIA', 'COORD SSMA', 'TECNICO SSMA'];
 
 const buildRoleWorkspaceMap = () => {
     const map = {};
