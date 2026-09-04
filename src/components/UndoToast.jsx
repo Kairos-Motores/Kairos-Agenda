@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from './ui/button';
 
 // Conteúdo de um toast com botão "Desfazer" -- é uma função simples (não um
 // componente React "de verdade"), pensada para ser chamada a partir de um
@@ -6,22 +7,8 @@ import React from 'react';
 export const renderUndoToast = (message, onUndo) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
     <span>{message}</span>
-    <button
-      onClick={onUndo}
-      style={{
-        background: 'none',
-        border: 'none',
-        color: 'var(--text-accent)',
-        fontWeight: '700',
-        fontSize: '13px',
-        cursor: 'pointer',
-        textTransform: 'uppercase',
-        letterSpacing: '0.3px',
-        padding: '4px 8px',
-        borderRadius: '8px'
-      }}
-    >
+    <Button onClick={onUndo} variant="ghost" size="sm" className="h-auto px-2 py-1 uppercase tracking-wide text-primary">
       Desfazer
-    </button>
+    </Button>
   </div>
 );
