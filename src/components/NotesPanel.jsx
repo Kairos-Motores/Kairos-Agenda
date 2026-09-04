@@ -1,121 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  ArrowLeft, AlertTriangle, Loader2, Pencil, Plus, Lock, Globe, Link2,
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 
 // ============================================================================
 // ESTILOS LOCAIS: animações e micro-interações MD3 do Bloco de Notas
 // ============================================================================
 const NOTES_PANEL_STYLES = `
-  @keyframes md3-slide-down { from { opacity: 0; transform: translateY(-10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes kairos-card-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes kairos-block-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes kairos-block-out { from { opacity: 1; transform: scale(1) translateX(0); max-height: 120px; } to { opacity: 0; transform: scale(0.92) translateX(10px); max-height: 0; } }
   @keyframes kairos-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
-  @keyframes kairos-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes kairos-empty-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
   .kairos-note-card { transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.25s cubic-bezier(0.2,0.8,0.2,1), border-color 0.25s; }
   .kairos-note-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); border-color: var(--border-strong); }
 
-  .kairos-filter-chip { transition: all 0.25s cubic-bezier(0.2,0.8,0.2,1); }
   .kairos-block-row:hover .kairos-block-remove { opacity: 1; transform: scale(1); }
   .kairos-block-remove { opacity: 0.55; transition: opacity 0.2s, transform 0.2s, background 0.2s; }
 `;
-
-// ============================================================================
-// COMPONENTE AUXILIAR: Dropdown Material Design 3 (MD3)
-// ============================================================================
-const MD3Dropdown = ({ value, onChange, options, placeholder, icon, minWidth = '150px' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(opt => opt.value === value);
-
-  return (
-    <div ref={dropdownRef} style={{ position: 'relative', width: 'max-content', minWidth }}>
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="boing-effect"
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-          padding: '8px 14px', background: isOpen ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-          border: `1px solid ${isOpen ? 'var(--text-accent)' : 'var(--border-color)'}`,
-          borderRadius: '12px', cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.2, 0, 0, 1)',
-          color: isOpen ? 'var(--text-accent)' : 'var(--text-primary)',
-          fontSize: '13px', fontWeight: '600',
-          boxShadow: isOpen ? '0 0 0 1px var(--text-accent) inset' : 'none'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {icon && <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{icon}</span>}
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
-        </div>
-        <span
-          className="material-symbols-rounded"
-          style={{
-            fontSize: '20px',
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)'
-          }}
-        >
-          arrow_drop_down
-        </span>
-      </div>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 100,
-            background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
-            borderRadius: '16px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            minWidth: '100%', maxHeight: '240px', overflowY: 'auto',
-            display: 'flex', flexDirection: 'column', padding: '6px',
-            animation: 'md3-slide-down 0.25s cubic-bezier(0.2, 0, 0, 1) forwards',
-            transformOrigin: 'top center'
-          }}
-        >
-          {options.length === 0 ? (
-            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic' }}>
-              Nenhuma opção disponível
-            </div>
-          ) : (
-            options.map(opt => (
-              <div
-                key={opt.value}
-                onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                style={{
-                  padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: value === opt.value ? '700' : '500',
-                  color: value === opt.value ? 'var(--text-accent)' : 'var(--text-primary)',
-                  background: value === opt.value ? 'var(--bg-tertiary)' : 'transparent',
-                  transition: 'background 0.15s',
-                  display: 'flex', alignItems: 'center', gap: '8px'
-                }}
-                onMouseEnter={(e) => { if (value !== opt.value) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
-                onMouseLeave={(e) => { if (value !== opt.value) e.currentTarget.style.background = 'transparent'; }}
-              >
-                {opt.label}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ============================================================================
 // COMPONENTE AUXILIAR: Checkbox animado estilo MD3
@@ -132,11 +43,7 @@ const TodoCheckbox = ({ checked, onChange }) => (
       transition: 'background 0.2s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s'
     }}
   >
-    {checked && (
-      <span className="material-symbols-rounded" style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', animation: 'elasticPulse 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
-        check
-      </span>
-    )}
+    {checked && <Check className="size-[14px] text-white" strokeWidth={3} style={{ animation: 'elasticPulse 0.3s cubic-bezier(0.34,1.56,0.64,1)' }} />}
   </span>
 );
 
@@ -157,7 +64,7 @@ const TodoProgress = ({ done, total, color }) => {
         }} />
       </div>
       <span style={{ fontSize: '11px', fontWeight: '700', color: isComplete ? '#34a853' : 'var(--text-secondary)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '2px' }}>
-        {isComplete && <span className="material-symbols-rounded" style={{ fontSize: '13px' }}>check_circle</span>}
+        {isComplete && <Check className="size-[13px]" strokeWidth={3} />}
         {done}/{total}
       </span>
     </div>
@@ -350,11 +257,6 @@ export const NotesPanel = ({
 
     const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
 
-    const workspaceOptions = workspaces.map(ws => ({ value: ws.cr4a1_calendarios_workspacesid, label: ws.cr4a1_nome }));
-    const eventOptions = [
-      { value: '', label: 'Desvincular evento' },
-      ...eventosDisponiveis.map(ev => ({ value: ev.cr4a1_agenda_kairosid, label: `🔗 ${ev.cr4a1_titulo || 'Evento sem título'}` }))
-    ];
     const blockTypeOptions = [
       { value: 'text', label: 'Texto' },
       { value: 'todo', label: 'Tópico' },
@@ -370,45 +272,38 @@ export const NotesPanel = ({
         <style>{NOTES_PANEL_STYLES}</style>
 
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <button onClick={() => setNotaAberta(null)} className="btn-secondary boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_back</span>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Button onClick={() => setNotaAberta(null)} variant="outline">
+            <ArrowLeft className="size-[18px]" />
             Voltar
-          </button>
+          </Button>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="flex gap-3">
             {isEditing ? (
               <>
                 {notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew && (
-                  <button
+                  <Button
                     onClick={handleDeleteClick}
-                    className="boing-effect"
-                    style={{
-                      padding: '8px 16px', borderRadius: '12px',
-                      background: confirmingDelete ? '#c62828' : '#ffebee',
-                      color: confirmingDelete ? '#fff' : '#c62828',
-                      border: 'none', cursor: 'pointer', fontWeight: 'bold',
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      animation: confirmingDelete ? 'kairos-shake 0.4s' : 'none'
-                    }}
+                    variant="destructive"
+                    style={confirmingDelete ? { animation: 'kairos-shake 0.4s' } : undefined}
                   >
-                    {confirmingDelete && <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>warning</span>}
+                    {confirmingDelete && <AlertTriangle className="size-[18px]" />}
                     {confirmingDelete ? 'Confirmar exclusão?' : 'Excluir'}
-                  </button>
+                  </Button>
                 )}
-                <button onClick={() => { if (!notaAberta.isNew) setIsEditing(false); }} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer', fontWeight: 'bold' }}>
+                <Button onClick={() => { if (!notaAberta.isNew) setIsEditing(false); }} variant="outline">
                   Cancelar
-                </button>
-                <button onClick={handleSave} disabled={isSaving} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#f57c00', color: '#fff', border: 'none', cursor: isSaving ? 'default' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', opacity: isSaving ? 0.8 : 1 }}>
-                  {isSaving && <span className="material-symbols-rounded" style={{ fontSize: '18px', animation: 'kairos-spin 0.8s linear infinite' }}>progress_activity</span>}
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving} style={{ background: '#f57c00' }}>
+                  {isSaving && <Loader2 className="size-[18px] animate-spin" />}
                   {isSaving ? 'Salvando...' : 'Salvar Nota'}
-                </button>
+                </Button>
               </>
             ) : (
-              <button onClick={() => setIsEditing(true)} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', background: '#f57c00', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+              <Button onClick={() => setIsEditing(true)} style={{ background: '#f57c00' }}>
+                <Pencil className="size-[18px]" />
                 Editar Nota
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -436,36 +331,40 @@ export const NotesPanel = ({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', width: '50%' }}>
             {isEditing ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', transition: 'all 0.2s' }}>
-                  <input type="checkbox" checked={!!notaAberta.cr4a1_private} onChange={e => setNotaAberta({ ...notaAberta, cr4a1_private: e.target.checked })} style={{ display: 'none' }} />
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{notaAberta.cr4a1_private ? 'lock' : 'public'}</span>
-                  {notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}
-                </label>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
+                  {notaAberta.cr4a1_private ? <Lock className="size-4 text-[#f57c00]" /> : <Globe className="size-4 text-muted-foreground" />}
+                  <Label htmlFor="nota-private-switch" className="cursor-pointer text-xs font-semibold" style={{ color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)' }}>
+                    {notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}
+                  </Label>
+                  <Switch id="nota-private-switch" checked={!!notaAberta.cr4a1_private} onCheckedChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_private: val })} />
+                </div>
 
                 {workspaces.length > 0 && (
-                  <MD3Dropdown
-                    value={notaAberta.cr4a1_workspace_id}
-                    options={workspaceOptions}
-                    placeholder="Selecione o Workspace"
-                    icon="domain"
-                    onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val })}
-                  />
+                  <Select value={notaAberta.cr4a1_workspace_id} onValueChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val })}>
+                    <SelectTrigger className="w-auto min-w-[170px]"><SelectValue placeholder="Selecione o Workspace" /></SelectTrigger>
+                    <SelectContent>
+                      {workspaces.map(ws => (
+                        <SelectItem key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>{ws.cr4a1_nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
 
-                <MD3Dropdown
-                  value={notaAberta.cr4a1_evento_id || ''}
-                  options={eventOptions}
-                  placeholder="Associar a um Evento"
-                  icon="event"
-                  minWidth="200px"
-                  onChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_evento_id: val })}
-                />
+                <Select value={notaAberta.cr4a1_evento_id || '__none__'} onValueChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_evento_id: val === '__none__' ? '' : val })}>
+                  <SelectTrigger className="w-auto min-w-[220px]"><SelectValue placeholder="Associar a um Evento" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Desvincular evento</SelectItem>
+                    {eventosDisponiveis.map(ev => (
+                      <SelectItem key={ev.cr4a1_agenda_kairosid} value={ev.cr4a1_agenda_kairosid}>🔗 {ev.cr4a1_titulo || 'Evento sem título'}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {notaAberta.cr4a1_private ? <><span className="material-symbols-rounded" style={{ fontSize: '14px', color: '#f57c00' }}>lock</span> Nota Pessoal</> : <><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>public</span> Nota Pública</>}
+                  {notaAberta.cr4a1_private ? <><Lock className="size-[14px] text-[#f57c00]" /> Nota Pessoal</> : <><Globe className="size-[14px]" /> Nota Pública</>}
                 </span>
                 <span style={{ fontSize: '11px', fontWeight: '700', color: wsColor, padding: '4px 8px', background: 'var(--bg-secondary)', borderRadius: '6px', textTransform: 'uppercase' }}>
                   {currentWorkspace?.cr4a1_nome || 'Sem Setor'}
@@ -473,7 +372,7 @@ export const NotesPanel = ({
 
                 {eventoAssociado && (
                   <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', padding: '4px 8px', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--text-accent)' }}>link</span>
+                    <Link2 className="size-[14px] text-primary" />
                     {eventoAssociado.cr4a1_titulo}
                   </span>
                 )}
@@ -513,13 +412,12 @@ export const NotesPanel = ({
                   onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
                 >
 
-                  <MD3Dropdown
-                    value={bloco.type}
-                    options={blockTypeOptions}
-                    placeholder="Tipo"
-                    minWidth="120px"
-                    onChange={(val) => handleTypeChange(bloco.id, val)}
-                  />
+                  <Select value={bloco.type} onValueChange={(val) => handleTypeChange(bloco.id, val)}>
+                    <SelectTrigger className="w-auto min-w-[120px] shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {blockTypeOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
 
                   {bloco.type === 'heading' ? (
                     <input
@@ -559,17 +457,17 @@ export const NotesPanel = ({
                     />
                   )}
 
-                  <button onClick={() => removeBlock(bloco.id)} className="boing-effect kairos-block-remove" style={{ border: 'none', background: '#ffebee', color: '#c62828', borderRadius: '10px', cursor: 'pointer', padding: '8px', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Remover bloco">
-                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
-                  </button>
+                  <Button onClick={() => removeBlock(bloco.id)} variant="ghost" size="icon" className="kairos-block-remove mt-1 size-8 shrink-0 rounded-[10px] text-destructive hover:bg-destructive/15 hover:text-destructive" title="Remover bloco">
+                    <X className="size-[18px]" />
+                  </Button>
                 </div>
               ))}
 
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => addBlock('text')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Texto</button>
-                <button type="button" onClick={() => addBlock('todo')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Tópico</button>
-                <button type="button" onClick={() => addBlock('heading')} className="boing-effect" style={{ padding: '8px 16px', borderRadius: '12px', border: '1px dashed var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>+ Cabeçalho</button>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button type="button" onClick={() => addBlock('text')} variant="outline" size="sm" className="border-dashed text-muted-foreground">+ Texto</Button>
+                <Button type="button" onClick={() => addBlock('todo')} variant="outline" size="sm" className="border-dashed text-muted-foreground">+ Tópico</Button>
+                <Button type="button" onClick={() => addBlock('heading')} variant="outline" size="sm" className="border-dashed text-muted-foreground">+ Cabeçalho</Button>
+                <span className="ml-auto text-xs text-muted-foreground">
                   {(notaAberta.cr4a1_conteudo || []).filter(b => !b.removing).length} bloco(s)
                 </span>
               </div>
@@ -616,32 +514,27 @@ export const NotesPanel = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px' }}>
       <style>{NOTES_PANEL_STYLES}</style>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 style={{ margin: 0, color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="material-symbols-rounded" style={{ color: '#f57c00' }}>description</span>
+          <FileText className="size-5 text-[#f57c00]" />
           Notas / Hub
         </h2>
-        <button onClick={createNewNota} className="boing-effect" style={{ padding: '10px 20px', borderRadius: '12px', background: '#f57c00', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', animation: 'fabEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards' }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>add</span>
+        <Button onClick={createNewNota} style={{ background: '#f57c00', animation: 'fabEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards' }}>
+          <Plus className="size-[18px]" />
           Nova Nota
-        </button>
+        </Button>
       </div>
 
       {activeNotas.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', maxWidth: '360px' }}>
-            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)', fontSize: '20px' }}>search</span>
-            <input
+          <div className="relative flex max-w-[360px] items-center">
+            <Search className="pointer-events-none absolute left-3 size-[18px] text-muted-foreground" />
+            <Input
               type="text"
               placeholder="Pesquisar notas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 12px 10px 40px', borderRadius: '24px',
-                border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-                color: 'var(--text-title)', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
-                transition: 'border-color 0.2s'
-              }}
+              className="rounded-full pl-10"
             />
           </div>
 
@@ -649,11 +542,10 @@ export const NotesPanel = ({
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
               <button
                 onClick={() => setSelectedWorkspaceFilter(null)}
-                className="kairos-filter-chip"
+                className="boing-effect shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
                 style={{
-                  padding: '6px 14px', borderRadius: '20px', border: !selectedWorkspaceFilter ? 'none' : '1px solid var(--border-color)',
-                  background: !selectedWorkspaceFilter ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspaceFilter ? 'white' : 'var(--text-title)',
-                  whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '600', fontSize: '12px'
+                  border: !selectedWorkspaceFilter ? 'none' : '1px solid var(--border-color)',
+                  background: !selectedWorkspaceFilter ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspaceFilter ? 'white' : 'var(--text-title)'
                 }}
               >
                 Todas
@@ -662,14 +554,11 @@ export const NotesPanel = ({
                 <button
                   key={ws.cr4a1_calendarios_workspacesid}
                   onClick={() => setSelectedWorkspaceFilter(ws.cr4a1_calendarios_workspacesid)}
-                  className="kairos-filter-chip"
+                  className="boing-effect flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
                   style={{
-                    padding: '6px 14px', borderRadius: '20px',
                     border: selectedWorkspaceFilter === ws.cr4a1_calendarios_workspacesid ? 'none' : '1px solid var(--border-color)',
                     background: selectedWorkspaceFilter === ws.cr4a1_calendarios_workspacesid ? (ws.cr4a1_cor_hex || '#f57c00') : 'var(--bg-secondary)',
-                    color: selectedWorkspaceFilter === ws.cr4a1_calendarios_workspacesid ? 'white' : 'var(--text-title)',
-                    whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: '600', fontSize: '12px',
-                    display: 'flex', alignItems: 'center', gap: '6px'
+                    color: selectedWorkspaceFilter === ws.cr4a1_calendarios_workspacesid ? 'white' : 'var(--text-title)'
                   }}
                 >
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedWorkspaceFilter === ws.cr4a1_calendarios_workspacesid ? 'rgba(255,255,255,0.8)' : (ws.cr4a1_cor_hex || '#f57c00') }} />
@@ -682,17 +571,17 @@ export const NotesPanel = ({
       )}
 
       {activeNotas.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '56px', opacity: 0.5, animation: 'kairos-empty-float 3s ease-in-out infinite' }}>speaker_notes_off</span>
-          <p style={{ margin: 0 }}>Nenhuma nota encontrada neste workspace. Crie a sua primeira anotação!</p>
-          <button onClick={createNewNota} className="boing-effect" style={{ marginTop: '4px', padding: '10px 20px', borderRadius: '12px', background: 'var(--bg-secondary)', color: '#f57c00', border: '1px dashed #f57c00', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>add</span>
+        <div className="mt-10 flex flex-col items-center gap-3 text-center text-muted-foreground">
+          <VolumeX className="size-14 opacity-50" style={{ animation: 'kairos-empty-float 3s ease-in-out infinite' }} />
+          <p className="m-0">Nenhuma nota encontrada neste workspace. Crie a sua primeira anotação!</p>
+          <Button onClick={createNewNota} variant="outline" className="mt-1 border-dashed" style={{ color: '#f57c00', borderColor: '#f57c00' }}>
+            <Plus className="size-[18px]" />
             Criar primeira nota
-          </button>
+          </Button>
         </div>
       ) : visibleNotas.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px' }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '48px', opacity: 0.5 }}>search_off</span>
+        <div className="mt-10 text-center text-muted-foreground">
+          <SearchX className="mx-auto size-12 opacity-50" />
           <p>Nenhuma nota corresponde à sua busca.</p>
         </div>
       ) : (
@@ -717,9 +606,7 @@ export const NotesPanel = ({
                   <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {nota.cr4a1_titulo || 'Sem Título'}
                   </h4>
-                  {nota.cr4a1_private && (
-                    <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#f57c00', flexShrink: 0 }} title="Nota Privada">lock</span>
-                  )}
+                  {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title="Nota Privada" />}
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? nota.cr4a1_conteudo.find(b => b.type === 'text' || b.type === 'todo')?.value || '...' : 'Vazio...'}
@@ -727,16 +614,12 @@ export const NotesPanel = ({
 
                 {stats.total > 0 && <TodoProgress done={stats.done} total={stats.total} color={wsColor} />}
 
-                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '14px', flexShrink: 0 }}>person</span>
+                <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+                  <div className="flex items-center gap-1.5 overflow-hidden text-[11px] text-muted-foreground">
+                    <UserIcon className="size-[14px] shrink-0" />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{relative ? `editado ${relative}` : nota.cr4a1_user_login}</span>
                   </div>
-                  {nota.cr4a1_evento_id && (
-                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--text-accent)', flexShrink: 0 }} title="Nota associada a um evento">
-                      link
-                    </span>
-                  )}
+                  {nota.cr4a1_evento_id && <Link2 className="size-[14px] shrink-0 text-primary" title="Nota associada a um evento" />}
                 </div>
               </div>
             );
