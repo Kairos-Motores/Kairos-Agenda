@@ -32,7 +32,7 @@ export const SelectContent = React.forwardRef(({ className, children, position =
             ref={ref}
             position={position}
             className={cn(
-                "relative z-[2100] max-h-72 min-w-[8rem] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-xl",
+                "relative z-[12100] max-h-72 min-w-[8rem] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-xl",
                 "data-[state=open]:animate-[popover-in_0.2s_var(--ease-elastic)] data-[state=closed]:animate-[popover-out_0.15s_ease-in]",
                 position === 'popper' && "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
                 className

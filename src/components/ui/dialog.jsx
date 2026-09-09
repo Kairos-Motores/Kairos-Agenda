@@ -12,7 +12,7 @@ export const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => 
     <DialogPrimitive.Overlay
         ref={ref}
         className={cn(
-            "fixed inset-0 z-[2000] bg-black/40 backdrop-blur-sm",
+            "fixed inset-0 z-[12000] bg-black/40 backdrop-blur-sm",
             "data-[state=open]:animate-[fade-in_0.25s_ease-out] data-[state=closed]:animate-[fade-out_0.2s_ease-in]",
             className
         )}
@@ -27,7 +27,7 @@ export const DialogContent = React.forwardRef(({ className, children, showClose 
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                "fixed left-1/2 top-1/2 z-[2001] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2",
+                "fixed left-1/2 top-1/2 z-[12001] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2",
                 "max-h-[85vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl outline-none",
                 "data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
                 className
