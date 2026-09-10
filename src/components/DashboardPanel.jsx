@@ -322,7 +322,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
             </div>
           ))}
 
-          {/* ZONA DE HOVER (ativa apenas quando a barra está oculta) */}
+          {/* ZONA DE HOVER (ativa apenas quando a barra está oculta).
+              O iframe do Power BI é cross-origin e "engole" todos os eventos de
+              ponteiro, então precisamos de um elemento físico sobreposto para
+              detectar o mouse perto do topo. Mantemos essa faixa BEM fina (só a
+              borda superior, onde o Power BI nunca põe controles) para não roubar
+              cliques da parte de cima do relatório — o problema que existia com a
+              faixa antiga de 60px. */}
           {!isHeaderVisible && (
             <div
               onMouseEnter={() => {
@@ -336,7 +342,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: '60px',
+                height: '14px',
                 zIndex: 10,
               }}
             />
