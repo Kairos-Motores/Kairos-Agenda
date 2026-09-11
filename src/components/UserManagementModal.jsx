@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile } from 'lucide-react';
-import { parseRoles } from '../utils/permissions';
+import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3 } from 'lucide-react';
+import { checkAccess, parseRoles } from '../utils/permissions';
 import { ALL_KNOWN_ROLES } from '../config/roleWorkspaceMap';
+import { BI_CONFIG } from '../config/biConfig';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
@@ -16,6 +17,18 @@ const layerOptions = [
     { id: 'padrao', label: 'Padrão', description: 'Textura sutil sobre a cor do responsável' },
     { id: 'nenhuma', label: 'Nenhuma', description: 'Sem destaque extra além da cor do responsável' }
 ];
+
+// Mesma checagem que o DashboardPanel usa para decidir se um painel aparece
+// (allowedRoles.includes('ALL') ou checkAccess) — reaproveitada aqui para o editor
+// de roles mostrar, em tempo real, quais painéis aquela combinação libera. Não
+// considera a adesão ao workspace (isso é sincronizado automaticamente ao salvar,
+// ver reconcileWorkspacesForRoleChange em useCalendar.js), só a permissão da role.
+const getBisForRoles = (roles) => BI_CONFIG.filter(bi => bi.allowedRoles.includes('ALL') || checkAccess(roles, bi.allowedRoles));
+
+const groupBisByWorkspace = (bis) => bis.reduce((acc, bi) => {
+    (acc[bi.workspaceName] = acc[bi.workspaceName] || []).push(bi);
+    return acc;
+}, {});
 
 const commonEmojis = [
     '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
@@ -204,6 +217,11 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
     const saveRoles = () => { updateUserRoles(user.cr4a1_username, draftRoles); setRolesOpen(false); };
 
     const currentRoles = parseRoles(user.cr4a1_role);
+    // BI_CONFIG tem só algumas dezenas de itens — filtrar a cada render sai barato,
+    // sem necessidade de useMemo.
+    const currentBis = getBisForRoles(currentRoles);
+    const draftBisByWorkspace = groupBisByWorkspace(getBisForRoles(draftRoles));
+    const draftBisCount = Object.values(draftBisByWorkspace).reduce((n, list) => n + list.length, 0);
 
     return (
         <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/60 p-4">
@@ -237,6 +255,23 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                                         </CommandGroup>
                                     </CommandList>
                                 </Command>
+                                <div className="flex flex-col gap-1 border-t border-border p-2.5">
+                                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                        <BarChart3 className="size-3" /> Painéis BI liberados ({draftBisCount})
+                                    </span>
+                                    {draftBisCount === 0 ? (
+                                        <p className="text-[11px] italic text-muted-foreground">Nenhum painel com estas roles.</p>
+                                    ) : (
+                                        <div className="flex max-h-24 flex-col gap-1 overflow-y-auto">
+                                            {Object.entries(draftBisByWorkspace).map(([wsName, bis]) => (
+                                                <div key={wsName} className="text-[11px] leading-snug">
+                                                    <span className="font-semibold text-foreground">{wsName}:</span>{' '}
+                                                    <span className="text-muted-foreground">{bis.map(bi => bi.title).join(', ')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex justify-end gap-2 border-t border-border p-2">
                                     <Button variant="ghost" size="sm" onClick={() => setRolesOpen(false)}>Cancelar</Button>
                                     <Button size="sm" onClick={saveRoles}>Salvar</Button>
@@ -264,11 +299,16 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
             </div>
 
             {isAdmin && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                     {currentRoles.length === 0
                         ? <span className="text-[11px] italic text-muted-foreground">Sem role</span>
                         : currentRoles.map(r => <Badge key={r} variant="secondary">{r}</Badge>)
                     }
+                    {currentBis.length > 0 && (
+                        <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground" title={currentBis.map(bi => bi.title).join(', ')}>
+                            <BarChart3 className="size-3" /> {currentBis.length} {currentBis.length > 1 ? 'painéis' : 'painel'} BI
+                        </span>
+                    )}
                 </div>
             )}
         </div>

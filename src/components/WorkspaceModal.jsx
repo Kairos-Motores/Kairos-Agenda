@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Rocket, Globe, MapPin, Search } from 'lucide-react';
+import { Rocket, Globe, MapPin, Search, BarChart3 } from 'lucide-react';
 import { checkAccess, parseRoles } from '../utils/permissions';
+import { BI_CONFIG } from '../config/biConfig';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
@@ -38,6 +40,18 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
         setMemberMode('text');
         setUserFilter('');
     }, [editingWorkspace, isOpen]);
+
+    // Os painéis de BI (biConfig.js) são vinculados a workspaces só pelo nome
+    // exato — é a mesma comparação que o DashboardPanel usa para decidir se um
+    // painel aparece para o usuário. Mostrar isso aqui ajuda a saber, ao criar ou
+    // renomear um workspace, quais painéis já "pertencem" a ele. BI_CONFIG tem só
+    // algumas dezenas de itens, então filtrar a cada render sai barato — sem
+    // necessidade de useMemo aqui.
+    const nomeTrimmed = formData.nome.trim();
+    const matchingBis = BI_CONFIG.filter(bi => bi.workspaceName === nomeTrimmed);
+    const nearMissBis = nomeTrimmed && matchingBis.length === 0
+        ? BI_CONFIG.filter(bi => bi.workspaceName.toLowerCase() === nomeTrimmed.toLowerCase())
+        : [];
 
     const selectedMembers = useMemo(() => {
         if (!formData.membros) return [];
@@ -104,6 +118,25 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         <Label>Nome do ambiente</Label>
                         <Input placeholder="Ex: Projetos TI, Consultas..." value={formData.nome} onChange={e => setFormData({ ...formData, nome: e.target.value })} />
                     </div>
+
+                    {nomeTrimmed && (
+                        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-secondary/60 p-3">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                <BarChart3 className="size-3.5" /> Painéis BI deste workspace ({matchingBis.length})
+                            </span>
+                            {matchingBis.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {matchingBis.map(bi => <Badge key={bi.id} variant="info">{bi.title}</Badge>)}
+                                </div>
+                            ) : (
+                                <p className="text-[11px] italic text-muted-foreground">
+                                    {nearMissBis.length > 0
+                                        ? `Há painéis BI para "${nearMissBis[0].workspaceName}" — confira maiúsculas/acentos, o nome precisa ser idêntico.`
+                                        : 'Nenhum painel BI está vinculado a este nome (configurado em biConfig.js).'}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     <div>
                         <Label>Tipo</Label>
