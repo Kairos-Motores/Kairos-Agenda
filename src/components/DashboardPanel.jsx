@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { checkAccess } from '../utils/permissions';
+import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
 import { BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 const TABS_STORAGE_KEY = 'kairos_bi_open_tabs';
 const ACTIVE_TAB_STORAGE_KEY = 'kairos_bi_active_tab';
 
-export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
+export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermissoes = [] }) => {
   // Cada aba: { bi, url, loading, reloadKey }
   const [openTabs, setOpenTabs] = useState([]);
   const [activeTabId, setActiveTabId] = useState(null);
@@ -115,10 +115,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig }) => {
   };
 
   const activeWorkspaceNames = activeWorkspaces.map(ws => ws.cr4a1_nome);
+  // BI_CONFIG tem só algumas dezenas de itens — reconstruir o mapa de overrides a
+  // cada render sai barato, sem necessidade de useMemo.
+  const biRolesOverrideMap = buildBiRolesOverrideMap(biPermissoes);
 
   const isBiPermitido = (bi) => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
-    const temPermissao = bi.allowedRoles.includes('ALL') || checkAccess(userRole, bi.allowedRoles);
+    const temPermissao = isBiVisibleForRoles(bi, userRole, biRolesOverrideMap);
     return isWorkspaceAtivo && temPermissao;
   };
 

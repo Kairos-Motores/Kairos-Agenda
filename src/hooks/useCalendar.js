@@ -24,6 +24,10 @@ export const useCalendar = () => {
     const [ssmaGastos, setSsmaGastos] = useState([]);
     const [ssmaIndicadores, setSsmaIndicadores] = useState([]);
     const [notas, setNotas] = useState([]);
+    // Overrides de allowedRoles por painel de BI (tabela cr4a1_bi_permissaos), editáveis
+    // pelo ADMIN em Gerir Utilizadores > Painéis BI. Um painel sem registro aqui usa o
+    // allowedRoles padrão definido em src/config/biConfig.js.
+    const [biPermissoes, setBiPermissoes] = useState([]);
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspaces, setActiveWorkspaces] = useState([]);
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
@@ -284,6 +288,14 @@ export const useCalendar = () => {
         } catch (error) { console.log("Usando tipos locais"); }
     }, []);
 
+    const fetchBiPermissoes = useCallback(async () => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_bi_permissaos`);
+            const data = await response.json();
+            setBiPermissoes(data.value || []);
+        } catch (error) { console.error('Erro ao buscar permissões de BI:', error); }
+    }, []);
+
     const fetchDadosComerciais = useCallback(async () => {
         try {
             const resOrgs = await fetch(`${API_PROXY}?table=cr4a1_echoe_organizacoeses`);
@@ -392,8 +404,9 @@ export const useCalendar = () => {
             fetchWorkspaces();
             fetchDadosComerciais();
             fetchSsmaDados();
+            fetchBiPermissoes();
         }
-    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais, fetchSsmaDados]);
+    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais, fetchSsmaDados, fetchBiPermissoes]);
 
     useEffect(() => {
         if (user && workspaces.length > 0) {
@@ -647,6 +660,52 @@ export const useCalendar = () => {
             await fetch(`${API_PROXY}?table=cr4a1_tipos_eventoses&id=${id}`, { method: 'DELETE' });
             fetchEventTypes();
         } catch (error) { console.error(error); }
+    };
+
+    // Grava (cria ou atualiza) o override de roles de um painel de BI específico.
+    // `rolesArray` é a lista completa e explícita de roles que passam a poder ver o
+    // painel — mesmo vazia (painel escondido de todo mundo, exceto ADMIN, que sempre
+    // vê tudo via checkAccess). Para voltar ao allowedRoles padrão do biConfig.js,
+    // use resetBiPermission em vez de mandar a lista padrão aqui — isso apaga o
+    // override em vez de duplicar o valor padrão numa linha no Dataverse.
+    const upsertBiPermission = async (biId, biTitle, rolesArray) => {
+        try {
+            const existing = biPermissoes.find(p => p.cr4a1_biid === biId);
+            const rolesStr = joinRoles(rolesArray);
+            if (existing) {
+                await fetch(`${API_PROXY}?table=cr4a1_bi_permissaos&id=${existing.cr4a1_bi_permissaoid}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_rolespermitidas: rolesStr })
+                });
+            } else {
+                await fetch(`${API_PROXY}?table=cr4a1_bi_permissaos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_nome: biTitle, cr4a1_biid: biId, cr4a1_rolespermitidas: rolesStr })
+                });
+            }
+            await fetchBiPermissoes();
+            toast.success('Permissões do painel BI atualizadas!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar permissões do painel BI.');
+        }
+    };
+
+    // Remove o override, fazendo o painel voltar a usar o allowedRoles padrão do biConfig.js.
+    const resetBiPermission = async (biId) => {
+        try {
+            const existing = biPermissoes.find(p => p.cr4a1_biid === biId);
+            if (existing) {
+                await fetch(`${API_PROXY}?table=cr4a1_bi_permissaos&id=${existing.cr4a1_bi_permissaoid}`, { method: 'DELETE' });
+                await fetchBiPermissoes();
+            }
+            toast.success('Painel restaurado para as roles padrão.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao restaurar permissões do painel BI.');
+        }
     };
 
     const updateUserColor = async (userId, newColor) => {
@@ -1334,6 +1393,7 @@ export const useCalendar = () => {
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         notas, addNota, updateNota, deleteNota,
+        biPermissoes, upsertBiPermission, resetBiPermission,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };
 };

@@ -62,7 +62,8 @@ function App() {
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     ssmaAtividades = [], ssmaGastos = [], ssmaIndicadores = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
     addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
-    notas = [], addNota, updateNota, deleteNota
+    notas = [], addNota, updateNota, deleteNota,
+    biPermissoes = [], upsertBiPermission, resetBiPermission
   } = useCalendar();
 
   const roles = useMemo(() => parseRoles(userRole), [userRole]);
@@ -1424,6 +1425,7 @@ function App() {
                     activeWorkspaces={workspaces.filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))}
                     userRole={userRole}
                     biConfig={BI_CONFIG}
+                    biPermissoes={biPermissoes}
                   />
                 </React.Suspense>
               ) : appMode === 'notas' ? (
@@ -1854,7 +1856,7 @@ function App() {
             />
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
-          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && (
             <WorkspaceModal

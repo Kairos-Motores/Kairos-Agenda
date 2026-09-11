@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3 } from 'lucide-react';
-import { checkAccess, parseRoles } from '../utils/permissions';
+import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw } from 'lucide-react';
+import { parseRoles } from '../utils/permissions';
 import { ALL_KNOWN_ROLES } from '../config/roleWorkspaceMap';
 import { BI_CONFIG } from '../config/biConfig';
+import { buildBiRolesOverrideMap, getEffectiveAllowedRoles, hasBiOverride, isBiVisibleForRoles } from '../utils/biPermissions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Button } from './ui/button';
@@ -10,6 +11,7 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 
 const layerOptions = [
     { id: 'icone', label: 'Ícone', description: 'Mostra o emoji do tipo no card do evento' },
@@ -19,11 +21,11 @@ const layerOptions = [
 ];
 
 // Mesma checagem que o DashboardPanel usa para decidir se um painel aparece
-// (allowedRoles.includes('ALL') ou checkAccess) — reaproveitada aqui para o editor
+// (respeitando overrides de cr4a1_bi_permissaos) — reaproveitada aqui para o editor
 // de roles mostrar, em tempo real, quais painéis aquela combinação libera. Não
 // considera a adesão ao workspace (isso é sincronizado automaticamente ao salvar,
 // ver reconcileWorkspacesForRoleChange em useCalendar.js), só a permissão da role.
-const getBisForRoles = (roles) => BI_CONFIG.filter(bi => bi.allowedRoles.includes('ALL') || checkAccess(roles, bi.allowedRoles));
+const getBisForRoles = (roles, overridesMap) => BI_CONFIG.filter(bi => isBiVisibleForRoles(bi, roles, overridesMap));
 
 const groupBisByWorkspace = (bis) => bis.reduce((acc, bi) => {
     (acc[bi.workspaceName] = acc[bi.workspaceName] || []).push(bi);
@@ -39,8 +41,11 @@ const commonEmojis = [
     '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
 ];
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission }) => {
     const [userSearch, setUserSearch] = useState('');
+    // BI_CONFIG e biPermissoes têm só algumas dezenas de itens — reconstruir o mapa
+    // de overrides a cada render sai barato, sem necessidade de useMemo.
+    const biRolesOverrideMap = buildBiRolesOverrideMap(biPermissoes);
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [editingTypeId, setEditingTypeId] = useState(null);
@@ -76,7 +81,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg" showClose={false}>
+            <DialogContent className="max-w-2xl" showClose={false}>
                 <DialogHeader className="pr-0">
                     <DialogTitle>
                         <Settings className="size-5 text-primary" /> Configurações
@@ -94,6 +99,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                     <TabsList>
                         <TabsTrigger value="users">Membros</TabsTrigger>
                         <TabsTrigger value="types">Tipos de Evento</TabsTrigger>
+                        {isAdmin && <TabsTrigger value="bi">Painéis BI</TabsTrigger>}
                     </TabsList>
 
                     <TabsContent value="users" className="flex flex-col gap-3">
@@ -125,6 +131,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                     updateUserColor={updateUserColor}
                                     updateUserRoles={updateUserRoles}
                                     onDelete={() => handleDeleteUser(u)}
+                                    biRolesOverrideMap={biRolesOverrideMap}
                                 />
                             ))}
                         </div>
@@ -194,6 +201,16 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                             ))}
                         </div>
                     </TabsContent>
+
+                    {isAdmin && (
+                        <TabsContent value="bi">
+                            <BiPermissionsPanel
+                                biRolesOverrideMap={biRolesOverrideMap}
+                                upsertBiPermission={upsertBiPermission}
+                                resetBiPermission={resetBiPermission}
+                            />
+                        </TabsContent>
+                    )}
                 </Tabs>
 
                 <Button onClick={onClose} className="mt-6 w-full" size="lg">Concluído</Button>
@@ -202,7 +219,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     );
 };
 
-const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete }) => {
+const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete, biRolesOverrideMap }) => {
     const [rolesOpen, setRolesOpen] = useState(false);
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
@@ -219,8 +236,8 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
     const currentRoles = parseRoles(user.cr4a1_role);
     // BI_CONFIG tem só algumas dezenas de itens — filtrar a cada render sai barato,
     // sem necessidade de useMemo.
-    const currentBis = getBisForRoles(currentRoles);
-    const draftBisByWorkspace = groupBisByWorkspace(getBisForRoles(draftRoles));
+    const currentBis = getBisForRoles(currentRoles, biRolesOverrideMap);
+    const draftBisByWorkspace = groupBisByWorkspace(getBisForRoles(draftRoles, biRolesOverrideMap));
     const draftBisCount = Object.values(draftBisByWorkspace).reduce((n, list) => n + list.length, 0);
 
     return (
@@ -311,6 +328,152 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                     )}
                 </div>
             )}
+        </div>
+    );
+};
+
+// Aba "Painéis BI" (só ADMIN): lista todos os painéis do biConfig.js, com busca e
+// filtro por workspace/role — filtrar por role responde direto "que BIs essa role
+// pode ver?" — e um editor por painel para liberar/proibir roles específicas.
+const BiPermissionsPanel = ({ biRolesOverrideMap, upsertBiPermission, resetBiPermission }) => {
+    const [search, setSearch] = useState('');
+    const [workspaceFilter, setWorkspaceFilter] = useState('all');
+    const [roleFilter, setRoleFilter] = useState('all');
+
+    const workspaceNames = [...new Set(BI_CONFIG.map(bi => bi.workspaceName))].sort();
+
+    const filteredBis = BI_CONFIG.filter(bi => {
+        const matchesSearch = bi.title.toLowerCase().includes(search.toLowerCase());
+        const matchesWorkspace = workspaceFilter === 'all' || bi.workspaceName === workspaceFilter;
+        const matchesRole = roleFilter === 'all' || isBiVisibleForRoles(bi, [roleFilter], biRolesOverrideMap);
+        return matchesSearch && matchesWorkspace && matchesRole;
+    });
+
+    return (
+        <div className="flex flex-col gap-3">
+            <p className="text-[12px] text-muted-foreground">
+                Escolha quais roles podem ver cada painel. Alterações aqui valem para todo mundo, na hora — sem precisar de deploy.
+            </p>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar painel..." className="pl-10" />
+                </div>
+                <Select value={workspaceFilter} onValueChange={setWorkspaceFilter}>
+                    <SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos os workspaces</SelectItem>
+                        {workspaceNames.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="sm:w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as roles</SelectItem>
+                        {ALL_KNOWN_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <div className="flex max-h-[380px] flex-col gap-2 overflow-y-auto pr-1">
+                {filteredBis.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">Nenhum painel encontrado.</p>
+                ) : (
+                    filteredBis.map(bi => (
+                        <BiPermissionRow
+                            key={bi.id}
+                            bi={bi}
+                            overridesMap={biRolesOverrideMap}
+                            upsertBiPermission={upsertBiPermission}
+                            resetBiPermission={resetBiPermission}
+                        />
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
+
+const BiPermissionRow = ({ bi, overridesMap, upsertBiPermission, resetBiPermission }) => {
+    const [open, setOpen] = useState(false);
+    const [draftRoles, setDraftRoles] = useState([]);
+    const [roleSearch, setRoleSearch] = useState('');
+
+    const effectiveRoles = getEffectiveAllowedRoles(bi, overridesMap);
+    const overridden = hasBiOverride(bi, overridesMap);
+    const isAllRoles = effectiveRoles.includes('ALL');
+
+    const openEditor = (isOpening) => {
+        setOpen(isOpening);
+        if (isOpening) { setDraftRoles(isAllRoles ? [] : effectiveRoles); setRoleSearch(''); }
+    };
+
+    const toggleDraftRole = (role) => setDraftRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+
+    const save = () => { upsertBiPermission(bi.id, bi.title, draftRoles); setOpen(false); };
+    const reset = () => { resetBiPermission(bi.id); setOpen(false); };
+
+    return (
+        <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-secondary/60 p-3">
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="material-symbols-rounded shrink-0 text-primary" style={{ fontSize: '17px' }}>{bi.icon}</span>
+                    <span className="truncate text-[13px] font-semibold text-foreground">{bi.title}</span>
+                </div>
+                <Popover open={open} onOpenChange={openEditor}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label={`Editar roles do painel "${bi.title}"`}>
+                            <Shield className="size-4 text-primary" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-0">
+                        {isAllRoles && (
+                            <p className="border-b border-border p-2.5 text-[11px] leading-snug text-muted-foreground">
+                                Hoje liberado para <strong className="text-foreground">todas as roles</strong>. Marcar roles abaixo troca isso por uma lista específica.
+                            </p>
+                        )}
+                        <Command shouldFilter={false}>
+                            <CommandInput value={roleSearch} onValueChange={setRoleSearch} placeholder="Buscar role..." />
+                            <CommandList>
+                                <CommandEmpty>Nenhuma role encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                    {ALL_KNOWN_ROLES.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                        <CommandItem key={role} onSelect={() => toggleDraftRole(role)}>
+                                            <span className={`flex size-4 items-center justify-center rounded-md border ${draftRoles.includes(role) ? 'border-primary bg-primary' : 'border-border'}`}>
+                                                {draftRoles.includes(role) && <Check className="size-3 text-white" strokeWidth={3} />}
+                                            </span>
+                                            {role}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                        <div className="flex items-center justify-between gap-2 border-t border-border p-2">
+                            {overridden ? (
+                                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={reset}>
+                                    <RotateCcw className="size-3.5" /> Padrão
+                                </Button>
+                            ) : <span />}
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
+                                <Button size="sm" onClick={save}>Salvar</Button>
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+                <Badge variant="outline">{bi.workspaceName}</Badge>
+                {overridden && <Badge variant="warning">Personalizado</Badge>}
+                {isAllRoles ? (
+                    <Badge variant="info">Todas as roles</Badge>
+                ) : effectiveRoles.length === 0 ? (
+                    <span className="text-[11px] italic text-muted-foreground">Nenhuma role (só ADMIN)</span>
+                ) : (
+                    effectiveRoles.map(r => <Badge key={r} variant="secondary">{r}</Badge>)
+                )}
+            </div>
         </div>
     );
 };
