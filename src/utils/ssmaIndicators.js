@@ -5,6 +5,23 @@
 const filtrarPorCompetenciaUnidade = (lista, competencia, unidade) =>
     (lista || []).filter(item => item.cr4a1_competencia === competencia && item.cr4a1_unidade === unidade);
 
+// cr4a1_arquivos_evidencia chega do Dataverse como uma string JSON (mesmo padrão de
+// cr4a1_arquivos nos eventos); no formulário em edição já é um array. Aceita as duas formas.
+export const parseAnexosEvidencia = (atividade) => {
+    const raw = atividade?.cr4a1_arquivos_evidencia;
+    if (Array.isArray(raw)) return raw;
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+// Evidência é o link/texto (cr4a1_evidencia) OU pelo menos um anexo — qualquer um dos dois basta.
+export const temEvidencia = (atividade) => !!atividade?.cr4a1_evidencia || parseAnexosEvidencia(atividade).length > 0;
+
 export const diasEmAtraso = (atividade) => {
     const prazo = atividade.cr4a1_prazo ? new Date(atividade.cr4a1_prazo) : null;
     if (!prazo) return 0;
@@ -17,7 +34,7 @@ export const diasEmAtraso = (atividade) => {
 };
 
 export const realizadoValidoRow = (atividade) => {
-    if (!atividade.cr4a1_evidencia) return 0;
+    if (!temEvidencia(atividade)) return 0;
     return Number(atividade.cr4a1_realizado) || 0;
 };
 
@@ -60,7 +77,7 @@ export const computeSsmaResumo = (atividades, gastos, competencia, unidade, indi
     const atividadesRealizadas = filtradas.reduce((sum, a) => sum + (Number(a.cr4a1_realizado) || 0), 0);
     const registrosAtrasados = filtradas.filter(a => diasEmAtraso(a) > 0).length;
     const gastoRealizado = gastosFiltrados.reduce((sum, g) => sum + (Number(g.cr4a1_realizado) || 0), 0);
-    const semEvidencia = filtradas.filter(a => a.cr4a1_tipo && !a.cr4a1_evidencia).length;
+    const semEvidencia = filtradas.filter(a => a.cr4a1_tipo && !temEvidencia(a)).length;
     const pendencias = filtradas.filter(a => a.cr4a1_status === 'Pendente').length;
 
     return {

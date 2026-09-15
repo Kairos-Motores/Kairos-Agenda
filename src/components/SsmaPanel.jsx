@@ -1,10 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
+import { Upload, FileText, X, Paperclip, FileDown, Loader2 } from 'lucide-react';
 import { SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO } from '../config/ssmaConfig';
-import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso, tipoParaIndicador } from '../utils/ssmaIndicators';
+import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso, tipoParaIndicador, parseAnexosEvidencia, temEvidencia } from '../utils/ssmaIndicators';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from './ui/chart';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Label } from './ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+
+const MAX_ANEXO_MB = 5;
 
 const STATUS_CHART_COLOR = {
     'ATINGIDO': 'var(--chart-1)',
@@ -135,7 +145,7 @@ export const SsmaPanel = ({
                 {podeGerenciarIndicadores && <div onClick={() => setSubTab('gerenciar')} style={tabStyle(subTab === 'gerenciar')}>Gerenciar Indicadores</div>}
             </div>
 
-            {subTab === 'indicadores' && <IndicadoresTab resumo={resumo} gastosPorCategoria={gastosPorCategoria} />}
+            {subTab === 'indicadores' && <IndicadoresTab resumo={resumo} gastosPorCategoria={gastosPorCategoria} competencia={competencia} unidade={unidadeEfetiva} />}
             {subTab === 'atividades' && podeEditarLancamentos && (
                 <AtividadesTab
                     atividades={atividadesFiltradas}
@@ -259,31 +269,99 @@ const GastosDonutChart = ({ gastosPorCategoria }) => {
     );
 };
 
-const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
+// Exporta o "resumo executivo" (KPIs + gráfico Realizado×Meta + gráfico de gastos) em PDF —
+// html2canvas-pro (em vez do html2canvas comum) porque o Tailwind v4 usa cores oklch(), que
+// o html2canvas original não sabe interpretar e renderizaria em preto. Libs carregadas via
+// import dinâmico para não engordar o bundle inicial com algo usado só ao clicar em exportar.
+const exportarRelatorioPdf = async ({ competencia, unidade, kpiRef, gastoRef }) => {
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas-pro')
+    ]);
+
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 32;
+    let y = margin;
+
+    pdf.setFontSize(16);
+    pdf.setFont(undefined, 'bold');
+    pdf.text('Relatório SSMA — Indicadores', margin, y);
+    y += 22;
+    pdf.setFontSize(10);
+    pdf.setFont(undefined, 'normal');
+    pdf.text(`Unidade: ${unidade}   |   Competência: ${competencia}   |   Gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, margin, y);
+    y += 18;
+
+    for (const ref of [kpiRef, gastoRef]) {
+        if (!ref.current) continue;
+        const canvas = await html2canvas(ref.current, { scale: 2, backgroundColor: '#ffffff' });
+        const imgWidth = pageWidth - margin * 2;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        if (y + imgHeight > pageHeight - margin) {
+            pdf.addPage();
+            y = margin;
+        }
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, imgWidth, imgHeight);
+        y += imgHeight + 16;
+    }
+
+    const unidadeArquivo = (unidade || 'geral').replace(/[^\w-]+/g, '_');
+    pdf.save(`relatorio-ssma-${unidadeArquivo}-${competencia.replace('/', '-')}.pdf`);
+};
+
+const IndicadoresTab = ({ resumo, gastosPorCategoria, competencia, unidade }) => {
+    const kpiRef = useRef(null);
+    const gastoRef = useRef(null);
+    const [exportando, setExportando] = useState(false);
+
+    const handleExportar = async () => {
+        setExportando(true);
+        try {
+            await exportarRelatorioPdf({ competencia, unidade, kpiRef, gastoRef });
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao gerar o PDF do relatório.');
+        } finally {
+            setExportando(false);
+        }
+    };
+
+    return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
-            {[
-                { label: 'Atingimento Geral', value: `${(resumo.atingimentoGeral * 100).toFixed(0)}%`, icon: 'target' },
-                { label: 'Atividades Realizadas', value: resumo.atividadesRealizadas, icon: 'task_alt' },
-                { label: 'Registros Atrasados', value: resumo.registrosAtrasados, icon: 'schedule' },
-                { label: 'Gasto Realizado', value: `R$ ${resumo.gastoRealizado.toLocaleString('pt-BR')}`, icon: 'payments' },
-                { label: 'Sem Evidência', value: resumo.semEvidencia, icon: 'visibility_off' },
-                { label: 'Pendências', value: resumo.pendencias, icon: 'pending_actions' }
-            ].map(kpi => (
-                <div key={kpi.label} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <span className="material-symbols-rounded" style={{ color: ACCENT, fontSize: '20px' }}>{kpi.icon}</span>
-                    <span style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-title)' }}>{kpi.value}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{kpi.label}</span>
-                </div>
-            ))}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button onClick={handleExportar} disabled={exportando} variant="outline" size="sm">
+                {exportando ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
+                {exportando ? 'Gerando PDF...' : 'Exportar relatório'}
+            </Button>
         </div>
 
-        {resumo.indicadores.length > 0 && (
-            <div style={cardStyle}>
-                <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: 'var(--text-title)' }}>Realizado × Meta por Indicador</h3>
-                <IndicadoresBarChart indicadores={resumo.indicadores} />
+        <div ref={kpiRef} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                {[
+                    { label: 'Atingimento Geral', value: `${(resumo.atingimentoGeral * 100).toFixed(0)}%`, icon: 'target' },
+                    { label: 'Atividades Realizadas', value: resumo.atividadesRealizadas, icon: 'task_alt' },
+                    { label: 'Registros Atrasados', value: resumo.registrosAtrasados, icon: 'schedule' },
+                    { label: 'Gasto Realizado', value: `R$ ${resumo.gastoRealizado.toLocaleString('pt-BR')}`, icon: 'payments' },
+                    { label: 'Sem Evidência', value: resumo.semEvidencia, icon: 'visibility_off' },
+                    { label: 'Pendências', value: resumo.pendencias, icon: 'pending_actions' }
+                ].map(kpi => (
+                    <div key={kpi.label} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <span className="material-symbols-rounded" style={{ color: ACCENT, fontSize: '20px' }}>{kpi.icon}</span>
+                        <span style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-title)' }}>{kpi.value}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{kpi.label}</span>
+                    </div>
+                ))}
             </div>
-        )}
+
+            {resumo.indicadores.length > 0 && (
+                <div style={cardStyle}>
+                    <h3 style={{ margin: '0 0 4px', fontSize: '16px', color: 'var(--text-title)' }}>Realizado × Meta por Indicador</h3>
+                    <IndicadoresBarChart indicadores={resumo.indicadores} />
+                </div>
+            )}
+        </div>
 
         <div style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--text-title)' }}>Indicadores — Status na Competência</h3>
@@ -324,7 +402,7 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
             )}
         </div>
 
-        <div style={cardStyle}>
+        <div ref={gastoRef} style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', color: 'var(--text-title)' }}>Gasto por Categoria</h3>
             <GastosDonutChart gastosPorCategoria={gastosPorCategoria} />
             <div style={{ overflowX: 'auto' }}>
@@ -352,7 +430,8 @@ const IndicadoresTab = ({ resumo, gastosPorCategoria }) => (
             </div>
         </div>
     </div>
-);
+    );
+};
 
 const emptyAtividade = (currentUser, unidade, competencia, tiposDisponiveis) => ({
     cr4a1_competencia: competencia,
@@ -369,6 +448,7 @@ const emptyAtividade = (currentUser, unidade, competencia, tiposDisponiveis) => 
     cr4a1_criticidade: SSMA_CRITICIDADE_LIST[0],
     cr4a1_responsavel: currentUser?.cr4a1_username || '',
     cr4a1_evidencia: '',
+    cr4a1_arquivos_evidencia: [],
     cr4a1_observacao: ''
 });
 
@@ -380,9 +460,9 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
             {tiposDisponiveis.length === 0 ? (
                 <p style={{ color: '#f57c00', fontSize: '13px' }}>Nenhum indicador cadastrado ainda — peça ao chefe da equipe para cadastrar em "Gerenciar Indicadores" antes de lançar atividades.</p>
             ) : (
-                <button onClick={() => setEditing(emptyAtividade(currentUser, unidade, competencia, tiposDisponiveis))} className="btn-primary boing-effect" style={{ alignSelf: 'flex-start', padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>
+                <Button onClick={() => setEditing(emptyAtividade(currentUser, unidade, competencia, tiposDisponiveis))} className="self-start" style={{ background: ACCENT }}>
                     + Nova atividade
-                </button>
+                </Button>
             )}
 
             {editing && (
@@ -414,7 +494,13 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
                                     <span>Previsto {a.cr4a1_previsto} / Realizado {a.cr4a1_realizado}</span>
                                     <span>Status: {a.cr4a1_status}</span>
                                     {atraso > 0 && <span style={{ color: '#dc2626', fontWeight: '600' }}>{atraso}d em atraso</span>}
-                                    {!a.cr4a1_evidencia && <span style={{ color: '#f57c00' }}>Sem evidência</span>}
+                                    {temEvidencia(a) ? (
+                                        parseAnexosEvidencia(a).length > 0 && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Paperclip className="size-3" /> {parseAnexosEvidencia(a).length}</span>
+                                        )
+                                    ) : (
+                                        <span style={{ color: '#f57c00' }}>Sem evidência</span>
+                                    )}
                                 </div>
                             </div>
                             {podeEditarEsta && (
@@ -432,72 +518,150 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
 };
 
 const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, tiposDisponiveis, onCancel, onSave }) => {
-    const [form, setForm] = useState(data);
+    const [form, setForm] = useState(() => ({ ...data, cr4a1_arquivos_evidencia: parseAnexosEvidencia(data) }));
     const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+    const isNovo = !data.cr4a1_ssma_atividadeid;
 
-    const handleTecnicoChange = (e) => {
-        const login = e.target.value;
+    const handleTecnicoChange = (login) => {
         const u = (allUsers || []).find(x => x.cr4a1_username === login);
         setForm({ ...form, cr4a1_tecnico_login: login, cr4a1_unidade: u?.cr4a1_unidade || form.cr4a1_unidade });
     };
 
+    const handleAnexoChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        files.forEach(file => {
+            if (file.size > MAX_ANEXO_MB * 1024 * 1024) {
+                toast.error(`"${file.name}" passa de ${MAX_ANEXO_MB}MB e não foi anexado.`);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => setForm(prev => ({ ...prev, cr4a1_arquivos_evidencia: [...prev.cr4a1_arquivos_evidencia, { name: file.name, size: file.size, base64: reader.result }] }));
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const removeAnexo = (index) => setForm(prev => ({ ...prev, cr4a1_arquivos_evidencia: prev.cr4a1_arquivos_evidencia.filter((_, i) => i !== index) }));
+
+    const handleSalvar = () => onSave({ ...form, cr4a1_arquivos_evidencia: JSON.stringify(form.cr4a1_arquivos_evidencia || []) });
+
     return (
-        <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {isAdmin && (
-                <div>
-                    <label style={labelStyle}>Técnico</label>
-                    <select value={form.cr4a1_tecnico_login} onChange={handleTecnicoChange} style={inputStyle}>
-                        {tecnicos.map(t => <option key={t.cr4a1_username} value={t.cr4a1_username}>{t.cr4a1_username}</option>)}
-                    </select>
+        <Dialog open onOpenChange={(open) => !open && onCancel()}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        <span className="material-symbols-rounded" style={{ color: ACCENT }}>health_and_safety</span>
+                        {isNovo ? 'Nova atividade' : 'Editar atividade'}
+                    </DialogTitle>
+                    <DialogDescription>{form.cr4a1_unidade} — competência {form.cr4a1_competencia}</DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4">
+                    {isAdmin && (
+                        <div>
+                            <Label>Técnico</Label>
+                            <Select value={form.cr4a1_tecnico_login} onValueChange={handleTecnicoChange}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {tecnicos.map(t => <SelectItem key={t.cr4a1_username} value={t.cr4a1_username}>{t.cr4a1_username}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div>
+                            <Label>Tipo</Label>
+                            <Select value={form.cr4a1_tipo} onValueChange={v => setForm({ ...form, cr4a1_tipo: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {tiposDisponiveis.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Status</Label>
+                            <Select value={form.cr4a1_status} onValueChange={v => setForm({ ...form, cr4a1_status: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {SSMA_STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Criticidade</Label>
+                            <Select value={form.cr4a1_criticidade} onValueChange={v => setForm({ ...form, cr4a1_criticidade: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {SSMA_CRITICIDADE_LIST.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Tema / Descrição</Label>
+                        <Input value={form.cr4a1_tema} onChange={set('cr4a1_tema')} placeholder="Ex: Treinamento de Brigada de Incêndio" />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div><Label>Data de início</Label><Input type="date" value={form.cr4a1_data_inicio || ''} onChange={set('cr4a1_data_inicio')} /></div>
+                        <div><Label>Prazo</Label><Input type="date" value={form.cr4a1_prazo || ''} onChange={set('cr4a1_prazo')} /></div>
+                        <div><Label>Data fim real</Label><Input type="date" value={form.cr4a1_data_fim_real || ''} onChange={set('cr4a1_data_fim_real')} /></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div><Label>Previsto / Aplicável</Label><Input type="number" value={form.cr4a1_previsto} onChange={set('cr4a1_previsto')} /></div>
+                        <div><Label>Realizado / Conforme</Label><Input type="number" value={form.cr4a1_realizado} onChange={set('cr4a1_realizado')} /></div>
+                        <div><Label>Responsável</Label><Input value={form.cr4a1_responsavel} onChange={set('cr4a1_responsavel')} /></div>
+                    </div>
+
+                    <div className="rounded-3xl border border-border bg-secondary p-4">
+                        <div className="mb-2.5 flex items-center justify-between">
+                            <Label className="mb-0">Evidências (obrigatório para contar como realizado)</Label>
+                            <Button size="sm" variant="outline" type="button" onClick={() => document.getElementById('ssma-anexo-input').click()}>
+                                <Upload className="size-4" /> Anexar
+                            </Button>
+                            <input id="ssma-anexo-input" type="file" multiple hidden onChange={handleAnexoChange} />
+                        </div>
+
+                        {form.cr4a1_arquivos_evidencia.length === 0 ? (
+                            <p className="py-2 text-center text-xs text-muted-foreground opacity-70">Nenhum anexo carregado ainda.</p>
+                        ) : (
+                            <div className="flex flex-col gap-1.5">
+                                {form.cr4a1_arquivos_evidencia.map((file, i) => (
+                                    <div key={i} className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2">
+                                        <a href={file.base64} download={file.name} className="flex flex-1 items-center gap-1.5 truncate text-[13px] font-semibold text-primary no-underline">
+                                            <FileText className="size-4 shrink-0" />
+                                            <span className="truncate">{file.name}</span>
+                                            <span className="shrink-0 text-[10px] font-normal text-muted-foreground">({Math.round(file.size / 1024)} KB)</span>
+                                        </a>
+                                        <button onClick={() => removeAnexo(i)} aria-label={`Remover anexo "${file.name}"`} className="shrink-0 text-destructive">
+                                            <X className="size-[18px]" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="mt-3">
+                            <Label className="text-[11px]">Ou link (opcional)</Label>
+                            <Input value={form.cr4a1_evidencia} onChange={set('cr4a1_evidencia')} placeholder="Link do documento/foto/registro..." />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Observação / Justificativa</Label>
+                        <Textarea value={form.cr4a1_observacao} onChange={set('cr4a1_observacao')} rows={2} />
+                    </div>
                 </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                <div>
-                    <label style={labelStyle}>Tipo</label>
-                    <select value={form.cr4a1_tipo} onChange={set('cr4a1_tipo')} style={inputStyle}>
-                        {tiposDisponiveis.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label style={labelStyle}>Status</label>
-                    <select value={form.cr4a1_status} onChange={set('cr4a1_status')} style={inputStyle}>
-                        {SSMA_STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label style={labelStyle}>Criticidade</label>
-                    <select value={form.cr4a1_criticidade} onChange={set('cr4a1_criticidade')} style={inputStyle}>
-                        {SSMA_CRITICIDADE_LIST.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-            </div>
-            <div>
-                <label style={labelStyle}>Tema / Descrição</label>
-                <input value={form.cr4a1_tema} onChange={set('cr4a1_tema')} style={{ ...inputStyle, width: '100%' }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                <div><label style={labelStyle}>Data de início</label><input type="date" value={form.cr4a1_data_inicio || ''} onChange={set('cr4a1_data_inicio')} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Prazo</label><input type="date" value={form.cr4a1_prazo || ''} onChange={set('cr4a1_prazo')} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Data fim real</label><input type="date" value={form.cr4a1_data_fim_real || ''} onChange={set('cr4a1_data_fim_real')} style={inputStyle} /></div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                <div><label style={labelStyle}>Previsto / Aplicável</label><input type="number" value={form.cr4a1_previsto} onChange={set('cr4a1_previsto')} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Realizado / Conforme</label><input type="number" value={form.cr4a1_realizado} onChange={set('cr4a1_realizado')} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Responsável</label><input value={form.cr4a1_responsavel} onChange={set('cr4a1_responsavel')} style={inputStyle} /></div>
-            </div>
-            <div>
-                <label style={labelStyle}>Evidência / Link (obrigatório para contar como realizado)</label>
-                <input value={form.cr4a1_evidencia} onChange={set('cr4a1_evidencia')} placeholder="Link do documento/foto/registro..." style={{ ...inputStyle, width: '100%' }} />
-            </div>
-            <div>
-                <label style={labelStyle}>Observação / Justificativa</label>
-                <textarea value={form.cr4a1_observacao} onChange={set('cr4a1_observacao')} rows={2} style={{ ...inputStyle, width: '100%', resize: 'vertical' }} />
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
-                <button onClick={onCancel} className="btn-secondary" style={{ padding: '10px 18px', borderRadius: '12px' }}>Cancelar</button>
-                <button onClick={() => onSave(form)} className="btn-primary" style={{ padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>Salvar</button>
-            </div>
-        </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+                    <Button onClick={handleSalvar} style={{ background: ACCENT }}>Salvar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 
