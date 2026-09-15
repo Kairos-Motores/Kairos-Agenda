@@ -543,7 +543,9 @@ const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, tiposDisponiveis, on
 
     const handleTecnicoChange = (login) => {
         const u = (allUsers || []).find(x => x.cr4a1_username === login);
-        setForm({ ...form, cr4a1_tecnico_login: login, cr4a1_unidade: u?.cr4a1_unidade || form.cr4a1_unidade });
+        // Responsável segue o Técnico escolhido — só o técnico tem lógica de permissão/notificação
+        // por trás; sem isso o campo de texto livre ficava "preso" no nome de quem criou o registo.
+        setForm({ ...form, cr4a1_tecnico_login: login, cr4a1_unidade: u?.cr4a1_unidade || form.cr4a1_unidade, cr4a1_responsavel: login });
     };
 
     const handleAnexoChange = (e) => {
