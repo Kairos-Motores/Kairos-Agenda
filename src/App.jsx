@@ -62,6 +62,7 @@ function App() {
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     ssmaAtividades = [], ssmaGastos = [], ssmaIndicadores = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
     addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
+    ssmaRecorrencias = [], addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
     notas = [], addNota, updateNota, deleteNota,
     biPermissoes = [], upsertBiPermission, resetBiPermission
   } = useCalendar();
@@ -1459,6 +1460,10 @@ function App() {
                     addSsmaIndicador={addSsmaIndicador}
                     updateSsmaIndicador={updateSsmaIndicador}
                     deleteSsmaIndicador={deleteSsmaIndicador}
+                    ssmaRecorrencias={ssmaRecorrencias}
+                    addSsmaRecorrencia={addSsmaRecorrencia}
+                    updateSsmaRecorrencia={updateSsmaRecorrencia}
+                    deleteSsmaRecorrencia={deleteSsmaRecorrencia}
                   />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (

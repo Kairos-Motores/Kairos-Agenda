@@ -3,8 +3,9 @@ import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
 import { Upload, FileText, X, Paperclip, FileDown, Loader2 } from 'lucide-react';
-import { SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO } from '../config/ssmaConfig';
+import { SSMA_STATUS_LIST, SSMA_CRITICIDADE_LIST, SSMA_CATEGORIAS_GASTO, SSMA_FREQUENCIAS } from '../config/ssmaConfig';
 import { computeSsmaResumo, computeGastosPorCategoria, diasEmAtraso, tipoParaIndicador, parseAnexosEvidencia, temEvidencia } from '../utils/ssmaIndicators';
+import { proximaGeracaoPrevista } from '../utils/ssmaRecorrencias';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from './ui/chart';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -13,6 +14,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { Switch } from './ui/switch';
 
 const MAX_ANEXO_MB = 5;
 
@@ -62,12 +64,14 @@ export const SsmaPanel = ({
     ssmaAtividades, ssmaGastos, ssmaIndicadores,
     addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade,
     addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
-    addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador
+    addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
+    ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia
 }) => {
     const isAdmin = hasRole('ADMIN');
     const isTecnico = hasRole('SSMA');
     const isChefe = hasRole('COORD SSMA');
     const podeEditarLancamentos = isAdmin || isTecnico;
+    const podeVerAtividades = isAdmin || isTecnico || isChefe;
     const podeGerenciarIndicadores = isAdmin || isChefe;
 
     const indicadores = useMemo(() => normalizarIndicadores(ssmaIndicadores), [ssmaIndicadores]);
@@ -102,6 +106,7 @@ export const SsmaPanel = ({
     const [editingAtividade, setEditingAtividade] = useState(null);
     const [editingGasto, setEditingGasto] = useState(null);
     const [editingIndicador, setEditingIndicador] = useState(null);
+    const [editingRecorrencia, setEditingRecorrencia] = useState(null);
 
     const tabStyle = (active) => ({
         padding: '10px 20px', cursor: 'pointer', userSelect: 'none', borderRadius: '100px', fontWeight: '600', fontSize: '13px',
@@ -140,19 +145,21 @@ export const SsmaPanel = ({
 
             <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
                 <div onClick={() => setSubTab('indicadores')} style={tabStyle(subTab === 'indicadores')}>Indicadores</div>
-                {podeEditarLancamentos && <div onClick={() => setSubTab('atividades')} style={tabStyle(subTab === 'atividades')}>Atividades e Ocorrências</div>}
+                {podeVerAtividades && <div onClick={() => setSubTab('atividades')} style={tabStyle(subTab === 'atividades')}>Atividades e Ocorrências</div>}
                 {podeEditarLancamentos && <div onClick={() => setSubTab('gastos')} style={tabStyle(subTab === 'gastos')}>Gastos SSMA</div>}
+                {podeGerenciarIndicadores && <div onClick={() => setSubTab('recorrencias')} style={tabStyle(subTab === 'recorrencias')}>Recorrências</div>}
                 {podeGerenciarIndicadores && <div onClick={() => setSubTab('gerenciar')} style={tabStyle(subTab === 'gerenciar')}>Gerenciar Indicadores</div>}
             </div>
 
             {subTab === 'indicadores' && <IndicadoresTab resumo={resumo} gastosPorCategoria={gastosPorCategoria} competencia={competencia} unidade={unidadeEfetiva} />}
-            {subTab === 'atividades' && podeEditarLancamentos && (
+            {subTab === 'atividades' && podeVerAtividades && (
                 <AtividadesTab
                     atividades={atividadesFiltradas}
                     competencia={competencia}
                     unidade={unidadeEfetiva}
                     currentUser={currentUser}
                     isAdmin={isAdmin}
+                    isChefe={isChefe}
                     allUsers={allUsers}
                     indicadores={indicadores}
                     tiposDisponiveis={tiposDisponiveis}
@@ -174,6 +181,18 @@ export const SsmaPanel = ({
                     setEditing={setEditingGasto}
                     onSave={(id, data) => id ? updateSsmaGasto(id, data) : addSsmaGasto(data)}
                     onDelete={deleteSsmaGasto}
+                />
+            )}
+            {subTab === 'recorrencias' && podeGerenciarIndicadores && (
+                <RecorrenciasTab
+                    recorrencias={ssmaRecorrencias || []}
+                    unidade={unidadeEfetiva}
+                    allUsers={allUsers}
+                    tiposDisponiveis={tiposDisponiveis}
+                    editing={editingRecorrencia}
+                    setEditing={setEditingRecorrencia}
+                    onSave={(id, data) => id ? updateSsmaRecorrencia(id, data) : addSsmaRecorrencia(data)}
+                    onDelete={deleteSsmaRecorrencia}
                 />
             )}
             {subTab === 'gerenciar' && podeGerenciarIndicadores && (
@@ -452,7 +471,7 @@ const emptyAtividade = (currentUser, unidade, competencia, tiposDisponiveis) => 
     cr4a1_observacao: ''
 });
 
-const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin, allUsers, indicadores, tiposDisponiveis, editing, setEditing, onSave, onDelete }) => {
+const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin, isChefe, allUsers, indicadores, tiposDisponiveis, editing, setEditing, onSave, onDelete }) => {
     const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('SSMA'));
 
     return (
@@ -480,7 +499,7 @@ const AtividadesTab = ({ atividades, competencia, unidade, currentUser, isAdmin,
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {atividades.length === 0 && <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>Nenhuma atividade registrada nesta competência.</p>}
                 {atividades.map(a => {
-                    const podeEditarEsta = isAdmin || a.cr4a1_tecnico_login === currentUser?.cr4a1_username;
+                    const podeEditarEsta = isAdmin || isChefe || a.cr4a1_tecnico_login === currentUser?.cr4a1_username;
                     const atraso = diasEmAtraso(a);
                     return (
                         <div key={a.cr4a1_ssma_atividadeid} style={{ ...cardStyle, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -872,5 +891,181 @@ const IndicadorForm = ({ data, onCancel, onSave }) => {
                 <button onClick={handleSave} className="btn-primary" style={{ padding: '10px 18px', borderRadius: '12px', background: ACCENT }}>Salvar</button>
             </div>
         </div>
+    );
+};
+
+const emptyRecorrencia = (unidade, tiposDisponiveis) => ({
+    cr4a1_unidade: unidade,
+    cr4a1_tecnico_login: '',
+    cr4a1_tipo: tiposDisponiveis[0] || '',
+    cr4a1_frequencia: SSMA_FREQUENCIAS[0],
+    cr4a1_tema: '',
+    cr4a1_criticidade: SSMA_CRITICIDADE_LIST[0],
+    cr4a1_data_inicio: format(new Date(), 'yyyy-MM-dd'),
+    cr4a1_ultima_geracao: '',
+    cr4a1_ativo: 'Sim'
+});
+
+// Tela do COORD SSMA/ADMIN pra definir atividades que se repetem sozinhas (diária, semanal,
+// quinzenal, mensal) e o técnico delegado a cada uma — a geração da atividade concreta e o
+// aviso pro técnico acontecem em useCalendar.js (gerarAtividadesRecorrentes), toda vez que
+// alguém abre o app, já que não existe cron/servidor rodando isso sozinho.
+const RecorrenciasTab = ({ recorrencias, unidade, allUsers, tiposDisponiveis, editing, setEditing, onSave, onDelete }) => {
+    const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('SSMA'));
+    const daUnidade = recorrencias.filter(r => r.cr4a1_unidade === unidade);
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                Cada recorrência gera automaticamente uma nova atividade quando o ciclo vence, atribuída ao técnico escolhido, que recebe um aviso no app.
+            </p>
+            {tiposDisponiveis.length === 0 ? (
+                <p style={{ color: '#f57c00', fontSize: '13px' }}>Nenhum indicador cadastrado ainda — cadastre em "Gerenciar Indicadores" antes de criar recorrências.</p>
+            ) : (
+                <Button onClick={() => setEditing({ id: null, form: emptyRecorrencia(unidade, tiposDisponiveis) })} className="self-start" style={{ background: ACCENT }}>
+                    + Nova recorrência
+                </Button>
+            )}
+
+            {editing && (
+                <RecorrenciaForm
+                    data={editing.form}
+                    isNovo={!editing.id}
+                    tecnicos={tecnicos}
+                    tiposDisponiveis={tiposDisponiveis}
+                    onCancel={() => setEditing(null)}
+                    onSave={(data) => { onSave(editing.id, data); setEditing(null); }}
+                />
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {daUnidade.length === 0 && <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>Nenhuma recorrência cadastrada para esta unidade.</p>}
+                {daUnidade.map(r => {
+                    const ativo = r.cr4a1_ativo !== 'Não';
+                    const proxima = proximaGeracaoPrevista(r);
+                    return (
+                        <div key={r.cr4a1_ssma_recorrenciaid} style={{ ...cardStyle, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', opacity: ativo ? 1 : 0.6 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: ACCENT, background: ACCENT_BG, padding: '2px 8px', borderRadius: '8px' }}>{r.cr4a1_frequencia}</span>
+                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{r.cr4a1_tipo}</span>
+                                    {r.cr4a1_tema && <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>— {r.cr4a1_tema}</span>}
+                                    {!ativo && <Badge variant="secondary">Pausada</Badge>}
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                    <span>Técnico: {r.cr4a1_tecnico_login}</span>
+                                    {proxima && <span>Próxima geração: {format(proxima, 'dd/MM/yyyy')}</span>}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <Switch checked={ativo} onCheckedChange={(checked) => onSave(r.cr4a1_ssma_recorrenciaid, { cr4a1_ativo: checked ? 'Sim' : 'Não' })} />
+                                <button
+                                    onClick={() => setEditing({
+                                        id: r.cr4a1_ssma_recorrenciaid,
+                                        form: { cr4a1_unidade: r.cr4a1_unidade, cr4a1_tecnico_login: r.cr4a1_tecnico_login, cr4a1_tipo: r.cr4a1_tipo, cr4a1_frequencia: r.cr4a1_frequencia, cr4a1_tema: r.cr4a1_tema || '', cr4a1_criticidade: r.cr4a1_criticidade || SSMA_CRITICIDADE_LIST[0], cr4a1_data_inicio: r.cr4a1_data_inicio, cr4a1_ultima_geracao: r.cr4a1_ultima_geracao || '', cr4a1_ativo: r.cr4a1_ativo || 'Sim' }
+                                    })}
+                                    className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: ACCENT }}
+                                >
+                                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
+                                </button>
+                                <button
+                                    onClick={() => { if (window.confirm(`Remover a recorrência de "${r.cr4a1_tipo}"? As atividades já geradas por ela continuam existindo, só a repetição futura para.`)) onDelete(r.cr4a1_ssma_recorrenciaid); }}
+                                    className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}
+                                >
+                                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+const RecorrenciaForm = ({ data, isNovo, tecnicos, tiposDisponiveis, onCancel, onSave }) => {
+    const [form, setForm] = useState(data);
+
+    const handleSave = () => {
+        if (!form.cr4a1_tecnico_login || !form.cr4a1_tipo || !form.cr4a1_data_inicio) return;
+        onSave(form);
+    };
+
+    return (
+        <Dialog open onOpenChange={(open) => !open && onCancel()}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>
+                        <span className="material-symbols-rounded" style={{ color: ACCENT }}>event_repeat</span>
+                        {isNovo ? 'Nova recorrência' : 'Editar recorrência'}
+                    </DialogTitle>
+                    <DialogDescription>{form.cr4a1_unidade}</DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <Label>Técnico responsável</Label>
+                        <Select value={form.cr4a1_tecnico_login} onValueChange={v => setForm({ ...form, cr4a1_tecnico_login: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                                {tecnicos.map(t => <SelectItem key={t.cr4a1_username} value={t.cr4a1_username}>{t.cr4a1_username}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <Label>Tipo (indicador)</Label>
+                            <Select value={form.cr4a1_tipo} onValueChange={v => setForm({ ...form, cr4a1_tipo: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {tiposDisponiveis.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Frequência</Label>
+                            <Select value={form.cr4a1_frequencia} onValueChange={v => setForm({ ...form, cr4a1_frequencia: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {SSMA_FREQUENCIAS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Tema / Descrição padrão</Label>
+                        <Input value={form.cr4a1_tema} onChange={e => setForm({ ...form, cr4a1_tema: e.target.value })} placeholder="Ex: Inspeção mensal de EPI" />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <Label>Criticidade</Label>
+                            <Select value={form.cr4a1_criticidade} onValueChange={v => setForm({ ...form, cr4a1_criticidade: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {SSMA_CRITICIDADE_LIST.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>{form.cr4a1_ultima_geracao ? 'Data de início (já em andamento)' : 'Data de início'}</Label>
+                            <Input type="date" value={form.cr4a1_data_inicio || ''} onChange={e => setForm({ ...form, cr4a1_data_inicio: e.target.value })} disabled={!!form.cr4a1_ultima_geracao} />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
+                        <Label className="mb-0">Ativa</Label>
+                        <Switch checked={form.cr4a1_ativo !== 'Não'} onCheckedChange={(checked) => setForm({ ...form, cr4a1_ativo: checked ? 'Sim' : 'Não' })} />
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+                    <Button onClick={handleSave} style={{ background: ACCENT }}>Salvar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

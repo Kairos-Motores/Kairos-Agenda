@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { addMonths, subMonths, format } from 'date-fns';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { addMonths, subMonths, addDays, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
 import { checkAccess, parseRoles, joinRoles } from '../utils/permissions';
 import { parseAssignees, joinAssignees, isAssignedTo } from '../utils/assignees';
 import { renderUndoToast } from '../components/UndoToast';
 import { ROLE_WORKSPACE_MAP } from '../config/roleWorkspaceMap';
+import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
+import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -23,6 +25,7 @@ export const useCalendar = () => {
     const [ssmaAtividades, setSsmaAtividades] = useState([]);
     const [ssmaGastos, setSsmaGastos] = useState([]);
     const [ssmaIndicadores, setSsmaIndicadores] = useState([]);
+    const [ssmaRecorrencias, setSsmaRecorrencias] = useState([]);
     const [notas, setNotas] = useState([]);
     // Overrides de allowedRoles por painel de BI (tabela cr4a1_bi_permissaos), editáveis
     // pelo ADMIN em Gerir Utilizadores > Painéis BI. Um painel sem registro aqui usa o
@@ -329,6 +332,10 @@ export const useCalendar = () => {
             const resIndicadores = await fetch(`${API_PROXY}?table=cr4a1_ssma_indicadors`);
             const dataIndicadores = await resIndicadores.json();
             setSsmaIndicadores(dataIndicadores.value || []);
+
+            const resRecorrencias = await fetch(`${API_PROXY}?table=cr4a1_ssma_recorrencias`);
+            const dataRecorrencias = await resRecorrencias.json();
+            setSsmaRecorrencias(dataRecorrencias.value || []);
         } catch (error) {
             console.error("Erro ao carregar dados de SSMA:", error);
         }
@@ -414,6 +421,87 @@ export const useCalendar = () => {
             fetchNotas(); // Busca as notas sempre que os workspaces ou utilizador mudam
         }
     }, [fetchEvents, fetchNotas, workspaces]);
+
+    // Não existe cron/servidor rodando sozinho: a geração de atividades recorrentes do
+    // SSMA só acontece quando alguém (qualquer usuário logado) abre o app e este efeito
+    // roda. Se vários ciclos venceram sem ninguém abrir o app, gera só o mais recente
+    // (proximoCicloPendente já resolve isso) — nunca uma fila de atrasados.
+    const geracaoRecorrenciaEmAndamento = useRef(new Set());
+    useEffect(() => {
+        if (!user || ssmaRecorrencias.length === 0) return;
+
+        ssmaRecorrencias.forEach(async (rec) => {
+            const id = rec.cr4a1_ssma_recorrenciaid;
+            if (rec.cr4a1_ativo === 'Não') return;
+            if (geracaoRecorrenciaEmAndamento.current.has(id)) return;
+
+            const ciclo = proximoCicloPendente(rec);
+            if (!ciclo) return;
+
+            const cicloStr = format(ciclo, 'yyyy-MM-dd');
+            const jaExiste = ssmaAtividades.some(a => a.cr4a1_recorrencia_id === id && a.cr4a1_data_inicio === cicloStr);
+            if (jaExiste) return;
+
+            geracaoRecorrenciaEmAndamento.current.add(id);
+            try {
+                const intervalo = SSMA_FREQUENCIA_DIAS[rec.cr4a1_frequencia] || 1;
+                await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cr4a1_competencia: format(ciclo, 'MM/yyyy'),
+                        cr4a1_unidade: rec.cr4a1_unidade,
+                        cr4a1_tecnico_login: rec.cr4a1_tecnico_login,
+                        cr4a1_tipo: rec.cr4a1_tipo,
+                        cr4a1_tema: rec.cr4a1_tema || '',
+                        cr4a1_data_inicio: cicloStr,
+                        cr4a1_prazo: format(addDays(ciclo, intervalo - 1), 'yyyy-MM-dd'),
+                        cr4a1_data_fim_real: '',
+                        cr4a1_previsto: 1,
+                        cr4a1_realizado: 0,
+                        cr4a1_status: 'Não iniciado',
+                        cr4a1_criticidade: rec.cr4a1_criticidade || 'Média',
+                        cr4a1_responsavel: rec.cr4a1_tecnico_login,
+                        cr4a1_evidencia: '',
+                        cr4a1_arquivos_evidencia: '[]',
+                        cr4a1_observacao: '',
+                        cr4a1_recorrencia_id: id,
+                        cr4a1_notificado: 'Não'
+                    })
+                });
+                await fetch(`${API_PROXY}?table=cr4a1_ssma_recorrencias&id=${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_ultima_geracao: cicloStr })
+                });
+                await fetchSsmaDados();
+            } catch (error) {
+                console.error('Erro ao gerar atividade recorrente:', error);
+            } finally {
+                geracaoRecorrenciaEmAndamento.current.delete(id);
+            }
+        });
+    }, [user, ssmaRecorrencias, ssmaAtividades, fetchSsmaDados]);
+
+    // Avisa o técnico (dentro do app, via toast) quando uma atividade recorrente nova foi
+    // gerada pra ele — só uma vez por atividade (cr4a1_notificado grava isso no Dataverse,
+    // notificadosRef evita duplicar o toast por causa da corrida entre o PATCH e o refetch).
+    const notificadosRef = useRef(new Set());
+    useEffect(() => {
+        if (!user) return;
+        ssmaAtividades
+            .filter(a => a.cr4a1_recorrencia_id && a.cr4a1_tecnico_login === user && a.cr4a1_notificado !== 'Sim' && !notificadosRef.current.has(a.cr4a1_ssma_atividadeid))
+            .forEach(a => {
+                notificadosRef.current.add(a.cr4a1_ssma_atividadeid);
+                const prazoFmt = a.cr4a1_prazo ? format(new Date(a.cr4a1_prazo + 'T12:00:00'), 'dd/MM') : '-';
+                toast.success(`Nova atividade SSMA: ${a.cr4a1_tipo}${a.cr4a1_tema ? ' — ' + a.cr4a1_tema : ''} (prazo ${prazoFmt})`, { icon: '🦺', duration: 6000 });
+                fetch(`${API_PROXY}?table=cr4a1_ssma_atividades&id=${a.cr4a1_ssma_atividadeid}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_notificado: 'Sim' })
+                }).catch(() => {});
+            });
+    }, [user, ssmaAtividades]);
 
     const filteredEvents = useMemo(() => {
         if (activeWorkspaces.length === 0) return [];
@@ -1051,6 +1139,49 @@ export const useCalendar = () => {
         }
     };
 
+    const addSsmaRecorrencia = async (recorrencia) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_recorrencias`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(recorrencia)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Recorrência criada!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao criar recorrência.');
+        }
+    };
+
+    const updateSsmaRecorrencia = async (id, recorrencia) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_ssma_recorrencias&id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(recorrencia)
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchSsmaDados();
+            toast.success('Recorrência atualizada!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao atualizar recorrência.');
+        }
+    };
+
+    const deleteSsmaRecorrencia = async (id) => {
+        try {
+            await fetch(`${API_PROXY}?table=cr4a1_ssma_recorrencias&id=${id}`, { method: 'DELETE' });
+            await fetchSsmaDados();
+            toast.success('Recorrência removida.');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao remover recorrência.');
+        }
+    };
+
     const addWorkspace = async (wsData) => {
         try {
             // WorkspaceModal sempre manda os campos já no formato do Dataverse
@@ -1392,6 +1523,7 @@ export const useCalendar = () => {
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
+        ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
         notas, addNota, updateNota, deleteNota,
         biPermissoes, upsertBiPermission, resetBiPermission,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))

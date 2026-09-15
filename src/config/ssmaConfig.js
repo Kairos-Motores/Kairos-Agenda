@@ -8,3 +8,8 @@ export const SSMA_STATUS_LIST = ['Não iniciado', 'Em andamento', 'Pendente', 'C
 export const SSMA_CRITICIDADE_LIST = ['Baixa', 'Média', 'Alta', 'Crítica'];
 
 export const SSMA_CATEGORIAS_GASTO = ['Treinamentos', 'Saúde Ocupacional', 'Documentação Legal', 'Resíduos', 'EPI', 'Emergência', 'Consultoria', 'Taxas/Licenças', 'Outros'];
+
+// Frequências de recorrência das atividades SSMA — cada uma mapeia pra um intervalo fixo
+// em dias corridos (inclusive "Mensal", por simplicidade e consistência com as demais).
+export const SSMA_FREQUENCIAS = ['Diária', 'Semanal', 'Quinzenal', 'Mensal'];
+export const SSMA_FREQUENCIA_DIAS = { 'Diária': 1, 'Semanal': 7, 'Quinzenal': 15, 'Mensal': 30 };
