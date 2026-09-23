@@ -63,6 +63,7 @@ function App() {
     ssmaAtividades = [], ssmaGastos = [], ssmaIndicadores = [], addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
     addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
     ssmaRecorrencias = [], addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
+    appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
     notas = [], addNota, updateNota, deleteNota,
     biPermissoes = [], upsertBiPermission, resetBiPermission
   } = useCalendar();
@@ -1861,7 +1862,7 @@ function App() {
             />
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
-          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} appRoles={appRoles} availableRoles={availableRoles} addAppRole={addAppRole} renameAppRole={renameAppRole} deleteAppRole={deleteAppRole} />}
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && (
             <WorkspaceModal

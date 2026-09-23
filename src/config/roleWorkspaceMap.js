@@ -40,3 +40,11 @@ export const ALL_KNOWN_ROLES = Array.from(new Set([
     ...Object.keys(ROLE_WORKSPACE_MAP),
     ...EXTRA_KNOWN_ROLES
 ])).sort();
+
+// Roles que o código confere pelo nome exato (hasRole/checkAccess/allowedRoles padrão do
+// biConfig.js). Renomear ou apagar uma delas quebraria permissões silenciosamente, então
+// o gerenciador de roles só permite editar/excluir as que NÃO estão aqui. Roles criadas
+// em tela (tabela cr4a1_app_roles) só ganham efeito onde o ADMIN as libera (painéis de
+// BI) — exceto nomes começando com "COORD", que hasCoordRole trata como coordenação.
+const CODE_REFERENCED_ROLES = ['ADMIN', 'COMUM', 'COORD', 'COMERCIAL', 'COORD COMERCIAL', 'DIRETORIA', 'SECRETARIA', 'RH', 'QUALIDADE', 'SSMA', 'COORD SSMA'];
+export const PROTECTED_ROLES = Array.from(new Set([...CODE_REFERENCED_ROLES, ...ALL_KNOWN_ROLES]));

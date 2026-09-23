@@ -5,7 +5,7 @@ import { fetchNationalHolidays } from '../api/holidays';
 import { checkAccess, parseRoles, joinRoles } from '../utils/permissions';
 import { parseAssignees, joinAssignees, isAssignedTo } from '../utils/assignees';
 import { renderUndoToast } from '../components/UndoToast';
-import { ROLE_WORKSPACE_MAP } from '../config/roleWorkspaceMap';
+import { ROLE_WORKSPACE_MAP, ALL_KNOWN_ROLES, PROTECTED_ROLES } from '../config/roleWorkspaceMap';
 import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
 import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
 
@@ -26,6 +26,9 @@ export const useCalendar = () => {
     const [ssmaGastos, setSsmaGastos] = useState([]);
     const [ssmaIndicadores, setSsmaIndicadores] = useState([]);
     const [ssmaRecorrencias, setSsmaRecorrencias] = useState([]);
+    // Roles cadastradas em tela (tabela cr4a1_app_roles) — a lista completa exibida nos
+    // seletores é availableRoles (roles do código + estas).
+    const [appRoles, setAppRoles] = useState([]);
     const [notas, setNotas] = useState([]);
     // Overrides de allowedRoles por painel de BI (tabela cr4a1_bi_permissaos), editáveis
     // pelo ADMIN em Gerir Utilizadores > Painéis BI. Um painel sem registro aqui usa o
@@ -319,6 +322,16 @@ export const useCalendar = () => {
         }
     }, [user, userRole]);
 
+    const fetchAppRoles = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_PROXY}?table=cr4a1_app_roles`);
+            const data = await res.json();
+            setAppRoles(data.value || []);
+        } catch (error) {
+            console.error('Erro ao carregar roles:', error);
+        }
+    }, []);
+
     const fetchSsmaDados = useCallback(async () => {
         try {
             const resAtividades = await fetch(`${API_PROXY}?table=cr4a1_ssma_atividades`);
@@ -412,8 +425,9 @@ export const useCalendar = () => {
             fetchDadosComerciais();
             fetchSsmaDados();
             fetchBiPermissoes();
+            fetchAppRoles();
         }
-    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais, fetchSsmaDados, fetchBiPermissoes]);
+    }, [user, fetchUsers, fetchEventTypes, fetchWorkspaces, fetchDadosComerciais, fetchSsmaDados, fetchBiPermissoes, fetchAppRoles]);
 
     useEffect(() => {
         if (user && workspaces.length > 0) {
@@ -793,6 +807,111 @@ export const useCalendar = () => {
         } catch (error) {
             console.error(error);
             toast.error('Erro ao restaurar permissões do painel BI.');
+        }
+    };
+
+    const availableRoles = useMemo(
+        () => Array.from(new Set([...ALL_KNOWN_ROLES, ...appRoles.map(r => r.cr4a1_nome).filter(Boolean)])).sort(),
+        [appRoles]
+    );
+
+    // cr4a1_role guarda as roles separadas por vírgula, então uma vírgula no nome quebraria
+    // a leitura; "ALL" é o curinga dos painéis de BI. Devolve o nome normalizado ou null.
+    const normalizeRoleName = (raw) => {
+        const name = String(raw || '').trim().replace(/\s+/g, ' ').toUpperCase();
+        if (!name) { toast.error('Informe o nome da role.'); return null; }
+        if (name.includes(',')) { toast.error('O nome da role não pode ter vírgula.'); return null; }
+        if (name === 'ALL') { toast.error('"ALL" é um nome reservado.'); return null; }
+        return name;
+    };
+
+    // Troca (newName) ou remove (newName === null) uma role em todos os usuários que a têm e
+    // nos overrides de painéis de BI que a citam, para nenhum registro ficar apontando pra
+    // uma role que deixou de existir. Roles customizadas não têm mapeamento de workspace
+    // (ROLE_WORKSPACE_MAP só cobre as do biConfig), então não há adesão a reconciliar.
+    const cascadeRoleChange = async (oldName, newName) => {
+        const swap = (list) => {
+            const mapped = list.map(r => r === oldName ? newName : r).filter(Boolean);
+            return Array.from(new Set(mapped));
+        };
+
+        const affectedUsers = allUsers.filter(u => parseRoles(u.cr4a1_role).includes(oldName));
+        const affectedBis = biPermissoes.filter(p => parseRoles(p.cr4a1_rolespermitidas).includes(oldName));
+        const patch = (table, id, body) => fetch(`${API_PROXY}?table=${table}&id=${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(res => { if (!res.ok) throw new Error(`Falha ao atualizar ${table}.`); });
+
+        await Promise.all([
+            ...affectedUsers.map(u => patch('cr4a1_usuarios_agendas', u.cr4a1_usuarios_agendaid, { cr4a1_role: joinRoles(swap(parseRoles(u.cr4a1_role))) })),
+            ...affectedBis.map(p => patch('cr4a1_bi_permissaos', p.cr4a1_bi_permissaoid, { cr4a1_rolespermitidas: joinRoles(swap(parseRoles(p.cr4a1_rolespermitidas))) }))
+        ]);
+
+        const me = allUsers.find(u => u.cr4a1_username === user);
+        if (me && parseRoles(me.cr4a1_role).includes(oldName)) {
+            const newRoleValue = joinRoles(swap(parseRoles(me.cr4a1_role)));
+            setUserRole(newRoleValue);
+            localStorage.setItem('kairos_user_role', newRoleValue);
+        }
+
+        await Promise.all([fetchUsers(), fetchBiPermissoes(), fetchAppRoles()]);
+    };
+
+    const addAppRole = async (rawName) => {
+        const name = normalizeRoleName(rawName);
+        if (!name) return { success: false };
+        if (availableRoles.includes(name)) { toast.error('Essa role já existe.'); return { success: false }; }
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_app_roles`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_nome: name })
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await fetchAppRoles();
+            toast.success(`Role "${name}" criada!`);
+            return { success: true };
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao criar role.');
+            return { success: false };
+        }
+    };
+
+    const renameAppRole = async (roleId, oldName, rawNewName) => {
+        const newName = normalizeRoleName(rawNewName);
+        if (!newName || newName === oldName) return { success: false };
+        if (PROTECTED_ROLES.includes(oldName)) { toast.error('Roles do sistema não podem ser renomeadas.'); return { success: false }; }
+        if (availableRoles.includes(newName)) { toast.error('Já existe uma role com esse nome.'); return { success: false }; }
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_app_roles&id=${roleId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_nome: newName })
+            });
+            if (!response.ok) throw new Error('Falha ao salvar no Dataverse.');
+            await cascadeRoleChange(oldName, newName);
+            toast.success(`Role renomeada para "${newName}".`);
+            return { success: true };
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao renomear role.');
+            return { success: false };
+        }
+    };
+
+    const deleteAppRole = async (roleId, name) => {
+        if (PROTECTED_ROLES.includes(name)) { toast.error('Roles do sistema não podem ser excluídas.'); return; }
+        try {
+            await cascadeRoleChange(name, null);
+            const response = await fetch(`${API_PROXY}?table=cr4a1_app_roles&id=${roleId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Falha ao remover no Dataverse.');
+            await fetchAppRoles();
+            toast.success(`Role "${name}" excluída.`);
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao excluir role.');
         }
     };
 
@@ -1524,6 +1643,7 @@ export const useCalendar = () => {
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
+        appRoles, availableRoles, addAppRole, renameAppRole, deleteAppRole,
         notas, addNota, updateNota, deleteNota,
         biPermissoes, upsertBiPermission, resetBiPermission,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))

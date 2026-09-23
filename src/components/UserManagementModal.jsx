@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw } from 'lucide-react';
+import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw, Lock, Plus } from 'lucide-react';
 import { parseRoles } from '../utils/permissions';
-import { ALL_KNOWN_ROLES } from '../config/roleWorkspaceMap';
+import { PROTECTED_ROLES } from '../config/roleWorkspaceMap';
 import { BI_CONFIG } from '../config/biConfig';
 import { buildBiRolesOverrideMap, getEffectiveAllowedRoles, hasBiOverride, isBiVisibleForRoles } from '../utils/biPermissions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -41,7 +41,7 @@ const commonEmojis = [
     '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
 ];
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission, availableRoles = [], appRoles = [], addAppRole, renameAppRole, deleteAppRole }) => {
     const [userSearch, setUserSearch] = useState('');
     // BI_CONFIG e biPermissoes têm só algumas dezenas de itens — reconstruir o mapa
     // de overrides a cada render sai barato, sem necessidade de useMemo.
@@ -99,6 +99,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                     <TabsList>
                         <TabsTrigger value="users">Membros</TabsTrigger>
                         <TabsTrigger value="types">Tipos de Evento</TabsTrigger>
+                        {isAdmin && <TabsTrigger value="roles">Roles</TabsTrigger>}
                         {isAdmin && <TabsTrigger value="bi">Painéis BI</TabsTrigger>}
                     </TabsList>
 
@@ -132,6 +133,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                     updateUserRoles={updateUserRoles}
                                     onDelete={() => handleDeleteUser(u)}
                                     biRolesOverrideMap={biRolesOverrideMap}
+                                    availableRoles={availableRoles}
                                 />
                             ))}
                         </div>
@@ -203,8 +205,23 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                     </TabsContent>
 
                     {isAdmin && (
+                        <TabsContent value="roles">
+                            <RolesPanel
+                                availableRoles={availableRoles}
+                                appRoles={appRoles}
+                                allUsers={allUsers}
+                                biRolesOverrideMap={biRolesOverrideMap}
+                                addAppRole={addAppRole}
+                                renameAppRole={renameAppRole}
+                                deleteAppRole={deleteAppRole}
+                            />
+                        </TabsContent>
+                    )}
+
+                    {isAdmin && (
                         <TabsContent value="bi">
                             <BiPermissionsPanel
+                                availableRoles={availableRoles}
                                 biRolesOverrideMap={biRolesOverrideMap}
                                 upsertBiPermission={upsertBiPermission}
                                 resetBiPermission={resetBiPermission}
@@ -219,7 +236,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     );
 };
 
-const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete, biRolesOverrideMap }) => {
+const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete, biRolesOverrideMap, availableRoles }) => {
     const [rolesOpen, setRolesOpen] = useState(false);
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
@@ -261,7 +278,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                                     <CommandList>
                                         <CommandEmpty>Nenhuma role encontrada.</CommandEmpty>
                                         <CommandGroup>
-                                            {ALL_KNOWN_ROLES.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                            {availableRoles.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
                                                 <CommandItem key={role} onSelect={() => toggleDraftRole(role)}>
                                                     <span className={`flex size-4 items-center justify-center rounded-md border ${draftRoles.includes(role) ? 'border-primary bg-primary' : 'border-border'}`}>
                                                         {draftRoles.includes(role) && <Check className="size-3 text-white" strokeWidth={3} />}
@@ -335,7 +352,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
 // Aba "Painéis BI" (só ADMIN): lista todos os painéis do biConfig.js, com busca e
 // filtro por workspace/role — filtrar por role responde direto "que BIs essa role
 // pode ver?" — e um editor por painel para liberar/proibir roles específicas.
-const BiPermissionsPanel = ({ biRolesOverrideMap, upsertBiPermission, resetBiPermission }) => {
+const BiPermissionsPanel = ({ availableRoles, biRolesOverrideMap, upsertBiPermission, resetBiPermission }) => {
     const [search, setSearch] = useState('');
     const [workspaceFilter, setWorkspaceFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
@@ -371,7 +388,7 @@ const BiPermissionsPanel = ({ biRolesOverrideMap, upsertBiPermission, resetBiPer
                     <SelectTrigger className="sm:w-40"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todas as roles</SelectItem>
-                        {ALL_KNOWN_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        {availableRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
@@ -385,6 +402,7 @@ const BiPermissionsPanel = ({ biRolesOverrideMap, upsertBiPermission, resetBiPer
                             key={bi.id}
                             bi={bi}
                             overridesMap={biRolesOverrideMap}
+                            availableRoles={availableRoles}
                             upsertBiPermission={upsertBiPermission}
                             resetBiPermission={resetBiPermission}
                         />
@@ -395,7 +413,7 @@ const BiPermissionsPanel = ({ biRolesOverrideMap, upsertBiPermission, resetBiPer
     );
 };
 
-const BiPermissionRow = ({ bi, overridesMap, upsertBiPermission, resetBiPermission }) => {
+const BiPermissionRow = ({ bi, overridesMap, availableRoles, upsertBiPermission, resetBiPermission }) => {
     const [open, setOpen] = useState(false);
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
@@ -438,7 +456,7 @@ const BiPermissionRow = ({ bi, overridesMap, upsertBiPermission, resetBiPermissi
                             <CommandList>
                                 <CommandEmpty>Nenhuma role encontrada.</CommandEmpty>
                                 <CommandGroup>
-                                    {ALL_KNOWN_ROLES.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                    {availableRoles.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
                                         <CommandItem key={role} onSelect={() => toggleDraftRole(role)}>
                                             <span className={`flex size-4 items-center justify-center rounded-md border ${draftRoles.includes(role) ? 'border-primary bg-primary' : 'border-border'}`}>
                                                 {draftRoles.includes(role) && <Check className="size-3 text-white" strokeWidth={3} />}
@@ -473,6 +491,119 @@ const BiPermissionRow = ({ bi, overridesMap, upsertBiPermission, resetBiPermissi
                 ) : (
                     effectiveRoles.map(r => <Badge key={r} variant="secondary">{r}</Badge>)
                 )}
+            </div>
+        </div>
+    );
+};
+
+// Aba "Roles" (só ADMIN): cria, renomeia e exclui roles. As mesmas roles alimentam o
+// seletor de roles dos usuários e o dos painéis de BI. Roles do sistema (as que o código
+// confere pelo nome) aparecem travadas — renomear/apagar uma delas quebraria permissões.
+// Renomear/excluir uma customizada propaga para os usuários e overrides de BI que a usam.
+const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, addAppRole, renameAppRole, deleteAppRole }) => {
+    const [search, setSearch] = useState('');
+    const [newRole, setNewRole] = useState('');
+    const [editingRole, setEditingRole] = useState(null);
+    const [draftName, setDraftName] = useState('');
+
+    const rows = availableRoles
+        .filter(name => name.toLowerCase().includes(search.toLowerCase()))
+        .map(name => ({
+            name,
+            record: appRoles.find(r => r.cr4a1_nome === name),
+            isProtected: PROTECTED_ROLES.includes(name),
+            users: allUsers.filter(u => parseRoles(u.cr4a1_role).includes(name)),
+            bis: BI_CONFIG.filter(bi => getEffectiveAllowedRoles(bi, biRolesOverrideMap).includes(name))
+        }));
+
+    const handleCreate = async () => {
+        const result = await addAppRole(newRole);
+        if (result?.success) setNewRole('');
+    };
+
+    const startEdit = (row) => { setEditingRole(row.name); setDraftName(row.name); };
+
+    const saveEdit = async (row) => {
+        const result = await renameAppRole(row.record.cr4a1_app_roleid, row.name, draftName);
+        if (result?.success) setEditingRole(null);
+    };
+
+    const handleDelete = (row) => {
+        const message = `Excluir a role "${row.name}"?\n\nEla será removida de ${row.users.length} usuário(s) e de ${row.bis.length} painel(éis) de BI.`;
+        if (window.confirm(message)) deleteAppRole(row.record.cr4a1_app_roleid, row.name);
+    };
+
+    return (
+        <div className="flex flex-col gap-3">
+            <p className="text-[12px] text-muted-foreground">
+                Crie as roles que quiser — elas passam a aparecer na escolha de roles dos usuários e na liberação dos painéis de BI. Roles do sistema (com cadeado) são conferidas pelo código e não podem ser renomeadas nem excluídas.
+            </p>
+
+            <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-secondary/60 p-4">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <Plus className="size-3.5" /> Nova role
+                </span>
+                <div className="flex gap-2">
+                    <Input
+                        value={newRole}
+                        onChange={e => setNewRole(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                        placeholder="Ex: TECNICO SSMA"
+                        className="flex-1 bg-card"
+                    />
+                    <Button onClick={handleCreate} size="sm">Criar</Button>
+                </div>
+            </div>
+
+            <div className="relative">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar role..." className="pl-10" />
+            </div>
+
+            <div className="flex max-h-[380px] flex-col gap-2 overflow-y-auto pr-1">
+                {rows.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma role encontrada.</p>}
+                {rows.map(row => {
+                    const editing = editingRole === row.name;
+                    return (
+                        <div key={row.name} className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-secondary/60 px-4 py-2.5">
+                            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                {editing ? (
+                                    <Input
+                                        value={draftName}
+                                        onChange={e => setDraftName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') saveEdit(row); if (e.key === 'Escape') setEditingRole(null); }}
+                                        autoFocus
+                                        className="h-9 bg-card"
+                                    />
+                                ) : (
+                                    <span className="truncate text-sm font-semibold text-foreground">{row.name}</span>
+                                )}
+                                <span className="text-[11px] text-muted-foreground" title={row.bis.map(bi => bi.title).join(', ')}>
+                                    {row.users.length} {row.users.length === 1 ? 'usuário' : 'usuários'} · {row.bis.length} {row.bis.length === 1 ? 'painel' : 'painéis'} BI
+                                </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                                {row.isProtected ? (
+                                    <Badge variant="outline"><Lock className="size-3" /> Sistema</Badge>
+                                ) : editing ? (
+                                    <>
+                                        <Button variant="ghost" size="sm" onClick={() => setEditingRole(null)}>Cancelar</Button>
+                                        <Button size="sm" onClick={() => saveEdit(row)}>Salvar</Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Editar role "${row.name}"`} onClick={() => startEdit(row)}>
+                                            <Pencil className="size-4 text-primary" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="size-8" aria-label={`Excluir role "${row.name}"`} onClick={() => handleDelete(row)}>
+                                            <Trash2 className="size-4 text-destructive" />
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
