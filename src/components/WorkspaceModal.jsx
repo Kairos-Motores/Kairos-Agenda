@@ -193,7 +193,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                             const isChecked = selectedMembers.includes(u.cr4a1_username);
                                             return (
                                                 <label
-                                                    key={u.cr4a1_username}
+                                                    key={u.cr4a1_usuarios_agendaid || u.cr4a1_username}
                                                     className={`flex cursor-pointer items-center gap-2.5 rounded-xl p-2.5 text-[13px] font-medium text-foreground transition-colors ${isChecked ? 'bg-muted' : 'hover:bg-secondary'}`}
                                                 >
                                                     <Checkbox checked={isChecked} onCheckedChange={() => toggleMember(u.cr4a1_username)} />

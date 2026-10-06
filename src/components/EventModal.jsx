@@ -114,6 +114,7 @@ export const EventModal = ({
 
     const handleSave = async () => {
         if (!formData.title.trim()) return toast.error('O título do evento é obrigatório.');
+        if (formData.endDate && formData.startDate && formData.endDate < formData.startDate) return toast.error('A data final não pode ser anterior à data inicial.');
         setIsSaving(true);
         try {
             await onSave({ ...formData, cr4a1_titulo: formData.title, cr4a1_descricao: formData.details, cr4a1_subtasks: JSON.stringify(subtasks), cr4a1_privado: isPrivate });
@@ -167,7 +168,7 @@ export const EventModal = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <DateField label="Data Inicial" icon={CalendarDays} value={safeFormatDate(formData.startDate)} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d }))} />
+                        <DateField label="Data Inicial" icon={CalendarDays} value={safeFormatDate(formData.startDate)} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d, endDate: p.endDate && p.endDate < d ? d : p.endDate }))} />
                         <DateField label="Data Final" icon={CalendarClock} value={safeFormatDate(formData.endDate)} selectedDate={formData.endDate} onSelect={d => setFormData(p => ({ ...p, endDate: d }))} />
                     </div>
 
@@ -232,7 +233,7 @@ export const EventModal = ({
                                                             const isSelected = formData.targetUser.includes(u.cr4a1_username);
                                                             return (
                                                                 <CommandItem
-                                                                    key={u.cr4a1_username}
+                                                                    key={u.cr4a1_usuarios_agendaid || u.cr4a1_username}
                                                                     onSelect={() => setFormData(p => ({
                                                                         ...p,
                                                                         targetUser: isSelected ? p.targetUser.filter(v => v !== u.cr4a1_username) : [...p.targetUser, u.cr4a1_username]

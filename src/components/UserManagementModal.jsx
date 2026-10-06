@@ -124,7 +124,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                         <div className="flex flex-col gap-2">
                             {allUsers.filter(u => matchesSearch(u.cr4a1_username, userSearch) || matchesSearch(u.cr4a1_nome_exibicao || '', userSearch)).map(u => (
                                 <UserRow
-                                    key={u.cr4a1_username}
+                                    key={u.cr4a1_usuarios_agendaid || u.cr4a1_username}
                                     user={u}
                                     isAdmin={isAdmin}
                                     isSelf={u.cr4a1_username === currentUsername}

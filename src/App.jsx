@@ -1066,7 +1066,7 @@ function App() {
                       if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesQuery && matchesUnit && u.cr4a1_unidade === currentUser?.cr4a1_unidade;
                       return matchesQuery && matchesUnit;
                     }).map(u => (
-                      <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
+                      <label key={u.cr4a1_usuarios_agendaid || u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
                         <Checkbox
                           checked={filters.users.includes(u.cr4a1_username)}
                           onCheckedChange={() => toggleFilter('users', u.cr4a1_username)}
@@ -1306,7 +1306,7 @@ function App() {
                   >
                     {devWorkspaceMembers.map((member, idx) => (
                       <Draggable
-                        key={member.cr4a1_username}
+                        key={member.cr4a1_usuarios_agendaid || member.cr4a1_username}
                         draggableId={`member_${member.cr4a1_username}`}
                         index={idx}
                       >

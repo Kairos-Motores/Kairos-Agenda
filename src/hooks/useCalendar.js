@@ -12,6 +12,20 @@ import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
 
 const API_PROXY = '/api/dataverse-proxy';
 
+// Converte uma data do Dataverse (UTC com Z, ou yyyy-MM-dd) para o dia no fuso local.
+const diaLocal = (valor) => (valor?.includes('Z') ? format(new Date(valor), 'yyyy-MM-dd') : valor);
+
+// Mesmo username pode estar cadastrado mais de uma vez no Dataverse; a lista de
+// usuários mostra uma linha por pessoa, preferindo o registro que já tem cargo.
+const uniqueByUsername = (list) => {
+    const byName = new Map();
+    list.forEach(u => {
+        const atual = byName.get(u.cr4a1_username);
+        if (!atual || (!parseRoles(atual.cr4a1_role).length && parseRoles(u.cr4a1_role).length)) byName.set(u.cr4a1_username, u);
+    });
+    return [...byName.values()];
+};
+
 export const useCalendar = () => {
     const [view, setView] = useState('year');
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -111,11 +125,19 @@ export const useCalendar = () => {
             const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
             const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
             const data = await response.json();
-            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || isAssignedTo(e.cr4a1_user_login, user)).map(e => ({
-                ...e, cr4a1_data_inicio: e.cr4a1_data_inicio?.includes('Z') ? format(new Date(e.cr4a1_data_inicio), 'yyyy-MM-dd') : e.cr4a1_data_inicio,
-                cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
-                cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
-            }));
+            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || isAssignedTo(e.cr4a1_user_login, user)).map(e => {
+                const inicio = diaLocal(e.cr4a1_data_inicio);
+                const fimBruto = diaLocal(e.cr4a1_data_fim);
+                // Eventos salvos com data final anterior à inicial sumiam da agenda; mostram no dia de início.
+                const fim = fimBruto && inicio && fimBruto < inicio ? inicio : fimBruto;
+                return {
+                    ...e,
+                    cr4a1_data_inicio: inicio,
+                    cr4a1_data_fim: fim,
+                    cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
+                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+                };
+            });
             setEvents(mapped);
         } catch (error) { setEvents([]); } finally { setLoading(false); }
     }, [workspaces, user]);
@@ -272,7 +294,7 @@ export const useCalendar = () => {
         try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`);
             const data = await response.json();
-            setAllUsers(data.value || []);
+            setAllUsers(uniqueByUsername(data.value || []));
         } catch (error) { console.error('Erro ao buscar usuários:', error); }
     }, []);
 
