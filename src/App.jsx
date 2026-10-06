@@ -1,3 +1,4 @@
+import { matchesSearch } from './utils/search';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { BI_CONFIG } from './config/biConfig';
@@ -21,7 +22,7 @@ import { VisitaModal } from './components/VisitaModal';
 import { FilialTemporariaModal } from './components/FilialTemporariaModal';
 import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
-import { materialColors } from './constants/materialColors';
+import { themeColors } from './constants/materialColors';
 import { compressImage } from './utils/compressImage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Button } from './components/ui/button';
@@ -961,14 +962,14 @@ function App() {
           <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Cor do Tema</div>
-              <div className="grid grid-cols-5 gap-2.5">
-                {materialColors.map(c => (
+              <div className="grid max-h-72 grid-cols-6 gap-2 overflow-y-auto p-1 sm:grid-cols-8">
+                {themeColors.map(c => (
                   <button
                     key={c.id}
                     onClick={() => setAccentColor(c.hex)}
                     title={c.label}
                     aria-label={c.label}
-                    className="mx-auto size-9 rounded-full transition-transform duration-200 active:scale-90"
+                    className="mx-auto size-8 rounded-full transition-transform duration-200 active:scale-90"
                     style={{
                       backgroundColor: c.hex,
                       boxShadow: accentColor === c.hex ? `0 0 0 3px var(--bg-primary), 0 0 0 5px ${c.hex}` : '0 2px 5px rgba(0,0,0,0.1)',
@@ -998,7 +999,7 @@ function App() {
                     className="mb-3"
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-                    {workspaces.filter(ws => ws.cr4a1_nome && ws.cr4a1_nome.toLowerCase().includes(workspaceSearchTerm.toLowerCase())).map(ws => (
+                    {workspaces.filter(ws => ws.cr4a1_nome && matchesSearch(ws.cr4a1_nome, workspaceSearchTerm)).map(ws => (
                       <div key={ws.cr4a1_calendarios_workspacesid} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <label style={{
                           flex: 1, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
@@ -1058,12 +1059,12 @@ function App() {
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                     {allUsers.filter(u => {
-                      const matchesSearch = u.cr4a1_username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                        (u.cr4a1_nome_exibicao && u.cr4a1_nome_exibicao.toLowerCase().includes(userSearchTerm.toLowerCase()));
+                      const matchesQuery = matchesSearch(u.cr4a1_username, userSearchTerm) ||
+                        (u.cr4a1_nome_exibicao && matchesSearch(u.cr4a1_nome_exibicao, userSearchTerm));
                       const matchesUnit = userUnitFilter === 'Todas' || u.cr4a1_unidade === userUnitFilter;
 
-                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesSearch && matchesUnit && u.cr4a1_unidade === currentUser?.cr4a1_unidade;
-                      return matchesSearch && matchesUnit;
+                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesQuery && matchesUnit && u.cr4a1_unidade === currentUser?.cr4a1_unidade;
+                      return matchesQuery && matchesUnit;
                     }).map(u => (
                       <label key={u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
                         <Checkbox

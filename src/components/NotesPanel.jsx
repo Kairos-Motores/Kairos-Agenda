@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -126,9 +127,9 @@ export const NotesPanel = ({
   });
 
   const visibleNotas = activeNotas.filter(n => {
-    const matchesSearch = !searchTerm || (n.cr4a1_titulo || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesQuery = !searchTerm || matchesSearch(n.cr4a1_titulo || '', searchTerm);
     const matchesWorkspace = !selectedWorkspaceFilter || n.cr4a1_workspace_id === selectedWorkspaceFilter;
-    return matchesSearch && matchesWorkspace;
+    return matchesQuery && matchesWorkspace;
   });
 
   const availableWorkspaces = workspaces.filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid));

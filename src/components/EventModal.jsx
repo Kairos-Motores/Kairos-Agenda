@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { matchesSearch } from '../utils/search';
 import { toast } from 'react-hot-toast';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -6,7 +7,6 @@ import {
     X, Smile, CalendarDays, CalendarClock, Clock, History, LayoutGrid, Bookmark, Users,
     ChevronLeft, ChevronRight, Check, Upload, FileText, Plus, Trash2, Lock
 } from 'lucide-react';
-import { checkAccess, hasCoordRole } from '../utils/permissions';
 import { parseAssignees } from '../utils/assignees';
 import { Dialog, DialogContent } from './ui/dialog';
 import { Button } from './ui/button';
@@ -27,7 +27,7 @@ const commonEmojis = [
 ];
 
 export const EventModal = ({
-    isOpen, onClose, onSave, initialDate, editingEvent, userRole,
+    isOpen, onClose, onSave, initialDate, editingEvent,
     allUsers = [], eventTypes = [], viewedUser, workspaces = [],
     preselectedTargetUser, preselectedWorkspaceId
 }) => {
@@ -123,7 +123,6 @@ export const EventModal = ({
     };
 
     const isSprintWorkspace = workspaces.find(w => w.cr4a1_calendarios_workspacesid === formData.workspaceId)?.cr4a1_nome === "Desenvolvimento e Inovação";
-    const canAssign = checkAccess(userRole, ['SECRETARIA', 'ADMIN', 'DIRETORIA']) || hasCoordRole(userRole);
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -205,7 +204,7 @@ export const EventModal = ({
                             </Select>
                         </div>
 
-                        {canAssign && (
+                        {(
                             <div>
                                 <Label>Responsável(is)</Label>
                                 <Popover>
@@ -228,7 +227,7 @@ export const EventModal = ({
                                                 <CommandEmpty>Nenhum utilizador encontrado neste workspace.</CommandEmpty>
                                                 <CommandGroup>
                                                     {workspaceUsers
-                                                        .filter(u => (u.cr4a1_nome_exibicao || u.cr4a1_username).toLowerCase().includes(targetUserSearch.toLowerCase()))
+                                                        .filter(u => matchesSearch(u.cr4a1_nome_exibicao || u.cr4a1_username, targetUserSearch))
                                                         .map(u => {
                                                             const isSelected = formData.targetUser.includes(u.cr4a1_username);
                                                             return (

@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { MapPin, ChevronsUpDown, Check } from 'lucide-react';
@@ -53,8 +54,8 @@ export const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes
   const filteredOrgs = useMemo(() => {
     return organizacoes.filter(org => {
       const matchesUnit = filialFiltro === 'Todas' || !org.cr4a1_filial_origem || org.cr4a1_filial_origem === filialFiltro;
-      const matchesSearch = !clienteSearch || org.cr4a1_novacoluna?.toLowerCase().includes(clienteSearch.toLowerCase());
-      return matchesUnit && matchesSearch;
+      const matchesQuery = !clienteSearch || matchesSearch(org.cr4a1_novacoluna, clienteSearch);
+      return matchesUnit && matchesQuery;
     });
   }, [organizacoes, clienteSearch, filialFiltro]);
 

@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import React, { useState } from 'react';
 import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw, Lock, Plus } from 'lucide-react';
 import { parseRoles } from '../utils/permissions';
@@ -123,7 +124,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            {allUsers.filter(u => u.cr4a1_username.toLowerCase().includes(userSearch.toLowerCase())).map(u => (
+                            {allUsers.filter(u => matchesSearch(u.cr4a1_username, userSearch)).map(u => (
                                 <UserRow
                                     key={u.cr4a1_username}
                                     user={u}
@@ -278,7 +279,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                                     <CommandList>
                                         <CommandEmpty>Nenhuma role encontrada.</CommandEmpty>
                                         <CommandGroup>
-                                            {availableRoles.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                            {availableRoles.filter(r => matchesSearch(r, roleSearch)).map(role => (
                                                 <CommandItem key={role} onSelect={() => toggleDraftRole(role)}>
                                                     <span className={`flex size-4 items-center justify-center rounded-md border ${draftRoles.includes(role) ? 'border-primary bg-primary' : 'border-border'}`}>
                                                         {draftRoles.includes(role) && <Check className="size-3 text-white" strokeWidth={3} />}
@@ -360,10 +361,10 @@ const BiPermissionsPanel = ({ availableRoles, biRolesOverrideMap, upsertBiPermis
     const workspaceNames = [...new Set(BI_CONFIG.map(bi => bi.workspaceName))].sort();
 
     const filteredBis = BI_CONFIG.filter(bi => {
-        const matchesSearch = bi.title.toLowerCase().includes(search.toLowerCase());
+        const matchesQuery = matchesSearch(bi.title, search);
         const matchesWorkspace = workspaceFilter === 'all' || bi.workspaceName === workspaceFilter;
         const matchesRole = roleFilter === 'all' || isBiVisibleForRoles(bi, [roleFilter], biRolesOverrideMap);
-        return matchesSearch && matchesWorkspace && matchesRole;
+        return matchesQuery && matchesWorkspace && matchesRole;
     });
 
     return (
@@ -456,7 +457,7 @@ const BiPermissionRow = ({ bi, overridesMap, availableRoles, upsertBiPermission,
                             <CommandList>
                                 <CommandEmpty>Nenhuma role encontrada.</CommandEmpty>
                                 <CommandGroup>
-                                    {availableRoles.filter(r => r.toLowerCase().includes(roleSearch.toLowerCase())).map(role => (
+                                    {availableRoles.filter(r => matchesSearch(r, roleSearch)).map(role => (
                                         <CommandItem key={role} onSelect={() => toggleDraftRole(role)}>
                                             <span className={`flex size-4 items-center justify-center rounded-md border ${draftRoles.includes(role) ? 'border-primary bg-primary' : 'border-border'}`}>
                                                 {draftRoles.includes(role) && <Check className="size-3 text-white" strokeWidth={3} />}
@@ -507,7 +508,7 @@ const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, ad
     const [draftName, setDraftName] = useState('');
 
     const rows = availableRoles
-        .filter(name => name.toLowerCase().includes(search.toLowerCase()))
+        .filter(name => matchesSearch(name, search))
         .map(name => ({
             name,
             record: appRoles.find(r => r.cr4a1_nome === name),

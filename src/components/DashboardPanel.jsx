@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
@@ -126,9 +127,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
   };
 
   const bisPermitidos = biConfig.filter(bi => {
-    const matchesSearch = bi.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesQuery = matchesSearch(bi.title, searchTerm);
     const matchesWorkspace = selectedWorkspace ? bi.workspaceName === selectedWorkspace : true;
-    return isBiPermitido(bi) && matchesSearch && matchesWorkspace;
+    return isBiPermitido(bi) && matchesQuery && matchesWorkspace;
   });
 
   // Restaura as abas que ficaram abertas antes de um refresh de página,

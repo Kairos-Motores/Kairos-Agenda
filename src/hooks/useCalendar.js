@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { addMonths, subMonths, addDays, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
@@ -521,7 +522,7 @@ export const useCalendar = () => {
         if (activeWorkspaces.length === 0) return [];
         return events.filter(event => {
             const matchesWorkspace = activeWorkspaces.includes(event.cr4a1_workspace_id);
-            const matchesText = !filters.text || (event.cr4a1_titulo?.toLowerCase().includes(filters.text.toLowerCase())) || (event.cr4a1_detalhes?.toLowerCase().includes(filters.text.toLowerCase()));
+            const matchesText = !filters.text || (matchesSearch(event.cr4a1_titulo, filters.text)) || (matchesSearch(event.cr4a1_detalhes, filters.text));
             const matchesUser = filters.users.length === 0 || parseAssignees(event.cr4a1_user_login).some(u => filters.users.includes(u));
             const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
             return matchesWorkspace && matchesText && matchesUser && matchesType;

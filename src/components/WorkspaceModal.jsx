@@ -1,3 +1,4 @@
+import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Rocket, Globe, MapPin, Search, BarChart3 } from 'lucide-react';
 import { checkAccess, parseRoles } from '../utils/permissions';
@@ -79,11 +80,10 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
     const filteredUsers = useMemo(() => {
         if (!userFilter) return allUsers;
-        const lower = userFilter.toLowerCase();
         return allUsers.filter(u =>
-            u.cr4a1_username.toLowerCase().includes(lower) ||
-            (u.cr4a1_nome_exibicao || '').toLowerCase().includes(lower) ||
-            (u.cr4a1_unidade || '').toLowerCase().includes(lower)
+            matchesSearch(u.cr4a1_username, userFilter) ||
+            matchesSearch(u.cr4a1_nome_exibicao || '', userFilter) ||
+            matchesSearch(u.cr4a1_unidade || '', userFilter)
         );
     }, [allUsers, userFilter]);
 
