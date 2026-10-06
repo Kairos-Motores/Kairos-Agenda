@@ -1,3 +1,4 @@
+import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Rocket, Globe, MapPin, Search, BarChart3 } from 'lucide-react';
@@ -186,10 +187,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                     />
                                 </TabsContent>
                                 <TabsContent value="visual" className="mt-2">
-                                    <div className="relative mb-2">
-                                        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                        <Input placeholder="Procurar usuário..." value={userFilter} onChange={e => setUserFilter(e.target.value)} className="pl-10" />
-                                    </div>
+                                    <SearchField value={userFilter} onChange={setUserFilter} placeholder="Procurar por nome, usuário ou unidade..." className="mb-2" />
                                     <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
                                         {filteredUsers.map(u => {
                                             const isChecked = selectedMembers.includes(u.cr4a1_username);
@@ -199,8 +197,11 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                                                     className={`flex cursor-pointer items-center gap-2.5 rounded-xl p-2.5 text-[13px] font-medium text-foreground transition-colors ${isChecked ? 'bg-muted' : 'hover:bg-secondary'}`}
                                                 >
                                                     <Checkbox checked={isChecked} onCheckedChange={() => toggleMember(u.cr4a1_username)} />
-                                                    <span className="flex-1">{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
-                                                    <span className="text-[11px] text-muted-foreground">{u.cr4a1_unidade}</span>
+                                                    <span className="flex min-w-0 flex-1 flex-col">
+                                                        <span className="truncate">{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
+                                                        <span className="truncate text-[11px] font-normal text-muted-foreground">@{u.cr4a1_username}</span>
+                                                    </span>
+                                                    {u.cr4a1_unidade && <span className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{u.cr4a1_unidade}</span>}
                                                 </label>
                                             );
                                         })}

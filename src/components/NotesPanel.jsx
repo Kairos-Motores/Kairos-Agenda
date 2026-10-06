@@ -1,3 +1,4 @@
+import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
@@ -528,16 +529,7 @@ export const NotesPanel = ({
 
       {activeNotas.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="relative flex max-w-[360px] items-center">
-            <Search className="pointer-events-none absolute left-3 size-[18px] text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Pesquisar notas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded-full pl-10"
-            />
-          </div>
+          <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar notas..." className="max-w-[360px]" inputClassName="rounded-full" />
 
           {availableWorkspaces.length > 1 && (
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>

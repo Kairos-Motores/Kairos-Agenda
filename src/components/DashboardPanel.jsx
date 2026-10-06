@@ -1,3 +1,4 @@
+import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
@@ -195,16 +196,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
         )}
 
         <div className="mb-4 flex gap-2">
-          <div className="relative flex flex-1 items-center">
-            <Search className="pointer-events-none absolute left-3.5 size-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Pesquisar painéis..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-auto rounded-full py-3 pl-11 text-base"
-            />
-          </div>
+          <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar painéis..." className="flex-1" inputClassName="h-auto rounded-full py-3 text-base" />
           <Button
             onClick={() => { setSearchTerm(''); setSelectedWorkspace(null); }}
             variant="secondary"

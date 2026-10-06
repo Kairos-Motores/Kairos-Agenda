@@ -1,3 +1,4 @@
+import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState } from 'react';
 import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw, Lock, Plus } from 'lucide-react';
@@ -118,13 +119,10 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                             </div>
                         )}
 
-                        <div className="relative">
-                            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Buscar utilizador..." className="pl-10" />
-                        </div>
+                        <SearchField value={userSearch} onChange={setUserSearch} placeholder="Buscar utilizador..." />
 
                         <div className="flex flex-col gap-2">
-                            {allUsers.filter(u => matchesSearch(u.cr4a1_username, userSearch)).map(u => (
+                            {allUsers.filter(u => matchesSearch(u.cr4a1_username, userSearch) || matchesSearch(u.cr4a1_nome_exibicao || '', userSearch)).map(u => (
                                 <UserRow
                                     key={u.cr4a1_username}
                                     user={u}
@@ -263,7 +261,10 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
             <div className="flex items-center justify-between gap-2.5">
                 <div className="flex items-center gap-3 min-w-0">
                     <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: user.cr4a1_cor || '#3498db' }} />
-                    <span className="truncate text-sm font-medium text-foreground">{user.cr4a1_username}</span>
+                    <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-medium text-foreground">{user.cr4a1_nome_exibicao || user.cr4a1_username}</span>
+                        {user.cr4a1_nome_exibicao && <span className="truncate text-[11px] text-muted-foreground">@{user.cr4a1_username}</span>}
+                    </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                     {isAdmin && (
@@ -375,8 +376,7 @@ const BiPermissionsPanel = ({ availableRoles, biRolesOverrideMap, upsertBiPermis
 
             <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar painel..." className="pl-10" />
+                    <SearchField value={search} onChange={setSearch} placeholder="Buscar painel..." />
                 </div>
                 <Select value={workspaceFilter} onValueChange={setWorkspaceFilter}>
                     <SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger>
@@ -557,8 +557,7 @@ const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, ad
             </div>
 
             <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar role..." className="pl-10" />
+                <SearchField value={search} onChange={setSearch} placeholder="Buscar role..." />
             </div>
 
             <div className="flex max-h-[380px] flex-col gap-2 overflow-y-auto pr-1">
