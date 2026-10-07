@@ -11,9 +11,13 @@ import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { SearchField } from './ui/search-field';
+import { DateField } from './ui/date-field';
+import { TimeField } from './ui/time-field';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
+import { corUrgenciaData } from '../utils/dateUrgency';
+import { useConfirm } from '../hooks/useConfirm';
 
 const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
@@ -56,6 +60,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
   const [editando, setEditando] = useState(null);
   const [compartilharAberto, setCompartilharAberto] = useState(false);
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
+  const { confirm, ConfirmDialogHost } = useConfirm();
 
   const recarregar = useCallback(() => setVersao(v => v + 1), []);
 
@@ -167,7 +172,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
     const msg = doLista.length
       ? `Excluir a lista "${lista.cr4a1_nome}" e suas ${doLista.length} ficha(s)?`
       : `Excluir a lista "${lista.cr4a1_nome}"?`;
-    if (!window.confirm(msg)) return;
+    if (!(await confirm(msg, { title: 'Excluir lista' }))) return;
     try {
       for (const f of doLista) {
         await removerEventoDaFicha(f);
@@ -270,7 +275,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
   };
 
   const excluirFicha = async (ficha) => {
-    if (!window.confirm(`Excluir a ficha "${ficha.cr4a1_titulo}"?`)) return;
+    if (!(await confirm(`Excluir a ficha "${ficha.cr4a1_titulo}"?`, { title: 'Excluir ficha' }))) return;
     try {
       await removerEventoDaFicha(ficha);
       await apagar('cr4a1_fichas', ficha.cr4a1_fichaid);
@@ -329,7 +334,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
     } catch { toast.error('Erro ao editar etiqueta.'); }
   };
   const apagarEtiqueta = async (etiqueta) => {
-    if (!window.confirm(`Excluir a etiqueta "${etiqueta.cr4a1_nome}"? Ela sai de todas as fichas que a usam.`)) return;
+    if (!(await confirm(`Excluir a etiqueta "${etiqueta.cr4a1_nome}"? Ela sai de todas as fichas que a usam.`, { title: 'Excluir etiqueta' }))) return;
     try {
       const comEtiqueta = fichas.filter(f => parseAssignees(f.cr4a1_etiquetas).includes(etiqueta.cr4a1_etiquetaid));
       for (const f of comEtiqueta) {
@@ -417,7 +422,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
                       <span className={`text-sm font-semibold text-foreground ${ficha.cr4a1_concluida === 'Sim' ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
                       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                         {comData(ficha) && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
+                          <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, ficha.cr4a1_concluida === 'Sim')}`}>
                             <CalendarDays className="size-3" />
                             {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
                           </span>
@@ -491,6 +496,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
           onClose={() => setCompartilharAberto(false)}
         />
       )}
+
+      {ConfirmDialogHost}
 
       {etiquetasAberto && (
         <EtiquetasDialog
@@ -577,20 +584,10 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <Label>Data (opcional)</Label>
-          <Input type="date" value={form.dia} onChange={e => set('dia', e.target.value)} />
-        </div>
-        <div>
-          <Label>Hora</Label>
-          <Input type="time" value={form.hora} onChange={e => set('hora', e.target.value)} disabled={!form.dia} />
-        </div>
+        <DateField label="Data (opcional)" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
+        <TimeField label="Hora" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
       </div>
-      {form.dia && (
-        <button type="button" onClick={() => set('dia', '')} className="inline-flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground">
-          <X className="size-3" /> Remover data (a ficha continua no quadro e sai da agenda)
-        </button>
-      )}
+      {form.dia && <p className="text-xs text-muted-foreground">Limpar a data mantém a ficha no quadro, mas ela sai da agenda.</p>}
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
         <Label className="mb-0">Concluída</Label>

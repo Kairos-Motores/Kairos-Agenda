@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { DateField } from './ui/date-field';
+import { TimeField } from './ui/time-field';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
@@ -195,14 +197,8 @@ export const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Data Inicial</Label>
-              <Input type="date" value={dataVisita} onChange={e => setDataVisita(e.target.value)} />
-            </div>
-            <div>
-              <Label>Hora</Label>
-              <Input type="time" value={horaVisita} onChange={e => setHoraVisita(e.target.value)} />
-            </div>
+            <DateField label="Data Inicial" selectedDate={dataVisita} onSelect={setDataVisita} />
+            <TimeField label="Hora" value={horaVisita} onSelect={setHoraVisita} />
             <div>
               <Label>Período (dias úteis)</Label>
               <Input type="number" min="0" value={periodo} onChange={e => setPeriodo(e.target.value)} disabled={!!editingVisita} placeholder="0 = Única" />

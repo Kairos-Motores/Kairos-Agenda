@@ -25,6 +25,7 @@ import { DayTooltip } from './components/DayTooltip';
 import { themeColors } from './constants/materialColors';
 import { registerPushSubscription } from './utils/push';
 import { avisarFichasDoResponsavel } from './utils/fichas';
+import { DateField } from './components/ui/date-field';
 import { compressImage } from './utils/compressImage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Button } from './components/ui/button';
@@ -209,6 +210,7 @@ function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [aniversarioEdit, setAniversarioEdit] = useState('');
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
@@ -275,6 +277,9 @@ function App() {
   const [listViewMode, setListViewMode] = useState('grid');
 
   const currentUser = allUsers.find(u => u.cr4a1_username === user);
+  useEffect(() => {
+    if (isProfileModalOpen) setAniversarioEdit(currentUser?.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : '');
+  }, [isProfileModalOpen, currentUser]);
 
   const taskEvents = useMemo(() => {
     const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
@@ -1869,7 +1874,7 @@ function App() {
                       accept="image/*"
                       onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                         nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
-                        aniversario: document.getElementById('b-up')?.value || currentUser.cr4a1_aniversario,
+                        aniversario: aniversarioEdit || currentUser.cr4a1_aniversario,
                         foto: res
                       }))}
                     />
@@ -1880,17 +1885,14 @@ function App() {
                     <Input type="text" defaultValue={currentUser.cr4a1_nome_exibicao || user} id="n-up" />
                   </div>
 
-                  <div>
-                    <Label>Aniversário</Label>
-                    <Input type="date" defaultValue={currentUser.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : ''} id="b-up" />
-                  </div>
+                  <DateField label="Aniversário" selectedDate={aniversarioEdit} onSelect={setAniversarioEdit} allowClear />
 
                   <Button
                     className="w-full"
                     size="lg"
                     onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                       nomeExibicao: document.getElementById('n-up').value,
-                      aniversario: document.getElementById('b-up').value,
+                      aniversario: aniversarioEdit,
                       foto: currentUser.cr4a1_foto
                     })}
                   >

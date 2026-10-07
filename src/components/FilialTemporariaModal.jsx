@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { DateField } from './ui/date-field';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 
 const UNITS = ['São Luís', 'Barcarena', 'Parauapebas', 'São José dos Campos', 'Aveiro'];
@@ -69,14 +70,8 @@ export const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostr
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Data Início</Label>
-              <Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} />
-            </div>
-            <div>
-              <Label>Data Fim</Label>
-              <Input type="date" value={fim} onChange={e => setFim(e.target.value)} />
-            </div>
+            <DateField label="Data Início" selectedDate={inicio} onSelect={setInicio} />
+            <DateField label="Data Fim" selectedDate={fim} onSelect={setFim} />
           </div>
         </div>
 

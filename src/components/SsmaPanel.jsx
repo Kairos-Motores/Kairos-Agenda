@@ -15,6 +15,8 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { Switch } from './ui/switch';
+import { DateField } from './ui/date-field';
+import { useConfirm } from '../hooks/useConfirm';
 
 const MAX_ANEXO_MB = 5;
 
@@ -626,9 +628,9 @@ const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, tiposDisponiveis, on
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div><Label>Data de início</Label><Input type="date" value={form.cr4a1_data_inicio || ''} onChange={set('cr4a1_data_inicio')} /></div>
-                        <div><Label>Prazo</Label><Input type="date" value={form.cr4a1_prazo || ''} onChange={set('cr4a1_prazo')} /></div>
-                        <div><Label>Data fim real</Label><Input type="date" value={form.cr4a1_data_fim_real || ''} onChange={set('cr4a1_data_fim_real')} /></div>
+                        <DateField label="Data de início" selectedDate={form.cr4a1_data_inicio || ''} onSelect={d => setForm({ ...form, cr4a1_data_inicio: d })} allowClear />
+                        <DateField label="Prazo" selectedDate={form.cr4a1_prazo || ''} onSelect={d => setForm({ ...form, cr4a1_prazo: d })} allowClear />
+                        <DateField label="Data fim real" selectedDate={form.cr4a1_data_fim_real || ''} onSelect={d => setForm({ ...form, cr4a1_data_fim_real: d })} allowClear />
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -810,8 +812,11 @@ const emptyIndicador = () => ({ cr4a1_codigo: '', cr4a1_nome: '', cr4a1_tipo: ''
 // tipo de atividade associado e meta) — persistidos em cr4a1_ssma_indicadors. É o que
 // alimenta tanto a aba Indicadores (leitura) quanto o dropdown "Tipo" que o técnico usa
 // ao lançar uma atividade.
-const GerenciarIndicadoresTab = ({ indicadores, editing, setEditing, onSave, onDelete }) => (
+const GerenciarIndicadoresTab = ({ indicadores, editing, setEditing, onSave, onDelete }) => {
+    const { confirm, ConfirmDialogHost } = useConfirm();
+    return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {ConfirmDialogHost}
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
             Cada indicador vira uma linha na aba Indicadores e um tipo disponível para os técnicos lançarem atividades.
         </p>
@@ -850,7 +855,7 @@ const GerenciarIndicadoresTab = ({ indicadores, editing, setEditing, onSave, onD
                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
                         </button>
                         <button
-                            onClick={() => { if (window.confirm(`Remover o indicador "${ind.codigo}"? Ele deixará de aparecer na apuração e os técnicos não poderão mais lançar atividades desse tipo.`)) onDelete(ind.pk); }}
+                            onClick={async () => { if (await confirm(`Remover o indicador "${ind.codigo}"? Ele deixará de aparecer na apuração e os técnicos não poderão mais lançar atividades desse tipo.`, { title: 'Remover indicador' })) onDelete(ind.pk); }}
                             className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}
                         >
                             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
@@ -860,7 +865,8 @@ const GerenciarIndicadoresTab = ({ indicadores, editing, setEditing, onSave, onD
             ))}
         </div>
     </div>
-);
+    );
+};
 
 const IndicadorForm = ({ data, onCancel, onSave }) => {
     const [form, setForm] = useState(data);
@@ -915,9 +921,11 @@ const emptyRecorrencia = (unidade, tiposDisponiveis) => ({
 const RecorrenciasTab = ({ recorrencias, unidade, allUsers, tiposDisponiveis, editing, setEditing, onSave, onDelete }) => {
     const tecnicos = (allUsers || []).filter(u => (u.cr4a1_role || '').split(',').map(r => r.trim()).includes('SSMA'));
     const daUnidade = recorrencias.filter(r => r.cr4a1_unidade === unidade);
+    const { confirm, ConfirmDialogHost } = useConfirm();
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {ConfirmDialogHost}
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
                 Cada recorrência gera automaticamente uma nova atividade quando o ciclo vence, atribuída ao técnico escolhido, que recebe um aviso no app.
             </p>
@@ -971,7 +979,7 @@ const RecorrenciasTab = ({ recorrencias, unidade, allUsers, tiposDisponiveis, ed
                                     <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>edit</span>
                                 </button>
                                 <button
-                                    onClick={() => { if (window.confirm(`Remover a recorrência de "${r.cr4a1_tipo}"? As atividades já geradas por ela continuam existindo, só a repetição futura para.`)) onDelete(r.cr4a1_ssma_recorrenciaid); }}
+                                    onClick={async () => { if (await confirm(`Remover a recorrência de "${r.cr4a1_tipo}"? As atividades já geradas por ela continuam existindo, só a repetição futura para.`, { title: 'Remover recorrência' })) onDelete(r.cr4a1_ssma_recorrenciaid); }}
                                     className="icon-btn boing-effect" style={{ width: '32px', height: '32px', color: '#e74c3c' }}
                                 >
                                     <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
@@ -1052,8 +1060,12 @@ const RecorrenciaForm = ({ data, isNovo, tecnicos, tiposDisponiveis, onCancel, o
                             </Select>
                         </div>
                         <div>
-                            <Label>{form.cr4a1_ultima_geracao ? 'Data de início (já em andamento)' : 'Data de início'}</Label>
-                            <Input type="date" value={form.cr4a1_data_inicio || ''} onChange={e => setForm({ ...form, cr4a1_data_inicio: e.target.value })} disabled={!!form.cr4a1_ultima_geracao} />
+                            <DateField
+                                label={form.cr4a1_ultima_geracao ? 'Data de início (já em andamento)' : 'Data de início'}
+                                selectedDate={form.cr4a1_data_inicio || ''}
+                                onSelect={d => setForm({ ...form, cr4a1_data_inicio: d })}
+                                disabled={!!form.cr4a1_ultima_geracao}
+                            />
                         </div>
                     </div>
 

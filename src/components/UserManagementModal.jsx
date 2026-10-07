@@ -14,6 +14,7 @@ import { Badge } from './ui/badge';
 import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { useConfirm } from '../hooks/useConfirm';
 
 const layerOptions = [
     { id: 'icone', label: 'Ícone', description: 'Mostra o emoji do tipo no card do evento' },
@@ -44,6 +45,7 @@ const commonEmojis = [
 ];
 
 export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission, availableRoles = [], appRoles = [], addAppRole, renameAppRole, deleteAppRole }) => {
+    const { confirm, ConfirmDialogHost } = useConfirm();
     const [userSearch, setUserSearch] = useState('');
     // BI_CONFIG e biPermissoes têm só algumas dezenas de itens — reconstruir o mapa
     // de overrides a cada render sai barato, sem necessidade de useMemo.
@@ -60,9 +62,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
         if (result?.success) { setNewUsername(''); setNewPassword(''); }
     };
 
-    const handleDeleteUser = (u) => {
+    const handleDeleteUser = async (u) => {
         if (u.cr4a1_username === currentUsername) return;
-        if (window.confirm(`Remover o usuário "${u.cr4a1_username}"? Ele perde o acesso ao sistema imediatamente.`)) {
+        if (await confirm(`Remover o usuário "${u.cr4a1_username}"? Ele perde o acesso ao sistema imediatamente.`, { title: 'Remover usuário' })) {
             deleteUser(u.cr4a1_username);
         }
     };
@@ -229,6 +231,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                     )}
                 </Tabs>
 
+                {ConfirmDialogHost}
                 <Button onClick={onClose} className="mt-6 w-full" size="lg">Concluído</Button>
             </DialogContent>
         </Dialog>
@@ -502,6 +505,7 @@ const BiPermissionRow = ({ bi, overridesMap, availableRoles, upsertBiPermission,
 // confere pelo nome) aparecem travadas — renomear/apagar uma delas quebraria permissões.
 // Renomear/excluir uma customizada propaga para os usuários e overrides de BI que a usam.
 const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, addAppRole, renameAppRole, deleteAppRole }) => {
+    const { confirm, ConfirmDialogHost } = useConfirm();
     const [search, setSearch] = useState('');
     const [newRole, setNewRole] = useState('');
     const [editingRole, setEditingRole] = useState(null);
@@ -529,13 +533,14 @@ const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, ad
         if (result?.success) setEditingRole(null);
     };
 
-    const handleDelete = (row) => {
-        const message = `Excluir a role "${row.name}"?\n\nEla será removida de ${row.users.length} usuário(s) e de ${row.bis.length} painel(éis) de BI.`;
-        if (window.confirm(message)) deleteAppRole(row.record.cr4a1_app_roleid, row.name);
+    const handleDelete = async (row) => {
+        const message = `Excluir a role "${row.name}"? Ela será removida de ${row.users.length} usuário(s) e de ${row.bis.length} painel(éis) de BI.`;
+        if (await confirm(message, { title: 'Excluir role' })) deleteAppRole(row.record.cr4a1_app_roleid, row.name);
     };
 
     return (
         <div className="flex flex-col gap-3">
+            {ConfirmDialogHost}
             <p className="text-[12px] text-muted-foreground">
                 Crie as roles que quiser — elas passam a aparecer na escolha de roles dos usuários e na liberação dos painéis de BI. Roles do sistema (com cadeado) são conferidas pelo código e não podem ser renomeadas nem excluídas.
             </p>

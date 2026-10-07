@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { matchesSearch } from '../utils/search';
 import { toast } from 'react-hot-toast';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
     X, Smile, CalendarDays, CalendarClock, Clock, History, LayoutGrid, Bookmark, Users,
@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { parseAssignees } from '../utils/assignees';
 import { Dialog, DialogContent } from './ui/dialog';
+import { DateField } from './ui/date-field';
+import { TimeField } from './ui/time-field';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -168,8 +170,8 @@ export const EventModal = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <DateField label="Data Inicial" icon={CalendarDays} value={safeFormatDate(formData.startDate)} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d, endDate: p.endDate && p.endDate < d ? d : p.endDate }))} />
-                        <DateField label="Data Final" icon={CalendarClock} value={safeFormatDate(formData.endDate)} selectedDate={formData.endDate} onSelect={d => setFormData(p => ({ ...p, endDate: d }))} />
+                        <DateField label="Data Inicial" icon={CalendarDays} formatValue={safeFormatDate} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d, endDate: p.endDate && p.endDate < d ? d : p.endDate }))} />
+                        <DateField label="Data Final" icon={CalendarClock} formatValue={safeFormatDate} selectedDate={formData.endDate} onSelect={d => setFormData(p => ({ ...p, endDate: d }))} />
                     </div>
 
                     {!formData.allDay && (
@@ -332,88 +334,3 @@ const SwitchRow = ({ label, icon: Icon, checked, onChange }) => (
     </div>
 );
 
-const DateField = ({ label, icon: Icon, value, selectedDate, onSelect }) => {
-    const [open, setOpen] = useState(false);
-    const [pickerMonth, setPickerMonth] = useState(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date());
-
-    return (
-        <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setPickerMonth(selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()); }}>
-            <PopoverTrigger asChild>
-                <button className="flex min-h-[62px] w-full flex-col justify-center rounded-[20px] border border-border bg-secondary px-4 py-2.5 text-left transition-colors hover:bg-muted">
-                    <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{label}</span>
-                    <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-                        <Icon className="size-[18px] text-primary" /> {value}
-                    </span>
-                </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[270px] p-4">
-                <div className="mb-4 flex items-center justify-between">
-                    <span className="text-sm font-bold capitalize text-foreground">{format(pickerMonth, 'MMMM yyyy', { locale: ptBR })}</span>
-                    <div className="flex gap-1">
-                        <button onClick={() => setPickerMonth(subMonths(pickerMonth, 1))} aria-label="Mês anterior" className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"><ChevronLeft className="size-4" /></button>
-                        <button onClick={() => setPickerMonth(addMonths(pickerMonth, 1))} aria-label="Próximo mês" className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"><ChevronRight className="size-4" /></button>
-                    </div>
-                </div>
-                <div className="mb-2 grid grid-cols-7 text-center">
-                    {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <span key={i} className="text-[11px] font-bold text-muted-foreground">{d}</span>)}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                    {eachDayOfInterval({ start: startOfWeek(startOfMonth(pickerMonth)), end: endOfWeek(endOfMonth(pickerMonth)) }).map((day, i) => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const isSelected = selectedDate === dateStr;
-                        const isCurrentMonth = day.getMonth() === pickerMonth.getMonth();
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => { onSelect(dateStr); setOpen(false); }}
-                                className={`flex size-[34px] items-center justify-center rounded-full text-xs font-bold transition-transform active:scale-90 ${isSelected ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-secondary'} ${isCurrentMonth ? '' : 'opacity-30'}`}
-                            >
-                                {format(day, 'd')}
-                            </button>
-                        );
-                    })}
-                </div>
-            </PopoverContent>
-        </Popover>
-    );
-};
-
-const TimeField = ({ label, icon: Icon, value, onSelect }) => {
-    const [open, setOpen] = useState(false);
-    const [h, m] = value.split(':');
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <button className="flex min-h-[62px] w-full flex-col justify-center rounded-[20px] border border-border bg-secondary px-4 py-2.5 text-left transition-colors hover:bg-muted">
-                    <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">{label}</span>
-                    <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-                        <Icon className="size-[18px] text-primary" /> {value}
-                    </span>
-                </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-60 text-center">
-                <span className="mb-4 block text-xs font-bold uppercase tracking-wide text-primary">Definir Horário</span>
-                <div className="mb-5 flex items-center justify-center gap-2">
-                    <input type="text" maxLength={2} defaultValue={h} id={`h-picker-${label}`} className="h-16 w-[68px] rounded-2xl border border-border bg-card text-center text-2xl font-bold text-foreground outline-none" />
-                    <span className="text-2xl font-light text-muted-foreground">:</span>
-                    <input type="text" maxLength={2} defaultValue={m} id={`m-picker-${label}`} className="h-16 w-[68px] rounded-2xl border border-border bg-card text-center text-2xl font-bold text-foreground outline-none" />
-                </div>
-                <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
-                    <Button
-                        size="sm"
-                        onClick={() => {
-                            const hVal = document.getElementById(`h-picker-${label}`).value || '00';
-                            const mVal = document.getElementById(`m-picker-${label}`).value || '00';
-                            onSelect(`${hVal.padStart(2, '0')}:${mVal.padStart(2, '0')}`);
-                            setOpen(false);
-                        }}
-                    >
-                        OK
-                    </Button>
-                </div>
-            </PopoverContent>
-        </Popover>
-    );
-};
