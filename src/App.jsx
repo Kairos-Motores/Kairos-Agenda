@@ -1024,6 +1024,17 @@ function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Workspaces</div>
                   </div>
+                  {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
+                    (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN') || hasRole('QUALIDADE')))) && (
+                    <button
+                      onClick={() => { setIsFilialTemporariaOpen(true); setIsSidebarOpen(false); }}
+                      className="nav-pill boing-effect"
+                      style={{ justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '12px 14px', borderRadius: '100px', border: 'none', cursor: 'pointer', marginBottom: '12px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    >
+                      <span className="material-symbols-rounded" style={{ fontSize: '20px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
+                      Filial Temporária
+                    </button>
+                  )}
                   {/* Nova barra de pesquisa de workspaces */}
                   <Input
                     placeholder="Procurar workspace..."
@@ -1207,29 +1218,6 @@ function App() {
               <span className="nav-label-collapse">Fichas</span>
             </button>
 
-            {((appMode === 'visitas' && (hasRole('COORD COMERCIAL') || hasRole('ADMIN'))) ||
-              (appMode === 'calendar' && (hasRole('RH') || hasRole('ADMIN') || hasRole('QUALIDADE')))) && (
-                <button
-                  onClick={() => setIsFilialTemporariaOpen(true)}
-                  className="btn-secondary boing-effect filial-temp-btn"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    borderRadius: '100px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}
-                >
-                  <span className="material-symbols-rounded filial-temp-icon" style={{ fontSize: '18px', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)' }}>swap_horiz</span>
-                  <span className="filial-temp-text">Filial Temporária</span>
-                </button>
-              )}
           </div>
 
           <div className="header-profile" data-tutorial="profile">
@@ -2032,11 +2020,12 @@ function App() {
             gap: 10px 12px;
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
+            border-bottom-right-radius: 24px;
         }
 
         @media (min-width: 1025px) {
             .app-header.is-compact {
-                margin-right: 76px;
+                width: calc(100% - 76px);
             }
         }
 
@@ -2069,15 +2058,14 @@ function App() {
         }
 
         .app-header.is-compact .header-bottom {
-            order: 2; 
-            flex-basis: auto; 
-            margin-left: 16px;
-            margin-right: auto;
-            justify-content: flex-start;
+            order: 3;
+            flex-basis: 100%;
+            margin: 0;
+            justify-content: center;
         }
         .app-header.is-compact .header-profile {
-            order: 3;
-            margin-left: 0;
+            order: 2;
+            margin-left: auto;
         }
 
         .nav-label-collapse {
@@ -2113,7 +2101,7 @@ function App() {
             width: 76px;
             border: 0;
             border-left: 1px solid var(--border-color);
-            border-radius: 0;
+            border-top-left-radius: 24px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
