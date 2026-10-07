@@ -109,6 +109,8 @@ function App() {
     return ['Todas', ...Array.from(unitsSet)].sort();
   }, [allUsers]);
 
+  const trelloDragEndRef = useRef(null);
+
   const handleDragStart = (start) => {
     if (start.draggableId.startsWith('member_')) {
       setIsDraggingMember(true);
@@ -116,6 +118,11 @@ function App() {
   };
 
   const handleDragEnd = async (result) => {
+    if (appMode === 'trello') {
+      trelloDragEndRef.current?.(result);
+      return;
+    }
+
     const { source, destination, draggableId } = result;
 
     if (!destination || source.droppableId === destination.droppableId) {
@@ -1459,7 +1466,7 @@ function App() {
                 </React.Suspense>
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
-                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} />
+                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} dragEndRef={trelloDragEndRef} />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>

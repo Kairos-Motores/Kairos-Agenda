@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
 import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle } from 'lucide-react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -47,7 +47,7 @@ const intervaloDoEvento = (dia, hora) => {
   };
 };
 
-export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin }) => {
+export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin, dragEndRef }) => {
   const [workspaceEscolhido, setWorkspaceId] = useState('');
   const [versao, setVersao] = useState(0);
   const [workspacesExtras, setWorkspacesExtras] = useState([]);
@@ -396,6 +396,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
     });
   };
 
+  // O DragDropContext é único e vive no App (não pode haver dois montados ao mesmo tempo),
+  // então registamos o handler aqui e o App delega pra cá quando appMode === 'trello'.
+  useEffect(() => {
+    if (dragEndRef) dragEndRef.current = handleDragEnd;
+    return () => { if (dragEndRef) dragEndRef.current = null; };
+  });
+
   return (
     <div className="flex w-full flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -421,123 +428,121 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
         </div>
       </header>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex items-start gap-3 overflow-x-auto pb-4">
-          {listasVisiveis.map(lista => {
-            const souDono = lista.cr4a1_criador_login === user || isAdmin;
-            const pessoal = lista.cr4a1_pessoal === 'Sim';
-            return (
-              <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <input
-                    key={lista.cr4a1_nome}
-                    defaultValue={lista.cr4a1_nome}
-                    onBlur={e => renomearLista(lista, e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                    aria-label={`Nome da lista ${lista.cr4a1_nome}`}
-                    readOnly={!souDono && pessoal}
-                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-foreground outline-none"
-                  />
-                  <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
-                  {souDono && (
-                    <button
-                      onClick={() => alternarListaPessoal(lista)}
-                      aria-label={pessoal ? `Tornar "${lista.cr4a1_nome}" visível para todos` : `Tornar "${lista.cr4a1_nome}" pessoal`}
-                      title={pessoal ? 'Só você vê esta lista — clique para tornar visível' : 'Tornar pessoal (só você vê)'}
-                      className={pessoal ? 'text-primary' : 'text-muted-foreground hover:text-primary'}
-                    >
-                      {pessoal ? <Lock className="size-4" /> : <Unlock className="size-4" />}
-                    </button>
-                  )}
-                  <button onClick={() => apagarLista(lista)} aria-label={`Excluir lista ${lista.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="size-4" />
+      <div className="flex items-start gap-3 overflow-x-auto pb-4">
+        {listasVisiveis.map(lista => {
+          const souDono = lista.cr4a1_criador_login === user || isAdmin;
+          const pessoal = lista.cr4a1_pessoal === 'Sim';
+          return (
+            <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <input
+                  key={lista.cr4a1_nome}
+                  defaultValue={lista.cr4a1_nome}
+                  onBlur={e => renomearLista(lista, e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                  aria-label={`Nome da lista ${lista.cr4a1_nome}`}
+                  readOnly={!souDono && pessoal}
+                  className="min-w-0 flex-1 bg-transparent text-sm font-bold text-foreground outline-none"
+                />
+                <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
+                {souDono && (
+                  <button
+                    onClick={() => alternarListaPessoal(lista)}
+                    aria-label={pessoal ? `Tornar "${lista.cr4a1_nome}" visível para todos` : `Tornar "${lista.cr4a1_nome}" pessoal`}
+                    title={pessoal ? 'Só você vê esta lista — clique para tornar visível' : 'Tornar pessoal (só você vê)'}
+                    className={pessoal ? 'text-primary' : 'text-muted-foreground hover:text-primary'}
+                  >
+                    {pessoal ? <Lock className="size-4" /> : <Unlock className="size-4" />}
                   </button>
-                </div>
+                )}
+                <button onClick={() => apagarLista(lista)} aria-label={`Excluir lista ${lista.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
 
-                <Droppable droppableId={lista.cr4a1_listaid}>
-                  {(provided) => (
-                    <div ref={provided.innerRef} {...provided.droppableProps} className="flex min-h-[8px] flex-col gap-2">
-                      {fichasDaLista(lista).map((ficha, index) => {
-                        const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
-                        const concluida = ficha.cr4a1_concluida === 'Sim';
-                        return (
-                          <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
-                            {(providedCard, snapshot) => (
-                              <div
-                                ref={providedCard.innerRef}
-                                {...providedCard.draggableProps}
-                                {...providedCard.dragHandleProps}
-                                className={`flex items-start gap-2 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+              <Droppable droppableId={lista.cr4a1_listaid}>
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex min-h-[8px] flex-col gap-2">
+                    {fichasDaLista(lista).map((ficha, index) => {
+                      const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
+                      const concluida = ficha.cr4a1_concluida === 'Sim';
+                      return (
+                        <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
+                          {(providedCard, snapshot) => (
+                            <div
+                              ref={providedCard.innerRef}
+                              {...providedCard.draggableProps}
+                              {...providedCard.dragHandleProps}
+                              className={`flex items-start gap-2 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleConcluida(ficha); }}
+                                aria-label={concluida ? `Marcar "${ficha.cr4a1_titulo}" como não concluída` : `Marcar "${ficha.cr4a1_titulo}" como concluída`}
+                                title={concluida ? 'Marcar como não concluída' : 'Marcar como concluída'}
+                                className={`mt-0.5 shrink-0 ${concluida ? 'text-success' : 'text-muted-foreground hover:text-primary'}`}
                               >
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); toggleConcluida(ficha); }}
-                                  aria-label={concluida ? `Marcar "${ficha.cr4a1_titulo}" como não concluída` : `Marcar "${ficha.cr4a1_titulo}" como concluída`}
-                                  title={concluida ? 'Marcar como não concluída' : 'Marcar como concluída'}
-                                  className={`mt-0.5 shrink-0 ${concluida ? 'text-success' : 'text-muted-foreground hover:text-primary'}`}
-                                >
-                                  {concluida ? <CheckCircle2 className="size-[18px]" /> : <Circle className="size-[18px]" />}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => abrirFicha(ficha)}
-                                  className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
-                                >
-                                  {etiquetasDaFicha.length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
-                                      {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
-                                    </div>
-                                  )}
-                                  <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
-                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                    {comData(ficha) && (
-                                      <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
-                                        <CalendarDays className="size-3" />
-                                        {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
-                                      </span>
-                                    )}
-                                    <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                                {concluida ? <CheckCircle2 className="size-[18px]" /> : <Circle className="size-[18px]" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => abrirFicha(ficha)}
+                                className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
+                              >
+                                {etiquetasDaFicha.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
                                   </div>
-                                </button>
-                              </div>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
+                                )}
+                                <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
+                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  {comData(ficha) && (
+                                    <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
+                                      <CalendarDays className="size-3" />
+                                      {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                                    </span>
+                                  )}
+                                  <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                                </div>
+                              </button>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
 
-                <form
-                  onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
-                  className="flex gap-1.5"
-                >
-                  <Input
-                    value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
-                    onChange={e => setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
-                    placeholder="Nova ficha..."
-                    className="h-9 bg-card"
-                  />
-                  <Button type="submit" size="sm" variant="outline" aria-label="Adicionar ficha"><Plus className="size-4" /></Button>
-                </form>
-              </section>
-            );
-          })}
+              <form
+                onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
+                className="flex gap-1.5"
+              >
+                <Input
+                  value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
+                  onChange={e => setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
+                  placeholder="Nova ficha..."
+                  className="h-9 bg-card"
+                />
+                <Button type="submit" size="sm" variant="outline" aria-label="Adicionar ficha"><Plus className="size-4" /></Button>
+              </form>
+            </section>
+          );
+        })}
 
-          <form
-            onSubmit={e => { e.preventDefault(); criarLista(); }}
-            className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-dashed border-border p-3"
-          >
-            <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
-              Lista pessoal (só eu vejo)
-            </label>
-            <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
-          </form>
-        </div>
-      </DragDropContext>
+        <form
+          onSubmit={e => { e.preventDefault(); criarLista(); }}
+          className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-dashed border-border p-3"
+        >
+          <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
+            Lista pessoal (só eu vejo)
+          </label>
+          <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
+        </form>
+      </div>
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
