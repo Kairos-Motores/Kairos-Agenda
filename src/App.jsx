@@ -2028,13 +2028,16 @@ function App() {
         }
         
         .app-header.is-compact {
-            height: 72px;
-            box-sizing: border-box;
-            padding: 10px 24px;
-            gap: 12px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.06);
-            background: rgba(var(--bg-primary-rgb, 255, 255, 255), 0.98);
-            backdrop-filter: blur(12px);
+            padding: 8px 20px;
+            gap: 10px 12px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        @media (min-width: 1025px) {
+            .app-header.is-compact {
+                margin-right: 76px;
+            }
         }
 
         .header-left {
@@ -2104,12 +2107,13 @@ function App() {
 
         .app-rail {
             position: fixed;
-            top: 84px;
-            right: 12px;
-            bottom: 12px;
-            width: 64px;
-            border: 1px solid var(--border-color);
-            border-radius: 28px;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 76px;
+            border: 0;
+            border-left: 1px solid var(--border-color);
+            border-radius: 0;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -2197,7 +2201,7 @@ function App() {
             }
 
             .main-container {
-                margin-right: 88px;
+                margin-right: 76px;
             }
         }
 
