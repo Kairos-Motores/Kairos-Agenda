@@ -1466,7 +1466,7 @@ function App() {
                 </React.Suspense>
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
-                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} currentUser={currentUser} updateTrelloFundo={updateTrelloFundo} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} dragEndRef={trelloDragEndRef} />
+                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} currentUser={currentUser} updateTrelloFundo={updateTrelloFundo} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} hasRole={hasRole} dragEndRef={trelloDragEndRef} />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>

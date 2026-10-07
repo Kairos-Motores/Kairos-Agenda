@@ -34,6 +34,23 @@ const buildRoleWorkspaceMap = () => {
 // { ROLE: ['Workspace A', 'Workspace B', ...] }
 export const ROLE_WORKSPACE_MAP = buildRoleWorkspaceMap();
 
+// Inverso do mapa acima, só com as roles "COORD X" (coordenador do setor): que papéis
+// coordenam cada workspace. Usado pelo Trello pra decidir quem, além do ADMIN, pode
+// bloquear o acesso de alguém ao quadro daquele setor — o mesmo papel que já libera
+// os painéis de BI do setor também manda em quem vê (ou não) o Trello dele.
+// { 'Workspace A': ['COORD X', ...] }
+export const WORKSPACE_COORD_ROLES = (() => {
+    const map = {};
+    Object.entries(ROLE_WORKSPACE_MAP).forEach(([role, workspaceNames]) => {
+        if (!role.startsWith('COORD')) return;
+        workspaceNames.forEach(ws => {
+            if (!map[ws]) map[ws] = [];
+            map[ws].push(role);
+        });
+    });
+    return map;
+})();
+
 // Lista completa de roles conhecidas pelo app, para popular o editor de roles.
 export const ALL_KNOWN_ROLES = Array.from(new Set([
     ...ROLES_EXCLUDED_FROM_AUTO_MEMBERSHIP,

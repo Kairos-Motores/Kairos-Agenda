@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -20,6 +20,7 @@ import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
 import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
+import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
 
 const API_PROXY = '/api/dataverse-proxy';
@@ -76,7 +77,7 @@ const intervaloDoEvento = (dia, hora) => {
   };
 };
 
-export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTrelloFundo, refreshEvents, isAdmin, dragEndRef }) => {
+export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTrelloFundo, refreshEvents, isAdmin, hasRole, dragEndRef }) => {
   const [workspaceEscolhido, setWorkspaceId] = useState('');
   const [versao, setVersao] = useState(0);
   const [workspacesExtras, setWorkspacesExtras] = useState([]);
@@ -134,6 +135,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     return [...membrosBase, ...extras];
   }, [membrosBase, allUsers, colaboradoresLogins]);
   const podeGerenciarColaboradores = isAdmin || (!!workspace && workspace.cr4a1_criador_login === user);
+
+  // Quem coordena o setor (mesmo papel "COORD X" que já libera os painéis de BI do setor)
+  // pode bloquear o acesso de membros do workspace ao Trello — além do ADMIN, sempre.
+  const coordRolesDoWorkspace = WORKSPACE_COORD_ROLES[workspace?.cr4a1_nome] || [];
+  const podeGerenciarBloqueios = isAdmin || coordRolesDoWorkspace.some(papel => hasRole?.(papel));
+  const bloqueadosLogins = useMemo(() => parseAssignees(quadro?.cr4a1_bloqueados), [quadro]);
+  const estouBloqueado = !isAdmin && bloqueadosLogins.includes(user);
 
   useEffect(() => {
     if (!workspaceId) return undefined;
@@ -358,6 +366,23 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const adicionarColaborador = (login) => salvarColaboradores([...colaboradoresLogins, login]);
   const removerColaborador = (login) => salvarColaboradores(colaboradoresLogins.filter(l => l !== login));
 
+  // Bloqueio de acesso ao Trello do setor (membros do workspace que não devem ver as fichas).
+  const salvarBloqueados = async (novosLogins) => {
+    const corpo = {
+      cr4a1_nome: workspace?.cr4a1_nome || workspaceId,
+      cr4a1_workspace_id: workspaceId,
+      cr4a1_criador_login: workspace?.cr4a1_criador_login || user,
+      cr4a1_bloqueados: joinAssignees(novosLogins)
+    };
+    try {
+      if (quadro?.cr4a1_quadroid) await patch('cr4a1_quadros', quadro.cr4a1_quadroid, { cr4a1_bloqueados: corpo.cr4a1_bloqueados });
+      else await post('cr4a1_quadros', corpo);
+      recarregar();
+    } catch { toast.error('Erro ao atualizar os bloqueios.'); }
+  };
+  const bloquearMembro = (login) => salvarBloqueados([...bloqueadosLogins, login]);
+  const desbloquearMembro = (login) => salvarBloqueados(bloqueadosLogins.filter(l => l !== login));
+
   // Etiquetas do quadro
   const criarEtiqueta = async (dados) => {
     try {
@@ -514,6 +539,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         </div>
       </header>
 
+      {estouBloqueado ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/90 p-10 text-center">
+          <ShieldOff className="size-8 text-muted-foreground" />
+          <p className="text-sm font-semibold text-foreground">Seu acesso ao Trello deste workspace foi bloqueado.</p>
+          <p className="text-xs text-muted-foreground">Fale com o coordenador do setor ou com um ADMIN se achar que isso é um engano.</p>
+        </div>
+      ) : (
       <div className="flex items-start gap-3 overflow-x-auto pb-4">
         {listasVisiveis.map(lista => {
           const souDono = lista.cr4a1_criador_login === user || isAdmin;
@@ -648,6 +680,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
         </form>
       </div>
+      )}
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
@@ -679,6 +712,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           podeEditar={podeGerenciarColaboradores}
           onAdd={adicionarColaborador}
           onRemove={removerColaborador}
+          podeBloquear={podeGerenciarBloqueios}
+          bloqueadosLogins={bloqueadosLogins}
+          user={user}
+          onBlock={bloquearMembro}
+          onUnblock={desbloquearMembro}
           onClose={() => setCompartilharAberto(false)}
         />
       )}
@@ -812,12 +850,13 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
 };
 
 // Quem pode ver/editar o quadro, além dos membros do workspace do calendário.
-const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUsers, podeEditar, onAdd, onRemove, onClose }) => {
+const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUsers, podeEditar, onAdd, onRemove, podeBloquear, bloqueadosLogins = [], user, onBlock, onUnblock, onClose }) => {
   const [busca, setBusca] = useState('');
   const jaTemAcesso = new Set([...membrosBase.map(m => m.cr4a1_username), ...colaboradoresLogins]);
   const candidatos = busca.trim()
     ? allUsers.filter(u => !jaTemAcesso.has(u.cr4a1_username) && matchesSearch(u.cr4a1_nome_exibicao || u.cr4a1_username, busca)).slice(0, 8)
     : [];
+  const membrosBloqueaveis = membrosBase.filter(m => m.cr4a1_username !== workspace?.cr4a1_criador_login && m.cr4a1_username !== user);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -835,6 +874,32 @@ const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUs
               {membrosBase.map(m => <Badge key={m.cr4a1_username} variant="secondary">{m.cr4a1_nome_exibicao || m.cr4a1_username}</Badge>)}
             </div>
           </div>
+
+          {podeBloquear && membrosBloqueaveis.length > 0 && (
+            <div>
+              <Label className="flex items-center gap-1.5"><ShieldAlert className="size-3.5" /> Bloquear acesso ao Trello</Label>
+              <p className="mb-1.5 text-[11px] text-muted-foreground">A pessoa continua no workspace (BI, agenda...), só deixa de ver este quadro.</p>
+              <div className="flex flex-col gap-1.5">
+                {membrosBloqueaveis.map(m => {
+                  const bloqueado = bloqueadosLogins.includes(m.cr4a1_username);
+                  return (
+                    <div key={m.cr4a1_username} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+                      <span className={bloqueado ? 'text-muted-foreground line-through' : ''}>{m.cr4a1_nome_exibicao || m.cr4a1_username}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => (bloqueado ? onUnblock : onBlock)(m.cr4a1_username)}
+                        className={bloqueado ? '' : 'text-destructive'}
+                      >
+                        {bloqueado ? 'Desbloquear' : 'Bloquear'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <Label>Colaboradores só deste quadro</Label>
