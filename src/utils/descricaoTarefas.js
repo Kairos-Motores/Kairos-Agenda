@@ -20,6 +20,22 @@ export const htmlParaTexto = (html) => {
   return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
 };
 
+// Marca (ou desmarca) todas as microtarefas de uma vez — usado quando o cartão inteiro é
+// concluído, pra manter o card e a checklist sempre consistentes entre si.
+export const marcarTodasTarefas = (html, concluida) => {
+  if (!html || !html.includes('data-type="taskItem"')) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('li[data-type="taskItem"]').forEach((li) => {
+    li.setAttribute('data-checked', String(concluida));
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      if (concluida) checkbox.setAttribute('checked', '');
+      else checkbox.removeAttribute('checked');
+    }
+  });
+  return doc.body.innerHTML;
+};
+
 export const alternarTarefaNaDescricao = (html, index) => {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
   const li = doc.querySelectorAll('li[data-type="taskItem"]')[index];

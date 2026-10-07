@@ -18,7 +18,7 @@ import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
-import { extrairTarefas, alternarTarefaNaDescricao, htmlParaTexto } from '../utils/descricaoTarefas';
+import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -237,6 +237,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
   // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
   const salvarFicha = async (form, original) => {
+    // Havendo microtarefas, elas mandam no "concluída" (ex.: adicionar uma tarefa nova
+    // nova e pendente reabre o cartão mesmo que o interruptor tenha ficado em "concluída").
+    const tarefasDaDescricao = extrairTarefas(form.descricao);
+    const concluidaFinal = tarefasDaDescricao.length > 0
+      ? tarefasDaDescricao.every(t => t.concluida)
+      : form.concluida;
+
     const dataDefinida = !!form.dia;
     const dataIso = dataDefinida ? new Date(`${form.dia}T${form.hora || '08:00'}:00`).toISOString() : null;
     const responsavelMudou = form.responsavel !== original.cr4a1_responsavel_login;
@@ -286,7 +293,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_responsavel_login: form.responsavel,
         cr4a1_data_inicio: dataIso,
         cr4a1_evento_id: eventoId,
-        cr4a1_concluida: form.concluida ? 'Sim' : 'Não',
+        cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
         cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
       });
@@ -380,26 +387,31 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const fichasDaLista = (lista) => ordenar(fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid));
 
   // Marca a ficha como concluída/pendente direto no card, sem abrir o formulário.
+  // Concluir o cartão também marca todas as microtarefas (o card reflete o estado delas).
   const toggleConcluida = async (ficha) => {
     const novoValor = ficha.cr4a1_concluida === 'Sim' ? 'Não' : 'Sim';
-    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: novoValor } : f));
+    const novaDescricao = novoValor === 'Sim' ? marcarTodasTarefas(ficha.cr4a1_descricao, true) : ficha.cr4a1_descricao;
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao } : f));
     try {
-      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor });
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao });
     } catch {
       toast.error('Erro ao atualizar ficha.');
-      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida } : f));
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida, cr4a1_descricao: ficha.cr4a1_descricao } : f));
     }
   };
 
-  // Marca/desmarca uma microtarefa da checklist (criada dentro do editor de descrição) direto no card.
+  // Marca/desmarca uma microtarefa direto no card. O cartão segue o estado das tarefas: todas
+  // concluídas marca o cartão sozinho, qualquer uma pendente reabre o cartão automaticamente.
   const toggleMicrotarefa = async (ficha, indiceTarefa) => {
     const novaDescricao = alternarTarefaNaDescricao(ficha.cr4a1_descricao, indiceTarefa);
-    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao } : f));
+    const tarefas = extrairTarefas(novaDescricao);
+    const novoConcluida = tarefas.length > 0 && tarefas.every(t => t.concluida) ? 'Sim' : 'Não';
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida } : f));
     try {
-      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao });
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida });
     } catch {
       toast.error('Erro ao atualizar microtarefa.');
-      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: ficha.cr4a1_descricao } : f));
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: ficha.cr4a1_descricao, cr4a1_concluida: ficha.cr4a1_concluida } : f));
     }
   };
 
@@ -719,6 +731,12 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
   const set = (campo, valor) => setForm(prev => ({ ...prev, [campo]: valor }));
   const alternarEtiqueta = (id) => set('etiquetas', form.etiquetas.includes(id) ? form.etiquetas.filter(e => e !== id) : [...form.etiquetas, id]);
 
+  // Com microtarefas na descrição, "concluída" deixa de ser uma escolha manual — ela
+  // reflete se todas as microtarefas estão marcadas (mesma regra do card na lista).
+  const tarefasDaDescricao = useMemo(() => extrairTarefas(form.descricao), [form.descricao]);
+  const temTarefas = tarefasDaDescricao.length > 0;
+  const concluidaDerivada = temTarefas && tarefasDaDescricao.every(t => t.concluida);
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -773,8 +791,11 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
       {form.dia && <p className="text-xs text-muted-foreground">Limpar a data mantém a ficha no quadro, mas ela sai da agenda.</p>}
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
-        <Label className="mb-0">Concluída</Label>
-        <Switch checked={form.concluida} onCheckedChange={v => set('concluida', v)} />
+        <div>
+          <Label className="mb-0">Concluída</Label>
+          {temTarefas && <p className="text-[11px] text-muted-foreground">Definida automaticamente pelas microtarefas da descrição.</p>}
+        </div>
+        <Switch checked={temTarefas ? concluidaDerivada : form.concluida} onCheckedChange={v => set('concluida', v)} disabled={temTarefas} />
       </div>
 
       <DialogFooter className="justify-between">
