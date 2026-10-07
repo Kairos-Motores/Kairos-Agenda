@@ -81,7 +81,7 @@ function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
-    updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
+    updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
@@ -1466,7 +1466,7 @@ function App() {
                 </React.Suspense>
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
-                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} dragEndRef={trelloDragEndRef} />
+                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} currentUser={currentUser} updateTrelloFundo={updateTrelloFundo} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} dragEndRef={trelloDragEndRef} />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>

@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
@@ -14,10 +13,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { SearchField } from './ui/search-field';
 import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
+import { RichTextEditor } from './ui/rich-text-editor';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
+import { extrairTarefas, alternarTarefaNaDescricao, htmlParaTexto } from '../utils/descricaoTarefas';
+import { compressImage } from '../utils/compressImage';
 import { useConfirm } from '../hooks/useConfirm';
 
 const API_PROXY = '/api/dataverse-proxy';
@@ -34,6 +36,33 @@ const nomeDe = (login, allUsers) => {
   return u?.cr4a1_nome_exibicao || login || 'Sem responsável';
 };
 
+// Foto do usuário (ou bolinha com a inicial, na cor dele) em formato redondo.
+const UserAvatar = ({ login, allUsers, size = 22, className = '' }) => {
+  const u = allUsers.find(x => x.cr4a1_username === login);
+  const nome = u?.cr4a1_nome_exibicao || login || '?';
+  const dimensao = `${size}px`;
+  if (u?.cr4a1_foto) {
+    return (
+      <img
+        src={u.cr4a1_foto}
+        alt={nome}
+        title={nome}
+        className={`shrink-0 rounded-full border border-border object-cover ${className}`}
+        style={{ width: dimensao, height: dimensao }}
+      />
+    );
+  }
+  return (
+    <div
+      title={nome}
+      className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${className}`}
+      style={{ width: dimensao, height: dimensao, backgroundColor: u?.cr4a1_cor || '#3498db', fontSize: `${Math.round(size * 0.45)}px` }}
+    >
+      {nome?.[0]?.toUpperCase()}
+    </div>
+  );
+};
+
 const ordenar = (lista) => [...lista].sort((a, b) => (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0));
 
 // Monta o horário de início e fim (1 hora) a partir da data e hora escolhidas no formulário.
@@ -47,7 +76,7 @@ const intervaloDoEvento = (dia, hora) => {
   };
 };
 
-export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin, dragEndRef }) => {
+export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTrelloFundo, refreshEvents, isAdmin, dragEndRef }) => {
   const [workspaceEscolhido, setWorkspaceId] = useState('');
   const [versao, setVersao] = useState(0);
   const [workspacesExtras, setWorkspacesExtras] = useState([]);
@@ -61,6 +90,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
   const [editando, setEditando] = useState(null);
   const [compartilharAberto, setCompartilharAberto] = useState(false);
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
+  const [fundoAberto, setFundoAberto] = useState(false);
   const { confirm, ConfirmDialogHost } = useConfirm();
 
   const recarregar = useCallback(() => setVersao(v => v + 1), []);
@@ -239,7 +269,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
           cr4a1_hora_inicio: form.hora || '08:00',
           cr4a1_hora_fim: horaFim,
           cr4a1_tipo: 'Tarefa',
-          cr4a1_detalhes: form.descricao || '',
+          cr4a1_detalhes: htmlParaTexto(form.descricao),
           cr4a1_subtasks: '[]',
           cr4a1_privado: false,
           cr4a1_arquivos: '[]',
@@ -361,6 +391,18 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
     }
   };
 
+  // Marca/desmarca uma microtarefa da checklist (criada dentro do editor de descrição) direto no card.
+  const toggleMicrotarefa = async (ficha, indiceTarefa) => {
+    const novaDescricao = alternarTarefaNaDescricao(ficha.cr4a1_descricao, indiceTarefa);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao });
+    } catch {
+      toast.error('Erro ao atualizar microtarefa.');
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: ficha.cr4a1_descricao } : f));
+    }
+  };
+
   // Arrasta a ficha entre listas (ou reordena na mesma lista), recalculando cr4a1_ordem.
   const handleDragEnd = (result) => {
     const { source, destination, draggableId } = result;
@@ -403,14 +445,44 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
     return () => { if (dragEndRef) dragEndRef.current = null; };
   });
 
+  const fundoEstilo = useMemo(() => {
+    if (currentUser?.cr4a1_trello_fundo_imagem) {
+      return { backgroundImage: `url(${currentUser.cr4a1_trello_fundo_imagem})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    }
+    if (currentUser?.cr4a1_trello_fundo_cor) {
+      return { backgroundColor: currentUser.cr4a1_trello_fundo_cor };
+    }
+    return undefined;
+  }, [currentUser]);
+
   return (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-4 rounded-2xl p-3" style={fundoEstilo}>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-extrabold text-foreground">Fichas</h2>
           <p className="text-sm text-muted-foreground">Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          {membros.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCompartilharAberto(true)}
+              title="Quem tem acesso a este quadro"
+              className="flex items-center -space-x-2"
+            >
+              {membros.slice(0, 6).map(m => (
+                <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={28} className="ring-2 ring-[var(--card)]" />
+              ))}
+              {membros.length > 6 && (
+                <div className="flex size-[28px] items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
+                  +{membros.length - 6}
+                </div>
+              )}
+            </button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setFundoAberto(true)}>
+            <Palette className="size-4" /> Fundo
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEtiquetasAberto(true)}>
             <Tag className="size-4" /> Etiquetas
           </Button>
@@ -466,6 +538,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
                     {fichasDaLista(lista).map((ficha, index) => {
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
                       const concluida = ficha.cr4a1_concluida === 'Sim';
+                      const microtarefas = extrairTarefas(ficha.cr4a1_descricao);
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -473,38 +546,56 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
                               ref={providedCard.innerRef}
                               {...providedCard.draggableProps}
                               {...providedCard.dragHandleProps}
-                              className={`flex items-start gap-2 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+                              className={`flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
                             >
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); toggleConcluida(ficha); }}
-                                aria-label={concluida ? `Marcar "${ficha.cr4a1_titulo}" como não concluída` : `Marcar "${ficha.cr4a1_titulo}" como concluída`}
-                                title={concluida ? 'Marcar como não concluída' : 'Marcar como concluída'}
-                                className={`mt-0.5 shrink-0 ${concluida ? 'text-success' : 'text-muted-foreground hover:text-primary'}`}
-                              >
-                                {concluida ? <CheckCircle2 className="size-[18px]" /> : <Circle className="size-[18px]" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => abrirFicha(ficha)}
-                                className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
-                              >
-                                {etiquetasDaFicha.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
-                                  </div>
-                                )}
-                                <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
-                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                  {comData(ficha) && (
-                                    <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
-                                      <CalendarDays className="size-3" />
-                                      {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
-                                    </span>
+                              <div className="flex items-start gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); toggleConcluida(ficha); }}
+                                  aria-label={concluida ? `Marcar "${ficha.cr4a1_titulo}" como não concluída` : `Marcar "${ficha.cr4a1_titulo}" como concluída`}
+                                  title={concluida ? 'Marcar como não concluída' : 'Marcar como concluída'}
+                                  className={`mt-0.5 shrink-0 ${concluida ? 'text-success' : 'text-muted-foreground hover:text-primary'}`}
+                                >
+                                  {concluida ? <CheckCircle2 className="size-[18px]" /> : <Circle className="size-[18px]" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => abrirFicha(ficha)}
+                                  className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
+                                >
+                                  {etiquetasDaFicha.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
+                                    </div>
                                   )}
-                                  <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                                  <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    {comData(ficha) && (
+                                      <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
+                                        <CalendarDays className="size-3" />
+                                        {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                                      </span>
+                                    )}
+                                    <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
+                                    <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                                  </div>
+                                </button>
+                              </div>
+                              {microtarefas.length > 0 && (
+                                <div className="flex flex-col gap-1 pl-[26px]">
+                                  {microtarefas.map(tarefa => (
+                                    <button
+                                      key={tarefa.index}
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); toggleMicrotarefa(ficha, tarefa.index); }}
+                                      className="flex items-center gap-1.5 text-left text-[11px] text-muted-foreground"
+                                    >
+                                      {tarefa.concluida ? <CheckCircle2 className="size-3 shrink-0 text-success" /> : <Circle className="size-3 shrink-0" />}
+                                      <span className={tarefa.concluida ? 'line-through opacity-60' : ''}>{tarefa.texto}</span>
+                                    </button>
+                                  ))}
                                 </div>
-                              </button>
+                              )}
                             </div>
                           )}
                         </Draggable>
@@ -580,6 +671,14 @@ export const TrelloPanel = ({ workspaces, allUsers, user, refreshEvents, isAdmin
 
       {ConfirmDialogHost}
 
+      {fundoAberto && (
+        <FundoDialog
+          currentUser={currentUser}
+          onSave={(dados) => updateTrelloFundo?.(currentUser.cr4a1_usuarios_agendaid, dados)}
+          onClose={() => setFundoAberto(false)}
+        />
+      )}
+
       {etiquetasAberto && (
         <EtiquetasDialog
           etiquetas={etiquetas}
@@ -627,7 +726,8 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
 
       <div>
         <Label>Descrição</Label>
-        <Textarea rows={3} value={form.descricao} onChange={e => set('descricao', e.target.value)} />
+        <p className="mb-1 text-[11px] text-muted-foreground">Use o ícone de checklist para criar microtarefas — elas aparecem e podem ser marcadas direto no card.</p>
+        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} />
       </div>
 
       {etiquetas.length > 0 && (
@@ -859,5 +959,82 @@ const EtiquetaForm = ({ inicial, titulo, onCancel, onSave }) => {
         <Button size="sm" onClick={() => onSave(form)} disabled={!form.cr4a1_nome.trim()}>Salvar</Button>
       </div>
     </div>
+  );
+};
+
+// O fundo é por pessoa (guardado no usuário), não no quadro — cada um vê o que escolheu.
+const FundoDialog = ({ currentUser, onSave, onClose }) => {
+  const [cor, setCor] = useState(currentUser?.cr4a1_trello_fundo_cor || '');
+  const [imagem, setImagem] = useState(currentUser?.cr4a1_trello_fundo_imagem || '');
+  const [enviando, setEnviando] = useState(false);
+
+  const escolherCor = (hex) => { setCor(hex); setImagem(''); };
+  const handleUpload = (file) => {
+    if (!file) return;
+    setEnviando(true);
+    compressImage(file, (dataUrl) => {
+      setImagem(dataUrl);
+      setCor('');
+      setEnviando(false);
+    }, { maxWidth: 1600, maxHeight: 900, quality: 0.6 });
+  };
+  const limpar = () => { setCor(''); setImagem(''); };
+
+  const salvar = async () => {
+    await onSave({ cor, imagem });
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle><Palette className="size-5" /> Fundo do seu Trello</DialogTitle>
+          <DialogDescription>É só seu — mesmo dividindo o quadro com outras pessoas, cada uma vê o fundo que escolheu.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          {imagem && (
+            <div className="h-28 w-full rounded-xl border border-border bg-cover bg-center" style={{ backgroundImage: `url(${imagem})` }} />
+          )}
+
+          <div>
+            <Label>Cor sólida</Label>
+            <div className="grid max-h-36 grid-cols-10 gap-1.5 overflow-y-auto p-1">
+              {themeColors.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => escolherCor(c.hex)}
+                  title={c.label}
+                  aria-label={c.label}
+                  className="size-5 shrink-0 rounded-full transition-transform active:scale-90"
+                  style={{ backgroundColor: c.hex, boxShadow: cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Ou uma imagem</Label>
+            <div>
+              <Button type="button" variant="outline" size="sm" className="mt-1" onClick={() => document.getElementById('trello-fundo-upload').click()} disabled={enviando}>
+                <ImageIcon className="size-4" /> {enviando ? 'A preparar...' : 'Escolher imagem'}
+              </Button>
+              <input type="file" id="trello-fundo-upload" hidden accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} />
+            </div>
+          </div>
+
+          {(cor || imagem) && (
+            <Button type="button" variant="ghost" size="sm" className="self-start text-destructive" onClick={limpar}>Remover fundo</Button>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={salvar}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

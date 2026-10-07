@@ -1417,6 +1417,27 @@ export const useCalendar = () => {
         }
     };
 
+    // Fundo do Trello é por usuário (não por quadro): cada um vê o seu, mesmo dividindo o mesmo quadro.
+    const updateTrelloFundo = async (userId, { cor, imagem }) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cr4a1_trello_fundo_cor: cor ?? '',
+                    cr4a1_trello_fundo_imagem: imagem ?? ''
+                })
+            });
+            if (!response.ok) throw new Error("Erro na API Gateway");
+            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
+                { ...u, cr4a1_trello_fundo_cor: cor ?? '', cr4a1_trello_fundo_imagem: imagem ?? '' } : u
+            ));
+        } catch (error) {
+            toast.error("Erro ao atualizar o fundo do Trello.");
+            console.error(error);
+        }
+    };
+
     // --- FUNÇÕES DE ESCRITA DE NOTAS ---
     const addNota = async (notaData) => {
         const generatedId = crypto.randomUUID();
@@ -1660,7 +1681,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
-        updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
+        updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
