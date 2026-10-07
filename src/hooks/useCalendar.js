@@ -1657,7 +1657,7 @@ export const useCalendar = () => {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, eventTypes, addEventType, updateEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
-        loading, isValidatingSession, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
+        loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
