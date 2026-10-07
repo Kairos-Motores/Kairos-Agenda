@@ -54,6 +54,26 @@ import mainLogo from './assets/LOGO PNG 8x11 (1).png';
 
 // --- COMPONENTE PRINCIPAL ---
 
+const RailItem = ({ active, onClick, icon, title, activeBg, activeColor }) => (
+  <button
+    onClick={onClick}
+    title={title}
+    aria-label={title}
+    className="app-rail-item boing-effect"
+    style={active ? { background: activeBg, color: activeColor } : undefined}
+  >
+    <span className="material-symbols-rounded">{icon}</span>
+    <span className="app-rail-label">{title}</span>
+  </button>
+);
+
+const APPS = [
+  { href: "https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/9c6e8435-69c1-457f-94d0-f90579d82fab?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=0330f7bd-de70-4545-b029-61b7052c847e&sourcetime=1781612868074&source=portal&hidenavbar=true", title: "Avante", img: avanteImg },
+  { href: "https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/b8c3032e-74e3-4c5d-9290-38cd53936644?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=a95eae44-d827-4365-b370-399d11f57484&sourcetime=1781641491290&source=portal&hidenavbar=true", title: "Echoe", img: echoeImg },
+  { href: "https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/501635ac-110f-415e-a9ec-ed6c70af9a54?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=7b9d36b0-aff6-477b-bf3c-49be3ed5b1db&sourcetime=1781632369050&source=portal&hidenavbar=true", title: "Hub", img: hubImg },
+  { href: "https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/8571c626-fa75-4049-8b65-64d965ee8293?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=59adb198-18c2-4d83-8d5a-4bc8f219ee9a&sourcetime=1781693282907&source=portal&hidenavbar=true", title: "Medro", img: medroImg }
+];
+
 function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
@@ -242,7 +262,6 @@ function App() {
     setIsWorkspaceModalOpen(true);
   };
   const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
-  const [isPowerAppsFabOpen, setIsPowerAppsFabOpen] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [showBirthday, setShowBirthday] = useState(false);
 
@@ -938,6 +957,14 @@ function App() {
                   <span className="material-symbols-rounded">health_and_safety</span> SSMA
                 </button>
               )}
+
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '12px 0 4px' }}>Aplicativos</div>
+              {APPS.map(app => (
+                <a key={app.title} href={app.href} target="_blank" rel="noopener noreferrer" className="nav-pill boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', borderRadius: '100px', textDecoration: 'none', color: 'var(--text-primary)' }}>
+                  <img src={app.img} alt="" className="app-rail-app-icon" />
+                  {app.title}
+                </a>
+              ))}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1736,82 +1763,27 @@ function App() {
             </div>
           </main>
 
-          {/* BARRA POWERAPPS LATERAL DIREITA FIXA (DESKTOP) */}
-          <aside className="powerapps-sidebar desktop-only">
-            <div className="sidebar-collapsed-indicator">
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>apps</span>
-            </div>
-            <div className="sidebar-expanded-content">
-              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/9c6e8435-69c1-457f-94d0-f90579d82fab?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=0330f7bd-de70-4545-b029-61b7052c847e&sourcetime=1781612868074&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Avante">
-                <img src={avanteImg} alt="Avante" className="powerapp-icon" />
+          {/* TRILHO LATERAL DIREITO (DESKTOP): apps da Kairós e módulos */}
+          <aside className="app-rail desktop-only" data-tutorial="nav-modes-desktop">
+            <RailItem active={appMode === 'calendar'} onClick={() => setAppMode('calendar')} icon="calendar_month" title="Agenda" activeBg="var(--bg-tertiary)" activeColor="var(--text-accent)" />
+            <RailItem active={appMode === 'notas'} onClick={() => setAppMode('notas')} icon="description" title="Notas" activeBg="#ffe0b2" activeColor="#f57c00" />
+            <RailItem active={appMode === 'bi'} onClick={() => setAppMode('bi')} icon="bar_chart" title="Painéis BI" activeBg="#fff3e0" activeColor="#f57c00" />
+            {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('SSMA')) && (
+              <RailItem active={appMode === 'ssma'} onClick={() => setAppMode('ssma')} icon="health_and_safety" title="SSMA" activeBg="#e8f5e9" activeColor="#2e7d32" />
+            )}
+            {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
+              <RailItem active={appMode === 'tasks'} onClick={() => setAppMode('tasks')} icon="assignment" title="Tarefas" activeBg="var(--bg-tertiary)" activeColor="var(--text-accent)" />
+            )}
+            {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+              <RailItem active={appMode === 'visitas'} onClick={() => setAppMode('visitas')} icon="location_on" title="Visitas" activeBg="#fff3e0" activeColor="#f57c00" />
+            )}
+            <div className="app-rail-divider" />
+            {APPS.map(app => (
+              <a key={app.title} href={app.href} target="_blank" rel="noopener noreferrer" title={app.title} className="app-rail-item">
+                <img src={app.img} alt={app.title} className="app-rail-app-icon" />
+                <span className="app-rail-label">{app.title}</span>
               </a>
-              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/b8c3032e-74e3-4c5d-9290-38cd53936644?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=a95eae44-d827-4365-b370-399d11f57484&sourcetime=1781641491290&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Echoe">
-                <img src={echoeImg} alt="Echoe" className="powerapp-icon" />
-              </a>
-              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/501635ac-110f-415e-a9ec-ed6c70af9a54?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=7b9d36b0-aff6-477b-bf3c-49be3ed5b1db&sourcetime=1781632369050&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Hub">
-                <img src={hubImg} alt="Hub" className="powerapp-icon" />
-              </a>
-              <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/8571c626-fa75-4049-8b65-64d965ee8293?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=59adb198-18c2-4d83-8d5a-4bc8f219ee9a&sourcetime=1781693282907&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" title="Medro">
-                <img src={medroImg} alt="Medro" className="powerapp-icon" />
-              </a>
-            </div>
-          </aside>
-
-          {/* BARRA LATERAL DIREITA FIXA (DESKTOP) */}
-          <aside className="right-menu-sidebar desktop-only" data-tutorial="nav-modes-desktop">
-            <div className="sidebar-collapsed-indicator">
-              <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)', fontSize: '24px' }}>side_navigation</span>
-            </div>
-            <div className="sidebar-expanded-content">
-              <button onClick={() => setAppMode('calendar')} className={`boing-effect ${appMode === 'calendar' ? 'active' : ''}`} title="Agenda" style={{
-                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: appMode === 'calendar' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'calendar' ? 'var(--text-accent)' : 'var(--text-primary)'
-              }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>calendar_month</span>
-              </button>
-
-              <button onClick={() => setAppMode('notas')} className={`boing-effect ${appMode === 'notas' ? 'active' : ''}`} title="Notas da Equipa" style={{
-                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: appMode === 'notas' ? '#ffe0b2' : 'transparent', color: appMode === 'notas' ? '#f57c00' : 'var(--text-primary)'
-              }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>description</span>
-              </button>
-
-              {/* NOVO: Botão BI na barra direita */}
-              <button onClick={() => setAppMode('bi')} className={`boing-effect ${appMode === 'bi' ? 'active' : ''}`} title="Painéis BI" style={{
-                width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: appMode === 'bi' ? '#fff3e0' : 'transparent', color: appMode === 'bi' ? '#f57c00' : 'var(--text-primary)'
-              }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>bar_chart</span>
-              </button>
-
-              {(hasRole('ADMIN') || hasRole('COORD SSMA') || hasRole('SSMA')) && (
-                <button onClick={() => setAppMode('ssma')} className={`boing-effect ${appMode === 'ssma' ? 'active' : ''}`} title="SSMA" style={{
-                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: appMode === 'ssma' ? '#e8f5e9' : 'transparent', color: appMode === 'ssma' ? '#2e7d32' : 'var(--text-primary)'
-                }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>health_and_safety</span>
-                </button>
-              )}
-
-              {(hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH')) && (
-                <button onClick={() => setAppMode('tasks')} className={`boing-effect ${appMode === 'tasks' ? 'active' : ''}`} title="Tarefas" style={{
-                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: appMode === 'tasks' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'tasks' ? 'var(--text-accent)' : 'var(--text-primary)'
-                }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>assignment</span>
-                </button>
-              )}
-
-              {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
-                <button onClick={() => setAppMode('visitas')} className={`boing-effect ${appMode === 'visitas' ? 'active' : ''}`} title="Visitas Comerciais" style={{
-                  width: '44px', height: '44px', borderRadius: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: appMode === 'visitas' ? '#fff3e0' : 'transparent', color: appMode === 'visitas' ? '#f57c00' : 'var(--text-primary)'
-                }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>location_on</span>
-                </button>
-              )}
-            </div>
+            ))}
           </aside>
         </div>
 
@@ -2002,46 +1974,12 @@ function App() {
                 )}
               </div>
             )}
-            <button className="fab-btn boing-effect" onClick={() => { setIsFabMenuOpen(!isFabMenuOpen); setIsPowerAppsFabOpen(false); }} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'), color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button className="fab-btn boing-effect" onClick={() => { setIsFabMenuOpen(!isFabMenuOpen); }} style={{ width: '60px', height: '60px', borderRadius: '20px', background: isFabMenuOpen ? 'var(--bg-secondary)' : (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'), color: isFabMenuOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
         )}
 
-        {/* POWERAPPS FAB (MOBILE ONLY) */}
-        <div className="mobile-only" style={{ position: 'fixed', bottom: '32px', left: '32px', zIndex: isPowerAppsFabOpen ? 2100 : 400, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-          {isPowerAppsFabOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start', marginBottom: '8px', marginLeft: '6px' }}>
-              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0s' }}>
-                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/8571c626-fa75-4049-8b65-64d965ee8293?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=59adb198-18c2-4d83-8d5a-4bc8f219ee9a&sourcetime=1781693282907&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-                  <img src={medroImg} alt="Medro" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </a>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Medro</span>
-              </div>
-              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.05s' }}>
-                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/501635ac-110f-415e-a9ec-ed6c70af9a54?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=7b9d36b0-aff6-477b-bf3c-49be3ed5b1db&sourcetime=1781632369050&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-                  <img src={hubImg} alt="Hub" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </a>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Hub</span>
-              </div>
-              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.1s' }}>
-                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/b8c3032e-74e3-4c5d-9290-38cd53936644?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=a95eae44-d827-4365-b370-399d11f57484&sourcetime=1781641491290&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-                  <img src={echoeImg} alt="Echoe" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </a>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Echoe</span>
-              </div>
-              <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px', animationDelay: '0.15s' }}>
-                <a href="https://apps.powerapps.com/play/e/default-fca950cc-da1f-4b7f-bc99-2a028473cb1a/a/9c6e8435-69c1-457f-94d0-f90579d82fab?tenantId=fca950cc-da1f-4b7f-bc99-2a028473cb1a&hint=0330f7bd-de70-4545-b029-61b7052c847e&sourcetime=1781612868074&source=portal&hidenavbar=true" target="_blank" rel="noopener noreferrer" className="boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-                  <img src={avanteImg} alt="Avante" className="powerapp-icon" style={{ width: '48px', height: '48px', background: 'var(--bg-primary)', borderRadius: '16px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </a>
-                <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Avante</span>
-              </div>
-            </div>
-          )}
-          <button className="boing-effect" onClick={() => { setIsPowerAppsFabOpen(!isPowerAppsFabOpen); setIsFabMenuOpen(false); }} style={{ animation: 'fabEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards', width: '60px', height: '60px', borderRadius: '20px', background: isPowerAppsFabOpen ? 'var(--bg-secondary)' : 'var(--text-accent)', color: isPowerAppsFabOpen ? 'var(--text-primary)' : 'white', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isPowerAppsFabOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isPowerAppsFabOpen ? 'close' : 'apps'}</span>
-          </button>
-        </div>
       </div>
 
       {/* BLOCO DE ESTILOS CSS INJETADO */}
@@ -2151,35 +2089,67 @@ function App() {
             box-sizing: border-box;
         }
 
-        .right-menu-sidebar, .powerapps-sidebar {
+        .app-rail {
             position: fixed;
-            right: 12px;
-            transform: translateY(-50%);
-            width: 56px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 28px;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 76px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 12px 0;
-            gap: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            gap: 6px;
+            padding: 16px 0;
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
             z-index: 1000;
-            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-            overflow: hidden;
-            max-height: 56px;
         }
 
-        .right-menu-sidebar { top: 35%; }
-        .powerapps-sidebar { top: 65%; }
+        .app-rail-item {
+            width: 62px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 0;
+            border: none;
+            border-radius: 16px;
+            background: transparent;
+            color: var(--text-primary);
+            font: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
 
-        .right-menu-sidebar:hover, .powerapps-sidebar:hover {
-            max-height: 400px;
-            width: 64px;
-            border-radius: 32px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        .app-rail-item:hover {
             background: var(--bg-secondary);
+        }
+
+        .app-rail-item .material-symbols-rounded {
+            font-size: 24px;
+        }
+
+        .app-rail-label {
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.1;
+            text-align: center;
+        }
+
+        .app-rail-divider {
+            width: 36px;
+            height: 1px;
+            margin: 6px 0;
+            background: var(--border-color);
+        }
+
+        .app-rail-app-icon {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
         }
 
         .sidebar-collapsed-indicator {
@@ -2190,11 +2160,6 @@ function App() {
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        .right-menu-sidebar:hover .sidebar-collapsed-indicator,
-        .powerapps-sidebar:hover .sidebar-collapsed-indicator {
-            transform: scale(0.8) translateY(-5px);
-            opacity: 0.5;
-        }
 
         .mini-month-grid {
             display: grid;
@@ -2210,7 +2175,7 @@ function App() {
 
         @media (min-width: 1025px) {
             .main-container {
-                margin-right: 80px;
+                margin-right: 76px;
             }
         }
 
