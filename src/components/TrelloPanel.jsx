@@ -446,11 +446,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   });
 
   const fundoEstilo = useMemo(() => {
+    // minHeight faz o fundo já ocupar a tela toda de cara, em vez de só aparecer atrás das
+    // listas curtas — mas sem limitar a altura: se as listas crescerem, o fundo cresce junto.
     if (currentUser?.cr4a1_trello_fundo_imagem) {
-      return { backgroundImage: `url(${currentUser.cr4a1_trello_fundo_imagem})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+      return { backgroundImage: `url(${currentUser.cr4a1_trello_fundo_imagem})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 'calc(100vh - 220px)' };
     }
     if (currentUser?.cr4a1_trello_fundo_cor) {
-      return { backgroundColor: currentUser.cr4a1_trello_fundo_cor };
+      return { backgroundColor: currentUser.cr4a1_trello_fundo_cor, minHeight: 'calc(100vh - 220px)' };
     }
     return undefined;
   }, [currentUser]);
@@ -624,7 +626,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
         <form
           onSubmit={e => { e.preventDefault(); criarLista(); }}
-          className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-dashed border-border p-3"
+          className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
         >
           <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
