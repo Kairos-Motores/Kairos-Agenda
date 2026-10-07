@@ -15,7 +15,12 @@ const ROLES_EXCLUDED_FROM_AUTO_MEMBERSHIP = ['COMUM'];
 // Roles usadas em checagens de permissão pelo app (hasRole/checkAccess) mas que não
 // aparecem em nenhum painel do biConfig — precisam existir na lista de seleção do
 // editor de roles mesmo sem gerar entrada no mapeamento acima.
-const EXTRA_KNOWN_ROLES = ['SECRETARIA', 'COORD SSMA', 'SSMA'];
+const EXTRA_KNOWN_ROLES = ['SECRETARIA', 'COORD SSMA', 'SSMA', 'COORD QUALIDADE'];
+
+// Workspaces cujo papel de coordenador só serve pra decidir quem bloqueia o Trello do
+// setor (não concede acesso a nenhum painel de BI, por isso fica fora do biConfig.js).
+// Ex.: Qualidade só tem a role "QUALIDADE" (sem COORD) no biConfig.
+const EXTRA_WORKSPACE_COORD_ROLES = { 'Qualidade': ['COORD QUALIDADE'] };
 
 const buildRoleWorkspaceMap = () => {
     const map = {};
@@ -48,6 +53,10 @@ export const WORKSPACE_COORD_ROLES = (() => {
             map[ws].push(role);
         });
     });
+    Object.entries(EXTRA_WORKSPACE_COORD_ROLES).forEach(([ws, roles]) => {
+        if (!map[ws]) map[ws] = [];
+        roles.forEach(role => { if (!map[ws].includes(role)) map[ws].push(role); });
+    });
     return map;
 })();
 
@@ -63,5 +72,5 @@ export const ALL_KNOWN_ROLES = Array.from(new Set([
 // o gerenciador de roles só permite editar/excluir as que NÃO estão aqui. Roles criadas
 // em tela (tabela cr4a1_app_roles) só ganham efeito onde o ADMIN as libera (painéis de
 // BI) — exceto nomes começando com "COORD", que hasCoordRole trata como coordenação.
-const CODE_REFERENCED_ROLES = ['ADMIN', 'COMUM', 'COORD', 'COMERCIAL', 'COORD COMERCIAL', 'DIRETORIA', 'SECRETARIA', 'RH', 'QUALIDADE', 'SSMA', 'COORD SSMA'];
+const CODE_REFERENCED_ROLES = ['ADMIN', 'COMUM', 'COORD', 'COMERCIAL', 'COORD COMERCIAL', 'DIRETORIA', 'SECRETARIA', 'RH', 'QUALIDADE', 'SSMA', 'COORD SSMA', 'COORD QUALIDADE'];
 export const PROTECTED_ROLES = Array.from(new Set([...CODE_REFERENCED_ROLES, ...ALL_KNOWN_ROLES]));
