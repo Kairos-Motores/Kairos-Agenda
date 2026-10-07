@@ -1467,7 +1467,7 @@ function App() {
                 </React.Suspense>
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
-                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} refreshEvents={fetchEvents} />
+                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} />
                 </React.Suspense>
               ) : appMode === 'ssma' ? (
                 <React.Suspense fallback={null}>
