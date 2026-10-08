@@ -26,6 +26,9 @@ import { useConfirm } from '../hooks/useConfirm';
 const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
+const TRELLO_WORKSPACE_KEY = 'kairos_trello_workspace';
+// Intervalo do polling que mantém o quadro em sincronia entre quem está vendo o mesmo Trello.
+const TRELLO_POLL_MS = 5000;
 
 const membrosDoWorkspace = (ws, allUsers) => {
   const logins = new Set([ws?.cr4a1_criador_login, ...parseAssignees(ws?.cr4a1_membros_logins)].filter(Boolean));
@@ -78,7 +81,13 @@ const intervaloDoEvento = (dia, hora) => {
 };
 
 export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTrelloFundo, refreshEvents, isAdmin, hasRole, dragEndRef }) => {
-  const [workspaceEscolhido, setWorkspaceId] = useState('');
+  const [workspaceEscolhido, setWorkspaceIdRaw] = useState(() => {
+    try { return localStorage.getItem(TRELLO_WORKSPACE_KEY) || ''; } catch { return ''; }
+  });
+  const setWorkspaceId = (id) => {
+    setWorkspaceIdRaw(id);
+    try { localStorage.setItem(TRELLO_WORKSPACE_KEY, id); } catch { /* sem localStorage, sem persistência */ }
+  };
   const [versao, setVersao] = useState(0);
   const [workspacesExtras, setWorkspacesExtras] = useState([]);
   const [listas, setListas] = useState([]);
@@ -122,7 +131,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     });
   }, [workspaces, workspacesExtras]);
 
-  const workspaceId = workspaceEscolhido || todasOpcoes[0]?.cr4a1_calendarios_workspacesid || '';
+  // O workspace lembrado (localStorage) pode ter ficado inválido (ex.: perdeu acesso) — nesse
+  // caso cai pro padrão (primeira opção disponível) assim que as opções terminam de carregar.
+  const escolhidoAindaValido = todasOpcoes.some(w => w.cr4a1_calendarios_workspacesid === workspaceEscolhido);
+  const workspaceId = (workspaceEscolhido && escolhidoAindaValido) ? workspaceEscolhido : (todasOpcoes[0]?.cr4a1_calendarios_workspacesid || '');
   const workspace = useMemo(
     () => todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId),
     [todasOpcoes, workspaceId]
@@ -143,23 +155,31 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const bloqueadosLogins = useMemo(() => parseAssignees(quadro?.cr4a1_bloqueados), [quadro]);
   const estouBloqueado = !isAdmin && bloqueadosLogins.includes(user);
 
+  // Recarrega o quadro ao trocar de workspace/versão e, enquanto a tela estiver aberta,
+  // vai repetindo em segundo plano — é assim que fichas criadas/concluídas por outra
+  // pessoa no mesmo Trello aparecem aqui sem precisar atualizar a página.
   useEffect(() => {
     if (!workspaceId) return undefined;
     let cancelado = false;
     const filtro = q(`cr4a1_workspace_id eq '${workspaceId}'`);
-    Promise.all([
-      fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${filtro}`).then(r => r.json()),
-      fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${filtro}`).then(r => r.json()),
-      fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtro}`).then(r => r.json()),
-      fetch(`${API_PROXY}?table=cr4a1_etiquetas&$filter=${filtro}`).then(r => r.json())
-    ]).then(([resListas, resFichas, resQuadro, resEtiquetas]) => {
-      if (cancelado) return;
-      setListas(ordenar(resListas.value || []));
-      setFichas(resFichas.value || []);
-      setQuadro((resQuadro.value || [])[0] || null);
-      setEtiquetas(resEtiquetas.value || []);
-    });
-    return () => { cancelado = true; };
+    const carregar = () => {
+      if (document.hidden) return;
+      Promise.all([
+        fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${filtro}`).then(r => r.json()),
+        fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${filtro}`).then(r => r.json()),
+        fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtro}`).then(r => r.json()),
+        fetch(`${API_PROXY}?table=cr4a1_etiquetas&$filter=${filtro}`).then(r => r.json())
+      ]).then(([resListas, resFichas, resQuadro, resEtiquetas]) => {
+        if (cancelado) return;
+        setListas(ordenar(resListas.value || []));
+        setFichas(resFichas.value || []);
+        setQuadro((resQuadro.value || [])[0] || null);
+        setEtiquetas(resEtiquetas.value || []);
+      });
+    };
+    carregar();
+    const intervalo = setInterval(carregar, TRELLO_POLL_MS);
+    return () => { cancelado = true; clearInterval(intervalo); };
   }, [workspaceId, versao]);
 
   const listasVisiveis = useMemo(
