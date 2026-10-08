@@ -218,16 +218,25 @@ export const useCalendar = () => {
         };
     }, []);
 
-    const addToQueue = (task) => {
-        const queue = JSON.parse(localStorage.getItem('kairos_sync_queue') || '[]');
-        queue.push(task);
+    // syncQueueVersion muda toda vez que a fila offline (localStorage) é mexida, pra forçar
+    // quem lê a fila (ex.: notasComPendentes) a recalcular sem precisar duplicar o estado dela.
+    const [syncQueueVersion, setSyncQueueVersion] = useState(0);
+    const getQueue = () => JSON.parse(localStorage.getItem('kairos_sync_queue') || '[]');
+    const setQueue = (queue) => {
         localStorage.setItem('kairos_sync_queue', JSON.stringify(queue));
+        setSyncQueueVersion(v => v + 1);
+    };
+
+    const addToQueue = (task) => {
+        const queue = getQueue();
+        queue.push(task);
+        setQueue(queue);
         toast('Salvo offline. Sincronizará automaticamente na volta da internet.', { icon: '☁️' });
     };
 
     const syncPendingQueue = async () => {
-        const queue = JSON.parse(localStorage.getItem('kairos_sync_queue') || '[]');
-        if (queue.length === 0) return;
+        const queue = getQueue();
+        if (queue.length === 0) { toast('Nada pendente para sincronizar.', { icon: '✅' }); return; }
 
         setIsSyncing(true);
         toast('Sincronizando dados pendentes com a nuvem...', { icon: '🔄' });
@@ -251,14 +260,24 @@ export const useCalendar = () => {
             }
         }
 
-        localStorage.setItem('kairos_sync_queue', JSON.stringify(newQueue));
+        setQueue(newQueue);
         setIsSyncing(false);
         if (successCount > 0) {
             toast.success(`${successCount} item(ns) sincronizado(s) com sucesso!`);
             fetchEvents();
             fetchNotas();
         }
+        if (newQueue.length > 0) {
+            toast.error(`${newQueue.length} item(ns) ainda não sincronizado(s). Tentaremos de novo.`);
+        }
     };
+
+    // Só o evento 'online' não basta: se a fila ficou pendente numa sessão anterior (ex.: a
+    // pessoa fechou o app ainda offline), ninguém dispara a sincronização até o próximo login.
+    useEffect(() => {
+        if (user && navigator.onLine) syncPendingQueue();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
 
     // Mostra um toast com "Desfazer": se ninguém clicar dentro do prazo, onConfirm roda de verdade.
     const showUndoToast = (message, onUndo, onConfirm, duration = 5000) => {
@@ -1439,6 +1458,16 @@ export const useCalendar = () => {
     };
 
     // --- FUNÇÕES DE ESCRITA DE NOTAS ---
+    // Se a nota editada/excluída ainda nem existe de verdade no Dataverse (só um rascunho
+    // pendente na fila offline, identificado pelo _tempId), não faz sentido enfileirar um
+    // PATCH/DELETE pro servidor — não haveria registro nenhum pra ele apontar. Em vez disso
+    // mexemos direto no rascunho que já está na fila.
+    const encontrarRascunhoPendente = (notaId) => {
+        const queue = getQueue();
+        const idx = queue.findIndex(t => t.table === 'cr4a1_notas_kairoses' && t.method === 'POST' && t._tempId === notaId);
+        return { queue, idx };
+    };
+
     const addNota = async (notaData) => {
         const generatedId = crypto.randomUUID();
         const novaNotaDB = { // Usando o nome da coluna correto para o ID
@@ -1452,8 +1481,8 @@ export const useCalendar = () => {
         };
 
         if (!isOnline) {
-            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB });
-            return;
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB, _tempId: generatedId });
+            return generatedId; // quem chamou precisa saber o _tempId pra editar/excluir o rascunho depois
         }
 
         try { // Corrigindo o nome da tabela
@@ -1468,7 +1497,8 @@ export const useCalendar = () => {
         } catch (error) {
             console.error(error);
             toast.error("Sem conexão. A nota será salva assim que a internet voltar.");
-            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB });
+            addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB, _tempId: generatedId });
+            return generatedId;
         }
     };
 
@@ -1479,6 +1509,13 @@ export const useCalendar = () => {
             cr4a1_evento_id: notaData.eventoId || null,
             cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
         };
+
+        const { queue, idx } = encontrarRascunhoPendente(notaId);
+        if (idx >= 0) {
+            queue[idx] = { ...queue[idx], body: { ...queue[idx].body, ...payload } };
+            setQueue(queue);
+            return;
+        }
 
         if (!isOnline) {
             addToQueue({ table: 'cr4a1_notas_kairoses', method: 'PATCH', id: notaId, body: payload });
@@ -1502,6 +1539,14 @@ export const useCalendar = () => {
     };
 
     const deleteNota = async (notaId) => {
+        const { queue, idx } = encontrarRascunhoPendente(notaId);
+        if (idx >= 0) {
+            queue.splice(idx, 1);
+            setQueue(queue);
+            toast.success('Rascunho offline removido.');
+            return;
+        }
+
         const removedNota = notas.find(n => n.cr4a1_notas_kairosid === notaId);
         setNotas(prev => prev.filter(n => n.cr4a1_notas_kairosid !== notaId));
 
@@ -1522,6 +1567,43 @@ export const useCalendar = () => {
             }
         );
     };
+
+    // Mescla as notas vindas do Dataverse com o que ainda está só na fila offline — criações
+    // pendentes viram notas "fantasma" (com o _tempId como id, até o fetchNotas pós-sync
+    // trocar pela versão real), edições pendentes são sobrepostas na nota já carregada, e
+    // exclusões pendentes somem da lista. É assim que uma nota salva sem internet aparece na
+    // hora na tela, em vez de só existir escondida no localStorage.
+    const notasComPendentes = useMemo(() => {
+        const queue = getQueue().filter(t => t.table === 'cr4a1_notas_kairoses');
+        if (queue.length === 0) return notas;
+
+        const idsExcluidosPendentes = new Set(queue.filter(t => t.method === 'DELETE').map(t => t.id));
+        const patchesPendentes = queue.filter(t => t.method === 'PATCH');
+        const criacoesPendentes = queue.filter(t => t.method === 'POST');
+
+        const parseConteudo = (conteudo) => (typeof conteudo === 'string' ? JSON.parse(conteudo) : (conteudo || []));
+
+        const existentes = notas
+            .filter(n => !idsExcluidosPendentes.has(n.cr4a1_notas_kairosid))
+            .map(n => {
+                const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid);
+                if (!patch) return n;
+                return { ...n, ...patch.body, cr4a1_conteudo: parseConteudo(patch.body.cr4a1_conteudo), _pendenteSync: true };
+            });
+
+        const novasPendentes = criacoesPendentes.map(t => ({
+            ...t.body,
+            cr4a1_notas_kairosid: t._tempId,
+            cr4a1_conteudo: parseConteudo(t.body.cr4a1_conteudo),
+            _pendenteSync: true
+        }));
+
+        return [...existentes, ...novasPendentes];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notas, syncQueueVersion]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const pendingSyncCount = useMemo(() => getQueue().length, [syncQueueVersion]);
 
     const marcarOrganizacaoComRecorrencia = async (nomeCliente) => {
         try {
@@ -1680,7 +1762,7 @@ export const useCalendar = () => {
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
-        isOnline, isSyncing, updateWhatsApp, addWorkspace, updateWorkspace,
+        isOnline, isSyncing, syncPendingQueue, pendingSyncCount, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
@@ -1688,7 +1770,7 @@ export const useCalendar = () => {
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
         appRoles, availableRoles, addAppRole, renameAppRole, deleteAppRole,
-        notas, addNota, updateNota, deleteNota,
+        notas: notasComPendentes, addNota, updateNota, deleteNota,
         biPermissoes, upsertBiPermission, resetBiPermission,
         next: () => setCurrentDate(addMonths(currentDate, 1)), prev: () => setCurrentDate(subMonths(currentDate, 1))
     };

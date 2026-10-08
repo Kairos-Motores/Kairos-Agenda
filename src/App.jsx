@@ -87,7 +87,8 @@ function App() {
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
     notas = [], addNota, updateNota, deleteNota,
-    biPermissoes = [], upsertBiPermission, resetBiPermission
+    biPermissoes = [], upsertBiPermission, resetBiPermission,
+    isOnline, isSyncing, syncPendingQueue, pendingSyncCount = 0
   } = useCalendar();
 
   const roles = useMemo(() => parseRoles(userRole), [userRole]);
@@ -1243,6 +1244,19 @@ function App() {
                 {currentUser?.cr4a1_nome_exibicao || user}
               </span>
             </div>
+            {pendingSyncCount > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={syncPendingQueue}
+                disabled={isSyncing || !isOnline}
+                title={isOnline ? `Sincronizar ${pendingSyncCount} alteração(ões) salva(s) offline` : 'Sem internet — sincroniza assim que voltar a conexão'}
+                className="relative text-warning hover:text-warning"
+              >
+                <span className={`material-symbols-rounded ${isSyncing ? 'animate-spin' : ''}`}>{isSyncing ? 'progress_activity' : 'cloud_sync'}</span>
+                <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-warning-foreground">{pendingSyncCount}</span>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={logout} title="Sair do sistema" className="text-destructive hover:text-destructive">
               <span className="material-symbols-rounded">logout</span>
             </Button>

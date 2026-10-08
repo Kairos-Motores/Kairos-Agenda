@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, AlertTriangle, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -224,14 +224,18 @@ export const NotesPanel = ({
     const data = buildNotaPayload();
 
     // CORREÇÃO DA EDIÇÃO: Valida se a nota possui ID válido e NÃO é uma nova criação
+    let idGerado = null;
     if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
       await updateNota(notaAberta.cr4a1_notas_kairosid, data);
     } else {
-      await addNota(data);
+      idGerado = await addNota(data);
     }
 
     setIsSaving(false);
-    setNotaAberta(prev => prev ? ({ ...prev, isNew: false }) : prev);
+    // Offline, addNota devolve o _tempId do rascunho — sem isso, editar/excluir de novo sem
+    // sair da tela criaria uma tarefa nova na fila apontando pro id antigo (que não existe
+    // em lugar nenhum, nem como rascunho nem no Dataverse).
+    setNotaAberta(prev => prev ? ({ ...prev, isNew: false, ...(idGerado ? { cr4a1_notas_kairosid: idGerado } : {}) }) : prev);
     setIsEditing(false);
   };
 
@@ -365,6 +369,11 @@ export const NotesPanel = ({
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                {notaAberta._pendenteSync && (
+                  <span className="flex items-center gap-1 text-[12px] font-semibold text-warning">
+                    <CloudOff className="size-[14px]" /> Salva offline — aguardando sincronização
+                  </span>
+                )}
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   {notaAberta.cr4a1_private ? <><Lock className="size-[14px] text-[#f57c00]" /> Nota Pessoal</> : <><Globe className="size-[14px]" /> Nota Pública</>}
                 </span>
@@ -599,7 +608,10 @@ export const NotesPanel = ({
                   <h4 style={{ margin: 0, color: 'var(--text-title)', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {nota.cr4a1_titulo || 'Sem Título'}
                   </h4>
-                  {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title="Nota Privada" />}
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {nota._pendenteSync && <CloudOff className="size-4 text-warning" title="Salva offline — ainda não sincronizada" />}
+                    {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title="Nota Privada" />}
+                  </div>
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? nota.cr4a1_conteudo.find(b => b.type === 'text' || b.type === 'todo')?.value || '...' : 'Vazio...'}
