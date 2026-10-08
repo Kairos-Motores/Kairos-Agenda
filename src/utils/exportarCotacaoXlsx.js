@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { resumoSlice, formatarMinutos, formatarDataHora } from './voos';
+import { resumoSlice, condicoesOferta, formatarMinutos, formatarDataHora } from './voos';
 
 // Verde/amarelo/vermelho claros pra sinalizar faixa de preço (barato/médio/caro) na planilha.
 const corPorFaixa = (preco, min, max) => {
@@ -20,6 +20,9 @@ export const exportarCotacaoXlsx = async (ofertas, { origem, destino, dataIda, d
 
   const colunas = [
     { header: 'Companhia', key: 'companhia', width: 26 },
+    { header: 'Tarifa', key: 'tarifa', width: 14 },
+    { header: 'Reembolsável', key: 'reembolsavel', width: 14 },
+    { header: 'Alterável', key: 'alteravel', width: 13 },
     { header: 'Tipo', key: 'tipo', width: 14 },
     { header: 'Escalas (ida)', key: 'escalasIda', width: 13 },
     { header: 'Saída (ida)', key: 'saidaIda', width: 16 },
@@ -49,17 +52,24 @@ export const exportarCotacaoXlsx = async (ofertas, { origem, destino, dataIda, d
   const min = Math.min(...precos);
   const max = Math.max(...precos);
 
+  const textoCondicao = (valor) => (valor === null ? 'Não informado' : (valor ? 'Sim' : 'Não'));
+  const corCondicao = (valor) => (valor === null ? 'FFEDEDED' : (valor ? 'FFB7E1CD' : 'FFF4C7C3'));
+
   ofertas.forEach(oferta => {
     const ida = resumoSlice(oferta.slices[0]);
     const volta = oferta.slices[1] ? resumoSlice(oferta.slices[1]) : null;
     const preco = parseFloat(oferta.total_amount);
     const vantajosa = oferta.id === maisBarataId;
+    const { reembolsavel, alteravel } = condicoesOferta(oferta);
     const avaliacao = vantajosa
       ? 'Mais vantajosa (menor preço)'
       : (ida.escalas === 0 ? 'Voo direto, preço maior' : `${ida.escalas} escala(s) na ida`);
 
     const row = sheet.addRow({
       companhia: ida.companhias.join(', ') || oferta.owner?.name || '—',
+      tarifa: ida.tarifa || '—',
+      reembolsavel: textoCondicao(reembolsavel),
+      alteravel: textoCondicao(alteravel),
       tipo: volta ? 'Ida e volta' : 'Somente ida',
       escalasIda: ida.escalas,
       saidaIda: formatarDataHora(ida.partida),
@@ -79,6 +89,9 @@ export const exportarCotacaoXlsx = async (ofertas, { origem, destino, dataIda, d
     const precoCell = row.getCell('preco');
     precoCell.numFmt = '#,##0.00';
     precoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corPorFaixa(preco, min, max) } };
+
+    row.getCell('reembolsavel').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corCondicao(reembolsavel) } };
+    row.getCell('alteravel').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corCondicao(alteravel) } };
 
     if (vantajosa) {
       row.font = { bold: true };

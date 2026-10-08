@@ -25,7 +25,8 @@ export const formatarDataHora = (iso) => {
 
 // Resume um trecho (slice) da oferta: quantas escalas, duração total (a Duffel já manda a
 // duração do trecho inteiro, incluindo conexão — por isso não somamos os segmentos à parte),
-// horário de saída/chegada e quais companhias operam os voos desse trecho.
+// horário de saída/chegada, quais companhias operam os voos desse trecho e a tarifa vendida
+// nele (ex.: "Basic", "Flex" — cada companhia nomeia do seu jeito).
 export const resumoSlice = (slice) => {
   const segmentos = slice?.segments || [];
   const duracaoMin = slice?.duration
@@ -36,6 +37,14 @@ export const resumoSlice = (slice) => {
     duracaoMin,
     partida: segmentos[0]?.departing_at,
     chegada: segmentos[segmentos.length - 1]?.arriving_at,
-    companhias: [...new Set(segmentos.map(s => s.operating_carrier?.name).filter(Boolean))]
+    companhias: [...new Set(segmentos.map(s => s.operating_carrier?.name).filter(Boolean))],
+    tarifa: slice?.fare_brand_name || null
   };
 };
+
+// Condições de reembolso/alteração da oferta inteira (não é por trecho). `allowed` pode vir
+// null quando a companhia não informou a regra — tratamos como "não sabemos", não como "não".
+export const condicoesOferta = (oferta) => ({
+  reembolsavel: oferta?.conditions?.refund_before_departure?.allowed ?? null,
+  alteravel: oferta?.conditions?.change_before_departure?.allowed ?? null
+});

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Plane, Search, Download, Filter, ArrowLeftRight, ChevronsUpDown, Building2, Check } from 'lucide-react';
+import { Plane, Search, Download, Filter, ArrowLeftRight, ChevronsUpDown, Building2, Check, ShieldCheck, ShieldX, Tag } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { DateField } from './ui/date-field';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
-import { resumoSlice, formatarMinutos, formatarDataHora } from '../utils/voos';
+import { resumoSlice, condicoesOferta, formatarMinutos, formatarDataHora } from '../utils/voos';
 import { exportarCotacaoXlsx } from '../utils/exportarCotacaoXlsx';
 
 const API_DUFFEL = '/api/duffel-proxy';
@@ -92,6 +92,7 @@ export const CotacaoPassagensPanel = () => {
   const [ofertas, setOfertas] = useState(null);
   const [erro, setErro] = useState('');
   const [companhiasFiltro, setCompanhiasFiltro] = useState([]);
+  const [tarifasFiltro, setTarifasFiltro] = useState([]);
   const [precoMax, setPrecoMax] = useState(null);
 
   const buscar = async (e) => {
@@ -123,6 +124,7 @@ export const CotacaoPassagensPanel = () => {
       const lista = json.data?.offers || [];
       setOfertas(lista);
       setCompanhiasFiltro([]);
+      setTarifasFiltro([]);
       setPrecoMax(null);
       if (lista.length === 0) toast('Nenhum voo encontrado para essa busca.');
     } catch (err) {
@@ -143,6 +145,11 @@ export const CotacaoPassagensPanel = () => {
     return [...new Set(ofertas.map(o => o.owner?.name).filter(Boolean))].sort();
   }, [ofertas]);
 
+  const tarifasDisponiveis = useMemo(() => {
+    if (!ofertas) return [];
+    return [...new Set(ofertas.map(o => resumoSlice(o.slices[0]).tarifa).filter(Boolean))].sort();
+  }, [ofertas]);
+
   const faixaPreco = useMemo(() => {
     if (!ofertas || ofertas.length === 0) return { min: 0, max: 0 };
     const valores = ofertas.map(o => parseFloat(o.total_amount));
@@ -154,14 +161,19 @@ export const CotacaoPassagensPanel = () => {
     const limite = precoMax ?? faixaPreco.max;
     return ofertas
       .filter(o => companhiasFiltro.length === 0 || companhiasFiltro.includes(o.owner?.name))
+      .filter(o => tarifasFiltro.length === 0 || tarifasFiltro.includes(resumoSlice(o.slices[0]).tarifa))
       .filter(o => parseFloat(o.total_amount) <= limite)
       .sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
-  }, [ofertas, companhiasFiltro, precoMax, faixaPreco.max]);
+  }, [ofertas, companhiasFiltro, tarifasFiltro, precoMax, faixaPreco.max]);
 
   const maisBarataId = ofertasFiltradas[0]?.id;
 
   const toggleCompanhia = (nome) => {
     setCompanhiasFiltro(prev => prev.includes(nome) ? prev.filter(n => n !== nome) : [...prev, nome]);
+  };
+
+  const toggleTarifa = (nome) => {
+    setTarifasFiltro(prev => prev.includes(nome) ? prev.filter(n => n !== nome) : [...prev, nome]);
   };
 
   const baixarPlanilha = () => {
@@ -203,32 +215,49 @@ export const CotacaoPassagensPanel = () => {
 
       {ofertas && ofertas.length > 0 && (
         <>
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3">
-            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"><Filter className="size-3.5" /> Companhias:</span>
-            {companhiasDisponiveis.map(nome => (
-              <button
-                key={nome}
-                type="button"
-                onClick={() => toggleCompanhia(nome)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${companhiasFiltro.length === 0 || companhiasFiltro.includes(nome) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
-              >
-                {nome}
-              </button>
-            ))}
-            <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="whitespace-nowrap">Preço até {(precoMax ?? faixaPreco.max).toFixed(0)}</span>
-              <input
-                type="range"
-                min={faixaPreco.min}
-                max={faixaPreco.max}
-                value={precoMax ?? faixaPreco.max}
-                onChange={e => setPrecoMax(Number(e.target.value))}
-                className="w-32"
-              />
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"><Filter className="size-3.5" /> Companhias:</span>
+              {companhiasDisponiveis.map(nome => (
+                <button
+                  key={nome}
+                  type="button"
+                  onClick={() => toggleCompanhia(nome)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${companhiasFiltro.length === 0 || companhiasFiltro.includes(nome) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+                >
+                  {nome}
+                </button>
+              ))}
+              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="whitespace-nowrap">Preço até {(precoMax ?? faixaPreco.max).toFixed(0)}</span>
+                <input
+                  type="range"
+                  min={faixaPreco.min}
+                  max={faixaPreco.max}
+                  value={precoMax ?? faixaPreco.max}
+                  onChange={e => setPrecoMax(Number(e.target.value))}
+                  className="w-32"
+                />
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={baixarPlanilha}>
+                <Download className="size-4" /> Baixar planilha (.xlsx)
+              </Button>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={baixarPlanilha}>
-              <Download className="size-4" /> Baixar planilha (.xlsx)
-            </Button>
+            {tarifasDisponiveis.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground"><Tag className="size-3.5" /> Tarifas:</span>
+                {tarifasDisponiveis.map(nome => (
+                  <button
+                    key={nome}
+                    type="button"
+                    onClick={() => toggleTarifa(nome)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${tarifasFiltro.length === 0 || tarifasFiltro.includes(nome) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
+                  >
+                    {nome}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -236,6 +265,7 @@ export const CotacaoPassagensPanel = () => {
               const ida = resumoSlice(oferta.slices[0]);
               const volta = oferta.slices[1] ? resumoSlice(oferta.slices[1]) : null;
               const vantajosa = oferta.id === maisBarataId;
+              const { reembolsavel, alteravel } = condicoesOferta(oferta);
               return (
                 <div key={oferta.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 ${vantajosa ? 'border-success bg-success/5' : 'border-border bg-card'}`}>
                   <div className="flex flex-col gap-1">
@@ -243,6 +273,17 @@ export const CotacaoPassagensPanel = () => {
                       <span className="text-sm font-bold text-foreground">{ida.companhias.join(', ') || oferta.owner?.name}</span>
                       {vantajosa && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">MAIS VANTAJOSA</span>}
                       {ida.escalas === 0 && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">DIRETO</span>}
+                      {ida.tarifa && <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{ida.tarifa}</span>}
+                      {reembolsavel !== null && (
+                        <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${reembolsavel ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                          {reembolsavel ? <ShieldCheck className="size-3" /> : <ShieldX className="size-3" />} {reembolsavel ? 'Reembolsável' : 'Não reembolsável'}
+                        </span>
+                      )}
+                      {alteravel !== null && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${alteravel ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                          {alteravel ? 'Alterável' : 'Não alterável'}
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">
                       Ida: {formatarDataHora(ida.partida)} → {formatarDataHora(ida.chegada)} ({formatarMinutos(ida.duracaoMin)}, {ida.escalas === 0 ? 'direto' : `${ida.escalas} escala(s)`})
