@@ -1,19 +1,90 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Plane, Search, Download, Filter, ArrowLeftRight } from 'lucide-react';
+import { Plane, Search, Download, Filter, ArrowLeftRight, ChevronsUpDown, Building2, Check } from 'lucide-react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { DateField } from './ui/date-field';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
 import { resumoSlice, formatarMinutos, formatarDataHora } from '../utils/voos';
 import { exportarCotacaoXlsx } from '../utils/exportarCotacaoXlsx';
 
 const API_DUFFEL = '/api/duffel-proxy';
 
+// Autocomplete de cidade/aeroporto: a pessoa digita o nome, a Duffel devolve sugestões e a
+// gente guarda o código IATA por trás — ninguém precisa saber ou digitar o código de cor.
+const SeletorLocal = ({ label, valor, onSelecionar, placeholder }) => {
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [sugestoes, setSugestoes] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    const termo = busca.trim();
+    if (termo.length < 2) return undefined;
+    let cancelado = false;
+    const timer = setTimeout(() => {
+      if (cancelado) return;
+      setCarregando(true);
+      fetch(`${API_DUFFEL}?query=${encodeURIComponent(termo)}`)
+        .then(r => r.json())
+        .then(json => { if (!cancelado) setSugestoes(json.data || []); })
+        .catch(() => { if (!cancelado) setSugestoes([]); })
+        .finally(() => { if (!cancelado) setCarregando(false); });
+    }, 350);
+    return () => { cancelado = true; clearTimeout(timer); };
+  }, [busca]);
+
+  const sugestoesExibidas = busca.trim().length < 2 ? [] : sugestoes;
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      <Popover open={aberto} onOpenChange={setAberto}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+          >
+            <span className={valor ? 'truncate' : 'truncate text-muted-foreground'}>{valor ? valor.label : placeholder}</span>
+            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+          <Command shouldFilter={false}>
+            <CommandInput value={busca} onValueChange={setBusca} placeholder="Digite a cidade ou aeroporto..." />
+            <CommandList>
+              <CommandEmpty>{carregando ? 'Buscando...' : (busca.trim().length < 2 ? 'Digite ao menos 2 letras.' : 'Nenhum resultado.')}</CommandEmpty>
+              <CommandGroup>
+                {sugestoesExibidas.map(s => (
+                  <CommandItem
+                    key={s.id}
+                    onSelect={() => {
+                      onSelecionar({ iata: s.iata_code, label: `${s.city_name || s.name} (${s.iata_code})` });
+                      setBusca('');
+                      setSugestoes([]);
+                      setAberto(false);
+                    }}
+                  >
+                    {s.type === 'city' ? <Building2 className="size-4 shrink-0 text-muted-foreground" /> : <Plane className="size-4 shrink-0 text-muted-foreground" />}
+                    <span className="truncate">{s.city_name || s.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{s.iata_code}</span>
+                    {valor?.iata === s.iata_code && <Check className="ml-auto size-4 shrink-0 text-primary" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+};
+
 export const CotacaoPassagensPanel = () => {
-  const [origem, setOrigem] = useState('');
-  const [destino, setDestino] = useState('');
+  const [origem, setOrigem] = useState(null);
+  const [destino, setDestino] = useState(null);
   const [dataIda, setDataIda] = useState('');
   const [dataVolta, setDataVolta] = useState('');
   const [direto, setDireto] = useState(false);
@@ -25,16 +96,16 @@ export const CotacaoPassagensPanel = () => {
 
   const buscar = async (e) => {
     e.preventDefault();
-    if (origem.trim().length !== 3 || destino.trim().length !== 3 || !dataIda) {
-      toast.error('Informe origem e destino (código IATA de 3 letras) e a data de ida.');
+    if (!origem || !destino || !dataIda) {
+      toast.error('Informe origem, destino e a data de ida.');
       return;
     }
     setBuscando(true);
     setErro('');
     setOfertas(null);
     try {
-      const slices = [{ origin: origem.trim().toUpperCase(), destination: destino.trim().toUpperCase(), departure_date: dataIda }];
-      if (dataVolta) slices.push({ origin: destino.trim().toUpperCase(), destination: origem.trim().toUpperCase(), departure_date: dataVolta });
+      const slices = [{ origin: origem.iata, destination: destino.iata, departure_date: dataIda }];
+      if (dataVolta) slices.push({ origin: destino.iata, destination: origem.iata, departure_date: dataVolta });
 
       const res = await fetch(API_DUFFEL, {
         method: 'POST',
@@ -95,7 +166,7 @@ export const CotacaoPassagensPanel = () => {
 
   const baixarPlanilha = () => {
     if (!ofertasFiltradas.length) return;
-    exportarCotacaoXlsx(ofertasFiltradas, { origem, destino, dataIda, dataVolta });
+    exportarCotacaoXlsx(ofertasFiltradas, { origem: origem?.iata, destino: destino?.iata, dataIda, dataVolta });
   };
 
   return (
@@ -107,14 +178,10 @@ export const CotacaoPassagensPanel = () => {
 
       <form onSubmit={buscar} className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary p-4">
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div>
-            <Label>Origem (código IATA)</Label>
-            <Input value={origem} onChange={e => setOrigem(e.target.value.toUpperCase().slice(0, 3))} placeholder="Ex: GRU" className="bg-card uppercase" />
-          </div>
+          <SeletorLocal label="Origem" valor={origem} onSelecionar={setOrigem} placeholder="De onde?" />
           <div className="flex items-end gap-1.5">
             <div className="flex-1">
-              <Label>Destino (código IATA)</Label>
-              <Input value={destino} onChange={e => setDestino(e.target.value.toUpperCase().slice(0, 3))} placeholder="Ex: GIG" className="bg-card uppercase" />
+              <SeletorLocal label="Destino" valor={destino} onSelecionar={setDestino} placeholder="Para onde?" />
             </div>
             <Button type="button" variant="outline" size="icon" title="Inverter origem e destino" onClick={inverterRota}>
               <ArrowLeftRight className="size-4" />
