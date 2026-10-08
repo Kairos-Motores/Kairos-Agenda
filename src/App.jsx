@@ -37,6 +37,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 const DashboardPanel = React.lazy(() => import('./components/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const NotesPanel = React.lazy(() => import('./components/NotesPanel').then(m => ({ default: m.NotesPanel })));
 const TrelloPanel = React.lazy(() => import('./components/TrelloPanel').then(m => ({ default: m.TrelloPanel })));
+const CotacaoPassagensPanel = React.lazy(() => import('./components/CotacaoPassagensPanel').then(m => ({ default: m.CotacaoPassagensPanel })));
 const GuidedTour = React.lazy(() => import('./components/GuidedTour').then(m => ({ default: m.GuidedTour })));
 import { dataverseApi } from './api/dataverse';
 import {
@@ -963,6 +964,12 @@ function App() {
               <button onClick={() => { setAppMode('trello'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer', backgroundColor: appMode === 'trello' ? 'var(--bg-tertiary)' : 'transparent', color: appMode === 'trello' ? 'var(--text-accent)' : 'var(--text-primary)' }}>
                 <span className="material-symbols-rounded">view_kanban</span> Fichas
               </button>
+
+              {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
+                <button onClick={() => { setAppMode('passagens'); setIsSidebarOpen(false); }} className="nav-pill boing-effect" style={{ justifyContent: 'flex-start', gap: '12px', width: '100%', padding: '14px', borderRadius: '100px', border: 'none', cursor: 'pointer', backgroundColor: appMode === 'passagens' ? '#e3f2fd' : 'transparent', color: appMode === 'passagens' ? '#1565c0' : 'var(--text-primary)' }}>
+                  <span className="material-symbols-rounded">flight</span> Passagens
+                </button>
+              )}
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '12px 0 4px' }}>Aplicativos</div>
               {APPS.map(app => (
                 <a key={app.title} href={app.href} target="_blank" rel="noopener noreferrer" className="nav-pill boing-effect" style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', borderRadius: '100px', textDecoration: 'none', color: 'var(--text-primary)' }}>
@@ -975,16 +982,16 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Vistas do Calendário</div>
               {viewsConfig.map(v => (
-                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'trello'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+                <button key={v.id} onClick={() => { setView(v.id); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                   display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                  fontWeight: (view === v.id && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? '700' : '500', backgroundColor: (view === v.id && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                  fontWeight: (view === v.id && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '700' : '500', backgroundColor: (view === v.id && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === v.id && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
                 }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{v.icon}</span> {v.label}
                 </button>
               ))}
-              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'trello'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
+              <button onClick={() => { setView('list'); setIsSidebarOpen(false); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }} className="nav-pill boing-effect" style={{
                 display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', borderRadius: '100px', border: 'none', cursor: 'pointer', fontSize: '15px', justifyContent: 'flex-start',
-                fontWeight: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? '700' : '500', backgroundColor: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
+                fontWeight: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '700' : '500', backgroundColor: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'transparent', color: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)', transition: 'all 0.2s'
               }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>view_agenda</span> Fichas
               </button>
@@ -1012,7 +1019,7 @@ function App() {
               </div>
             </div>
 
-            {!['visitas', 'notas', 'bi', 'trello'].includes(appMode) && (
+            {!['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && (
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Pesquisa</div>
@@ -1180,11 +1187,11 @@ function App() {
               borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
             }}>
               {viewsConfig.map(v => {
-                const isActive = view === v.id && !['tasks', 'notas', 'bi', 'trello'].includes(appMode);
+                const isActive = view === v.id && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode);
                 return (
                   <button
                     key={v.id}
-                    onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi', 'trello'].includes(appMode)) setAppMode('calendar'); }}
+                    onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
                     className={`boing-effect ${isActive ? 'active' : ''}`}
                     title={`${v.label} (${viewsConfig.indexOf(v) + 1})`}
                     style={{
@@ -1202,14 +1209,14 @@ function App() {
             </div>
 
             <button
-              onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello'].includes(appMode)) setAppMode('calendar'); }}
-              className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode) ? 'active' : ''}`}
+              onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
+              className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'active' : ''}`}
               title="Fichas (6)"
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                border: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
-                background: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                color: (view === 'list' && !['tasks', 'notas', 'bi', 'trello'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
+                border: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
+                background: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                color: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer'
               }}
             >
@@ -1292,7 +1299,7 @@ function App() {
               )}
             </div>
 
-            {!['tasks', 'notas', 'bi', 'trello'].includes(appMode) && view === 'day' && (
+            {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'day' && (
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
                 <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
@@ -1312,7 +1319,7 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible', justifyContent: 'center' }}>
           {/* BARRA LATERAL ESQUERDA DE PARTICIPANTES (HOVER EXPANDE) */}
-          {isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello'].includes(appMode) && (
+          {isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && (
             <aside className={`left-avatar-sidebar desktop-only ${isDraggingMember ? 'dragging-active' : ''}`}>
               <div className="sidebar-collapsed-indicator">
                 <span className="material-symbols-rounded" style={{ color: 'var(--text-secondary)', fontSize: '20px' }}>groups</span>
@@ -1433,10 +1440,10 @@ function App() {
 
           <main className="main-container" style={{
             flex: 1,
-            padding: ['tasks', 'notas', 'bi', 'trello'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
+            padding: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
             paddingBottom: '80px',
             overflow: 'visible',
-            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello'].includes(appMode)) ? '24px' : '0',
+            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : '0',
             maxWidth: '1400px',
             margin: '0 auto'
           }}>
@@ -1467,6 +1474,10 @@ function App() {
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
                   <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} currentUser={currentUser} updateTrelloFundo={updateTrelloFundo} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} hasRole={hasRole} dragEndRef={trelloDragEndRef} />
+                </React.Suspense>
+              ) : appMode === 'passagens' ? (
+                <React.Suspense fallback={null}>
+                  <CotacaoPassagensPanel />
                 </React.Suspense>
               ) : appMode === 'tasks' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto', width: '100%' }}>
@@ -1748,6 +1759,9 @@ function App() {
               <RailItem active={appMode === 'visitas'} onClick={() => setAppMode('visitas')} icon="location_on" title="Visitas" activeBg="#fff3e0" activeColor="#f57c00" />
             )}
             <RailItem active={appMode === 'trello'} onClick={() => setAppMode('trello')} icon="view_kanban" title="Fichas" activeBg="var(--bg-tertiary)" activeColor="var(--text-accent)" />
+            {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
+              <RailItem active={appMode === 'passagens'} onClick={() => setAppMode('passagens')} icon="flight" title="Passagens" activeBg="#e3f2fd" activeColor="#1565c0" />
+            )}
             <div className="app-rail-divider" />
             {APPS.map(app => (
               <a key={app.title} href={app.href} target="_blank" rel="noopener noreferrer" title={app.title} className="app-rail-item">
@@ -1910,11 +1924,11 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello'].includes(appMode) ? '80px' : '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
+          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? '80px' : '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
-                {!['visitas', 'notas', 'bi', 'trello'].includes(appMode) && (
+                {!['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Evento</span>
                     <button onClick={() => { setEditingEvent(null); setIsModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" title="Novo evento (N)" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -1932,7 +1946,7 @@ function App() {
                   </div>
                 )}
 
-                {(hasRole('ADMIN') || hasRole('RH')) && !['visitas', 'notas', 'bi', 'trello'].includes(appMode) && (
+                {(hasRole('ADMIN') || hasRole('RH')) && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && (
                   <div className="view-enter" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: 'var(--text-primary)' }}>Workspace</span>
                     <button onClick={() => { setEditingWorkspace(null); setIsWorkspaceModalOpen(true); setIsFabMenuOpen(false); }} className="boing-effect" style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
