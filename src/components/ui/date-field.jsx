@@ -4,6 +4,15 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 
+// selectedDate deveria vir sempre como 'yyyy-MM-dd', mas alguns registros antigos/externos
+// guardam datetime completo (ou lixo) — sem essa checagem, `format()` do date-fns estoura
+// RangeError: Invalid time value e derruba a tela inteira.
+const parseDataSegura = (str) => {
+    if (!str) return null;
+    const data = new Date(`${str}T12:00:00`);
+    return isNaN(data.getTime()) ? null : data;
+};
+
 // Campo de data no visual do app (botão + calendário num popover), em vez do seletor
 // nativo do navegador. `selectedDate`/`onSelect` trabalham sempre com string 'yyyy-MM-dd'.
 export const DateField = ({
@@ -19,14 +28,15 @@ export const DateField = ({
 }) => {
     const Icon = icon || CalendarDays;
     const [open, setOpen] = useState(false);
-    const [pickerMonth, setPickerMonth] = useState(selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date());
+    const [pickerMonth, setPickerMonth] = useState(() => parseDataSegura(selectedDate) || new Date());
 
+    const dataValida = parseDataSegura(selectedDate);
     const display = selectedDate
-        ? (formatValue ? formatValue(selectedDate) : format(new Date(`${selectedDate}T12:00:00`), 'dd/MM/yyyy'))
+        ? (formatValue ? formatValue(selectedDate) : (dataValida ? format(dataValida, 'dd/MM/yyyy') : 'Data inválida'))
         : placeholder;
 
     return (
-        <Popover open={open} onOpenChange={(o) => { if (disabled) return; setOpen(o); if (o) setPickerMonth(selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date()); }}>
+        <Popover open={open} onOpenChange={(o) => { if (disabled) return; setOpen(o); if (o) setPickerMonth(parseDataSegura(selectedDate) || new Date()); }}>
             <PopoverTrigger asChild>
                 <button
                     type="button"
