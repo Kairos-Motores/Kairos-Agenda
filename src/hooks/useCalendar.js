@@ -448,7 +448,8 @@ export const useCalendar = () => {
                 return !nota.cr4a1_private || nota.cr4a1_user_login === user;
             }).map(nota => ({
                 ...nota,
-                cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : []
+                cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : [],
+                cr4a1_arquivos: nota.cr4a1_arquivos ? JSON.parse(nota.cr4a1_arquivos) : []
             }));
 
             setNotas(notasFiltradas);
@@ -1477,7 +1478,8 @@ export const useCalendar = () => {
             cr4a1_workspace_id: notaData.workspaceId,
             cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
-            cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
+            cr4a1_conteudo: JSON.stringify(notaData.conteudo || []),
+            cr4a1_arquivos: JSON.stringify(notaData.anexos || [])
         };
 
         if (!isOnline) {
@@ -1507,7 +1509,8 @@ export const useCalendar = () => {
             cr4a1_titulo: notaData.titulo || '',
             cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
-            cr4a1_conteudo: JSON.stringify(notaData.conteudo || [])
+            cr4a1_conteudo: JSON.stringify(notaData.conteudo || []),
+            cr4a1_arquivos: JSON.stringify(notaData.anexos || [])
         };
 
         const { queue, idx } = encontrarRascunhoPendente(notaId);
@@ -1581,20 +1584,26 @@ export const useCalendar = () => {
         const patchesPendentes = queue.filter(t => t.method === 'PATCH');
         const criacoesPendentes = queue.filter(t => t.method === 'POST');
 
-        const parseConteudo = (conteudo) => (typeof conteudo === 'string' ? JSON.parse(conteudo) : (conteudo || []));
+        const parseLista = (valor) => (typeof valor === 'string' ? JSON.parse(valor) : (valor || []));
 
         const existentes = notas
             .filter(n => !idsExcluidosPendentes.has(n.cr4a1_notas_kairosid))
             .map(n => {
                 const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid);
                 if (!patch) return n;
-                return { ...n, ...patch.body, cr4a1_conteudo: parseConteudo(patch.body.cr4a1_conteudo), _pendenteSync: true };
+                return {
+                    ...n, ...patch.body,
+                    cr4a1_conteudo: parseLista(patch.body.cr4a1_conteudo),
+                    cr4a1_arquivos: parseLista(patch.body.cr4a1_arquivos),
+                    _pendenteSync: true
+                };
             });
 
         const novasPendentes = criacoesPendentes.map(t => ({
             ...t.body,
             cr4a1_notas_kairosid: t._tempId,
-            cr4a1_conteudo: parseConteudo(t.body.cr4a1_conteudo),
+            cr4a1_conteudo: parseLista(t.body.cr4a1_conteudo),
+            cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
             _pendenteSync: true
         }));
 

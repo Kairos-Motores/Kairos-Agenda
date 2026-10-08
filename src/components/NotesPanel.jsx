@@ -5,13 +5,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, AlertTriangle, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { AttachmentsField } from './ui/attachments-field';
+import { parseAnexos } from '../utils/anexos';
 
 // ============================================================================
 // ESTILOS LOCAIS: animações e micro-interações MD3 do Bloco de Notas
@@ -150,7 +152,8 @@ export const NotesPanel = ({
       cr4a1_workspace_id: activeWorkspaces[0] || '',
       cr4a1_evento_id: eventId || '',
       cr4a1_user_login: currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
-      cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }]
+      cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }],
+      cr4a1_arquivos: []
     });
     setIsEditing(true);
     setConfirmingDelete(false);
@@ -195,6 +198,7 @@ export const NotesPanel = ({
       workspaceId: src.cr4a1_workspace_id,
       conteudo: src.cr4a1_conteudo,
       eventoId: src.cr4a1_evento_id || null,
+      anexos: src.cr4a1_arquivos || [],
       user: src.cr4a1_user_login,
       user_login: src.cr4a1_user_login,
 
@@ -204,6 +208,7 @@ export const NotesPanel = ({
       cr4a1_workspace_id: src.cr4a1_workspace_id,
       cr4a1_conteudo: src.cr4a1_conteudo,
       cr4a1_evento_id: src.cr4a1_evento_id || null,
+      cr4a1_arquivos: src.cr4a1_arquivos || [],
       cr4a1_user_login: src.cr4a1_user_login
     };
   };
@@ -482,6 +487,13 @@ export const NotesPanel = ({
                   {(notaAberta.cr4a1_conteudo || []).filter(b => !b.removing).length} bloco(s)
                 </span>
               </div>
+
+              <div className="mt-4">
+                <AttachmentsField
+                  anexos={notaAberta.cr4a1_arquivos || []}
+                  onChange={(novos) => setNotaAberta({ ...notaAberta, cr4a1_arquivos: novos })}
+                />
+              </div>
             </>
 
           ) : (
@@ -513,6 +525,8 @@ export const NotesPanel = ({
                   </p>
                 );
               })}
+
+              <AttachmentsField anexos={notaAberta.cr4a1_arquivos || []} readOnly />
             </div>
           )}
         </div>
@@ -610,6 +624,7 @@ export const NotesPanel = ({
                   </h4>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {nota._pendenteSync && <CloudOff className="size-4 text-warning" title="Salva offline — ainda não sincronizada" />}
+                    {parseAnexos(nota.cr4a1_arquivos).length > 0 && <Paperclip className="size-4 shrink-0 text-muted-foreground" title={`${parseAnexos(nota.cr4a1_arquivos).length} anexo(s)`} />}
                     {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title="Nota Privada" />}
                   </div>
                 </div>

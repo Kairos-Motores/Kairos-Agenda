@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -14,12 +14,14 @@ import { SearchField } from './ui/search-field';
 import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor } from './ui/rich-text-editor';
+import { AttachmentsField } from './ui/attachments-field';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
 import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
+import { parseAnexos } from '../utils/anexos';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -323,6 +325,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_evento_id: eventoId,
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
+        cr4a1_arquivos: JSON.stringify(form.anexos || []),
         cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
       });
 
@@ -364,7 +367,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         dia: data ? format(data, 'yyyy-MM-dd') : '',
         hora: data ? format(data, 'HH:mm') : '08:00',
         concluida: ficha.cr4a1_concluida === 'Sim',
-        etiquetas: parseAssignees(ficha.cr4a1_etiquetas)
+        etiquetas: parseAssignees(ficha.cr4a1_etiquetas),
+        anexos: parseAnexos(ficha.cr4a1_arquivos)
       }
     });
   };
@@ -605,6 +609,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
                       const concluida = ficha.cr4a1_concluida === 'Sim';
                       const microtarefas = extrairTarefas(ficha.cr4a1_descricao);
+                      const qtdAnexos = parseAnexos(ficha.cr4a1_arquivos).length;
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -640,6 +645,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                       <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
                                         <CalendarDays className="size-3" />
                                         {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                                      </span>
+                                    )}
+                                    {qtdAnexos > 0 && (
+                                      <span className="inline-flex items-center gap-0.5" title={`${qtdAnexos} anexo(s)`}>
+                                        <Paperclip className="size-3" /> {qtdAnexos}
                                       </span>
                                     )}
                                     <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
@@ -855,6 +865,8 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
         </div>
         <Switch checked={temTarefas ? concluidaDerivada : form.concluida} onCheckedChange={v => set('concluida', v)} disabled={temTarefas} />
       </div>
+
+      <AttachmentsField anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
 
       <DialogFooter className="justify-between">
         <Button variant="ghost" className="text-destructive" onClick={onDelete}>
