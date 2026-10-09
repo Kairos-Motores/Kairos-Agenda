@@ -23,6 +23,7 @@ import { corUrgenciaData } from '../utils/dateUrgency';
 import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
 import { parseAnexos } from '../utils/anexos';
+import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
 
@@ -220,6 +221,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const podeGerenciarBloqueios = isAdmin || coordRolesDoWorkspace.some(papel => hasRole?.(papel));
   const bloqueadosLogins = useMemo(() => parseAssignees(quadro?.cr4a1_bloqueados), [quadro]);
   const estouBloqueado = !isAdmin && bloqueadosLogins.includes(user);
+  // Pra exibição geral (avatares do cabeçalho, filtro de responsável) — quem está bloqueado
+  // some daqui, mas continua aparecendo no diálogo "Compartilhar" (com o status de bloqueado),
+  // que é onde esse controle é gerenciado.
+  const membrosVisiveis = useMemo(() => membros.filter(m => !bloqueadosLogins.includes(m.cr4a1_username)), [membros, bloqueadosLogins]);
 
   // Recarrega o quadro ao trocar de workspace/versão e, enquanto a tela estiver aberta,
   // vai repetindo em segundo plano — é assim que fichas criadas/concluídas por outra
@@ -390,6 +395,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
         cr4a1_arquivos: JSON.stringify(form.anexos || []),
+        cr4a1_cor: form.cor || '',
+        cr4a1_stickers: joinAssignees(form.stickers),
         cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
       });
 
@@ -432,7 +439,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         hora: data ? format(data, 'HH:mm') : '08:00',
         concluida: ficha.cr4a1_concluida === 'Sim',
         etiquetas: parseAssignees(ficha.cr4a1_etiquetas),
-        anexos: parseAnexos(ficha.cr4a1_arquivos)
+        anexos: parseAnexos(ficha.cr4a1_arquivos),
+        cor: ficha.cr4a1_cor || '',
+        stickers: parseAssignees(ficha.cr4a1_stickers)
       }
     });
   };
@@ -601,19 +610,19 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <p className="text-sm text-muted-foreground">Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {membros.length > 0 && (
+          {membrosVisiveis.length > 0 && (
             <button
               type="button"
               onClick={() => setCompartilharAberto(true)}
               title="Quem tem acesso a este quadro"
               className="flex items-center -space-x-2"
             >
-              {membros.slice(0, 6).map(m => (
+              {membrosVisiveis.slice(0, 6).map(m => (
                 <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={28} className="ring-2 ring-[var(--card)]" />
               ))}
-              {membros.length > 6 && (
+              {membrosVisiveis.length > 6 && (
                 <div className="flex size-[28px] items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
-                  +{membros.length - 6}
+                  +{membrosVisiveis.length - 6}
                 </div>
               )}
             </button>
@@ -627,15 +636,15 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-[75vh] w-80 overflow-y-auto p-4">
+            <PopoverContent align="start" className="w-80 overflow-y-auto p-4" style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}>
               <div className="flex flex-col gap-4">
                 <SearchField value={filtros.busca} onChange={v => setFiltro('busca', v)} placeholder="Buscar por título ou descrição..." />
 
-                {membros.length > 0 && (
+                {membrosVisiveis.length > 0 && (
                   <div>
                     <Label className="mb-1.5">Responsável</Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {membros.map(m => (
+                      {membrosVisiveis.map(m => (
                         <button key={m.cr4a1_username} type="button" onClick={() => toggleFiltroArray('responsaveis', m.cr4a1_username)} className={chipClass(filtros.responsaveis.includes(m.cr4a1_username))}>
                           {m.cr4a1_nome_exibicao || m.cr4a1_username}
                         </button>
@@ -790,7 +799,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
                       const concluida = ficha.cr4a1_concluida === 'Sim';
                       const microtarefas = extrairTarefas(ficha.cr4a1_descricao);
+                      const microtarefasFeitas = microtarefas.filter(t => t.concluida).length;
                       const qtdAnexos = parseAnexos(ficha.cr4a1_arquivos).length;
+                      const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -799,6 +810,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               {...providedCard.draggableProps}
                               {...providedCard.dragHandleProps}
                               className={`flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+                              style={ficha.cr4a1_cor ? { borderTopColor: ficha.cr4a1_cor, borderTopWidth: '4px' } : undefined}
                             >
                               <div className="flex items-start gap-2">
                                 <button
@@ -815,9 +827,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                   onClick={() => abrirFicha(ficha)}
                                   className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
                                 >
-                                  {etiquetasDaFicha.length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
+                                  {(etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
+                                    <div className="flex flex-wrap items-center gap-1">
                                       {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
+                                      {stickersDaFicha.length > 0 && (
+                                        <span className="text-sm leading-none" title="Stickers">{stickersDaFicha.join(' ')}</span>
+                                      )}
                                     </div>
                                   )}
                                   <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
@@ -839,7 +854,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                 </button>
                               </div>
                               {microtarefas.length > 0 && (
-                                <div className="flex flex-col gap-1 pl-[26px]">
+                                <div className="flex flex-col gap-1.5 pl-[26px]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                                      <div className="h-full rounded-full bg-success transition-all" style={{ width: `${(microtarefasFeitas / microtarefas.length) * 100}%` }} />
+                                    </div>
+                                    <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{microtarefasFeitas}/{microtarefas.length}</span>
+                                  </div>
                                   {microtarefas.map(tarefa => (
                                     <button
                                       key={tarefa.index}
@@ -975,10 +996,18 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
   );
 };
 
+const MAX_STICKERS_POR_FICHA = 8;
+
 const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, onSave, onDelete }) => {
   const [form, setForm] = useState(inicial);
   const set = (campo, valor) => setForm(prev => ({ ...prev, [campo]: valor }));
   const alternarEtiqueta = (id) => set('etiquetas', form.etiquetas.includes(id) ? form.etiquetas.filter(e => e !== id) : [...form.etiquetas, id]);
+  const alternarSticker = (emoji) => {
+    const atuais = form.stickers || [];
+    if (atuais.includes(emoji)) { set('stickers', atuais.filter(s => s !== emoji)); return; }
+    if (atuais.length >= MAX_STICKERS_POR_FICHA) return;
+    set('stickers', [...atuais, emoji]);
+  };
 
   // Com microtarefas na descrição, "concluída" deixa de ser uma escolha manual — ela
   // reflete se todas as microtarefas estão marcadas (mesma regra do card na lista).
@@ -1009,6 +1038,56 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
           </div>
         </div>
       )}
+
+      <div>
+        <Label>Cor da ficha</Label>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-secondary p-2">
+          <button
+            type="button"
+            onClick={() => set('cor', '')}
+            title="Sem cor"
+            aria-label="Sem cor"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-card"
+          >
+            {!form.cor && <Check className="size-3.5 text-muted-foreground" />}
+          </button>
+          {themeColors.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => set('cor', c.hex)}
+              title={c.label}
+              aria-label={c.label}
+              className="size-6 shrink-0 rounded-full transition-transform active:scale-90"
+              style={{ backgroundColor: c.hex, boxShadow: form.cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label className="flex items-center justify-between">
+          <span>Stickers</span>
+          <span className="text-[10px] font-normal normal-case text-muted-foreground">{(form.stickers || []).length}/{MAX_STICKERS_POR_FICHA}</span>
+        </Label>
+        <div className="grid max-h-32 grid-cols-10 gap-1 overflow-y-auto rounded-xl border border-border bg-secondary p-2">
+          {stickers.map(emoji => {
+            const selecionado = (form.stickers || []).includes(emoji);
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => alternarSticker(emoji)}
+                title={emoji}
+                aria-label={emoji}
+                className={`flex size-7 items-center justify-center rounded-lg text-base transition-transform active:scale-90 ${selecionado ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-card'}`}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
