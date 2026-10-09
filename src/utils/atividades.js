@@ -17,7 +17,7 @@ export const registrarAtividade = (atividadesAtuais, tipo, autor, detalhe = '') 
 export const descricaoAtividade = (atividade, nomeDe) => {
   const nome = nomeDe(atividade.autor);
   switch (atividade.tipo) {
-    case 'criada': return `${nome} criou a ficha`;
+    case 'criada': return atividade.detalhe ? `Ficha criada automaticamente (${atividade.detalhe})` : `${nome} criou a ficha`;
     case 'movida': return `${nome} moveu para "${atividade.detalhe}"`;
     case 'responsavel': return `${nome} atribuiu a ficha a ${atividade.detalhe}`;
     case 'concluida': return `${nome} marcou como concluída`;

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate } from 'lucide-react';
+import { format, addHours, addDays, addMonths } from 'date-fns';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -35,6 +35,10 @@ import { useConfirm } from '../hooks/useConfirm';
 const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
+// Opções de recorrência da ficha: ao concluir, cria sozinha a próxima ocorrência nessa
+// distância da data original (só funciona em fichas com data, já que a repetição é sobre ela).
+const RECORRENCIAS = { Diaria: (d) => addDays(d, 1), Semanal: (d) => addDays(d, 7), Mensal: (d) => addMonths(d, 1) };
+const RECORRENCIA_LABEL = { '': 'Não repetir', Diaria: 'Diariamente', Semanal: 'Semanalmente', Mensal: 'Mensalmente' };
 const TRELLO_WORKSPACE_KEY = 'kairos_trello_workspace';
 const TRELLO_COLAPSADAS_KEY = 'kairos_trello_listas_colapsadas';
 // Intervalo do polling que mantém o quadro em sincronia entre quem está vendo o mesmo Trello.
@@ -462,6 +466,57 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     } catch { toast.error('Erro ao criar ficha.'); }
   };
 
+  // Ao concluir uma ficha com recorrência configurada, cria sozinha a próxima ocorrência (nova
+  // ficha pendente, checklist zerado, na mesma lista) — só faz sentido em fichas com data, já
+  // que a repetição conta a partir dela.
+  const criarProximaRecorrencia = async (ficha) => {
+    const avancar = RECORRENCIAS[ficha.cr4a1_recorrencia];
+    if (!avancar || !comData(ficha)) return;
+    try {
+      const novaData = avancar(new Date(ficha.cr4a1_data_inicio));
+      const dia = format(novaData, 'yyyy-MM-dd');
+      const hora = format(novaData, 'HH:mm');
+      const { inicioIso, fimIso, horaFim } = intervaloDoEvento(dia, hora);
+      const resEvento = await post('cr4a1_agenda_kairoses', {
+        cr4a1_event_id: crypto.randomUUID(),
+        cr4a1_titulo: ficha.cr4a1_titulo,
+        cr4a1_user_login: ficha.cr4a1_responsavel_login,
+        cr4a1_data_inicio: inicioIso,
+        cr4a1_data_fim: fimIso,
+        cr4a1_hora_inicio: hora,
+        cr4a1_hora_fim: horaFim,
+        cr4a1_tipo: 'Tarefa',
+        cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
+        cr4a1_subtasks: '[]',
+        cr4a1_privado: false,
+        cr4a1_arquivos: '[]',
+        cr4a1_workspace_id: ficha.cr4a1_workspace_id
+      });
+      const eventoCriado = await resEvento.json();
+
+      await post('cr4a1_fichas', {
+        cr4a1_titulo: ficha.cr4a1_titulo,
+        cr4a1_descricao: marcarTodasTarefas(ficha.cr4a1_descricao || '', false),
+        cr4a1_lista_id: ficha.cr4a1_lista_id,
+        cr4a1_workspace_id: ficha.cr4a1_workspace_id,
+        cr4a1_responsavel_login: ficha.cr4a1_responsavel_login,
+        cr4a1_criador_login: ficha.cr4a1_criador_login || user,
+        cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === ficha.cr4a1_lista_id).length,
+        cr4a1_data_inicio: inicioIso,
+        cr4a1_evento_id: eventoCriado.cr4a1_agenda_kairosid,
+        cr4a1_concluida: 'Não',
+        cr4a1_notificado: 'Não',
+        cr4a1_etiquetas: ficha.cr4a1_etiquetas || '',
+        cr4a1_cor: ficha.cr4a1_cor || '',
+        cr4a1_recorrencia: ficha.cr4a1_recorrencia,
+        cr4a1_atividades: registrarAtividade(null, 'criada', user, 'repetição automática')
+      });
+      recarregar();
+      refreshEvents?.();
+      toast.success('Próxima ocorrência criada automaticamente.');
+    } catch { toast.error('Erro ao criar a próxima ocorrência recorrente.'); }
+  };
+
   // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
   const salvarFicha = async (form, original) => {
     // Havendo microtarefas, elas mandam no "concluída" (ex.: adicionar uma tarefa nova
@@ -538,6 +593,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_cor: form.cor || '',
         cr4a1_stickers: joinAssignees(form.stickers),
         cr4a1_atividades: atividades,
+        cr4a1_recorrencia: form.recorrencia || '',
         cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
       });
 
@@ -545,6 +601,20 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         fetch('/api/push-send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichaId: original.cr4a1_fichaid })
         }).catch(() => {});
+      }
+      if (concluidaMudou && concluidaFinal) {
+        await criarProximaRecorrencia({
+          cr4a1_titulo: form.titulo,
+          cr4a1_descricao: form.descricao || '',
+          cr4a1_lista_id: form.listaId,
+          cr4a1_workspace_id: workspaceId,
+          cr4a1_responsavel_login: form.responsavel,
+          cr4a1_criador_login: original.cr4a1_criador_login,
+          cr4a1_data_inicio: dataIso,
+          cr4a1_etiquetas: joinAssignees(form.etiquetas),
+          cr4a1_cor: form.cor || '',
+          cr4a1_recorrencia: form.recorrencia || ''
+        });
       }
       setEditando(null);
       recarregar();
@@ -582,7 +652,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         etiquetas: parseAssignees(ficha.cr4a1_etiquetas),
         anexos: parseAnexos(ficha.cr4a1_arquivos),
         cor: ficha.cr4a1_cor || '',
-        stickers: parseAssignees(ficha.cr4a1_stickers)
+        stickers: parseAssignees(ficha.cr4a1_stickers),
+        recorrencia: ficha.cr4a1_recorrencia || ''
       }
     });
   };
@@ -671,6 +742,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao, cr4a1_atividades: atividades } : f));
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao, cr4a1_atividades: atividades });
+      if (novoValor === 'Sim') await criarProximaRecorrencia(ficha);
     } catch {
       toast.error('Erro ao atualizar ficha.');
       setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida, cr4a1_descricao: ficha.cr4a1_descricao, cr4a1_atividades: ficha.cr4a1_atividades } : f));
@@ -693,12 +765,14 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   // Marca/desmarca uma microtarefa direto no card. O cartão segue o estado das tarefas: todas
   // concluídas marca o cartão sozinho, qualquer uma pendente reabre o cartão automaticamente.
   const toggleMicrotarefa = async (ficha, indiceTarefa) => {
+    const concluidaAntes = ficha.cr4a1_concluida === 'Sim';
     const novaDescricao = alternarTarefaNaDescricao(ficha.cr4a1_descricao, indiceTarefa);
     const tarefas = extrairTarefas(novaDescricao);
     const novoConcluida = tarefas.length > 0 && tarefas.every(t => t.concluida) ? 'Sim' : 'Não';
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida } : f));
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida });
+      if (!concluidaAntes && novoConcluida === 'Sim') await criarProximaRecorrencia(ficha);
     } catch {
       toast.error('Erro ao atualizar microtarefa.');
       setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: ficha.cr4a1_descricao, cr4a1_concluida: ficha.cr4a1_concluida } : f));
@@ -1123,6 +1197,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                         {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
                                       </span>
                                     )}
+                                    {ficha.cr4a1_recorrencia && (
+                                      <span title={`Repete ${RECORRENCIA_LABEL[ficha.cr4a1_recorrencia]?.toLowerCase() || ''}`}>
+                                        <Repeat className="size-3" />
+                                      </span>
+                                    )}
                                     {qtdAnexos > 0 && (
                                       <span className="inline-flex items-center gap-0.5" title={`${qtdAnexos} anexo(s)`}>
                                         <Paperclip className="size-3" /> {qtdAnexos}
@@ -1493,6 +1572,19 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
         <TimeField label="Hora" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
       </div>
       {form.dia && <p className="text-xs text-muted-foreground">Limpar a data mantém a ficha no quadro, mas ela sai da agenda.</p>}
+
+      <div>
+        <Label className="flex items-center gap-1.5"><Repeat className="size-3.5" /> Repetir</Label>
+        <p className="mb-1 text-[11px] text-muted-foreground">Ao concluir, cria sozinha a próxima ocorrência na data seguinte (precisa de uma data definida).</p>
+        <Select value={form.recorrencia || '__nenhuma__'} onValueChange={v => set('recorrencia', v === '__nenhuma__' ? '' : v)} disabled={!form.dia}>
+          <SelectTrigger><SelectValue placeholder="Não repetir" /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(RECORRENCIA_LABEL).map(([valor, label]) => (
+              <SelectItem key={valor || '__nenhuma__'} value={valor || '__nenhuma__'}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
         <div>
