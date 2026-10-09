@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2 } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -16,6 +16,7 @@ import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
+import { Textarea } from './ui/textarea';
 import { Sticker } from './ui/sticker';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
@@ -25,6 +26,7 @@ import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlPara
 import { compressImage } from '../utils/compressImage';
 import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
+import { parseComentarios, criarComentario } from '../utils/comentarios';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -599,6 +601,32 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     }
   };
 
+  // Comentários ficam guardados como JSON na própria ficha e são salvos na hora (não esperam
+  // o botão "Salvar" do formulário) — igual ao toggle de concluída/microtarefa, pra não se
+  // perderem se o usuário fechar a ficha sem salvar o resto.
+  const adicionarComentario = async (ficha, texto) => {
+    const comentarios = [...parseComentarios(ficha.cr4a1_comentarios), criarComentario(user, texto)];
+    const json = JSON.stringify(comentarios);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json } } : prev);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
+    } catch {
+      toast.error('Erro ao comentar.');
+    }
+  };
+
+  const removerComentario = async (ficha, comentarioId) => {
+    const json = JSON.stringify(parseComentarios(ficha.cr4a1_comentarios).filter(c => c.id !== comentarioId));
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json } } : prev);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
+    } catch {
+      toast.error('Erro ao excluir comentário.');
+    }
+  };
+
   // Arrasta a ficha entre listas (ou reordena na mesma lista), recalculando cr4a1_ordem.
   const handleDragEnd = (result) => {
     const { source, destination, draggableId } = result;
@@ -917,6 +945,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const microtarefasFeitas = microtarefas.filter(t => t.concluida).length;
                       const anexosDaFicha = parseAnexos(ficha.cr4a1_arquivos);
                       const qtdAnexos = anexosDaFicha.length;
+                      const qtdComentarios = parseComentarios(ficha.cr4a1_comentarios).length;
                       const capaImagem = primeiraImagem(anexosDaFicha);
                       const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
                       const corCard = ficha.cr4a1_cor ? corTextoLegivel(ficha.cr4a1_cor) : null;
@@ -981,6 +1010,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     {qtdAnexos > 0 && (
                                       <span className="inline-flex items-center gap-0.5" title={`${qtdAnexos} anexo(s)`}>
                                         <Paperclip className="size-3" /> {qtdAnexos}
+                                      </span>
+                                    )}
+                                    {qtdComentarios > 0 && (
+                                      <span className="inline-flex items-center gap-0.5" title={`${qtdComentarios} comentário(s)`}>
+                                        <MessageCircle className="size-3" /> {qtdComentarios}
                                       </span>
                                     )}
                                     <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
@@ -1059,6 +1093,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               allUsers={allUsers}
               etiquetas={etiquetas}
               workspaceNome={workspace?.cr4a1_nome}
+              comentarios={parseComentarios(editando.original.cr4a1_comentarios)}
+              usuarioAtual={user}
+              isAdmin={isAdmin}
+              onAddComentario={(texto) => adicionarComentario(editando.original, texto)}
+              onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
               onDelete={() => excluirFicha(editando.original)}
@@ -1132,8 +1171,15 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
 
 const MAX_STICKERS_POR_FICHA = 8;
 
-const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, onCancel, onSave, onDelete }) => {
+const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], usuarioAtual, isAdmin, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
   const [form, setForm] = useState(inicial);
+  const [novoComentario, setNovoComentario] = useState('');
+  const comentarEnviar = () => {
+    const texto = novoComentario.trim();
+    if (!texto) return;
+    onAddComentario(texto);
+    setNovoComentario('');
+  };
   const set = (campo, valor) => setForm(prev => ({ ...prev, [campo]: valor }));
   const alternarEtiqueta = (id) => set('etiquetas', form.etiquetas.includes(id) ? form.etiquetas.filter(e => e !== id) : [...form.etiquetas, id]);
   const alternarSticker = (emoji) => {
@@ -1277,6 +1323,42 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
       </div>
 
       <AttachmentsField anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
+
+      <div>
+        <Label className="flex items-center gap-1.5"><MessageCircle className="size-3.5" /> Comentários</Label>
+        <div className="flex flex-col gap-2">
+          {comentarios.length === 0 && <p className="text-[12px] italic text-muted-foreground">Nenhum comentário ainda.</p>}
+          {comentarios.map(c => (
+            <div key={c.id} className="flex items-start gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+              <UserAvatar login={c.autor} allUsers={allUsers} size={22} className="mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-foreground">{nomeDe(c.autor, allUsers)}</span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{format(new Date(c.data), 'dd/MM/yyyy HH:mm')}</span>
+                </div>
+                <p className="whitespace-pre-wrap break-words text-foreground">{c.texto}</p>
+              </div>
+              {(c.autor === usuarioAtual || isAdmin) && (
+                <button type="button" onClick={() => onRemoverComentario(c.id)} aria-label="Excluir comentário" className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-end gap-2">
+          <Textarea
+            value={novoComentario}
+            onChange={e => setNovoComentario(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); comentarEnviar(); } }}
+            placeholder="Escreva um comentário..."
+            className="min-h-[40px] py-2"
+          />
+          <Button type="button" size="sm" onClick={comentarEnviar} disabled={!novoComentario.trim()} aria-label="Comentar">
+            <Send className="size-4" />
+          </Button>
+        </div>
+      </div>
 
       <DialogFooter className="justify-between">
         <Button variant="ghost" className="text-destructive" onClick={onDelete}>
