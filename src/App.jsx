@@ -1454,12 +1454,14 @@ function App() {
 
           <main className="main-container" style={{
             flex: 1,
-            padding: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? '24px' : (['day', '3days', 'week'].includes(view) ? '0' : '24px'),
+            minWidth: 0,
+            // Só força padding zero nas visões de calendário sem respiro (dia/3dias/semana) —
+            // nos outros casos deixa o padding vir da classe .main-container, que já reduz
+            // sozinha em telas estreitas (senão esse valor fixo "vencia" o media query dela).
+            padding: (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['day', '3days', 'week'].includes(view)) ? '0' : undefined,
             paddingBottom: '80px',
             overflow: 'visible',
-            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : '0',
-            maxWidth: '1400px',
-            margin: '0 auto'
+            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : 0
           }}>
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
