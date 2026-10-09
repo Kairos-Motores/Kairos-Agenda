@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -27,6 +27,7 @@ import { compressImage } from '../utils/compressImage';
 import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
 import { parseComentarios, criarComentario } from '../utils/comentarios';
+import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -378,7 +379,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid).length,
         cr4a1_concluida: 'Não',
         cr4a1_notificado: 'Sim',
-        cr4a1_etiquetas: ''
+        cr4a1_etiquetas: '',
+        cr4a1_atividades: registrarAtividade(null, 'criada', user)
       });
       setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
       recarregar();
@@ -399,6 +401,18 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const responsavelMudou = form.responsavel !== original.cr4a1_responsavel_login;
     const dataMudou = (dataIso || '') !== (original.cr4a1_data_inicio || '');
     const avisar = dataDefinida && (!comData(original) || responsavelMudou || dataMudou);
+
+    // Registra no histórico só as mudanças que importam pra quem acompanha a ficha (não cada
+    // tecla digitada no título/descrição).
+    const listaMudou = form.listaId !== original.cr4a1_lista_id;
+    const concluidaMudou = concluidaFinal !== (original.cr4a1_concluida === 'Sim');
+    let atividades = original.cr4a1_atividades;
+    if (listaMudou) {
+      const nomeLista = listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '';
+      atividades = registrarAtividade(atividades, 'movida', user, nomeLista);
+    }
+    if (responsavelMudou) atividades = registrarAtividade(atividades, 'responsavel', user, nomeDe(form.responsavel, allUsers));
+    if (concluidaMudou) atividades = registrarAtividade(atividades, concluidaFinal ? 'concluida' : 'reaberta', user);
 
     let eventoId = original.cr4a1_evento_id || '';
     try {
@@ -448,6 +462,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_arquivos: JSON.stringify(form.anexos || []),
         cr4a1_cor: form.cor || '',
         cr4a1_stickers: joinAssignees(form.stickers),
+        cr4a1_atividades: atividades,
         cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
       });
 
@@ -577,12 +592,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const toggleConcluida = async (ficha) => {
     const novoValor = ficha.cr4a1_concluida === 'Sim' ? 'Não' : 'Sim';
     const novaDescricao = novoValor === 'Sim' ? marcarTodasTarefas(ficha.cr4a1_descricao, true) : ficha.cr4a1_descricao;
-    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao } : f));
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, novoValor === 'Sim' ? 'concluida' : 'reaberta', user);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao, cr4a1_atividades: atividades } : f));
     try {
-      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao });
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao, cr4a1_atividades: atividades });
     } catch {
       toast.error('Erro ao atualizar ficha.');
-      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida, cr4a1_descricao: ficha.cr4a1_descricao } : f));
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida, cr4a1_descricao: ficha.cr4a1_descricao, cr4a1_atividades: ficha.cr4a1_atividades } : f));
     }
   };
 
@@ -607,10 +623,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const adicionarComentario = async (ficha, texto) => {
     const comentarios = [...parseComentarios(ficha.cr4a1_comentarios), criarComentario(user, texto)];
     const json = JSON.stringify(comentarios);
-    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json } : f));
-    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json } } : prev);
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, 'comentario', user);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json, cr4a1_atividades: atividades } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json, cr4a1_atividades: atividades } } : prev);
     try {
-      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json, cr4a1_atividades: atividades });
     } catch {
       toast.error('Erro ao comentar.');
     }
@@ -646,8 +663,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const outras = fichas.filter(f => f.cr4a1_fichaid !== draggableId);
     const outrasVisiveis = outras.filter(f => idsVisiveis.has(f.cr4a1_fichaid));
 
+    const mudouDeLista = origemId !== destinoId;
+    const atividadesFicha = mudouDeLista
+      ? registrarAtividade(ficha.cr4a1_atividades, 'movida', user, listas.find(l => l.cr4a1_listaid === destinoId)?.cr4a1_nome || '')
+      : ficha.cr4a1_atividades;
+
     const destinoListaVisivel = ordenar(outrasVisiveis.filter(f => f.cr4a1_lista_id === destinoId));
-    destinoListaVisivel.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId });
+    destinoListaVisivel.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId, cr4a1_atividades: atividadesFicha });
     const destinoComOrdem = destinoListaVisivel.map((f, i) => ({ ...f, cr4a1_ordem: i }));
 
     let novasFichas;
@@ -665,7 +687,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
     setFichas(novasFichas);
     afetadas.forEach(f => {
-      patch('cr4a1_fichas', f.cr4a1_fichaid, { cr4a1_lista_id: f.cr4a1_lista_id, cr4a1_ordem: f.cr4a1_ordem }).catch(() => toast.error('Erro ao mover ficha.'));
+      const corpo = { cr4a1_lista_id: f.cr4a1_lista_id, cr4a1_ordem: f.cr4a1_ordem };
+      if (f.cr4a1_fichaid === draggableId && mudouDeLista) corpo.cr4a1_atividades = atividadesFicha;
+      patch('cr4a1_fichas', f.cr4a1_fichaid, corpo).catch(() => toast.error('Erro ao mover ficha.'));
     });
   };
 
@@ -1094,6 +1118,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               etiquetas={etiquetas}
               workspaceNome={workspace?.cr4a1_nome}
               comentarios={parseComentarios(editando.original.cr4a1_comentarios)}
+              atividades={parseAtividades(editando.original.cr4a1_atividades)}
               usuarioAtual={user}
               isAdmin={isAdmin}
               onAddComentario={(texto) => adicionarComentario(editando.original, texto)}
@@ -1171,7 +1196,8 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
 
 const MAX_STICKERS_POR_FICHA = 8;
 
-const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], usuarioAtual, isAdmin, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
+const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], atividades = [], usuarioAtual, isAdmin, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
+  const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
   const comentarEnviar = () => {
@@ -1359,6 +1385,28 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
           </Button>
         </div>
       </div>
+
+      {atividades.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setAtividadesAbertas(v => !v)}
+            className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground hover:text-primary"
+          >
+            <History className="size-3.5" /> {atividadesAbertas ? 'Ocultar histórico' : 'Ver histórico de atividades'}
+          </button>
+          {atividadesAbertas && (
+            <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-border pl-3">
+              {[...atividades].reverse().map(a => (
+                <div key={a.id} className="text-[12px] text-muted-foreground">
+                  <span>{descricaoAtividade(a, (login) => nomeDe(login, allUsers))}</span>
+                  <span className="ml-1.5 text-[10px]">— {format(new Date(a.data), 'dd/MM/yyyy HH:mm')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <DialogFooter className="justify-between">
         <Button variant="ghost" className="text-destructive" onClick={onDelete}>
