@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -16,6 +16,7 @@ import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor, aplicarAtributoTarefa } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { Sticker } from './ui/sticker';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
@@ -1024,8 +1025,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           )}
           <Popover open={filtrosAberto} onOpenChange={setFiltrosAberto}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="relative">
-                <Filter className="size-4" /> Filtros
+              <Button variant="outline" size="sm" className="relative" aria-label="Filtros">
+                <Filter className="size-4" /> <span className="hidden sm:inline">Filtros</span>
                 {filtrosAtivos > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{filtrosAtivos}</span>
                 )}
@@ -1100,30 +1101,50 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               </div>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="sm" onClick={() => setFundoAberto(true)}>
-            <Palette className="size-4" /> Fundo
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setEtiquetasAberto(true)}>
-            <Tag className="size-4" /> Etiquetas
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
-            <Users className="size-4" /> Compartilhar
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
-            <LayoutTemplate className="size-4" /> Modelos
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportarQuadro}>
-            <FileSpreadsheet className="size-4" /> Exportar
-          </Button>
+          {/* Ações secundárias (menos usadas no dia a dia) — fica como botões soltos a partir
+              de sm, e some pra dentro de um menu "Mais" só no mobile, pra não lotar o
+              cabeçalho de linhas de botão com texto antes mesmo do quadro aparecer. */}
+          <div className="hidden items-center gap-3 sm:flex">
+            <Button variant="outline" size="sm" onClick={() => setFundoAberto(true)}>
+              <Palette className="size-4" /> Fundo
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEtiquetasAberto(true)}>
+              <Tag className="size-4" /> Etiquetas
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
+              <Users className="size-4" /> Compartilhar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
+              <LayoutTemplate className="size-4" /> Modelos
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportarQuadro}>
+              <FileSpreadsheet className="size-4" /> Exportar
+            </Button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="sm:hidden" aria-label="Mais ações">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant={minhasFichasAberto ? 'default' : 'outline'}
             size="sm"
             onClick={() => setMinhasFichasAberto(v => !v)}
+            aria-label="Minhas fichas"
           >
-            <UserCircle2 className="size-4" /> Minhas fichas
+            <UserCircle2 className="size-4" /> <span className="hidden sm:inline">Minhas fichas</span>
           </Button>
           <Select value={workspaceId} onValueChange={setWorkspaceId}>
-            <SelectTrigger className="w-60"><SelectValue placeholder="Workspace" /></SelectTrigger>
+            <SelectTrigger className="w-36 sm:w-60"><SelectValue placeholder="Workspace" /></SelectTrigger>
             <SelectContent>
               {todasOpcoes.map(w => (
                 <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>{w.cr4a1_nome}</SelectItem>
