@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -28,6 +28,7 @@ import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
 import { parseComentarios, criarComentario } from '../utils/comentarios';
 import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
+import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -400,6 +401,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     })();
     return () => { cancelado = true; };
   }, [modelosAberto]);
+
+  const exportarQuadro = async () => {
+    if (fichas.length === 0) { toast.error('Este quadro ainda não tem fichas pra exportar.'); return; }
+    try {
+      await exportarQuadroXlsx(listas, fichas, etiquetas, allUsers, workspace?.cr4a1_nome);
+    } catch { toast.error('Erro ao exportar o quadro.'); }
+  };
 
   const salvarComoModelo = async (nome) => {
     if (listas.length === 0) { toast.error('Este quadro ainda não tem listas pra salvar como modelo.'); return; }
@@ -988,6 +996,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           </Button>
           <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
             <LayoutTemplate className="size-4" /> Modelos
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportarQuadro}>
+            <FileSpreadsheet className="size-4" /> Exportar
           </Button>
           <Button
             variant={minhasFichasAberto ? 'default' : 'outline'}
