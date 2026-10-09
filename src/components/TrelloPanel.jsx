@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -29,8 +30,51 @@ const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
 const TRELLO_WORKSPACE_KEY = 'kairos_trello_workspace';
+const TRELLO_COLAPSADAS_KEY = 'kairos_trello_listas_colapsadas';
 // Intervalo do polling que mantém o quadro em sincronia entre quem está vendo o mesmo Trello.
 const TRELLO_POLL_MS = 5000;
+
+const filtrosVazios = () => ({ busca: '', responsaveis: [], etiquetasIds: [], status: 'todas', comData: 'todas', dataDe: '', dataAte: '', anexos: 'todas' });
+
+// Estilo dos chips de filtro (e dos outros botões de alternância tipo pílula espalhados
+// pelo painel) — um só lugar pra manter o ativo/inativo consistente.
+const chipClass = (ativo) => `rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${ativo ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`;
+
+// Conta quantos "grupos" de filtro estão realmente restringindo algo, pra mostrar no selo do botão.
+const contarFiltrosAtivos = (f) => [
+  !!f.busca.trim(),
+  f.responsaveis.length > 0,
+  f.etiquetasIds.length > 0,
+  f.status !== 'todas',
+  f.comData !== 'todas',
+  !!f.dataDe,
+  !!f.dataAte,
+  f.anexos !== 'todas'
+].filter(Boolean).length;
+
+const fichaCombinaComFiltros = (ficha, f) => {
+  if (f.busca.trim()) {
+    const alvo = `${ficha.cr4a1_titulo || ''} ${htmlParaTexto(ficha.cr4a1_descricao)}`;
+    if (!matchesSearch(alvo, f.busca)) return false;
+  }
+  if (f.responsaveis.length > 0 && !f.responsaveis.includes(ficha.cr4a1_responsavel_login)) return false;
+  if (f.etiquetasIds.length > 0) {
+    const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas);
+    if (!f.etiquetasIds.some(id => etiquetasDaFicha.includes(id))) return false;
+  }
+  const concluida = ficha.cr4a1_concluida === 'Sim';
+  if (f.status === 'concluidas' && !concluida) return false;
+  if (f.status === 'pendentes' && concluida) return false;
+  if (f.status === 'atrasadas' && !(comData(ficha) && !concluida && ficha.cr4a1_data_inicio < new Date().toISOString())) return false;
+  if (f.comData === 'com' && !comData(ficha)) return false;
+  if (f.comData === 'sem' && comData(ficha)) return false;
+  if (f.dataDe && (!ficha.cr4a1_data_inicio || ficha.cr4a1_data_inicio < f.dataDe)) return false;
+  if (f.dataAte && (!ficha.cr4a1_data_inicio || ficha.cr4a1_data_inicio > `${f.dataAte}T23:59:59`)) return false;
+  const temAnexos = parseAnexos(ficha.cr4a1_arquivos).length > 0;
+  if (f.anexos === 'com' && !temAnexos) return false;
+  if (f.anexos === 'sem' && temAnexos) return false;
+  return true;
+};
 
 const membrosDoWorkspace = (ws, allUsers) => {
   const logins = new Set([ws?.cr4a1_criador_login, ...parseAssignees(ws?.cr4a1_membros_logins)].filter(Boolean));
@@ -103,7 +147,27 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [compartilharAberto, setCompartilharAberto] = useState(false);
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
   const [fundoAberto, setFundoAberto] = useState(false);
+  const [filtrosAberto, setFiltrosAberto] = useState(false);
+  const [filtros, setFiltros] = useState(filtrosVazios());
+  const [colapsadas, setColapsadas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
+  });
   const { confirm, ConfirmDialogHost } = useConfirm();
+
+  const alternarColapso = (listaId) => {
+    setColapsadas(prev => {
+      const novo = prev.includes(listaId) ? prev.filter(id => id !== listaId) : [...prev, listaId];
+      try { localStorage.setItem(TRELLO_COLAPSADAS_KEY, JSON.stringify(novo)); } catch { /* sem localStorage, só não persiste */ }
+      return novo;
+    });
+  };
+
+  const setFiltro = (campo, valor) => setFiltros(prev => ({ ...prev, [campo]: valor }));
+  const toggleFiltroArray = (campo, valor) => setFiltros(prev => ({
+    ...prev,
+    [campo]: prev[campo].includes(valor) ? prev[campo].filter(v => v !== valor) : [...prev[campo], valor]
+  }));
+  const filtrosAtivos = contarFiltrosAtivos(filtros);
 
   const recarregar = useCallback(() => setVersao(v => v + 1), []);
 
@@ -433,7 +497,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     } catch { toast.error('Erro ao excluir etiqueta.'); }
   };
 
-  const fichasDaLista = (lista) => ordenar(fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid));
+  const fichasVisiveis = useMemo(
+    () => (filtrosAtivos === 0 ? fichas : fichas.filter(f => fichaCombinaComFiltros(f, filtros))),
+    [fichas, filtros, filtrosAtivos]
+  );
+  const fichasDaLista = (lista) => ordenar(fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid));
 
   // Marca a ficha como concluída/pendente direto no card, sem abrir o formulário.
   // Concluir o cartão também marca todas as microtarefas (o card reflete o estado delas).
@@ -475,20 +543,27 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const ficha = fichas.find(f => f.cr4a1_fichaid === draggableId);
     if (!ficha) return;
 
+    // O índice do drag é relativo ao que está visível na tela — com filtro ativo, a posição
+    // é calculada em cima de fichasVisiveis (não da lista completa), senão a ficha cairia na
+    // posição errada contando cartões escondidos pelo filtro. Fichas escondidas da mesma
+    // lista continuam no estado, só não entram no recálculo de ordem (nada mudou pra elas).
+    const idsVisiveis = new Set(fichasVisiveis.map(f => f.cr4a1_fichaid));
     const outras = fichas.filter(f => f.cr4a1_fichaid !== draggableId);
-    const destinoLista = ordenar(outras.filter(f => f.cr4a1_lista_id === destinoId));
-    destinoLista.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId });
-    const destinoComOrdem = destinoLista.map((f, i) => ({ ...f, cr4a1_ordem: i }));
+    const outrasVisiveis = outras.filter(f => idsVisiveis.has(f.cr4a1_fichaid));
+
+    const destinoListaVisivel = ordenar(outrasVisiveis.filter(f => f.cr4a1_lista_id === destinoId));
+    destinoListaVisivel.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId });
+    const destinoComOrdem = destinoListaVisivel.map((f, i) => ({ ...f, cr4a1_ordem: i }));
 
     let novasFichas;
     let afetadas;
     if (origemId === destinoId) {
-      const resto = outras.filter(f => f.cr4a1_lista_id !== destinoId);
+      const resto = outras.filter(f => f.cr4a1_lista_id !== destinoId || !idsVisiveis.has(f.cr4a1_fichaid));
       novasFichas = [...resto, ...destinoComOrdem];
       afetadas = destinoComOrdem;
     } else {
-      const origemComOrdem = ordenar(outras.filter(f => f.cr4a1_lista_id === origemId)).map((f, i) => ({ ...f, cr4a1_ordem: i }));
-      const resto = outras.filter(f => f.cr4a1_lista_id !== destinoId && f.cr4a1_lista_id !== origemId);
+      const origemComOrdem = ordenar(outrasVisiveis.filter(f => f.cr4a1_lista_id === origemId)).map((f, i) => ({ ...f, cr4a1_ordem: i }));
+      const resto = outras.filter(f => (f.cr4a1_lista_id !== destinoId && f.cr4a1_lista_id !== origemId) || !idsVisiveis.has(f.cr4a1_fichaid));
       novasFichas = [...resto, ...origemComOrdem, ...destinoComOrdem];
       afetadas = [...origemComOrdem, ...destinoComOrdem];
     }
@@ -543,6 +618,84 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               )}
             </button>
           )}
+          <Popover open={filtrosAberto} onOpenChange={setFiltrosAberto}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="relative">
+                <Filter className="size-4" /> Filtros
+                {filtrosAtivos > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{filtrosAtivos}</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="max-h-[75vh] w-80 overflow-y-auto p-4">
+              <div className="flex flex-col gap-4">
+                <SearchField value={filtros.busca} onChange={v => setFiltro('busca', v)} placeholder="Buscar por título ou descrição..." />
+
+                {membros.length > 0 && (
+                  <div>
+                    <Label className="mb-1.5">Responsável</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {membros.map(m => (
+                        <button key={m.cr4a1_username} type="button" onClick={() => toggleFiltroArray('responsaveis', m.cr4a1_username)} className={chipClass(filtros.responsaveis.includes(m.cr4a1_username))}>
+                          {m.cr4a1_nome_exibicao || m.cr4a1_username}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {etiquetas.length > 0 && (
+                  <div>
+                    <Label className="mb-1.5">Etiquetas</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {etiquetas.map(et => (
+                        <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta onClick={() => toggleFiltroArray('etiquetasIds', et.cr4a1_etiquetaid)} selecionada={filtros.etiquetasIds.includes(et.cr4a1_etiquetaid)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="mb-1.5">Status</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['todas', 'Todas'], ['pendentes', 'Pendentes'], ['concluidas', 'Concluídas'], ['atrasadas', 'Atrasadas']].map(([valor, rotulo]) => (
+                      <button key={valor} type="button" onClick={() => setFiltro('status', valor)} className={chipClass(filtros.status === valor)}>{rotulo}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-1.5">Data</Label>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {[['todas', 'Todas'], ['com', 'Com data'], ['sem', 'Sem data']].map(([valor, rotulo]) => (
+                      <button key={valor} type="button" onClick={() => setFiltro('comData', valor)} className={chipClass(filtros.comData === valor)}>{rotulo}</button>
+                    ))}
+                  </div>
+                  {filtros.comData !== 'sem' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <DateField label="De" selectedDate={filtros.dataDe} onSelect={v => setFiltro('dataDe', v)} allowClear />
+                      <DateField label="Até" selectedDate={filtros.dataAte} onSelect={v => setFiltro('dataAte', v)} allowClear />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="mb-1.5">Anexos</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['todas', 'Todas'], ['com', 'Com anexo'], ['sem', 'Sem anexo']].map(([valor, rotulo]) => (
+                      <button key={valor} type="button" onClick={() => setFiltro('anexos', valor)} className={chipClass(filtros.anexos === valor)}>{rotulo}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {filtrosAtivos > 0 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setFiltros(filtrosVazios())}>
+                    <X className="size-4" /> Limpar filtros
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={() => setFundoAberto(true)}>
             <Palette className="size-4" /> Fundo
           </Button>
@@ -574,9 +727,37 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         {listasVisiveis.map(lista => {
           const souDono = lista.cr4a1_criador_login === user || isAdmin;
           const pessoal = lista.cr4a1_pessoal === 'Sim';
+          const colapsada = colapsadas.includes(lista.cr4a1_listaid);
+
+          if (colapsada) {
+            return (
+              <Droppable key={lista.cr4a1_listaid} droppableId={lista.cr4a1_listaid}>
+                {(provided) => (
+                  <section
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+                  >
+                    <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Expandir lista ${lista.cr4a1_nome}`} title="Expandir lista" className="text-muted-foreground hover:text-primary">
+                      <ChevronRight className="size-4" />
+                    </button>
+                    <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
+                    <span className="mt-1 flex-1 rotate-180 whitespace-nowrap text-xs font-bold text-foreground [writing-mode:vertical-rl]">
+                      {lista.cr4a1_nome}
+                    </span>
+                    <div className="hidden">{provided.placeholder}</div>
+                  </section>
+                )}
+              </Droppable>
+            );
+          }
+
           return (
             <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
               <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 text-muted-foreground hover:text-primary">
+                  <ChevronLeft className="size-4" />
+                </button>
                 <input
                   key={lista.cr4a1_nome}
                   defaultValue={lista.cr4a1_nome}
