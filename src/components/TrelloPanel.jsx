@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -164,6 +164,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [minhasFichasAberto, setMinhasFichasAberto] = useState(false);
   const [minhasFichas, setMinhasFichas] = useState([]);
   const [minhasFichasCarregando, setMinhasFichasCarregando] = useState(false);
+  const [modelosAberto, setModelosAberto] = useState(false);
+  const [modelos, setModelos] = useState([]);
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -370,6 +372,72 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       recarregar();
       refreshEvents?.();
     } catch { toast.error('Erro ao excluir lista.'); }
+  };
+
+  // Modelos de quadro são guardados como registros de cr4a1_quadros marcados com
+  // cr4a1_etemplate = 'Sim' — não são um quadro de verdade (sem cr4a1_workspace_id), só um
+  // "molde" reutilizável com a estrutura de listas (nome + se é pessoal), sem fichas.
+  const carregarModelos = async () => {
+    try {
+      const filtro = q("cr4a1_etemplate eq 'Sim'");
+      const res = await fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtro}`).then(r => r.json());
+      setModelos(res.value || []);
+    } catch {
+      toast.error('Erro ao carregar modelos de quadro.');
+    }
+  };
+
+  useEffect(() => {
+    if (!modelosAberto) return undefined;
+    let cancelado = false;
+    (async () => {
+      await Promise.resolve();
+      if (!cancelado) await carregarModelos();
+    })();
+    return () => { cancelado = true; };
+  }, [modelosAberto]);
+
+  const salvarComoModelo = async (nome) => {
+    if (listas.length === 0) { toast.error('Este quadro ainda não tem listas pra salvar como modelo.'); return; }
+    try {
+      const estrutura = listas.map(l => ({ nome: l.cr4a1_nome, pessoal: l.cr4a1_pessoal === 'Sim' }));
+      await post('cr4a1_quadros', {
+        cr4a1_nome: nome,
+        cr4a1_etemplate: 'Sim',
+        cr4a1_criador_login: user,
+        cr4a1_templatelistas: JSON.stringify(estrutura)
+      });
+      await carregarModelos();
+      toast.success('Modelo salvo.');
+    } catch { toast.error('Erro ao salvar modelo.'); }
+  };
+
+  const aplicarModelo = async (modelo) => {
+    try {
+      const estrutura = JSON.parse(modelo.cr4a1_templatelistas || '[]');
+      let ordem = listas.length;
+      for (const item of estrutura) {
+        await post('cr4a1_listas', {
+          cr4a1_nome: item.nome,
+          cr4a1_workspace_id: workspaceId,
+          cr4a1_ordem: ordem,
+          cr4a1_criador_login: user,
+          cr4a1_pessoal: item.pessoal ? 'Sim' : 'Não'
+        });
+        ordem += 1;
+      }
+      setModelosAberto(false);
+      recarregar();
+      toast.success(`Modelo "${modelo.cr4a1_nome}" aplicado.`);
+    } catch { toast.error('Erro ao aplicar modelo.'); }
+  };
+
+  const apagarModelo = async (modelo) => {
+    if (!(await confirm(`Excluir o modelo "${modelo.cr4a1_nome}"?`, { title: 'Excluir modelo' }))) return;
+    try {
+      await apagar('cr4a1_quadros', modelo.cr4a1_quadroid);
+      setModelos(prev => prev.filter(m => m.cr4a1_quadroid !== modelo.cr4a1_quadroid));
+    } catch { toast.error('Erro ao excluir modelo.'); }
   };
 
   const criarFicha = async (lista) => {
@@ -844,6 +912,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
             <Users className="size-4" /> Compartilhar
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
+            <LayoutTemplate className="size-4" /> Modelos
+          </Button>
           <Button
             variant={minhasFichasAberto ? 'default' : 'outline'}
             size="sm"
@@ -1207,6 +1278,17 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           onEdit={editarEtiqueta}
           onDelete={apagarEtiqueta}
           onClose={() => setEtiquetasAberto(false)}
+        />
+      )}
+
+      {modelosAberto && (
+        <ModelosDialog
+          modelos={modelos}
+          podeGerenciar={podeGerenciarColaboradores}
+          onSalvarComoModelo={salvarComoModelo}
+          onAplicar={aplicarModelo}
+          onApagar={apagarModelo}
+          onClose={() => setModelosAberto(false)}
         />
       )}
     </div>
@@ -1691,6 +1773,70 @@ const EtiquetaForm = ({ inicial, titulo, onCancel, onSave }) => {
         <Button size="sm" onClick={() => onSave(form)} disabled={!form.cr4a1_nome.trim()}>Salvar</Button>
       </div>
     </div>
+  );
+};
+
+// Modelos valem pra qualquer workspace (não só o atual) — a lista vem de cr4a1_quadros
+// marcados como template, sem ficha nenhuma envolvida, só a estrutura de listas.
+const ModelosDialog = ({ modelos, podeGerenciar, onSalvarComoModelo, onAplicar, onApagar, onClose }) => {
+  const [nomeModelo, setNomeModelo] = useState('');
+
+  const salvar = () => {
+    const nome = nomeModelo.trim();
+    if (!nome) return;
+    onSalvarComoModelo(nome);
+    setNomeModelo('');
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle><LayoutTemplate className="size-5" /> Modelos de quadro</DialogTitle>
+          <DialogDescription>Reaproveite a estrutura de listas de um quadro em qualquer workspace.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            {modelos.length === 0 && <p className="py-2 text-center text-sm text-muted-foreground">Nenhum modelo salvo ainda.</p>}
+            {modelos.map(m => {
+              const qtdListas = (() => { try { return JSON.parse(m.cr4a1_templatelistas || '[]').length; } catch { return 0; } })();
+              return (
+                <div key={m.cr4a1_quadroid} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{m.cr4a1_nome}</p>
+                    <p className="text-[11px] text-muted-foreground">{qtdListas} lista(s)</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" onClick={() => onAplicar(m)}>Usar</Button>
+                    {podeGerenciar && (
+                      <button type="button" onClick={() => onApagar(m)} aria-label={`Excluir modelo ${m.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {podeGerenciar && (
+            <div className="flex flex-col gap-2 rounded-2xl border border-border p-3">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Salvar o quadro atual como modelo</span>
+              <p className="text-[11px] text-muted-foreground">Guarda só os nomes das listas (e se são pessoais) — nenhuma ficha é copiada.</p>
+              <div className="flex gap-2">
+                <Input value={nomeModelo} onChange={e => setNomeModelo(e.target.value)} placeholder="Nome do modelo" />
+                <Button type="button" size="sm" onClick={salvar} disabled={!nomeModelo.trim()}>Salvar</Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose}>Concluído</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
