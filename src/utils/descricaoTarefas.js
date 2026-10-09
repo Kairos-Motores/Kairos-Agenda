@@ -7,7 +7,12 @@ export const extrairTarefas = (html) => {
   return [...doc.querySelectorAll('li[data-type="taskItem"]')].map((li, index) => ({
     index,
     texto: (li.querySelector('div')?.textContent || li.textContent || '').trim(),
-    concluida: li.getAttribute('data-checked') === 'true'
+    concluida: li.getAttribute('data-checked') === 'true',
+    // Data e responsável não fazem parte do editor de texto rico (TipTap) — ficam guardados
+    // como atributos extras no próprio <li>, lidos/escritos por fora da edição do texto,
+    // igual ao data-checked já faz pro estado de concluída.
+    dataVencimento: li.getAttribute('data-due') || '',
+    responsavel: li.getAttribute('data-assignee') || ''
   }));
 };
 

@@ -14,7 +14,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { SearchField } from './ui/search-field';
 import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
-import { RichTextEditor } from './ui/rich-text-editor';
+import { RichTextEditor, aplicarAtributoTarefa } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
 import { Textarea } from './ui/textarea';
 import { Sticker } from './ui/sticker';
@@ -1084,17 +1084,26 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     </div>
                                     <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{microtarefasFeitas}/{microtarefas.length}</span>
                                   </div>
-                                  {microtarefas.map(tarefa => (
-                                    <button
-                                      key={tarefa.index}
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); toggleMicrotarefa(ficha, tarefa.index); }}
-                                      className="flex items-center gap-1.5 text-left text-[11px] text-muted-foreground"
-                                    >
-                                      {tarefa.concluida ? <CheckCircle2 className="size-3 shrink-0 text-success" /> : <Circle className="size-3 shrink-0" />}
-                                      <span className={tarefa.concluida ? 'line-through opacity-60' : ''}>{tarefa.texto}</span>
-                                    </button>
-                                  ))}
+                                  {microtarefas.map(tarefa => {
+                                    const vencimentoIso = tarefa.dataVencimento ? `${tarefa.dataVencimento}T12:00:00` : null;
+                                    return (
+                                      <button
+                                        key={tarefa.index}
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); toggleMicrotarefa(ficha, tarefa.index); }}
+                                        className="flex items-center gap-1.5 text-left text-[11px] text-muted-foreground"
+                                      >
+                                        {tarefa.concluida ? <CheckCircle2 className="size-3 shrink-0 text-success" /> : <Circle className="size-3 shrink-0" />}
+                                        <span className={`min-w-0 flex-1 truncate ${tarefa.concluida ? 'line-through opacity-60' : ''}`}>{tarefa.texto}</span>
+                                        {vencimentoIso && (
+                                          <span className={`inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 ${corUrgenciaData(vencimentoIso, tarefa.concluida)}`}>
+                                            <CalendarDays className="size-2.5" /> {format(new Date(vencimentoIso), 'dd/MM')}
+                                          </span>
+                                        )}
+                                        {tarefa.responsavel && <UserAvatar login={tarefa.responsavel} allUsers={allUsers} size={14} className="shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -1230,6 +1239,7 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
+  const [editorDescricao, setEditorDescricao] = useState(null);
   const comentarEnviar = () => {
     const texto = novoComentario.trim();
     if (!texto) return;
@@ -1277,8 +1287,40 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
       <div>
         <Label>Descrição</Label>
         <p className="mb-1 text-[11px] text-muted-foreground">Use o ícone de checklist para criar microtarefas — elas aparecem e podem ser marcadas direto no card.</p>
-        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} />
+        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} onEditorReady={setEditorDescricao} />
       </div>
+
+      {temTarefas && (
+        <div>
+          <Label>Microtarefas — prazo e responsável</Label>
+          <div className="flex flex-col gap-1.5">
+            {tarefasDaDescricao.map(t => (
+              <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-1.5 text-sm">
+                <span className={`min-w-0 flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
+                <input
+                  type="date"
+                  value={t.dataVencimento || ''}
+                  onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
+                  aria-label={`Prazo de "${t.texto}"`}
+                  className="h-8 shrink-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
+                />
+                <Select
+                  value={t.responsavel || '__nenhum__'}
+                  onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
+                >
+                  <SelectTrigger className="h-8 w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__nenhum__">Sem responsável</SelectItem>
+                    {(membros.length ? membros : allUsers).map(u => (
+                      <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {etiquetas.length > 0 && (
         <div>
