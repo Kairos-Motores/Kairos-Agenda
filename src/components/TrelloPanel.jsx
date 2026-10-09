@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -29,6 +29,7 @@ import { corTextoLegivel } from '../utils/cor';
 import { parseComentarios, criarComentario } from '../utils/comentarios';
 import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
+import { parseAutomacoes, aplicarAutomacoes, TIPOS_AUTOMACAO, descricaoAutomacao } from '../utils/automacoes';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -171,6 +172,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [minhasFichasCarregando, setMinhasFichasCarregando] = useState(false);
   const [modelosAberto, setModelosAberto] = useState(false);
   const [modelos, setModelos] = useState([]);
+  const [listaAutomacao, setListaAutomacao] = useState(null);
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -356,6 +358,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_pessoal: lista.cr4a1_pessoal === 'Sim' ? 'Não' : 'Sim' });
       recarregar();
     } catch { toast.error('Erro ao atualizar a lista.'); }
+  };
+
+  const salvarAutomacoes = async (lista, automacoes) => {
+    try {
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: JSON.stringify(automacoes) });
+      recarregar();
+    } catch { toast.error('Erro ao salvar automações.'); }
   };
 
   const removerEventoDaFicha = async (ficha) => {
@@ -545,6 +554,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const listaMudou = form.listaId !== original.cr4a1_lista_id;
     const concluidaMudou = concluidaFinal !== (original.cr4a1_concluida === 'Sim');
     let atividades = original.cr4a1_atividades;
+    // Automações da lista de destino ("quando uma ficha entra aqui, faça X") valem igual aqui:
+    // trocar de lista pelo próprio formulário dispara as mesmas regras do drag-and-drop.
+    const automMudancas = listaMudou
+      ? aplicarAutomacoes(parseAutomacoes(listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_automacao), joinAssignees(form.etiquetas))
+      : null;
     if (listaMudou) {
       const nomeLista = listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '';
       atividades = registrarAtividade(atividades, 'movida', user, nomeLista);
@@ -602,7 +616,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_stickers: joinAssignees(form.stickers),
         cr4a1_atividades: atividades,
         cr4a1_recorrencia: form.recorrencia || '',
-        cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim')
+        cr4a1_notificado: avisar ? 'Não' : (original.cr4a1_notificado || 'Sim'),
+        ...automMudancas
       });
 
       if (avisar) {
@@ -837,9 +852,14 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const atividadesFicha = mudouDeLista
       ? registrarAtividade(ficha.cr4a1_atividades, 'movida', user, listas.find(l => l.cr4a1_listaid === destinoId)?.cr4a1_nome || '')
       : ficha.cr4a1_atividades;
+    // Automações da lista de destino ("quando uma ficha entra aqui, faça X") só valem quando a
+    // ficha realmente TROCOU de lista, não num simples reordenar dentro da mesma lista.
+    const automMudancas = mudouDeLista
+      ? aplicarAutomacoes(parseAutomacoes(listas.find(l => l.cr4a1_listaid === destinoId)?.cr4a1_automacao), ficha.cr4a1_etiquetas)
+      : null;
 
     const destinoListaVisivel = ordenar(outrasVisiveis.filter(f => f.cr4a1_lista_id === destinoId));
-    destinoListaVisivel.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId, cr4a1_atividades: atividadesFicha });
+    destinoListaVisivel.splice(destination.index, 0, { ...ficha, cr4a1_lista_id: destinoId, cr4a1_atividades: atividadesFicha, ...automMudancas });
     const destinoComOrdem = destinoListaVisivel.map((f, i) => ({ ...f, cr4a1_ordem: i }));
 
     let novasFichas;
@@ -858,7 +878,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     setFichas(novasFichas);
     afetadas.forEach(f => {
       const corpo = { cr4a1_lista_id: f.cr4a1_lista_id, cr4a1_ordem: f.cr4a1_ordem };
-      if (f.cr4a1_fichaid === draggableId && mudouDeLista) corpo.cr4a1_atividades = atividadesFicha;
+      if (f.cr4a1_fichaid === draggableId && mudouDeLista) Object.assign(corpo, { cr4a1_atividades: atividadesFicha }, automMudancas);
       patch('cr4a1_fichas', f.cr4a1_fichaid, corpo).catch(() => toast.error('Erro ao mover ficha.'));
     });
   };
@@ -1130,6 +1150,16 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                     {pessoal ? <Lock className="size-4" /> : <Unlock className="size-4" />}
                   </button>
                 )}
+                {souDono && (
+                  <button
+                    onClick={() => setListaAutomacao(lista)}
+                    aria-label={`Automações da lista ${lista.cr4a1_nome}`}
+                    title="Automações: o que fazer quando uma ficha entra nesta lista"
+                    className={parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-primary'}
+                  >
+                    <Zap className="size-4" />
+                  </button>
+                )}
                 <button onClick={() => apagarLista(lista)} aria-label={`Excluir lista ${lista.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="size-4" />
                 </button>
@@ -1379,6 +1409,16 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           onAplicar={aplicarModelo}
           onApagar={apagarModelo}
           onClose={() => setModelosAberto(false)}
+        />
+      )}
+
+      {listaAutomacao && (
+        <AutomacaoDialog
+          lista={listas.find(l => l.cr4a1_listaid === listaAutomacao.cr4a1_listaid) || listaAutomacao}
+          etiquetas={etiquetas}
+          membros={membros.length ? membros : allUsers}
+          onSave={(automacoes) => salvarAutomacoes(listaAutomacao, automacoes)}
+          onClose={() => setListaAutomacao(null)}
         />
       )}
     </div>
@@ -1933,6 +1973,96 @@ const ModelosDialog = ({ modelos, podeGerenciar, onSalvarComoModelo, onAplicar, 
               </div>
             </div>
           )}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose}>Concluído</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Regras "quando uma ficha entra nesta lista, faça X" — disparadas tanto arrastando a ficha
+// quanto trocando a lista pelo próprio formulário da ficha.
+const AutomacaoDialog = ({ lista, etiquetas, membros, onSave, onClose }) => {
+  const automacoes = parseAutomacoes(lista.cr4a1_automacao);
+  const [tipo, setTipo] = useState('responsavel');
+  const [valor, setValor] = useState('');
+
+  const precisaValor = tipo === 'responsavel' || tipo === 'etiqueta' || tipo === 'cor';
+
+  const adicionar = () => {
+    if (precisaValor && !valor) return;
+    onSave([...automacoes, precisaValor ? { tipo, valor } : { tipo }]);
+    setValor('');
+  };
+  const remover = (idx) => onSave(automacoes.filter((_, i) => i !== idx));
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle><Zap className="size-5" /> Automações da lista</DialogTitle>
+          <DialogDescription>Quando uma ficha entrar em &quot;{lista.cr4a1_nome}&quot;, faça automaticamente:</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            {automacoes.length === 0 && <p className="py-2 text-center text-sm text-muted-foreground">Nenhuma automação configurada.</p>}
+            {automacoes.map((regra, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+                <span>{descricaoAutomacao(regra, { etiquetas, allUsers: membros })}</span>
+                <button type="button" onClick={() => remover(idx)} aria-label="Remover regra" className="text-muted-foreground hover:text-destructive">
+                  <X className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-2xl border border-border p-3">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Nova regra</span>
+            <Select value={tipo} onValueChange={(v) => { setTipo(v); setValor(''); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(TIPOS_AUTOMACAO).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {tipo === 'responsavel' && (
+              <Select value={valor} onValueChange={setValor}>
+                <SelectTrigger><SelectValue placeholder="Escolher pessoa" /></SelectTrigger>
+                <SelectContent>
+                  {membros.map(m => <SelectItem key={m.cr4a1_username} value={m.cr4a1_username}>{m.cr4a1_nome_exibicao || m.cr4a1_username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {tipo === 'etiqueta' && (
+              <Select value={valor} onValueChange={setValor}>
+                <SelectTrigger><SelectValue placeholder="Escolher etiqueta" /></SelectTrigger>
+                <SelectContent>
+                  {etiquetas.map(et => <SelectItem key={et.cr4a1_etiquetaid} value={et.cr4a1_etiquetaid}>{et.cr4a1_nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {tipo === 'cor' && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {themeColors.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setValor(c.hex)}
+                    title={c.label}
+                    aria-label={c.label}
+                    className="size-6 shrink-0 rounded-full transition-transform active:scale-90"
+                    style={{ backgroundColor: c.hex, boxShadow: valor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Button type="button" size="sm" onClick={adicionar} disabled={precisaValor && !valor}>Adicionar regra</Button>
+          </div>
         </div>
 
         <DialogFooter>
