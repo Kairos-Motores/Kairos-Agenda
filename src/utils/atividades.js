@@ -23,6 +23,8 @@ export const descricaoAtividade = (atividade, nomeDe) => {
     case 'concluida': return `${nome} marcou como concluída`;
     case 'reaberta': return `${nome} reabriu a ficha`;
     case 'comentario': return `${nome} comentou`;
+    case 'fixada': return `${nome} fixou a ficha`;
+    case 'desafixada': return `${nome} desafixou a ficha`;
     default: return `${nome} atualizou a ficha`;
   }
 };

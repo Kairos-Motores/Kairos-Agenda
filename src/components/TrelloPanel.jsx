@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -119,7 +119,13 @@ const UserAvatar = ({ login, allUsers, size = 22, className = '' }) => {
   );
 };
 
-const ordenar = (lista) => [...lista].sort((a, b) => (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0));
+// Fichas fixadas sempre no topo da lista, na frente das demais (mesma ideia do pin do Trello).
+const ordenar = (lista) => [...lista].sort((a, b) => {
+  const fixadaA = a.cr4a1_fixada === 'Sim' ? 0 : 1;
+  const fixadaB = b.cr4a1_fixada === 'Sim' ? 0 : 1;
+  if (fixadaA !== fixadaB) return fixadaA - fixadaB;
+  return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+});
 
 // Monta o horário de início e fim (1 hora) a partir da data e hora escolhidas no formulário.
 const intervaloDoEvento = (dia, hora) => {
@@ -380,6 +386,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_concluida: 'Não',
         cr4a1_notificado: 'Sim',
         cr4a1_etiquetas: '',
+        cr4a1_fixada: 'Não',
         cr4a1_atividades: registrarAtividade(null, 'criada', user)
       });
       setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
@@ -599,6 +606,19 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     } catch {
       toast.error('Erro ao atualizar ficha.');
       setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_concluida: ficha.cr4a1_concluida, cr4a1_descricao: ficha.cr4a1_descricao, cr4a1_atividades: ficha.cr4a1_atividades } : f));
+    }
+  };
+
+  // Fixa/desafixa a ficha no topo da lista, direto no card (igual ao pin do Trello).
+  const alternarFixada = async (ficha) => {
+    const novoValor = ficha.cr4a1_fixada === 'Sim' ? 'Não' : 'Sim';
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, novoValor === 'Sim' ? 'fixada' : 'desafixada', user);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_fixada: novoValor, cr4a1_atividades: atividades } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_fixada: novoValor, cr4a1_atividades: atividades });
+    } catch {
+      toast.error('Erro ao fixar ficha.');
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_fixada: ficha.cr4a1_fixada, cr4a1_atividades: ficha.cr4a1_atividades } : f));
     }
   };
 
@@ -973,6 +993,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const capaImagem = primeiraImagem(anexosDaFicha);
                       const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
                       const corCard = ficha.cr4a1_cor ? corTextoLegivel(ficha.cr4a1_cor) : null;
+                      const fixada = ficha.cr4a1_fixada === 'Sim';
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -1044,6 +1065,15 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
                                     <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
                                   </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
+                                  aria-label={fixada ? `Desafixar "${ficha.cr4a1_titulo}"` : `Fixar "${ficha.cr4a1_titulo}" no topo da lista`}
+                                  title={fixada ? 'Desafixar' : 'Fixar no topo da lista'}
+                                  className={`mt-0.5 shrink-0 ${fixada ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                >
+                                  <Pin className="size-[15px]" fill={fixada ? 'currentColor' : 'none'} />
                                 </button>
                               </div>
                               {microtarefas.length > 0 && (
