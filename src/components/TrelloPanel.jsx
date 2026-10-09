@@ -819,8 +819,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               style={corCard ? {
                                 backgroundColor: ficha.cr4a1_cor,
                                 borderColor: ficha.cr4a1_cor,
-                                '--color-foreground': corCard.principal,
-                                '--color-muted-foreground': corCard.suave
+                                // As classes text-foreground/text-muted-foreground compilam pra
+                                // var(--text-primary)/var(--text-secondary) (não --color-*), que
+                                // é a variável "de baixo" referenciada pelo tema — é essa que
+                                // precisa ser sobrescrita pra herdar nos filhos.
+                                '--text-primary': corCard.principal,
+                                '--text-secondary': corCard.suave
                               } : undefined}
                             >
                               {capaImagem && (
@@ -1043,8 +1047,8 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
         className="rounded-2xl p-4"
         style={corCabecalho ? {
           backgroundColor: form.cor,
-          '--color-foreground': corCabecalho.principal,
-          '--color-muted-foreground': corCabecalho.suave
+          '--text-primary': corCabecalho.principal,
+          '--text-secondary': corCabecalho.suave
         } : undefined}
       >
         <DialogTitle>Ficha</DialogTitle>
