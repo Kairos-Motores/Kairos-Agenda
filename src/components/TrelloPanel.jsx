@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2 } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -152,6 +152,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [fundoAberto, setFundoAberto] = useState(false);
   const [filtrosAberto, setFiltrosAberto] = useState(false);
   const [anexoCardPreview, setAnexoCardPreview] = useState(null);
+  const [minhasFichasAberto, setMinhasFichasAberto] = useState(false);
+  const [minhasFichas, setMinhasFichas] = useState([]);
+  const [minhasFichasCarregando, setMinhasFichasCarregando] = useState(false);
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -209,6 +212,49 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     () => todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId),
     [todasOpcoes, workspaceId]
   );
+
+  // "Minhas fichas" cruza TODOS os workspaces de uma vez só (não só o selecionado) — busca por
+  // responsável em cr4a1_fichas direto, sem precisar varrer workspace por workspace. Confere
+  // também os quadros onde o usuário está bloqueado, pra não vazar fichas de um Trello que ele
+  // não devia ver só porque é o responsável por alguma ficha lá.
+  useEffect(() => {
+    if (!minhasFichasAberto) return undefined;
+    let cancelado = false;
+    (async () => {
+      await Promise.resolve();
+      if (cancelado) return;
+      setMinhasFichasCarregando(true);
+      const filtroFichas = q(`cr4a1_responsavel_login eq '${user}'`);
+      const filtroBloqueios = q(`contains(cr4a1_bloqueados, '${user}')`);
+      try {
+        const [resFichas, resBloqueios] = await Promise.all([
+          fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${filtroFichas}`).then(r => r.json()),
+          fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtroBloqueios}`).then(r => r.json())
+        ]);
+        if (cancelado) return;
+        const workspacesBloqueados = new Set((resBloqueios.value || []).map(qd => qd.cr4a1_workspace_id));
+        const idsAcessiveis = new Set(todasOpcoes.map(w => w.cr4a1_calendarios_workspacesid));
+        setMinhasFichas((resFichas.value || []).filter(f => idsAcessiveis.has(f.cr4a1_workspace_id) && !workspacesBloqueados.has(f.cr4a1_workspace_id)));
+      } catch {
+        if (!cancelado) toast.error('Erro ao carregar suas fichas.');
+      } finally {
+        if (!cancelado) setMinhasFichasCarregando(false);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [minhasFichasAberto, user, todasOpcoes]);
+
+  const prioridadeMinhasFichas = (f) => {
+    if (f.cr4a1_concluida === 'Sim') return 2;
+    return comData(f) ? 0 : 1;
+  };
+  const minhasFichasOrdenadas = useMemo(() => [...minhasFichas].sort((a, b) => {
+    const pa = prioridadeMinhasFichas(a);
+    const pb = prioridadeMinhasFichas(b);
+    if (pa !== pb) return pa - pb;
+    if (pa === 0) return a.cr4a1_data_inicio.localeCompare(b.cr4a1_data_inicio);
+    return 0;
+  }), [minhasFichas]);
 
   const colaboradoresLogins = useMemo(() => parseAssignees(quadro?.cr4a1_colaboradores), [quadro]);
   const membrosBase = useMemo(() => membrosDoWorkspace(workspace, allUsers), [workspace, allUsers]);
@@ -447,6 +493,15 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         stickers: parseAssignees(ficha.cr4a1_stickers)
       }
     });
+  };
+
+  // Abre uma ficha que pertence a outro workspace (vindo de "Minhas fichas") — precisa trocar
+  // o quadro ativo antes, já que salvarFicha grava novos eventos vinculados usando o
+  // workspaceId que estiver ativo no momento do save.
+  const abrirFichaDeOutroWorkspace = (ficha) => {
+    setWorkspaceId(ficha.cr4a1_workspace_id);
+    setMinhasFichasAberto(false);
+    abrirFicha(ficha);
   };
 
   // Colaboradores do quadro (além dos membros do workspace)
@@ -717,6 +772,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
             <Users className="size-4" /> Compartilhar
           </Button>
+          <Button
+            variant={minhasFichasAberto ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setMinhasFichasAberto(v => !v)}
+          >
+            <UserCircle2 className="size-4" /> Minhas fichas
+          </Button>
           <Select value={workspaceId} onValueChange={setWorkspaceId}>
             <SelectTrigger className="w-60"><SelectValue placeholder="Workspace" /></SelectTrigger>
             <SelectContent>
@@ -728,7 +790,57 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         </div>
       </header>
 
-      {estouBloqueado ? (
+      {minhasFichasAberto ? (
+        <div className="flex flex-col gap-4">
+          {minhasFichasCarregando ? (
+            <p className="text-sm text-muted-foreground">Carregando suas fichas...</p>
+          ) : minhasFichasOrdenadas.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/90 p-10 text-center">
+              <UserCircle2 className="size-8 text-muted-foreground" />
+              <p className="text-sm font-semibold text-foreground">Nenhuma ficha atribuída a você no momento.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {minhasFichasOrdenadas.map(ficha => {
+                const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
+                const concluida = ficha.cr4a1_concluida === 'Sim';
+                const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
+                const corCard = ficha.cr4a1_cor ? corTextoLegivel(ficha.cr4a1_cor) : null;
+                const workspaceDaFicha = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === ficha.cr4a1_workspace_id);
+                return (
+                  <button
+                    key={ficha.cr4a1_fichaid}
+                    type="button"
+                    onClick={() => abrirFichaDeOutroWorkspace(ficha)}
+                    className="flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary"
+                    style={corCard ? {
+                      backgroundColor: ficha.cr4a1_cor,
+                      borderColor: ficha.cr4a1_cor,
+                      '--text-primary': corCard.principal,
+                      '--text-secondary': corCard.suave
+                    } : undefined}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{workspaceDaFicha?.cr4a1_nome || 'Workspace'}</span>
+                    {(etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
+                        {stickersDaFicha.map((emoji, i) => <Sticker key={i} emoji={emoji} size={16} />)}
+                      </div>
+                    )}
+                    <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
+                    {comData(ficha) && (
+                      <span className={`inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
+                        <CalendarDays className="size-3" />
+                        {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : estouBloqueado ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/90 p-10 text-center">
           <ShieldOff className="size-8 text-muted-foreground" />
           <p className="text-sm font-semibold text-foreground">Seu acesso ao Trello deste workspace foi bloqueado.</p>
