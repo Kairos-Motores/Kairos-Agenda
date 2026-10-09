@@ -169,13 +169,13 @@ export const EventModal = ({
                         </Popover>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <DateField label="Data Inicial" icon={CalendarDays} formatValue={safeFormatDate} selectedDate={formData.startDate} onSelect={d => setFormData(p => ({ ...p, startDate: d, endDate: p.endDate && p.endDate < d ? d : p.endDate }))} />
                         <DateField label="Data Final" icon={CalendarClock} formatValue={safeFormatDate} selectedDate={formData.endDate} onSelect={d => setFormData(p => ({ ...p, endDate: d }))} />
                     </div>
 
                     {!formData.allDay && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <TimeField label="Hora de Início" icon={Clock} value={formData.startHour} onSelect={h => setFormData(p => ({ ...p, startHour: h }))} />
                             <TimeField label="Hora de Término" icon={History} value={formData.endHour} onSelect={h => setFormData(p => ({ ...p, endHour: h }))} />
                         </div>

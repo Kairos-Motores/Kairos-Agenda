@@ -1031,7 +1031,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 overflow-y-auto p-4" style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}>
+            <PopoverContent align="start" className="w-80 max-w-[90vw] overflow-y-auto p-4" style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}>
               <div className="flex flex-col gap-4">
                 <SearchField value={filtros.busca} onChange={v => setFiltro('busca', v)} placeholder="Buscar por título ou descrição..." />
 

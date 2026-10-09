@@ -69,7 +69,7 @@ export const FilialTemporariaModal = ({ isOpen, onClose, allUsers, onSave, mostr
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DateField label="Data Início" selectedDate={inicio} onSelect={setInicio} />
             <DateField label="Data Fim" selectedDate={fim} onSelect={setFim} />
           </div>

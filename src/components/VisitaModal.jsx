@@ -196,7 +196,7 @@ export const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes
             <Input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex: Apresentação de propostas" />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <DateField label="Data Inicial" selectedDate={dataVisita} onSelect={setDataVisita} />
             <TimeField label="Hora" value={horaVisita} onSelect={setHoraVisita} />
             <div>
