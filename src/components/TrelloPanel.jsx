@@ -15,14 +15,16 @@ import { SearchField } from './ui/search-field';
 import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor } from './ui/rich-text-editor';
-import { AttachmentsField } from './ui/attachments-field';
+import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
+import { Sticker } from './ui/sticker';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
 import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
-import { parseAnexos } from '../utils/anexos';
+import { parseAnexos, primeiraImagem } from '../utils/anexos';
+import { corTextoLegivel } from '../utils/cor';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -149,6 +151,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
   const [fundoAberto, setFundoAberto] = useState(false);
   const [filtrosAberto, setFiltrosAberto] = useState(false);
+  const [anexoCardPreview, setAnexoCardPreview] = useState(null);
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -800,8 +803,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const concluida = ficha.cr4a1_concluida === 'Sim';
                       const microtarefas = extrairTarefas(ficha.cr4a1_descricao);
                       const microtarefasFeitas = microtarefas.filter(t => t.concluida).length;
-                      const qtdAnexos = parseAnexos(ficha.cr4a1_arquivos).length;
+                      const anexosDaFicha = parseAnexos(ficha.cr4a1_arquivos);
+                      const qtdAnexos = anexosDaFicha.length;
+                      const capaImagem = primeiraImagem(anexosDaFicha);
                       const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
+                      const corCard = ficha.cr4a1_cor ? corTextoLegivel(ficha.cr4a1_cor) : null;
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -809,9 +815,24 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               ref={providedCard.innerRef}
                               {...providedCard.draggableProps}
                               {...providedCard.dragHandleProps}
-                              className={`flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
-                              style={ficha.cr4a1_cor ? { borderTopColor: ficha.cr4a1_cor, borderTopWidth: '4px' } : undefined}
+                              className={`flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+                              style={corCard ? {
+                                backgroundColor: ficha.cr4a1_cor,
+                                borderColor: ficha.cr4a1_cor,
+                                '--color-foreground': corCard.principal,
+                                '--color-muted-foreground': corCard.suave
+                              } : undefined}
                             >
+                              {capaImagem && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setAnexoCardPreview(capaImagem); }}
+                                  className="-mx-3 -mt-3 mb-0.5 block overflow-hidden"
+                                  aria-label={`Visualizar ${capaImagem.name}`}
+                                >
+                                  <img src={capaImagem.base64} alt={capaImagem.name} className="h-28 w-full object-cover" />
+                                </button>
+                              )}
                               <div className="flex items-start gap-2">
                                 <button
                                   type="button"
@@ -830,9 +851,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                   {(etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
                                     <div className="flex flex-wrap items-center gap-1">
                                       {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
-                                      {stickersDaFicha.length > 0 && (
-                                        <span className="text-sm leading-none" title="Stickers">{stickersDaFicha.join(' ')}</span>
-                                      )}
+                                      {stickersDaFicha.map((emoji, i) => <Sticker key={i} emoji={emoji} size={16} />)}
                                     </div>
                                   )}
                                   <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
@@ -917,16 +936,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Ficha</DialogTitle>
-              <DialogDescription>{workspace?.cr4a1_nome}</DialogDescription>
-            </DialogHeader>
             <FichaForm
               inicial={editando.form}
               listas={listasVisiveis}
               membros={membros}
               allUsers={allUsers}
               etiquetas={etiquetas}
+              workspaceNome={workspace?.cr4a1_nome}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
               onDelete={() => excluirFicha(editando.original)}
@@ -954,6 +970,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       )}
 
       {ConfirmDialogHost}
+
+      <AttachmentPreviewDialog anexo={anexoCardPreview} onClose={() => setAnexoCardPreview(null)} />
 
       {fundoAberto && (
         <FundoDialog
@@ -998,7 +1016,7 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
 
 const MAX_STICKERS_POR_FICHA = 8;
 
-const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, onSave, onDelete }) => {
+const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, onCancel, onSave, onDelete }) => {
   const [form, setForm] = useState(inicial);
   const set = (campo, valor) => setForm(prev => ({ ...prev, [campo]: valor }));
   const alternarEtiqueta = (id) => set('etiquetas', form.etiquetas.includes(id) ? form.etiquetas.filter(e => e !== id) : [...form.etiquetas, id]);
@@ -1015,8 +1033,24 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
   const temTarefas = tarefasDaDescricao.length > 0;
   const concluidaDerivada = temTarefas && tarefasDaDescricao.every(t => t.concluida);
 
+  // A cor é escolhida aqui dentro (no form), então o cabeçalho também mora aqui — assim ele
+  // já reflete a cor escolhida na hora, igual ao Trello faz ao editar o cover do card.
+  const corCabecalho = form.cor ? corTextoLegivel(form.cor) : null;
+
   return (
     <div className="flex flex-col gap-4">
+      <DialogHeader
+        className="rounded-2xl p-4"
+        style={corCabecalho ? {
+          backgroundColor: form.cor,
+          '--color-foreground': corCabecalho.principal,
+          '--color-muted-foreground': corCabecalho.suave
+        } : undefined}
+      >
+        <DialogTitle>Ficha</DialogTitle>
+        <DialogDescription>{workspaceNome}</DialogDescription>
+      </DialogHeader>
+
       <div>
         <Label>Título</Label>
         <Input value={form.titulo} onChange={e => set('titulo', e.target.value)} />
@@ -1080,9 +1114,9 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, onCancel, on
                 onClick={() => alternarSticker(emoji)}
                 title={emoji}
                 aria-label={emoji}
-                className={`flex size-7 items-center justify-center rounded-lg text-base transition-transform active:scale-90 ${selecionado ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-card'}`}
+                className={`flex size-7 items-center justify-center rounded-lg transition-transform active:scale-90 ${selecionado ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-card'}`}
               >
-                {emoji}
+                <Sticker emoji={emoji} size={20} />
               </button>
             );
           })}

@@ -5,8 +5,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import {
   MAX_ANEXO_BYTES, MAX_TOTAL_ANEXOS_BYTES, formatarTamanho,
-  lerArquivoComoBase64, somaTamanhos, tipoDoAnexo
+  lerArquivoComoBase64, somaTamanhos, tipoDoAnexo, baixarAnexo
 } from '../../utils/anexos';
+
+// Modal de pré-visualização (imagem/PDF renderizam dentro do próprio app, sem abrir outra
+// aba) — exportado à parte pra poder ser reaproveitado fora do AttachmentsField, por exemplo
+// na miniatura de capa do card do Trello.
+export const AttachmentPreviewDialog = ({ anexo, onClose }) => {
+  if (!anexo) return null;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-2 pr-6">
+            <span className="truncate">{anexo.name}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => baixarAnexo(anexo)}>
+              <Download className="size-4" /> Baixar
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+        {tipoDoAnexo(anexo) === 'imagem' ? (
+          <img src={anexo.base64} alt={anexo.name} className="max-h-[70vh] w-full rounded-xl object-contain" />
+        ) : (
+          <iframe src={anexo.base64} title={anexo.name} className="h-[70vh] w-full rounded-xl border border-border" />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // Lista de anexos com pré-visualização embutida (imagem/PDF abrem num modal dentro do próprio
 // app — não precisa abrir outra aba) e aviso claro de limite de tamanho, já que tudo fica
@@ -40,13 +66,6 @@ export const AttachmentsField = ({ anexos = [], onChange, label = 'Anexos', read
   };
 
   const removerAnexo = (idx) => onChange(anexos.filter((_, i) => i !== idx));
-
-  const baixarAnexo = (anexo) => {
-    const a = document.createElement('a');
-    a.href = anexo.base64;
-    a.download = anexo.name;
-    a.click();
-  };
 
   if (readOnly && anexos.length === 0) return null;
 
@@ -108,25 +127,7 @@ export const AttachmentsField = ({ anexos = [], onChange, label = 'Anexos', read
         </>
       )}
 
-      {visualizando && (
-        <Dialog open onOpenChange={(open) => !open && setVisualizando(null)}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-2 pr-6">
-                <span className="truncate">{visualizando.name}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => baixarAnexo(visualizando)}>
-                  <Download className="size-4" /> Baixar
-                </Button>
-              </DialogTitle>
-            </DialogHeader>
-            {tipoDoAnexo(visualizando) === 'imagem' ? (
-              <img src={visualizando.base64} alt={visualizando.name} className="max-h-[70vh] w-full rounded-xl object-contain" />
-            ) : (
-              <iframe src={visualizando.base64} title={visualizando.name} className="h-[70vh] w-full rounded-xl border border-border" />
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
+      <AttachmentPreviewDialog anexo={visualizando} onClose={() => setVisualizando(null)} />
     </div>
   );
 };

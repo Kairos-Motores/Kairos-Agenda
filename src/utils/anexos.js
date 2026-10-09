@@ -33,3 +33,12 @@ export const tipoDoAnexo = (anexo) => {
   if (anexo?.type === 'application/pdf' || nome.endsWith('.pdf')) return 'pdf';
   return 'arquivo';
 };
+
+export const primeiraImagem = (anexos) => (anexos || []).find(a => tipoDoAnexo(a) === 'imagem') || null;
+
+export const baixarAnexo = (anexo) => {
+  const a = document.createElement('a');
+  a.href = anexo.base64;
+  a.download = anexo.name;
+  a.click();
+};
