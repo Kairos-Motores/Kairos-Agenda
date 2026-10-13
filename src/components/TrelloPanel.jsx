@@ -1214,6 +1214,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       <div className="flex items-start gap-3 overflow-x-auto pb-4">
         {listasVisiveis.map(lista => {
           const souDono = lista.cr4a1_criador_login === user || isAdmin;
+          // Automações são mais "do quadro" que "da lista" — quem criou o workspace também
+          // deve poder configurá-las, não só quem criou essa lista específica (senão um
+          // coordenador fica sem acesso às automações de listas que outra pessoa criou).
+          const podeGerenciarAutomacoes = souDono || workspace?.cr4a1_criador_login === user;
           const pessoal = lista.cr4a1_pessoal === 'Sim';
           const colapsada = colapsadas.includes(lista.cr4a1_listaid);
 
@@ -1266,7 +1270,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                     {pessoal ? <Lock className="size-4" /> : <Unlock className="size-4" />}
                   </button>
                 )}
-                {souDono && (
+                {podeGerenciarAutomacoes && (
                   <button
                     onClick={() => setListaAutomacao(lista)}
                     aria-label={`Automações da lista ${lista.cr4a1_nome}`}
