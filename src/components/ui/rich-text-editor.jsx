@@ -1,12 +1,42 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle, FontFamily } from '@tiptap/extension-text-style';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
-import { Bold, Italic, List, ListOrdered, CheckSquare } from 'lucide-react';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Placeholder } from '@tiptap/extensions';
+import { Bold, Italic, List, ListOrdered, CheckSquare, Highlighter, Ban } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './select';
+import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { textFonts } from '../../constants/textFonts';
+import { themeColors } from '../../constants/materialColors';
+
+// Marca-texto aplicado em opacidade reduzida (não na cor cheia) — assim a paleta inteira do
+// tema (claras e escuras) continua legível por cima, sem precisar restringir as opções a só
+// tons pastel nem trocar a cor da fonte conforme a marcação escolhida.
+const hexParaRgba = (hex, alpha) => {
+  const limpo = hex.replace('#', '');
+  const r = parseInt(limpo.substring(0, 2), 16);
+  const g = parseInt(limpo.substring(2, 4), 16);
+  const b = parseInt(limpo.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const HighlightSuave = Highlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      color: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-color') || element.style.backgroundColor || null,
+        renderHTML: attributes => (attributes.color
+          ? { 'data-color': attributes.color, style: `background-color: ${hexParaRgba(attributes.color, 0.45)}` }
+          : {})
+      }
+    };
+  }
+}).configure({ multicolor: true });
 
 // Microtarefas (checklist) ganham dois atributos extras além do texto/"concluída" que o TipTap
 // já suporta nativamente: data de vencimento e responsável. Precisam entrar no schema do nó
@@ -62,19 +92,23 @@ const ToolbarButton = ({ active, onClick, title, children }) => (
   </button>
 );
 
-export const RichTextEditor = ({ value, onChange, onEditorReady }) => {
+export const RichTextEditor = ({ value, onChange, onEditorReady, editable = true, placeholder = '', minHeightClass = 'min-h-[120px]' }) => {
+  const [marcadorAberto, setMarcadorAberto] = useState(false);
   const editor = useEditor({
     extensions: [
       StarterKit,
       TextStyle,
       FontFamily,
       TaskList,
-      TaskItemComDados.configure({ nested: true })
+      TaskItemComDados.configure({ nested: true }),
+      HighlightSuave,
+      ...(placeholder ? [Placeholder.configure({ placeholder })] : [])
     ],
     content: value || '',
+    editable,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: 'rich-text-content min-h-[120px] px-3 py-2 text-sm text-foreground outline-none' }
+      attributes: { class: `rich-text-content ${minHeightClass} px-3 py-2 text-sm text-foreground outline-none` }
     }
   });
 
@@ -82,11 +116,24 @@ export const RichTextEditor = ({ value, onChange, onEditorReady }) => {
     if (editor && onEditorReady) onEditorReady(editor);
   }, [editor, onEditorReady]);
 
+  useEffect(() => {
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable);
+  }, [editor, editable]);
+
   if (!editor) return null;
+
+  if (!editable) {
+    return <EditorContent editor={editor} />;
+  }
 
   const aplicarFonte = (fontValue) => {
     if (fontValue === 'padrao') editor.chain().focus().unsetFontFamily().run();
     else editor.chain().focus().setFontFamily(fontValue).run();
+  };
+
+  const marcarTexto = (hex) => {
+    editor.chain().focus().setHighlight({ color: hex }).run();
+    setMarcadorAberto(false);
   };
 
   return (
@@ -106,6 +153,39 @@ export const RichTextEditor = ({ value, onChange, onEditorReady }) => {
         <ToolbarButton title="Lista" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="size-3.5" /></ToolbarButton>
         <ToolbarButton title="Lista numerada" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="size-3.5" /></ToolbarButton>
         <ToolbarButton title="Checklist (microtarefas)" active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()}><CheckSquare className="size-3.5" /></ToolbarButton>
+        <Popover open={marcadorAberto} onOpenChange={setMarcadorAberto}>
+          <PopoverTrigger asChild>
+            <span>
+              <ToolbarButton title="Marcar texto" active={editor.isActive('highlight')} onClick={() => setMarcadorAberto(v => !v)}>
+                <Highlighter className="size-3.5" />
+              </ToolbarButton>
+            </span>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64">
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => { editor.chain().focus().unsetHighlight().run(); setMarcadorAberto(false); }}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary"
+              >
+                <Ban className="size-3.5" /> Remover marcação
+              </button>
+              <div className="grid max-h-40 grid-cols-10 gap-1.5 overflow-y-auto p-1">
+                {themeColors.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => marcarTexto(c.hex)}
+                    title={c.label}
+                    aria-label={c.label}
+                    className="size-5 shrink-0 rounded-full transition-transform active:scale-90"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
       <EditorContent editor={editor} />
     </div>

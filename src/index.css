@@ -1094,9 +1094,18 @@ button:active {
   transform: scale(1.2);
 }
 
-/* Editor de texto rico (TipTap) das fichas do Trello */
+/* Editor de texto rico (TipTap), reaproveitado pelas fichas do Trello e pelas notas */
 .rich-text-content p {
   margin: 0 0 0.5em;
+}
+
+.rich-text-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .rich-text-content ul,

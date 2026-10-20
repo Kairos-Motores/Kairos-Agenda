@@ -1,11 +1,11 @@
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, AlertTriangle, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -13,7 +13,9 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { AttachmentsField } from './ui/attachments-field';
+import { RichTextEditor } from './ui/rich-text-editor';
 import { parseAnexos } from '../utils/anexos';
+import { htmlParaTexto } from '../utils/descricaoTarefas';
 
 // ============================================================================
 // ESTILOS LOCAIS: animações e micro-interações MD3 do Bloco de Notas
@@ -85,6 +87,15 @@ const formatRelative = (dateStr) => {
   if (!dateStr) return null;
   try {
     return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: ptBR });
+  } catch {
+    return null;
+  }
+};
+
+const formatarDataCriacao = (dateStr) => {
+  if (!dateStr) return null;
+  try {
+    return format(new Date(dateStr), "dd/MM/yyyy 'às' HH:mm");
   } catch {
     return null;
   }
@@ -276,6 +287,7 @@ export const NotesPanel = ({
 
     const todoStats = getTodoStats(notaAberta.cr4a1_conteudo);
     const relative = formatRelative(notaAberta.modifiedon || notaAberta.createdon);
+    const criadaEm = formatarDataCriacao(notaAberta.createdon);
 
     return (
       <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
@@ -396,6 +408,11 @@ export const NotesPanel = ({
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                   Escrito por {notaAberta.cr4a1_user_login}{relative ? ` · editado ${relative}` : ''}
                 </span>
+                {criadaEm && (
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CalendarPlus className="size-[14px]" /> Criada em {criadaEm}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -460,17 +477,14 @@ export const NotesPanel = ({
                       />
                     </div>
                   ) : (
-                    <textarea
-                      value={bloco.value}
-                      onChange={e => {
-                        e.target.style.height = 'auto';
-                        e.target.style.height = e.target.scrollHeight + 'px';
-                        handleBlockChange(bloco.id, e.target.value);
-                      }}
-                      placeholder="Escreva um texto..."
-                      style={{ flex: 1, fontSize: '15px', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', padding: '10px 0', resize: 'none', overflow: 'hidden', minHeight: '38px', lineHeight: '1.5' }}
-                      rows={1}
-                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <RichTextEditor
+                        value={bloco.value}
+                        onChange={v => handleBlockChange(bloco.id, v)}
+                        placeholder="Escreva um texto..."
+                        minHeightClass="min-h-[44px]"
+                      />
+                    </div>
                   )}
 
                   <Button onClick={() => removeBlock(bloco.id)} variant="ghost" size="icon" className="kairos-block-remove mt-1 size-8 shrink-0 rounded-[10px] text-destructive hover:bg-destructive/15 hover:text-destructive" title="Remover bloco">
@@ -504,25 +518,22 @@ export const NotesPanel = ({
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontStyle: 'italic' }}>Esta nota está vazia.</p>
               )}
               {(notaAberta.cr4a1_conteudo || []).map((bloco) => {
+                if (bloco.type === 'text') {
+                  if (!htmlParaTexto(bloco.value).trim()) return null;
+                  return <RichTextEditor key={bloco.id} value={bloco.value} editable={false} minHeightClass="min-h-0" />;
+                }
                 if (!bloco.value.trim()) return null;
 
                 if (bloco.type === 'heading') {
                   return <h2 key={bloco.id} style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-title)', margin: '8px 0 0 0' }}>{bloco.value}</h2>;
                 }
-                if (bloco.type === 'todo') {
-                  return (
-                    <div key={bloco.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} />
-                      <span style={{ fontSize: '15px', color: bloco.checked ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: bloco.checked ? 'line-through' : 'none', transition: 'color 0.2s' }}>
-                        {bloco.value}
-                      </span>
-                    </div>
-                  );
-                }
                 return (
-                  <p key={bloco.id} style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>
-                    {bloco.value}
-                  </p>
+                  <div key={bloco.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} />
+                    <span style={{ fontSize: '15px', color: bloco.checked ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: bloco.checked ? 'line-through' : 'none', transition: 'color 0.2s' }}>
+                      {bloco.value}
+                    </span>
+                  </div>
                 );
               })}
 
@@ -606,6 +617,9 @@ export const NotesPanel = ({
             const stats = getTodoStats(nota.cr4a1_conteudo);
             const wsColor = getWorkspaceColor(nota.cr4a1_workspace_id);
             const relative = formatRelative(nota.modifiedon || nota.createdon);
+            const criadaEm = formatarDataCriacao(nota.createdon);
+            const blocoPreview = nota.cr4a1_conteudo?.find(b => b.type === 'text' || b.type === 'todo');
+            const textoPreview = blocoPreview ? (blocoPreview.type === 'text' ? htmlParaTexto(blocoPreview.value) : blocoPreview.value) : '';
             return (
               <div
                 key={nota.cr4a1_notas_kairosid}
@@ -629,13 +643,13 @@ export const NotesPanel = ({
                   </div>
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? nota.cr4a1_conteudo.find(b => b.type === 'text' || b.type === 'todo')?.value || '...' : 'Vazio...'}
+                  {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? (textoPreview || '...') : 'Vazio...'}
                 </p>
 
                 {stats.total > 0 && <TodoProgress done={stats.done} total={stats.total} color={wsColor} />}
 
                 <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
-                  <div className="flex items-center gap-1.5 overflow-hidden text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 overflow-hidden text-[11px] text-muted-foreground" title={criadaEm ? `Criada em ${criadaEm}` : undefined}>
                     <UserIcon className="size-[14px] shrink-0" />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{relative ? `editado ${relative}` : nota.cr4a1_user_login}</span>
                   </div>
