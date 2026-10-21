@@ -2,6 +2,88 @@ import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import * as pbi from 'powerbi-client';
+
+const PowerBIEmbeddedReport = ({ tab }) => {
+  const containerRef = useRef(null);
+  const showPageNav = tab.bi?.showPageNav;
+  const tabMode = tab.mode;
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !tab.embedData || tabMode !== 'embedded') return;
+
+    let powerbi;
+    try {
+      powerbi = new pbi.service.Service(
+        pbi.factories.hpmFactory,
+        pbi.factories.wpmpFactory,
+        pbi.factories.routerFactory
+      );
+
+      const config = {
+        type: 'report',
+        tokenType: pbi.models.TokenType.Embed,
+        accessToken: tab.embedData.accessToken,
+        embedUrl: tab.embedData.embedUrl,
+        id: tab.embedData.id,
+        permissions: pbi.models.Permissions.All,
+        settings: {
+          panes: {
+            filters: {
+              expanded: false,
+              visible: false,
+            },
+            pageNavigation: {
+              visible: !!tab.bi.showPageNav,
+            },
+          },
+          visualSettings: {
+            visualHeaders: [
+              {
+                settings: {
+                  visible: true,
+                },
+              },
+            ],
+          },
+          bars: {
+            statusBar: {
+              visible: false,
+            },
+          },
+        },
+      };
+
+      powerbi.embed(container, config);
+    } catch (err) {
+      console.error('Erro ao inicializar Power BI Embedded:', err);
+    }
+
+    return () => {
+      if (powerbi && container) {
+        try {
+          powerbi.reset(container);
+        } catch {
+          // cleanup safe
+        }
+      }
+    };
+  }, [tab.embedData, tab.reloadKey, showPageNav, tabMode, tab.bi.showPageNav]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        display: tab.loading ? 'none' : 'block',
+      }}
+    />
+  );
+};
 import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
 import { BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
@@ -73,17 +155,35 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
     };
   }, [activeTab, isHeaderVisible]);
 
-  const fetchBiUrl = async (biId) => {
+  const fetchBiData = async (biId) => {
     const response = await fetch(`/api/bi-embed?id=${biId}`);
     const data = await response.json();
-    return data.url || null;
+    return data;
   };
 
   const carregarUrlBI = async (biId) => {
     try {
-      const url = await fetchBiUrl(biId);
-      setOpenTabs(prev => prev.map(t => t.bi.id === biId ? { ...t, url, loading: false } : t));
-      if (!url) alert('Erro ao carregar painel. Verifique suas permissões.');
+      const data = await fetchBiData(biId);
+      if (data.mode === 'embedded' && data.accessToken) {
+        setOpenTabs(prev => prev.map(t => t.bi.id === biId ? {
+          ...t,
+          mode: 'embedded',
+          embedData: data,
+          url: data.embedUrl,
+          loading: false,
+        } : t));
+      } else if (data.url) {
+        setOpenTabs(prev => prev.map(t => t.bi.id === biId ? {
+          ...t,
+          mode: 'legacy',
+          embedData: null,
+          url: data.url,
+          loading: false,
+        } : t));
+      } else {
+        alert('Erro ao carregar painel. Verifique suas permissões.');
+        setOpenTabs(prev => prev.map(t => t.bi.id === biId ? { ...t, loading: false } : t));
+      }
     } catch (error) {
       console.error('Falha ao buscar URL do BI:', error);
       setOpenTabs(prev => prev.map(t => t.bi.id === biId ? { ...t, loading: false } : t));
@@ -284,7 +384,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                   Carregando painel...
                 </div>
               )}
-              {tab.url && (
+              {/* Modo Power BI Embedded (oficial com exportação para Excel) */}
+              {tab.mode === 'embedded' && tab.embedData && (
+                <PowerBIEmbeddedReport tab={tab} />
+              )}
+
+              {/* Modo Legado (Iframe direto com link público) */}
+              {tab.mode !== 'embedded' && tab.url && (
                 <iframe
                   key={`${tab.bi.id}-${tab.reloadKey}`}
                   title={tab.bi.title}
@@ -294,9 +400,6 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                     top: 0,
                     left: 0,
                     width: '100%',
-                    // Painéis com mais de uma página (ex: Kanban Operacional/Sintético) precisam da
-                    // barra de navegação de páginas do Power BI visível; nos demais, cortamos os
-                    // últimos 42px para esconder o rodapé de marca d'água do Power BI.
                     height: tab.bi.showPageNav ? '100%' : 'calc(100% + 42px)',
                     border: 'none',
                     display: tab.loading ? 'none' : 'block'
@@ -304,12 +407,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                 />
               )}
 
-              {/* A barra de navegação de páginas do Power BI (ex: "‹ 2 de 2 ›") vem junto com
-                  o link "Microsoft Power BI" e os botões de partilhar/abrir numa nova aba, na
-                  mesma faixa horizontal. Como é conteúdo de outra origem (iframe), não dá para
-                  remover só essas partes — cobrimos com retângulos na mesma cor da barra,
-                  deixando só o navegador de páginas do meio visível e clicável. */}
-              {tab.url && !tab.loading && tab.bi.showPageNav && (
+              {/* Retângulos de máscara na barra inferior apenas para o modo legado com showPageNav */}
+              {tab.mode !== 'embedded' && tab.url && !tab.loading && tab.bi.showPageNav && (
                 <>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, width: '180px', height: '36px', background: '#f3f2f1', zIndex: 1 }} />
                   <div style={{ position: 'absolute', bottom: 0, right: 0, width: '90px', height: '36px', background: '#f3f2f1', zIndex: 1 }} />
@@ -418,6 +517,11 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                   <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{activeTab.bi.icon}</span>
                 </div>
                 <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>{activeTab.bi.title}</h3>
+                {activeTab.mode === 'embedded' && (
+                  <span style={{ fontSize: '11px', background: '#e8f5e9', color: '#2e7d32', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                    Exportação Ativa (.xlsx)
+                  </span>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Button
