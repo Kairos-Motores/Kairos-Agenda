@@ -1,8 +1,8 @@
-// api/bi-refresh.js
 import { EMBEDDED_REPORTS, getPowerBIAccessToken } from './bi-embed.js';
 
 const datasetCache = new Map();
 const workspaceCapacityCache = new Map();
+const bulkCache = { timestamp: 0, data: null };
 
 function getBrazilDateString(date) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -72,9 +72,122 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. GET - Consultar status, última atualização, contador do dia e agendamento
+    // 1. GET
     if (req.method === 'GET') {
-      const { id } = req.query;
+      const { id, all, userRole, force } = req.query;
+
+      // 1.1 Central de Monitoramento (Opção 2 - Apenas ADMIN)
+      if (all === 'true') {
+        if (!checkAccess(userRole, ['ADMIN'])) {
+          return res.status(403).json({
+            ok: false,
+            error: 'Acesso negado. Apenas administradores têm acesso à central de monitoramento de todos os BIs.'
+          });
+        }
+
+        const now = Date.now();
+        if (force !== 'true' && bulkCache.data && (now - bulkCache.timestamp < 30000)) {
+          return res.status(200).json(bulkCache.data);
+        }
+
+        const aadToken = await getPowerBIAccessToken();
+        const keys = Object.keys(EMBEDDED_REPORTS);
+        const reports = [];
+        const concurrency = 15;
+        let index = 0;
+
+        const worker = async () => {
+          while (index < keys.length) {
+            const i = index++;
+            const k = keys[i];
+            const { workspaceId, reportId } = EMBEDDED_REPORTS[k];
+            try {
+              const datasetId = await getDatasetForReport(aadToken, workspaceId, reportId);
+
+              const refRes = await fetch(`https://api.powerbi.com/v1.0/myorg/groups/${workspaceId}/datasets/${datasetId}/refreshes?$top=15`, {
+                headers: { Authorization: `Bearer ${aadToken}` }
+              });
+              const refData = await refRes.json();
+              const refreshes = refData.value || [];
+
+              let scheduleTimes = [];
+              try {
+                const sRes = await fetch(`https://api.powerbi.com/v1.0/myorg/groups/${workspaceId}/datasets/${datasetId}/refreshSchedule`, {
+                  headers: { Authorization: `Bearer ${aadToken}` }
+                });
+                if (sRes.ok) {
+                  const sData = await sRes.json();
+                  if (sData.enabled && Array.isArray(sData.times)) scheduleTimes = sData.times;
+                }
+              } catch {
+                // ignora schedule indisponível
+              }
+
+              const latest = refreshes[0] || null;
+              const isRefreshing = latest ? (latest.status === 'Unknown' || latest.status === 'InProgress') : false;
+              const todayStr = getBrazilDateString(new Date());
+              const refreshesToday = refreshes.filter(r => r.startTime && getBrazilDateString(new Date(r.startTime)) === todayStr);
+
+              let errorDetails = null;
+              const failedRefresh = (latest && latest.status === 'Failed') ? latest : refreshes.find(r => r.status === 'Failed');
+              if (failedRefresh && failedRefresh.serviceExceptionJson) {
+                let parsed = null;
+                try {
+                  parsed = JSON.parse(failedRefresh.serviceExceptionJson);
+                } catch {
+                  parsed = { errorDescription: failedRefresh.serviceExceptionJson };
+                }
+                errorDetails = {
+                  refreshId: failedRefresh.id,
+                  startTime: failedRefresh.startTime,
+                  endTime: failedRefresh.endTime,
+                  errorCode: parsed?.errorCode || 'Erro Desconhecido',
+                  errorDescription: parsed?.errorDescription || failedRefresh.serviceExceptionJson
+                };
+              }
+
+              reports.push({
+                id: k,
+                workspaceId,
+                datasetId,
+                isRefreshing,
+                latestStatus: latest?.status || 'None',
+                lastRefreshTime: latest?.endTime || latest?.startTime || null,
+                refreshesToday: refreshesToday.length,
+                totalScheduledToday: scheduleTimes.length,
+                scheduleTimes,
+                error: errorDetails
+              });
+            } catch (err) {
+              reports.push({ id: k, error: err.message, latestStatus: 'Error' });
+            }
+          }
+        };
+
+        const workers = Array.from({ length: concurrency }, () => worker());
+        await Promise.all(workers);
+
+        const summary = {
+          total: reports.length,
+          completed: reports.filter(r => !r.isRefreshing && r.latestStatus === 'Completed').length,
+          failed: reports.filter(r => !r.isRefreshing && r.latestStatus === 'Failed').length,
+          inProgress: reports.filter(r => r.isRefreshing).length,
+        };
+
+        const payload = {
+          ok: true,
+          summary,
+          reports,
+          updatedAt: new Date().toISOString()
+        };
+
+        bulkCache.data = payload;
+        bulkCache.timestamp = now;
+
+        return res.status(200).json(payload);
+      }
+
+      // 1.2 Consulta de um relatório individual
       const config = EMBEDDED_REPORTS[id];
       if (!config) {
         return res.status(404).json({ ok: false, error: 'Relatório Power BI não configurado para atualização via API' });
@@ -190,6 +303,8 @@ export default async function handler(req, res) {
       });
 
       if (triggerRes.status === 202) {
+        // Limpa cache consolidado para forçar atualização no próximo fetch
+        bulkCache.timestamp = 0;
         return res.status(200).json({
           ok: true,
           message: 'Atualização do conjunto de dados iniciada com sucesso no Power BI.'

@@ -92,8 +92,9 @@ const PowerBIEmbeddedReport = ({ tab }) => {
 import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
 import {
   BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown,
-  RefreshCw, CheckCircle2, AlertTriangle, Clock, Info, Copy, Check
+  RefreshCw, CheckCircle2, AlertTriangle, Clock, Info, Copy, Check, Activity
 } from 'lucide-react';
+import { BiMonitoringModal } from './BiMonitoringModal';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
@@ -116,6 +117,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
   const [isTriggeringRefresh, setIsTriggeringRefresh] = useState(false);
   const [errorModalData, setErrorModalData] = useState(null);
   const [hasCopiedError, setHasCopiedError] = useState(false);
+  const [isMonitoringModalOpen, setIsMonitoringModalOpen] = useState(false);
 
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -384,10 +386,23 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
 
       {/* Header e Filtros */}
       <div>
-        <h2 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BarChart3 className="size-5 text-[#f57c00]" />
-          Painéis e Indicadores
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 16px 0', flexWrap: 'wrap', gap: '12px' }}>
+          <h2 style={{ margin: 0, color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 className="size-5 text-[#f57c00]" />
+            Painéis e Indicadores
+          </h2>
+          {isAdmin && (
+            <Button
+              onClick={() => setIsMonitoringModalOpen(true)}
+              className="font-bold flex items-center gap-2"
+              style={{ background: '#f57c00', color: '#fff' }}
+              title="Central de Monitoramento e Atualizações de todos os BIs (Apenas Administrador)"
+            >
+              <Activity className="size-4" />
+              Monitor de Atualizações
+            </Button>
+          )}
+        </div>
 
         {openTabs.length > 0 && !isFullscreenVisible && (
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', scrollbarWidth: 'none' }}>
@@ -768,6 +783,19 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                   </Button>
                 )}
 
+                {/* Botão Central de Monitoramento (Apenas ADMIN) */}
+                {isAdmin && (
+                  <Button
+                    onClick={() => setIsMonitoringModalOpen(true)}
+                    title="Abrir Central de Monitoramento de todos os BIs (Apenas Administrador)"
+                    className="font-bold flex items-center gap-1.5"
+                    style={{ background: '#fff3e0', color: '#f57c00' }}
+                  >
+                    <Activity className="size-[16px]" />
+                    Monitor
+                  </Button>
+                )}
+
                 <Button
                   onClick={() => setIsFullscreenVisible(false)}
                   title="Escolher outro painel (mantém este aberto em segundo plano)"
@@ -865,6 +893,16 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
           )}
         </div>,
         document.body
+      )}
+
+      {/* Central de Monitoramento dos BIs (Apenas ADMIN) */}
+      {isAdmin && isMonitoringModalOpen && (
+        <BiMonitoringModal
+          isOpen={isMonitoringModalOpen}
+          onClose={() => setIsMonitoringModalOpen(false)}
+          userRole={userRole}
+          biConfig={biConfig}
+        />
       )}
     </div>
   );
