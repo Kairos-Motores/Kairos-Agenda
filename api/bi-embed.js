@@ -5,7 +5,7 @@ let cachedAadToken = null;
 let tokenExpiresAt = 0;
 
 // Obtém e faz cache do token AAD (App Registration) para a API do Power BI
-async function getPowerBIAccessToken() {
+export async function getPowerBIAccessToken() {
   const now = Date.now();
   if (cachedAadToken && now < tokenExpiresAt - 60000) {
     return cachedAadToken;
@@ -70,7 +70,7 @@ async function generateReportEmbedToken(workspaceId, reportId) {
 }
 
 // Mapa completo de todos os 61 relatórios dos 8 workspaces migrados para Power BI Embedded oficial (App Owns Data)
-const EMBEDDED_REPORTS = {
+export const EMBEDDED_REPORTS = {
   "conciliacao-bancaria": {
     "workspaceId": "2acd4def-cd4c-41e3-acc2-020dfb7db9a1",
     "reportId": "19301256-c0d4-4867-be68-997f08d95ae7"

@@ -1,6 +1,11 @@
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
+import { format, formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { checkAccess } from '../utils/permissions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import ReactDOM from 'react-dom';
 import * as pbi from 'powerbi-client';
 
@@ -85,7 +90,10 @@ const PowerBIEmbeddedReport = ({ tab }) => {
   );
 };
 import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
-import { BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown } from 'lucide-react';
+import {
+  BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown,
+  RefreshCw, CheckCircle2, AlertTriangle, Clock, Info, Copy, Check
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
@@ -101,6 +109,13 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
   // sem fechar as abas já abertas — como abrir uma nova aba no navegador.
   const [isFullscreenVisible, setIsFullscreenVisible] = useState(true);
   const hasRestoredRef = useRef(false);
+
+  // Estados para atualizações do Power BI
+  const isAdmin = checkAccess(userRole, ['ADMIN']);
+  const [refreshDataMap, setRefreshDataMap] = useState({});
+  const [isTriggeringRefresh, setIsTriggeringRefresh] = useState(false);
+  const [errorModalData, setErrorModalData] = useState(null);
+  const [hasCopiedError, setHasCopiedError] = useState(false);
 
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,6 +142,102 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
       setIsButtonVisible(false);
     }, delay);
   };
+
+  const formatRefreshDistance = (isoString) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
+    } catch {
+      return '';
+    }
+  };
+
+  const formatRefreshExact = (isoString) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      return format(date, "dd/MM 'às' HH:mm", { locale: ptBR });
+    } catch {
+      return '';
+    }
+  };
+
+  const fetchRefreshStatus = useCallback(async (biId, silent = false) => {
+    if (!biId) return null;
+    try {
+      const res = await fetch(`/api/bi-refresh?id=${biId}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.ok) {
+        setRefreshDataMap(prev => {
+          const previous = prev[biId];
+          if (previous?.isRefreshing && !data.isRefreshing) {
+            if (data.lastRefresh?.status === 'Completed') {
+              toast.success('Dados atualizados com sucesso no Power BI!');
+            } else if (data.lastRefresh?.status === 'Failed') {
+              toast.error('A atualização do Power BI falhou.');
+            }
+          }
+          return { ...prev, [biId]: data };
+        });
+        return data;
+      }
+    } catch (err) {
+      if (!silent) console.warn('[DashboardPanel] Falha ao consultar status de atualização:', err);
+    }
+    return null;
+  }, []);
+
+  const handleTriggerRefresh = async (biId) => {
+    if (!isAdmin || isTriggeringRefresh) return;
+    setIsTriggeringRefresh(true);
+    try {
+      const res = await fetch('/api/bi-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: biId, userRole })
+      });
+      const result = await res.json();
+      if (result.ok) {
+        toast.success('Atualização do Power BI iniciada!');
+        setRefreshDataMap(prev => ({
+          ...prev,
+          [biId]: {
+            ...(prev[biId] || {}),
+            isRefreshing: true,
+          }
+        }));
+        setTimeout(() => fetchRefreshStatus(biId, true), 2000);
+      } else {
+        toast.error(result.error || 'Erro ao iniciar atualização.');
+      }
+    } catch (err) {
+      console.error('[DashboardPanel] Erro ao disparar refresh:', err);
+      toast.error('Falha de conexão ao disparar atualização.');
+    } finally {
+      setIsTriggeringRefresh(false);
+    }
+  };
+
+  // Efeito para carregar status do BI ativo e manter polling enquanto estiver atualizando
+  useEffect(() => {
+    if (!activeTabId) return;
+    if (!refreshDataMap[activeTabId]) {
+      fetchRefreshStatus(activeTabId, true);
+    }
+
+    const currentData = refreshDataMap[activeTabId];
+    let interval = null;
+    if (currentData?.isRefreshing) {
+      interval = setInterval(() => {
+        fetchRefreshStatus(activeTabId, true);
+      }, 10000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTabId, refreshDataMap, fetchRefreshStatus]);
 
   // Lógica do temporizador da barra
   useEffect(() => {
@@ -511,8 +622,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ background: '#fff3e0', padding: '6px', borderRadius: '8px', display: 'flex' }}>
                   <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: '20px' }}>{activeTab.bi.icon}</span>
                 </div>
@@ -522,8 +633,141 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                     Exportação Ativa (.xlsx)
                   </span>
                 )}
+
+                {/* --- Indicadores de Atualização do Power BI --- */}
+                {refreshDataMap[activeTab.bi.id] && (() => {
+                  const refInfo = refreshDataMap[activeTab.bi.id];
+                  const totalDia = refInfo.totalScheduledToday > 0 ? refInfo.totalScheduledToday : refInfo.dailyLimit;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {/* Contador do Dia */}
+                      <div
+                        title={`Atualizações executadas hoje: ${refInfo.refreshesToday}${refInfo.totalScheduledToday > 0 ? ` de ${refInfo.totalScheduledToday} agendadas` : ` (capacidade diária: ${refInfo.dailyLimit})`}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '11px',
+                          background: '#f8fafc',
+                          color: '#475569',
+                          border: '1px solid #e2e8f0',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontWeight: '600'
+                        }}
+                      >
+                        <Clock className="size-3 text-[#f57c00]" />
+                        <span>{refInfo.refreshesToday}/{totalDia} hoje</span>
+                      </div>
+
+                      {/* Status da Última Atualização */}
+                      {refInfo.isRefreshing ? (
+                        <span
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: '11px',
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            padding: '2px 9px',
+                            borderRadius: '12px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          <RefreshCw className="size-3 animate-spin text-[#2563eb]" />
+                          Atualizando fonte...
+                        </span>
+                      ) : refInfo.lastRefresh?.status === 'Completed' ? (
+                        <span
+                          title={`Atualizado em: ${formatRefreshExact(refInfo.lastRefresh.endTime || refInfo.lastRefresh.startTime)}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: '11px',
+                            background: '#f0fdf4',
+                            color: '#15803d',
+                            border: '1px solid #bbf7d0',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          <CheckCircle2 className="size-3 text-emerald-600" />
+                          Última atualização: {formatRefreshDistance(refInfo.lastRefresh.endTime || refInfo.lastRefresh.startTime)}
+                        </span>
+                      ) : refInfo.lastRefresh?.status === 'Failed' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            title={`Tentativa em: ${formatRefreshExact(refInfo.lastRefresh.endTime || refInfo.lastRefresh.startTime)}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11px',
+                              background: '#fef2f2',
+                              color: '#b91c1c',
+                              border: '1px solid #fecaca',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: '500'
+                            }}
+                          >
+                            <AlertTriangle className="size-3 text-red-600" />
+                            Última atualização: Falhou ({formatRefreshDistance(refInfo.lastRefresh.endTime || refInfo.lastRefresh.startTime)})
+                          </span>
+
+                          {/* Botão Ver Motivo do Erro (Apenas ADMIN) */}
+                          {isAdmin && refInfo.lastFailedRefresh && (
+                            <button
+                              onClick={() => setErrorModalData({ reportTitle: activeTab.bi.title, ...refInfo.lastFailedRefresh })}
+                              className="boing-effect"
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #f87171',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                              title="Clique para ver o motivo técnico do erro"
+                            >
+                              <Info className="size-3" />
+                              Ver motivo do erro
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* Botão Atualizar Dados (Apenas ADMIN) */}
+                {isAdmin && (
+                  <Button
+                    onClick={() => handleTriggerRefresh(activeTab.bi.id)}
+                    disabled={refreshDataMap[activeTab.bi.id]?.isRefreshing || isTriggeringRefresh}
+                    title={refreshDataMap[activeTab.bi.id]?.isRefreshing ? 'Atualização já em andamento no Power BI' : 'Atualizar dados da fonte no Power BI'}
+                    className="font-bold flex items-center gap-1.5"
+                    style={{
+                      background: refreshDataMap[activeTab.bi.id]?.isRefreshing ? '#f1f5f9' : '#e0f2fe',
+                      color: refreshDataMap[activeTab.bi.id]?.isRefreshing ? '#94a3b8' : '#0369a1'
+                    }}
+                  >
+                    <RefreshCw className={cn('size-[16px]', (refreshDataMap[activeTab.bi.id]?.isRefreshing || isTriggeringRefresh) && 'animate-spin')} />
+                    {refreshDataMap[activeTab.bi.id]?.isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+                  </Button>
+                )}
+
                 <Button
                   onClick={() => setIsFullscreenVisible(false)}
                   title="Escolher outro painel (mantém este aberto em segundo plano)"
@@ -534,8 +778,11 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
                   Novo painel
                 </Button>
                 <Button
-                  onClick={() => recarregarBI(activeTab.bi.id)}
-                  title="Recarregar apenas este painel"
+                  onClick={() => {
+                    recarregarBI(activeTab.bi.id);
+                    fetchRefreshStatus(activeTab.bi.id, true);
+                  }}
+                  title="Recarregar apenas este painel na tela"
                   className="font-bold"
                   style={{ background: '#e3f2fd', color: '#1565c0' }}
                 >
@@ -553,6 +800,69 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
               </div>
             </div>
           </div>
+
+          {/* Modal de Detalhes da Falha na Atualização (Apenas ADMIN) */}
+          {errorModalData && (
+            <Dialog open={!!errorModalData} onOpenChange={(open) => { if (!open) setErrorModalData(null); }}>
+              <DialogContent className="max-w-2xl !z-[10000005]" overlayClassName="!z-[10000004]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-red-600">
+                    <AlertTriangle className="size-5 text-red-600" />
+                    Detalhes da Falha na Atualização
+                  </DialogTitle>
+                  <DialogDescription>
+                    Relatório: <strong>{errorModalData.reportTitle}</strong>
+                    {errorModalData.endTime && (
+                      <> • Tentativa em: {format(new Date(errorModalData.endTime), "dd/MM/yyyy 'às' HH:mm:ss")}</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* Código do Erro */}
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Código do Erro:</span>
+                    <div className="mt-1 font-mono text-xs bg-muted/60 p-2.5 rounded-lg text-foreground font-semibold">
+                      {errorModalData.errorCode || 'Desconhecido'}
+                    </div>
+                  </div>
+
+                  {/* Mensagem da Fonte / Power BI */}
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem da Fonte / Power BI:</span>
+                    <div className="mt-1 font-mono text-xs bg-red-50 text-red-900 border border-red-200 p-3.5 rounded-lg max-h-64 overflow-y-auto whitespace-pre-wrap break-all select-all">
+                      {errorModalData.errorDescription || errorModalData.raw || 'Nenhuma descrição detalhada retornada pela API.'}
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter className="mt-6 flex justify-between items-center sm:justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const textToCopy = `Falha na Atualização do BI: ${errorModalData.reportTitle}\nData: ${errorModalData.endTime || ''}\nCódigo: ${errorModalData.errorCode || ''}\nErro: ${errorModalData.errorDescription || errorModalData.raw || ''}`;
+                      navigator.clipboard.writeText(textToCopy);
+                      setHasCopiedError(true);
+                      toast.success('Detalhes copiados para a área de transferência!');
+                      setTimeout(() => setHasCopiedError(false), 2500);
+                    }}
+                    className="flex items-center gap-1.5"
+                  >
+                    {hasCopiedError ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
+                    {hasCopiedError ? 'Copiado!' : 'Copiar Detalhes'}
+                  </Button>
+
+                  <Button
+                    onClick={() => setErrorModalData(null)}
+                    style={{ background: '#f57c00' }}
+                  >
+                    Fechar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>,
         document.body
       )}

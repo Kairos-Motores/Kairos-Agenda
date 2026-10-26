@@ -874,6 +874,7 @@ function App() {
       >
         <Toaster
           position="bottom-center"
+          containerStyle={{ zIndex: 10000002 }}
           toastOptions={{
             style: {
               background: 'var(--bg-primary)',
