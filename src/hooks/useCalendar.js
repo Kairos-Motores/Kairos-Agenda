@@ -1494,8 +1494,10 @@ export const useCalendar = () => {
                 body: JSON.stringify(novaNotaDB)
             });
             if (!response.ok) throw new Error('Erro ao salvar nota no Dataverse');
+            const createdData = await response.json().catch(() => null);
             fetchNotas();
             toast.success("Nota criada com sucesso!");
+            return createdData?.cr4a1_notas_kairosid || generatedId;
         } catch (error) {
             console.error(error);
             toast.error("Sem conexão. A nota será salva assim que a internet voltar.");
@@ -1550,22 +1552,23 @@ export const useCalendar = () => {
             return;
         }
 
-        const removedNota = notas.find(n => n.cr4a1_notas_kairosid === notaId);
-        setNotas(prev => prev.filter(n => n.cr4a1_notas_kairosid !== notaId));
+        const removedNota = notas.find(n => n.cr4a1_notas_kairosid === notaId || n.cr4a1_id_da_nota === notaId);
+        const targetId = removedNota?.cr4a1_notas_kairosid || notaId;
+        setNotas(prev => prev.filter(n => n.cr4a1_notas_kairosid !== targetId && n.cr4a1_id_da_nota !== targetId));
 
         showUndoToast(
             'Nota excluída.',
             () => { if (removedNota) setNotas(prev => [...prev, removedNota]); },
             async () => {
-                if (!isOnline) { addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: notaId }); return; }
+                if (!isOnline) { addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: targetId }); return; }
                 try {
-                    const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
+                    const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${targetId}`, {
                         method: 'DELETE'
                     });
                     if (!response.ok) throw new Error('Erro ao deletar nota');
                 } catch (error) {
                     console.error(error);
-                    addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: notaId });
+                    addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: targetId });
                 }
             }
         );

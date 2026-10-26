@@ -1,12 +1,13 @@
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  ArrowLeft, AlertTriangle, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus
+  ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus, Trash2
 } from 'lucide-react';
+import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -117,12 +118,9 @@ export const NotesPanel = ({
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const confirmDeleteTimerRef = useRef(null);
+  const { confirm, ConfirmDialogHost } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
-
-  useEffect(() => () => { if (confirmDeleteTimerRef.current) clearTimeout(confirmDeleteTimerRef.current); }, []);
 
   const getWorkspaceColor = (wsId) => workspaces.find(w => w.cr4a1_calendarios_workspacesid === wsId)?.cr4a1_cor_hex || '#f57c00';
 
@@ -151,7 +149,6 @@ export const NotesPanel = ({
   const openNota = (nota) => {
     setNotaAberta({ ...nota, isNew: false }); // Garante que a flag de edição saiba que a nota já existe
     setIsEditing(false);
-    setConfirmingDelete(false);
   };
 
   const createNewNota = () => {
@@ -167,7 +164,6 @@ export const NotesPanel = ({
       cr4a1_arquivos: []
     });
     setIsEditing(true);
-    setConfirmingDelete(false);
   };
 
   const handleBlockChange = (id, value) => {
@@ -255,17 +251,18 @@ export const NotesPanel = ({
     setIsEditing(false);
   };
 
-  const handleDeleteClick = () => {
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      if (confirmDeleteTimerRef.current) clearTimeout(confirmDeleteTimerRef.current);
-      confirmDeleteTimerRef.current = setTimeout(() => setConfirmingDelete(false), 3000);
-      return;
-    }
-    if (confirmDeleteTimerRef.current) clearTimeout(confirmDeleteTimerRef.current);
-    if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
-      deleteNota(notaAberta.cr4a1_notas_kairosid);
-    }
+  const handleDeleteClick = async () => {
+    if (!notaAberta?.cr4a1_notas_kairosid || notaAberta.isNew) return;
+    const titulo = notaAberta.cr4a1_titulo?.trim() || 'esta nota';
+    const confirmado = await confirm(`Tem certeza que deseja excluir "${titulo}"?`, {
+      title: 'Excluir nota',
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Cancelar',
+      destructive: true,
+    });
+    if (!confirmado) return;
+
+    await deleteNota(notaAberta.cr4a1_notas_kairosid);
     setNotaAberta(null);
   };
 
@@ -308,13 +305,32 @@ export const NotesPanel = ({
                   <Button
                     onClick={handleDeleteClick}
                     variant="destructive"
-                    style={confirmingDelete ? { animation: 'kairos-shake 0.4s' } : undefined}
                   >
-                    {confirmingDelete && <AlertTriangle className="size-[18px]" />}
-                    {confirmingDelete ? 'Confirmar exclusão?' : 'Excluir'}
+                    <Trash2 className="size-[18px]" />
+                    Excluir
                   </Button>
                 )}
-                <Button onClick={() => { if (!notaAberta.isNew) setIsEditing(false); }} variant="outline">
+                <Button
+                  onClick={async () => {
+                    if (notaAberta.isNew) {
+                      const temConteudo = (notaAberta.cr4a1_titulo && notaAberta.cr4a1_titulo.trim()) ||
+                        notaAberta.cr4a1_conteudo?.some(b => b.value && b.value.trim());
+                      if (temConteudo) {
+                        const descartar = await confirm('Deseja descartar as alterações desta nova nota?', {
+                          title: 'Descartar nota',
+                          confirmLabel: 'Descartar',
+                          cancelLabel: 'Continuar editando',
+                          destructive: true,
+                        });
+                        if (!descartar) return;
+                      }
+                      setNotaAberta(null);
+                    } else {
+                      setIsEditing(false);
+                    }
+                  }}
+                  variant="outline"
+                >
                   Cancelar
                 </Button>
                 <Button onClick={handleSave} disabled={isSaving} style={{ background: '#f57c00' }}>
@@ -323,10 +339,21 @@ export const NotesPanel = ({
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setIsEditing(true)} style={{ background: '#f57c00' }}>
-                <Pencil className="size-[18px]" />
-                Editar Nota
-              </Button>
+              <>
+                {notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew && (
+                  <Button
+                    onClick={handleDeleteClick}
+                    variant="destructive"
+                  >
+                    <Trash2 className="size-[18px]" />
+                    Excluir
+                  </Button>
+                )}
+                <Button onClick={() => setIsEditing(true)} style={{ background: '#f57c00' }}>
+                  <Pencil className="size-[18px]" />
+                  Editar Nota
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -660,6 +687,7 @@ export const NotesPanel = ({
           })}
         </div>
       )}
+      {ConfirmDialogHost}
     </div>
   );
 };
