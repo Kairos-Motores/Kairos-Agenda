@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
   VolumeX, SearchX, X, FileText, Check, CloudOff, Paperclip,
-  CalendarPlus, Trash2, Users, Share2, Eye
+  CalendarPlus, Trash2, Users, Share2, Eye, Save
 } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
@@ -601,7 +601,7 @@ export const NotesPanel = ({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (stayInEditing = false) => {
     const permissions = getNotaPermissions(notaAberta, currentUserName);
     if (!permissions.canEdit) {
       toast.error('Você não tem permissão para editar esta nota.');
@@ -624,7 +624,12 @@ export const NotesPanel = ({
 
     setIsSaving(false);
     setNotaAberta(prev => prev ? ({ ...prev, isNew: false, ...(idGerado ? { cr4a1_notas_kairosid: idGerado } : {}) }) : prev);
-    setIsEditing(false);
+
+    if (stayInEditing) {
+      toast.success('Nota salva!', { icon: '💾' });
+    } else {
+      setIsEditing(false);
+    }
   };
 
   const handleBack = async () => {
@@ -643,6 +648,20 @@ export const NotesPanel = ({
     }
     setNotaAberta(null);
   };
+
+  // Atalho de teclado rápido: Ctrl+S (ou Cmd+S) salva sem fechar o modo de edição
+  useEffect(() => {
+    if (!isEditing || !notaAberta) return;
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, notaAberta, currentUserName]);
 
   const handleDeleteClick = async () => {
     if (!notaAberta?.cr4a1_notas_kairosid || notaAberta.isNew) return;
@@ -776,9 +795,21 @@ export const NotesPanel = ({
                 >
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={isSaving || !canEdit} style={{ background: '#f57c00' }}>
+                {/* Botão de salvamento rápido estilo disquete do Windows */}
+                <Button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={isSaving || !canEdit}
+                  variant="outline"
+                  className="gap-1.5 border-[#f57c00] text-[#f57c00] hover:bg-[#f57c00]/10 font-semibold"
+                  title="Salvamento Rápido (Ctrl+S): Salva as alterações sem sair do modo de edição"
+                >
+                  {isSaving ? <Loader2 className="size-[18px] animate-spin" /> : <Save className="size-[18px]" />}
+                  <span>Salvar</span>
+                </Button>
+                <Button onClick={() => handleSave(false)} disabled={isSaving || !canEdit} style={{ background: '#f57c00' }} title="Salvar e concluir a edição">
                   {isSaving && <Loader2 className="size-[18px] animate-spin" />}
-                  {isSaving ? 'Salvando...' : 'Salvar Nota'}
+                  {isSaving ? 'Salvando...' : 'Concluir'}
                 </Button>
               </>
             ) : (
