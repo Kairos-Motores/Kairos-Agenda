@@ -1471,6 +1471,7 @@ function App() {
                   <DashboardPanel
                     activeWorkspaces={workspaces.filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid))}
                     userRole={userRole}
+                    user={user}
                     biConfig={BI_CONFIG}
                     biPermissoes={biPermissoes}
                   />

@@ -1,7 +1,9 @@
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
-import React, { useState } from 'react';
-import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw, Lock, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, X, Search, UserPlus, Shield, UserMinus, Pencil, Trash2, Check, Smile, BarChart3, RotateCcw, Lock, Plus, RefreshCw } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { cn } from '@/lib/utils';
 import { parseRoles } from '../utils/permissions';
 import { PROTECTED_ROLES } from '../config/roleWorkspaceMap';
 import { BI_CONFIG } from '../config/biConfig';
@@ -83,6 +85,100 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
         setNewTypeLayer('nenhuma');
     };
 
+    const [quotasData, setQuotasData] = useState({ quotas: {}, todayUsage: {} });
+
+    useEffect(() => {
+        if (!isOpen || !isAdmin) return;
+        let isMounted = true;
+        fetch('/api/bi-refresh?quotas=true&userRole=ADMIN')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (isMounted && data?.ok) {
+                    setQuotasData({
+                        quotas: data.quotas || {},
+                        todayUsage: data.todayUsage || {}
+                    });
+                }
+            })
+            .catch(err => {
+                console.warn('Falha ao carregar cotas de atualização de BI:', err);
+            });
+        return () => { isMounted = false; };
+    }, [isOpen, isAdmin]);
+
+    const handleSaveUserQuota = async (username, dailyLimit) => {
+        try {
+            const res = await fetch('/api/bi-refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'saveUserQuota',
+                    userRole: 'ADMIN',
+                    targetUser: username,
+                    dailyLimit: Number(dailyLimit)
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast.success(
+                    Number(dailyLimit) > 0
+                        ? `Permissão de atualização atribuída a @${username} (${dailyLimit}x/dia)`
+                        : `Permissão de atualização removida de @${username}`
+                );
+                setQuotasData(prev => {
+                    const newQuotas = { ...prev.quotas };
+                    if (Number(dailyLimit) > 0) {
+                        newQuotas[username] = { dailyLimit: Number(dailyLimit) };
+                    } else {
+                        delete newQuotas[username];
+                    }
+                    return {
+                        ...prev,
+                        quotas: data.quotas || newQuotas
+                    };
+                });
+                return true;
+            } else {
+                toast.error(data.error || 'Erro ao salvar cota.');
+                return false;
+            }
+        } catch (err) {
+            console.error('Erro ao salvar cota de BI:', err);
+            toast.error('Erro de conexão ao salvar cota.');
+            return false;
+        }
+    };
+
+    const handleResetUserUsage = async (username) => {
+        try {
+            const res = await fetch('/api/bi-refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'resetUserUsage',
+                    userRole: 'ADMIN',
+                    targetUser: username
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast.success(`Uso diário de @${username} zerado com sucesso!`);
+                setQuotasData(prev => ({
+                    ...prev,
+                    todayUsage: { ...prev.todayUsage, [username]: 0 }
+                }));
+                return true;
+            } else {
+                toast.error(data.error || 'Erro ao zerar uso diário.');
+                return false;
+            }
+        } catch (err) {
+            console.error('Erro ao zerar uso de BI:', err);
+            toast.error('Erro de conexão ao zerar uso.');
+            return false;
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-2xl" showClose={false}>
@@ -135,6 +231,10 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                     onDelete={() => handleDeleteUser(u)}
                                     biRolesOverrideMap={biRolesOverrideMap}
                                     availableRoles={availableRoles}
+                                    userQuota={quotasData.quotas[u.cr4a1_username]}
+                                    todayUsage={quotasData.todayUsage[u.cr4a1_username] || 0}
+                                    onSaveQuota={handleSaveUserQuota}
+                                    onResetUsage={handleResetUserUsage}
                                 />
                             ))}
                         </div>
@@ -238,10 +338,32 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     );
 };
 
-const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete, biRolesOverrideMap, availableRoles }) => {
+const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDelete, biRolesOverrideMap, availableRoles, userQuota, todayUsage = 0, onSaveQuota, onResetUsage }) => {
     const [rolesOpen, setRolesOpen] = useState(false);
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
+    const [quotaOpen, setQuotaOpen] = useState(false);
+    const [draftEnabled, setDraftEnabled] = useState(Boolean(userQuota?.dailyLimit > 0));
+    const [draftLimit, setDraftLimit] = useState(userQuota?.dailyLimit || 3);
+    const [isSavingQuota, setIsSavingQuota] = useState(false);
+
+    const openQuota = (open) => {
+        setQuotaOpen(open);
+        if (open) {
+            setDraftEnabled(Boolean(userQuota?.dailyLimit > 0));
+            setDraftLimit(userQuota?.dailyLimit || 3);
+        }
+    };
+
+    const handleSaveQuotaClick = async () => {
+        setIsSavingQuota(true);
+        const limitToSave = draftEnabled ? Math.max(1, parseInt(draftLimit, 10) || 1) : 0;
+        const success = await onSaveQuota(user.cr4a1_username, limitToSave);
+        setIsSavingQuota(false);
+        if (success) {
+            setQuotaOpen(false);
+        }
+    };
 
     const openRoles = (open) => {
         setRolesOpen(open);
@@ -270,6 +392,130 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                     </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                    {isAdmin && !parseRoles(user.cr4a1_role).includes('ADMIN') && (
+                        <Popover open={quotaOpen} onOpenChange={openQuota}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "size-8 transition-colors",
+                                        userQuota?.dailyLimit > 0
+                                            ? "text-sky-600 bg-sky-50 hover:bg-sky-100 hover:text-sky-700 dark:bg-sky-950/40 dark:text-sky-400"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                    aria-label={`Configurar cota de atualização de BI para "${user.cr4a1_username}"`}
+                                    title={userQuota?.dailyLimit > 0 ? `Atualização BI ativa: ${userQuota.dailyLimit}x/dia (${todayUsage}/${userQuota.dailyLimit} hoje)` : 'Atribuir permissão para atualizar relatórios BI'}
+                                >
+                                    <RefreshCw className="size-4" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-80 p-4">
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-2 border-b border-border pb-2.5">
+                                        <div className="flex size-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400">
+                                            <RefreshCw className="size-4" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-foreground">Atualização de Power BI</span>
+                                            <span className="text-[11px] text-muted-foreground">@{user.cr4a1_username}</span>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-[12px] leading-relaxed text-muted-foreground">
+                                        Permita que este usuário atualize a base de dados dos relatórios BI que ele tem acesso, com um limite diário definido.
+                                    </p>
+
+                                    <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+                                        <span className="text-xs font-semibold text-foreground">Habilitar Atualização</span>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={draftEnabled}
+                                            onClick={() => setDraftEnabled(!draftEnabled)}
+                                            className={cn(
+                                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                                                draftEnabled ? "bg-sky-600" : "bg-muted"
+                                            )}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                                    draftEnabled ? "translate-x-5" : "translate-x-0"
+                                                )}
+                                            />
+                                        </button>
+                                    </div>
+
+                                    {draftEnabled && (
+                                        <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
+                                            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                                Limite diário de atualizações
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    max={48}
+                                                    value={draftLimit}
+                                                    onChange={(e) => setDraftLimit(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                                    className="h-9 w-20 text-center font-bold"
+                                                />
+                                                <span className="text-xs text-muted-foreground">vezes por dia</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 pt-1">
+                                                <span className="text-[10px] text-muted-foreground">Sugestões:</span>
+                                                {[1, 2, 3, 5, 10].map(val => (
+                                                    <button
+                                                        key={val}
+                                                        type="button"
+                                                        onClick={() => setDraftLimit(val)}
+                                                        className={cn(
+                                                            "rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors",
+                                                            draftLimit === val
+                                                                ? "bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-300"
+                                                                : "bg-secondary text-muted-foreground hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        {val}x
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {userQuota?.dailyLimit > 0 && (
+                                        <div className="flex items-center justify-between rounded-xl border border-sky-100 bg-sky-50/50 p-2.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold uppercase tracking-wide text-sky-800 dark:text-sky-300">Uso hoje</span>
+                                                <span className="text-xs font-semibold text-sky-950 dark:text-sky-200">
+                                                    {todayUsage} de {userQuota.dailyLimit} realizada{userQuota.dailyLimit === 1 ? '' : 's'}
+                                                </span>
+                                            </div>
+                                            {todayUsage > 0 && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => onResetUsage(user.cr4a1_username)}
+                                                    className="h-7 text-[11px] text-sky-700 hover:text-sky-800 dark:text-sky-300"
+                                                    title="Zera as atualizações feitas hoje por este usuário"
+                                                >
+                                                    Zerar hoje
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-2 border-t border-border pt-2.5">
+                                        <Button variant="ghost" size="sm" onClick={() => setQuotaOpen(false)}>Cancelar</Button>
+                                        <Button size="sm" onClick={handleSaveQuotaClick} disabled={isSavingQuota}>
+                                            {isSavingQuota ? 'Salvando...' : 'Salvar'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    )}
                     {isAdmin && (
                         <Popover open={rolesOpen} onOpenChange={openRoles}>
                             <PopoverTrigger asChild>
@@ -347,6 +593,16 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                         <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground" title={currentBis.map(bi => bi.title).join(', ')}>
                             <BarChart3 className="size-3" /> {currentBis.length} {currentBis.length > 1 ? 'painéis' : 'painel'} BI
                         </span>
+                    )}
+                    {!parseRoles(user.cr4a1_role).includes('ADMIN') && userQuota?.dailyLimit > 0 && (
+                        <Badge
+                            variant="outline"
+                            className="ml-1 inline-flex items-center gap-1 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 font-semibold text-[11px]"
+                            title={`Limite diário: ${userQuota.dailyLimit} vezes por dia. Usado hoje: ${todayUsage}/${userQuota.dailyLimit}`}
+                        >
+                            <RefreshCw className="size-2.5" />
+                            Atualiza BI: {userQuota.dailyLimit}x/dia ({todayUsage}/{userQuota.dailyLimit} hoje)
+                        </Badge>
                     )}
                 </div>
             )}

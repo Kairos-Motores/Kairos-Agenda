@@ -102,7 +102,7 @@ import { cn } from '@/lib/utils';
 const TABS_STORAGE_KEY = 'kairos_bi_open_tabs';
 const ACTIVE_TAB_STORAGE_KEY = 'kairos_bi_active_tab';
 
-export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermissoes = [] }) => {
+export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biPermissoes = [] }) => {
   // Cada aba: { bi, url, loading, reloadKey }
   const [openTabs, setOpenTabs] = useState([]);
   const [activeTabId, setActiveTabId] = useState(null);
@@ -118,6 +118,41 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
   const [errorModalData, setErrorModalData] = useState(null);
   const [hasCopiedError, setHasCopiedError] = useState(false);
   const [isMonitoringModalOpen, setIsMonitoringModalOpen] = useState(false);
+  const [myQuota, setMyQuota] = useState(null);
+
+  // Consulta a cota individual do usuário para saber se ele tem permissão de atualizar
+  const fetchMyQuota = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/bi-refresh?myQuota=true&username=${encodeURIComponent(user)}&userRole=${encodeURIComponent(userRole || '')}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok) {
+        setMyQuota(data);
+      }
+    } catch (err) {
+      console.warn('[DashboardPanel] Falha ao consultar cota de atualização:', err);
+    }
+  }, [user, userRole]);
+
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+    fetch(`/api/bi-refresh?myQuota=true&username=${encodeURIComponent(user)}&userRole=${encodeURIComponent(userRole || '')}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (isMounted && data?.ok) {
+          setMyQuota(data);
+        }
+      })
+      .catch(err => {
+        console.warn('[DashboardPanel] Falha ao consultar cota de atualização:', err);
+      });
+    return () => { isMounted = false; };
+  }, [user, userRole]);
+
+  const canTriggerRefresh = isAdmin || Boolean(myQuota?.canRefresh);
+  const isQuotaExceeded = !isAdmin && myQuota && myQuota.remaining <= 0;
 
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,17 +227,27 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
   }, []);
 
   const handleTriggerRefresh = async (biId) => {
-    if (!isAdmin || isTriggeringRefresh) return;
+    if (!canTriggerRefresh || isTriggeringRefresh || isQuotaExceeded) return;
     setIsTriggeringRefresh(true);
     try {
       const res = await fetch('/api/bi-refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: biId, userRole })
+        body: JSON.stringify({ id: biId, userRole, username: user })
       });
       const result = await res.json();
       if (result.ok) {
-        toast.success('Atualização do Power BI iniciada!');
+        if (!isAdmin && result.quota) {
+          toast.success(`Atualização do Power BI iniciada! (Restam ${result.quota.remaining} de ${result.quota.dailyLimit} hoje)`);
+          setMyQuota(prev => ({
+            ...prev,
+            usedToday: result.quota.usedToday,
+            remaining: result.quota.remaining,
+            dailyLimit: result.quota.dailyLimit
+          }));
+        } else {
+          toast.success('Atualização do Power BI iniciada!');
+        }
         setRefreshDataMap(prev => ({
           ...prev,
           [biId]: {
@@ -213,6 +258,9 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
         setTimeout(() => fetchRefreshStatus(biId, true), 2000);
       } else {
         toast.error(result.error || 'Erro ao iniciar atualização.');
+        if (result.remaining !== undefined) {
+          fetchMyQuota();
+        }
       }
     } catch (err) {
       console.error('[DashboardPanel] Erro ao disparar refresh:', err);
@@ -766,20 +814,43 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, biConfig, biPermiss
               </div>
 
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {/* Botão Atualizar Dados (Apenas ADMIN) */}
-                {isAdmin && (
+                {/* Botão Atualizar Dados (ADMIN ou Usuário com Cota Atribuída) */}
+                {canTriggerRefresh && (
                   <Button
                     onClick={() => handleTriggerRefresh(activeTab.bi.id)}
-                    disabled={refreshDataMap[activeTab.bi.id]?.isRefreshing || isTriggeringRefresh}
-                    title={refreshDataMap[activeTab.bi.id]?.isRefreshing ? 'Atualização já em andamento no Power BI' : 'Atualizar dados da fonte no Power BI'}
+                    disabled={refreshDataMap[activeTab.bi.id]?.isRefreshing || isTriggeringRefresh || isQuotaExceeded}
+                    title={
+                      isQuotaExceeded
+                        ? `Você atingiu seu limite diário de atualizações (${myQuota?.dailyLimit}/${myQuota?.dailyLimit}).`
+                        : refreshDataMap[activeTab.bi.id]?.isRefreshing
+                          ? 'Atualização já em andamento no Power BI'
+                          : !isAdmin && myQuota
+                            ? `Atualizar dados da fonte no Power BI (${myQuota.remaining} restante${myQuota.remaining === 1 ? '' : 's'} hoje)`
+                            : 'Atualizar dados da fonte no Power BI'
+                    }
                     className="font-bold flex items-center gap-1.5"
                     style={{
-                      background: refreshDataMap[activeTab.bi.id]?.isRefreshing ? '#f1f5f9' : '#e0f2fe',
-                      color: refreshDataMap[activeTab.bi.id]?.isRefreshing ? '#94a3b8' : '#0369a1'
+                      background: isQuotaExceeded
+                        ? '#f1f5f9'
+                        : refreshDataMap[activeTab.bi.id]?.isRefreshing
+                          ? '#f1f5f9'
+                          : '#e0f2fe',
+                      color: isQuotaExceeded
+                        ? '#94a3b8'
+                        : refreshDataMap[activeTab.bi.id]?.isRefreshing
+                          ? '#94a3b8'
+                          : '#0369a1',
+                      cursor: isQuotaExceeded ? 'not-allowed' : 'pointer'
                     }}
                   >
                     <RefreshCw className={cn('size-[16px]', (refreshDataMap[activeTab.bi.id]?.isRefreshing || isTriggeringRefresh) && 'animate-spin')} />
-                    {refreshDataMap[activeTab.bi.id]?.isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+                    {refreshDataMap[activeTab.bi.id]?.isRefreshing
+                      ? 'Atualizando...'
+                      : isQuotaExceeded
+                        ? `Limite Atingido (${myQuota?.dailyLimit}/${myQuota?.dailyLimit})`
+                        : !isAdmin && myQuota
+                          ? `Atualizar Dados (${myQuota.usedToday}/${myQuota.dailyLimit})`
+                          : 'Atualizar Dados'}
                   </Button>
                 )}
 
