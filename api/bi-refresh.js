@@ -154,7 +154,8 @@ export default async function handler(req, res) {
         return res.status(200).json({
           ok: true,
           quotas: record.data.quotas || {},
-          usageToday: record.data.usage?.[todayStr] || {}
+          usageToday: record.data.usage?.[todayStr] || {},
+          todayUsage: record.data.usage?.[todayStr] || {}
         });
       }
 
@@ -180,7 +181,7 @@ export default async function handler(req, res) {
         const todayStr = getBrazilDateString(new Date());
         const userCfg = record.data.quotas?.[username];
 
-        if (!userCfg || !userCfg.enabled) {
+        if (!userCfg || userCfg.enabled === false) {
           return res.status(200).json({ ok: true, canRefresh: false, dailyLimit: 0, usedToday: 0, remaining: 0 });
         }
 
@@ -403,15 +404,17 @@ export default async function handler(req, res) {
         if (!checkAccess(userRole, ['ADMIN'])) {
           return res.status(403).json({ ok: false, error: 'Apenas administradores podem configurar cotas.' });
         }
-        if (!targetUsername) {
+        const target = targetUsername || body.targetUser || body.user;
+        if (!target) {
           return res.status(400).json({ ok: false, error: 'Usuário alvo não informado.' });
         }
         const record = await getQuotasRecord();
         const config = record.data;
         if (!config.quotas) config.quotas = {};
         const limitNum = Math.max(1, parseInt(dailyLimit, 10) || 1);
-        config.quotas[targetUsername] = {
-          enabled: !!enabled,
+        const isEnabled = enabled !== undefined ? !!enabled : (limitNum > 0);
+        config.quotas[target] = {
+          enabled: isEnabled,
           dailyLimit: limitNum
         };
         await saveQuotasRecord(record.id, config);
@@ -423,11 +426,15 @@ export default async function handler(req, res) {
         if (!checkAccess(userRole, ['ADMIN'])) {
           return res.status(403).json({ ok: false, error: 'Apenas administradores podem resetar cotas.' });
         }
+        const target = targetUsername || body.targetUser || body.user;
+        if (!target) {
+          return res.status(400).json({ ok: false, error: 'Usuário alvo não informado.' });
+        }
         const record = await getQuotasRecord();
         const config = record.data;
         const todayStr = getBrazilDateString(new Date());
         if (config.usage && config.usage[todayStr]) {
-          config.usage[todayStr][targetUsername] = 0;
+          config.usage[todayStr][target] = 0;
         }
         await saveQuotasRecord(record.id, config);
         return res.status(200).json({ ok: true, message: 'Uso de hoje zerado com sucesso!' });
@@ -450,7 +457,7 @@ export default async function handler(req, res) {
         recordObj = await getQuotasRecord();
         userQuotaCfg = recordObj.data.quotas?.[username];
 
-        if (!userQuotaCfg || !userQuotaCfg.enabled) {
+        if (!userQuotaCfg || userQuotaCfg.enabled === false) {
           return res.status(403).json({
             ok: false,
             error: 'Você não possui permissão para atualizar os dados dos painéis BI. Solicite acesso ao administrador.'

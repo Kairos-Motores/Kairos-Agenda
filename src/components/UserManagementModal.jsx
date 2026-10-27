@@ -106,7 +106,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
         return () => { isMounted = false; };
     }, [isOpen, isAdmin]);
 
-    const handleSaveUserQuota = async (username, dailyLimit) => {
+    const handleSaveUserQuota = async (username, dailyLimit, enabled = true) => {
         try {
             const res = await fetch('/api/bi-refresh', {
                 method: 'POST',
@@ -114,29 +114,26 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                 body: JSON.stringify({
                     action: 'saveUserQuota',
                     userRole: 'ADMIN',
+                    targetUsername: username,
                     targetUser: username,
+                    enabled: !!enabled,
                     dailyLimit: Number(dailyLimit)
                 })
             });
             const data = await res.json();
             if (data.ok) {
                 toast.success(
-                    Number(dailyLimit) > 0
+                    enabled && Number(dailyLimit) > 0
                         ? `Permissão de atualização atribuída a @${username} (${dailyLimit}x/dia)`
-                        : `Permissão de atualização removida de @${username}`
+                        : `Permissão de atualização desativada para @${username}`
                 );
-                setQuotasData(prev => {
-                    const newQuotas = { ...prev.quotas };
-                    if (Number(dailyLimit) > 0) {
-                        newQuotas[username] = { dailyLimit: Number(dailyLimit) };
-                    } else {
-                        delete newQuotas[username];
+                setQuotasData(prev => ({
+                    ...prev,
+                    quotas: data.quotas || {
+                        ...prev.quotas,
+                        [username]: { enabled: !!enabled, dailyLimit: Number(dailyLimit) }
                     }
-                    return {
-                        ...prev,
-                        quotas: data.quotas || newQuotas
-                    };
-                });
+                }));
                 return true;
             } else {
                 toast.error(data.error || 'Erro ao salvar cota.');
@@ -157,6 +154,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                 body: JSON.stringify({
                     action: 'resetUserUsage',
                     userRole: 'ADMIN',
+                    targetUsername: username,
                     targetUser: username
                 })
             });
@@ -342,23 +340,24 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
     const [rolesOpen, setRolesOpen] = useState(false);
     const [draftRoles, setDraftRoles] = useState([]);
     const [roleSearch, setRoleSearch] = useState('');
+    const isQuotaActive = Boolean(userQuota?.enabled ?? (userQuota?.dailyLimit > 0));
     const [quotaOpen, setQuotaOpen] = useState(false);
-    const [draftEnabled, setDraftEnabled] = useState(Boolean(userQuota?.dailyLimit > 0));
+    const [draftEnabled, setDraftEnabled] = useState(isQuotaActive);
     const [draftLimit, setDraftLimit] = useState(userQuota?.dailyLimit || 3);
     const [isSavingQuota, setIsSavingQuota] = useState(false);
 
     const openQuota = (open) => {
         setQuotaOpen(open);
         if (open) {
-            setDraftEnabled(Boolean(userQuota?.dailyLimit > 0));
+            setDraftEnabled(Boolean(userQuota?.enabled ?? (userQuota?.dailyLimit > 0)));
             setDraftLimit(userQuota?.dailyLimit || 3);
         }
     };
 
     const handleSaveQuotaClick = async () => {
         setIsSavingQuota(true);
-        const limitToSave = draftEnabled ? Math.max(1, parseInt(draftLimit, 10) || 1) : 0;
-        const success = await onSaveQuota(user.cr4a1_username, limitToSave);
+        const limitToSave = Math.max(1, parseInt(draftLimit, 10) || 1);
+        const success = await onSaveQuota(user.cr4a1_username, limitToSave, draftEnabled);
         setIsSavingQuota(false);
         if (success) {
             setQuotaOpen(false);
@@ -400,7 +399,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                                     size="icon"
                                     className={cn(
                                         "size-8 transition-colors",
-                                        userQuota?.dailyLimit > 0
+                                        (userQuota?.enabled !== false && userQuota?.dailyLimit > 0)
                                             ? "text-sky-600 bg-sky-50 hover:bg-sky-100 hover:text-sky-700 dark:bg-sky-950/40 dark:text-sky-400"
                                             : "text-muted-foreground hover:text-foreground"
                                     )}
@@ -594,7 +593,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                             <BarChart3 className="size-3" /> {currentBis.length} {currentBis.length > 1 ? 'painéis' : 'painel'} BI
                         </span>
                     )}
-                    {!parseRoles(user.cr4a1_role).includes('ADMIN') && userQuota?.dailyLimit > 0 && (
+                    {!parseRoles(user.cr4a1_role).includes('ADMIN') && (userQuota?.enabled !== false && userQuota?.dailyLimit > 0) && (
                         <Badge
                             variant="outline"
                             className="ml-1 inline-flex items-center gap-1 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 font-semibold text-[11px]"
