@@ -1485,6 +1485,7 @@ function App() {
                     updateNota={updateNota}
                     deleteNota={deleteNota}
                     currentUser={currentUser}
+                    allUsers={allUsers || []}
                     workspaces={workspaces}
                     activeWorkspaces={activeWorkspaces}
                     isOnline={isOnline}

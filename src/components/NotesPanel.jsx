@@ -6,18 +6,21 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus, Trash2, CheckCircle2, Cloud
+  VolumeX, SearchX, X, FileText, Check, CloudOff, Paperclip,
+  CalendarPlus, Trash2, Users, Share2, Eye
 } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
+import { Badge } from './ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { AttachmentsField } from './ui/attachments-field';
 import { RichTextEditor } from './ui/rich-text-editor';
 import { parseAnexos } from '../utils/anexos';
 import { htmlParaTexto } from '../utils/descricaoTarefas';
+import { canUserViewNota, getNotaPermissions } from '../utils/notasCompartilhamento';
 
 // ============================================================================
 // ESTILOS LOCAIS: animações e micro-interações MD3 do Bloco de Notas
@@ -37,14 +40,53 @@ const NOTES_PANEL_STYLES = `
 `;
 
 // ============================================================================
+// COMPONENTE AUXILIAR: Avatar do usuário (foto ou bolinha com inicial)
+// ============================================================================
+const UserAvatar = ({ login, allUsers = [], size = 24, className = '' }) => {
+  const u = allUsers.find(x => x.cr4a1_username === login);
+  const nome = u?.cr4a1_nome_exibicao || login || '?';
+  const dimensao = `${size}px`;
+  if (u?.cr4a1_foto) {
+    return (
+      <img
+        src={u.cr4a1_foto}
+        alt={nome}
+        title={nome}
+        className={`shrink-0 rounded-full border border-border object-cover ${className}`}
+        style={{ width: dimensao, height: dimensao }}
+      />
+    );
+  }
+  return (
+    <div
+      title={nome}
+      className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${className}`}
+      style={{
+        width: dimensao,
+        height: dimensao,
+        backgroundColor: u?.cr4a1_cor || '#f57c00',
+        fontSize: `${Math.max(10, Math.round(size * 0.42))}px`
+      }}
+    >
+      {nome?.[0]?.toUpperCase()}
+    </div>
+  );
+};
+
+// ============================================================================
 // COMPONENTE AUXILIAR: Checkbox animado estilo MD3
 // ============================================================================
-const TodoCheckbox = ({ checked, onChange }) => (
+const TodoCheckbox = ({ checked, onChange, disabled = false }) => (
   <span
-    onClick={(e) => { e.stopPropagation(); onChange(); }}
-    className="boing-effect"
+    onClick={(e) => {
+      e.stopPropagation();
+      if (!disabled && onChange) onChange();
+    }}
+    className={disabled ? '' : 'boing-effect'}
     style={{
-      width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, cursor: 'pointer',
+      width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.6 : 1,
       border: `2px solid ${checked ? '#f57c00' : 'var(--border-strong)'}`,
       background: checked ? '#f57c00' : 'transparent',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -102,9 +144,259 @@ const formatarDataCriacao = (dateStr) => {
     return null;
   }
 };
+
 // ============================================================================
+// DIÁLOGO DE COMPARTILHAMENTO / VINCULAÇÃO DE NOTAS
+// ============================================================================
+const CompartilharNotaDialog = ({
+  isOpen,
+  onClose,
+  nota,
+  allUsers = [],
+  onUpdateSharing
+}) => {
+  const [novoUsuario, setNovoUsuario] = useState('');
+  const [novaPermissao, setNovaPermissao] = useState('leitura');
 
+  const compartilhamento = nota?.compartilhamento || {};
+  const autorLogin = nota?.cr4a1_user_login;
 
+  const getNome = (login) => allUsers.find(u => u.cr4a1_username === login)?.cr4a1_nome_exibicao || login;
+
+  const usuariosJaVinculados = new Set([autorLogin, ...Object.keys(compartilhamento)]);
+
+  const candidatos = allUsers.filter(u => {
+    if (!u.cr4a1_username) return false;
+    return !usuariosJaVinculados.has(u.cr4a1_username);
+  });
+
+  const handleAddUser = () => {
+    if (!novoUsuario) return;
+    const updated = {
+      ...compartilhamento,
+      [novoUsuario]: novaPermissao
+    };
+    onUpdateSharing(updated);
+    toast.success(`Usuário @${novoUsuario} vinculado com sucesso!`);
+    setNovoUsuario('');
+    setNovaPermissao('leitura');
+  };
+
+  const handleRemoverUser = (login) => {
+    const updated = { ...compartilhamento };
+    delete updated[login];
+    onUpdateSharing(updated);
+    toast('Vínculo removido.', { icon: '🗑️' });
+  };
+
+  const handleChangePermissao = (login, permissao) => {
+    const updated = {
+      ...compartilhamento,
+      [login]: permissao
+    };
+    onUpdateSharing(updated);
+    toast.success(`Permissão de @${login} alterada para ${permissao === 'edicao' ? 'Edição' : 'Leitura'}.`);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="size-5 text-[#f57c00]" />
+            Compartilhar Nota
+          </DialogTitle>
+          <DialogDescription>
+            {nota?.cr4a1_titulo ? `"${nota.cr4a1_titulo}"` : 'Vincule usuários e escolha quem pode apenas ler ou editar'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4 py-1">
+          {/* Aviso sobre privacidade da nota */}
+          <div className="rounded-2xl border border-border bg-secondary/50 p-3 text-xs flex items-start gap-2.5">
+            {nota?.cr4a1_private ? (
+              <>
+                <Lock className="size-4 shrink-0 text-[#f57c00] mt-0.5" />
+                <span className="text-muted-foreground leading-relaxed">
+                  <strong className="text-foreground font-semibold">Nota Privada:</strong> Apenas você (autor) e os usuários vinculados abaixo conseguem ver e acessar esta nota.
+                </span>
+              </>
+            ) : (
+              <>
+                <Globe className="size-4 shrink-0 text-primary mt-0.5" />
+                <span className="text-muted-foreground leading-relaxed">
+                  <strong className="text-foreground font-semibold">Nota Pública:</strong> Visível para o workspace. Usuários vinculados com permissão de &quot;Leitura&quot; terão apenas permissão de leitura garantida.
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Autor / Dono da nota */}
+          <div>
+            <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Autor da Nota</Label>
+            <div className="mt-1.5 flex items-center justify-between rounded-2xl border border-border bg-card p-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <UserAvatar login={autorLogin} allUsers={allUsers} size={30} />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-foreground truncate">{getNome(autorLogin)}</span>
+                  <span className="text-[11px] text-muted-foreground truncate">@{autorLogin}</span>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-[#f57c00]/30 bg-[#f57c00]/10 text-[#f57c00] text-xs font-semibold shrink-0">
+                Autor (Proprietário)
+              </Badge>
+            </div>
+          </div>
+
+          {/* Lista de usuários com acesso vinculado */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Usuários Vinculados ({Object.keys(compartilhamento).length})
+              </Label>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-[190px] overflow-y-auto pr-1">
+              {Object.keys(compartilhamento).length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                  Nenhum usuário vinculado ainda. Vincule alguém abaixo para compartilhar esta nota.
+                </div>
+              ) : (
+                Object.entries(compartilhamento).map(([login, perm]) => (
+                  <div key={login} className="flex items-center justify-between rounded-2xl border border-border bg-card p-2.5 transition-colors hover:border-border/80">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                      <UserAvatar login={login} allUsers={allUsers} size={28} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium text-foreground truncate">{getNome(login)}</span>
+                        <span className="text-[11px] text-muted-foreground truncate">@{login}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Select
+                        value={perm}
+                        onValueChange={(novaPerm) => handleChangePermissao(login, novaPerm)}
+                      >
+                        <SelectTrigger className="h-8 w-[130px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="leitura">
+                            <span className="flex items-center gap-1.5">
+                              <Eye className="size-3 text-muted-foreground" />
+                              Apenas Ler
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="edicao">
+                            <span className="flex items-center gap-1.5">
+                              <Pencil className="size-3 text-[#f57c00]" />
+                              Ler e Editar
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:bg-destructive/15 hover:text-destructive rounded-lg"
+                        title="Remover vínculo"
+                        onClick={() => handleRemoverUser(login)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Adicionar novo usuário vinculado */}
+          <div className="border-t border-border pt-3">
+            <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-2">
+              Vincular novo usuário
+            </Label>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Select
+                  value={novoUsuario}
+                  onValueChange={setNovoUsuario}
+                >
+                  <SelectTrigger className="flex-1 text-xs">
+                    <SelectValue placeholder="Selecione um usuário..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {candidatos.length === 0 ? (
+                      <div className="p-2 text-xs text-muted-foreground text-center">Nenhum outro usuário disponível</div>
+                    ) : (
+                      candidatos.map(u => (
+                        <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>
+                          <div className="flex items-center gap-2">
+                            <UserAvatar login={u.cr4a1_username} allUsers={allUsers} size={18} />
+                            <span>{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
+                            <span className="text-[10px] text-muted-foreground">(@{u.cr4a1_username})</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={novaPermissao}
+                  onValueChange={setNovaPermissao}
+                >
+                  <SelectTrigger className="w-[130px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leitura">
+                      <span className="flex items-center gap-1.5">
+                        <Eye className="size-3 text-muted-foreground" />
+                        Apenas Ler
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="edicao">
+                      <span className="flex items-center gap-1.5">
+                        <Pencil className="size-3 text-[#f57c00]" />
+                        Ler e Editar
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleAddUser}
+                disabled={!novoUsuario}
+                variant="outline"
+                size="sm"
+                className="w-full border-dashed"
+                style={{ borderColor: novoUsuario ? '#f57c00' : undefined, color: novoUsuario ? '#f57c00' : undefined }}
+              >
+                <Plus className="size-4 mr-1.5" />
+                Vincular à nota
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose} variant="default" size="sm" style={{ background: '#f57c00' }}>
+            Concluído
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ============================================================================
+// COMPONENTE PRINCIPAL: NotesPanel
+// ============================================================================
 export const NotesPanel = ({
   notas = [],
   eventos = [],
@@ -112,6 +404,7 @@ export const NotesPanel = ({
   updateNota,
   deleteNota,
   currentUser,
+  allUsers = [],
   workspaces = [],
   activeWorkspaces = [],
   eventId = null,
@@ -120,9 +413,13 @@ export const NotesPanel = ({
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompartilharOpen, setIsCompartilharOpen] = useState(false);
   const { confirm, ConfirmDialogHost } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
+  const [shareFilter, setShareFilter] = useState('all'); // 'all' | 'mine' | 'shared'
+
+  const currentUserName = currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || '';
 
   // Chave do rascunho temporário
   const draftStorageKey = notaAberta
@@ -142,37 +439,42 @@ export const NotesPanel = ({
 
   const getWorkspaceColor = (wsId) => workspaces.find(w => w.cr4a1_calendarios_workspacesid === wsId)?.cr4a1_cor_hex || '#f57c00';
 
-  // Lógica de Privacidade, Workspace e Filtro de Evento
+  // Lógica de Privacidade, Compartilhamento, Workspace e Filtro de Evento
   const activeNotas = notas.filter(n => {
     if (eventId && n.cr4a1_evento_id !== eventId) return false;
     const isInWorkspace = activeWorkspaces.includes(n.cr4a1_workspace_id);
     if (!isInWorkspace) return false;
 
-    const isPrivate = n.cr4a1_private === true || n.cr4a1_private === 'true';
-    const currentUserName = currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || '';
-    const isAuthor = n.cr4a1_user_login === currentUserName;
-    if (isPrivate && !isAuthor) return false;
-
-    return true;
+    return canUserViewNota(n, currentUserName);
   });
 
   const visibleNotas = activeNotas.filter(n => {
     const matchesQuery = !searchTerm || matchesSearch(n.cr4a1_titulo || '', searchTerm);
     const matchesWorkspace = !selectedWorkspaceFilter || n.cr4a1_workspace_id === selectedWorkspaceFilter;
-    return matchesQuery && matchesWorkspace;
+    if (!matchesQuery || !matchesWorkspace) return false;
+
+    if (shareFilter === 'mine') {
+      return n.cr4a1_user_login === currentUserName;
+    }
+    if (shareFilter === 'shared') {
+      const isSharedWithMe = Boolean(n.compartilhamento && n.compartilhamento[currentUserName]);
+      const isSharedByMe = n.cr4a1_user_login === currentUserName && Object.keys(n.compartilhamento || {}).length > 0;
+      return isSharedWithMe || isSharedByMe;
+    }
+    return true;
   });
 
   const availableWorkspaces = workspaces.filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid));
 
   const openNota = (nota) => {
     const draftKey = `kairos_draft_note_${nota.cr4a1_notas_kairosid}`;
-    let notaToOpen = { ...nota, isNew: false };
+    let notaToOpen = { ...nota, isNew: false, compartilhamento: nota.compartilhamento || {} };
     try {
       const savedDraft = localStorage.getItem(draftKey);
       if (savedDraft) {
         const draft = JSON.parse(savedDraft);
         if (draft && (draft.cr4a1_titulo !== nota.cr4a1_titulo || JSON.stringify(draft.cr4a1_conteudo) !== JSON.stringify(nota.cr4a1_conteudo))) {
-          notaToOpen = { ...draft, isNew: false };
+          notaToOpen = { ...draft, isNew: false, compartilhamento: draft.compartilhamento || nota.compartilhamento || {} };
           toast('Rascunho recente recuperado.', { icon: '📝' });
         }
       }
@@ -190,7 +492,8 @@ export const NotesPanel = ({
       cr4a1_private: false,
       cr4a1_workspace_id: defaultWorkspace,
       cr4a1_evento_id: eventId || '',
-      cr4a1_user_login: currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
+      cr4a1_user_login: currentUserName || 'Usuário Atual',
+      compartilhamento: {},
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }],
       cr4a1_arquivos: []
     };
@@ -200,7 +503,7 @@ export const NotesPanel = ({
       if (savedNewDraft) {
         const parsed = JSON.parse(savedNewDraft);
         if (parsed && (parsed.cr4a1_titulo?.trim() || parsed.cr4a1_conteudo?.some(b => b.value?.trim()))) {
-          initialNota = { ...parsed, isNew: true };
+          initialNota = { ...parsed, isNew: true, compartilhamento: parsed.compartilhamento || {} };
           toast('Rascunho anterior recuperado.', { icon: '📝' });
         }
       }
@@ -228,7 +531,6 @@ export const NotesPanel = ({
     }));
   };
 
-  // Remove o bloco com uma pequena animação de saída antes de tirá-lo da lista
   const removeBlock = (id) => {
     setNotaAberta(prev => prev ? ({
       ...prev, cr4a1_conteudo: prev.cr4a1_conteudo.map(b => b.id === id ? { ...b, removing: true } : b)
@@ -252,6 +554,7 @@ export const NotesPanel = ({
       anexos: src.cr4a1_arquivos || [],
       user: src.cr4a1_user_login,
       user_login: src.cr4a1_user_login,
+      compartilhamento: src.compartilhamento || {},
 
       cr4a1_notas_kairosid: src.cr4a1_notas_kairosid,
       cr4a1_titulo: src.cr4a1_titulo,
@@ -264,9 +567,14 @@ export const NotesPanel = ({
     };
   };
 
-  // Alterna o estado de um tópico. Se a nota não estiver em edição, salva a mudança na hora
-  // (permite marcar/desmarcar itens direto na leitura, como uma checklist viva).
+  // Alterna o estado de um tópico na checklist
   const toggleTodoChecked = async (blockId) => {
+    const permissions = getNotaPermissions(notaAberta, currentUserName);
+    if (!permissions.canEdit) {
+      toast.error('Você tem permissão apenas de leitura nesta nota.');
+      return;
+    }
+
     const updatedConteudo = notaAberta.cr4a1_conteudo.map(b => b.id === blockId ? { ...b, checked: !b.checked } : b);
     setNotaAberta(prev => prev ? ({ ...prev, cr4a1_conteudo: updatedConteudo }) : prev);
 
@@ -275,7 +583,31 @@ export const NotesPanel = ({
     }
   };
 
+  const handleUpdateSharing = async (novoCompartilhamento) => {
+    setNotaAberta(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        compartilhamento: novoCompartilhamento
+      };
+      if (draftStorageKey) {
+        try { localStorage.setItem(draftStorageKey, JSON.stringify(updated)); } catch (e) { void e; }
+      }
+      return updated;
+    });
+
+    if (notaAberta && notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
+      await updateNota(notaAberta.cr4a1_notas_kairosid, buildNotaPayload({ compartilhamento: novoCompartilhamento }));
+    }
+  };
+
   const handleSave = async () => {
+    const permissions = getNotaPermissions(notaAberta, currentUserName);
+    if (!permissions.canEdit) {
+      toast.error('Você não tem permissão para editar esta nota.');
+      return;
+    }
+
     setIsSaving(true);
     const data = buildNotaPayload();
 
@@ -314,6 +646,12 @@ export const NotesPanel = ({
 
   const handleDeleteClick = async () => {
     if (!notaAberta?.cr4a1_notas_kairosid || notaAberta.isNew) return;
+    const permissions = getNotaPermissions(notaAberta, currentUserName);
+    if (!permissions.canDelete) {
+      toast.error('Apenas o autor pode excluir esta nota.');
+      return;
+    }
+
     const titulo = notaAberta.cr4a1_titulo?.trim() || 'esta nota';
     const confirmado = await confirm(`Tem certeza que deseja excluir "${titulo}"?`, {
       title: 'Excluir nota',
@@ -334,10 +672,7 @@ export const NotesPanel = ({
   if (notaAberta) {
     const currentWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id);
     const wsColor = getWorkspaceColor(notaAberta.cr4a1_workspace_id);
-
-    // CORREÇÃO DA LISTAGEM DE EVENTOS: Se não filtrar estritamente por workspace, traz todos os eventos disponíveis para evitar tela vazia
     const eventosDisponiveis = eventos.length > 0 ? eventos : [];
-
     const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
 
     const blockTypeOptions = [
@@ -350,9 +685,12 @@ export const NotesPanel = ({
     const relative = formatRelative(notaAberta.modifiedon || notaAberta.createdon);
     const criadaEm = formatarDataCriacao(notaAberta.createdon);
 
+    const permissions = getNotaPermissions(notaAberta, currentUserName);
+    const { isAuthor, canEdit, canManagePermissions, canDelete, userPermission } = permissions;
+    const numVinculados = Object.keys(notaAberta.compartilhamento || {}).length;
+
     return (
       <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
-
         <style>{NOTES_PANEL_STYLES}</style>
 
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
@@ -382,10 +720,28 @@ export const NotesPanel = ({
             </span>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Botão de Compartilhar: exclusivo do autor da nota */}
+            {canManagePermissions && (
+              <Button
+                onClick={() => setIsCompartilharOpen(true)}
+                variant="outline"
+                className="gap-1.5"
+                title="Vincular outros usuários e gerenciar permissões (apenas autor)"
+              >
+                <Share2 className="size-[17px] text-[#f57c00]" />
+                <span>Compartilhar</span>
+                {numVinculados > 0 && (
+                  <span className="rounded-full bg-[#f57c00]/20 px-1.5 py-0.2 text-[10px] font-bold text-[#f57c00]">
+                    {numVinculados}
+                  </span>
+                )}
+              </Button>
+            )}
+
             {isEditing ? (
               <>
-                {notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew && (
+                {canDelete && (
                   <Button
                     onClick={handleDeleteClick}
                     variant="destructive"
@@ -420,14 +776,14 @@ export const NotesPanel = ({
                 >
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={isSaving} style={{ background: '#f57c00' }}>
+                <Button onClick={handleSave} disabled={isSaving || !canEdit} style={{ background: '#f57c00' }}>
                   {isSaving && <Loader2 className="size-[18px] animate-spin" />}
                   {isSaving ? 'Salvando...' : 'Salvar Nota'}
                 </Button>
               </>
             ) : (
               <>
-                {notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew && (
+                {canDelete && (
                   <Button
                     onClick={handleDeleteClick}
                     variant="destructive"
@@ -436,10 +792,17 @@ export const NotesPanel = ({
                     Excluir
                   </Button>
                 )}
-                <Button onClick={() => setIsEditing(true)} style={{ background: '#f57c00' }}>
-                  <Pencil className="size-[18px]" />
-                  Editar Nota
-                </Button>
+                {canEdit ? (
+                  <Button onClick={() => setIsEditing(true)} style={{ background: '#f57c00' }}>
+                    <Pencil className="size-[18px]" />
+                    Editar Nota
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1.5 rounded-xl border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                    <Eye className="size-4 text-[#f57c00]" />
+                    <span>Apenas Leitura</span>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -469,13 +832,21 @@ export const NotesPanel = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', width: '50%' }}>
             {isEditing ? (
               <div className="flex flex-wrap items-center justify-end gap-3">
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
-                  {notaAberta.cr4a1_private ? <Lock className="size-4 text-[#f57c00]" /> : <Globe className="size-4 text-muted-foreground" />}
-                  <Label htmlFor="nota-private-switch" className="cursor-pointer text-xs font-semibold" style={{ color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)' }}>
-                    {notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}
-                  </Label>
-                  <Switch id="nota-private-switch" checked={!!notaAberta.cr4a1_private} onCheckedChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_private: val })} />
-                </div>
+                {/* Switch de Nota Privada: editável exclusivamente pelo autor */}
+                {isAuthor ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
+                    {notaAberta.cr4a1_private ? <Lock className="size-4 text-[#f57c00]" /> : <Globe className="size-4 text-muted-foreground" />}
+                    <Label htmlFor="nota-private-switch" className="cursor-pointer text-xs font-semibold" style={{ color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)' }}>
+                      {notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}
+                    </Label>
+                    <Switch id="nota-private-switch" checked={!!notaAberta.cr4a1_private} onCheckedChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_private: val })} />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-semibold" style={{ color: notaAberta.cr4a1_private ? '#f57c00' : 'var(--text-secondary)' }}>
+                    {notaAberta.cr4a1_private ? <Lock className="size-4 text-[#f57c00]" /> : <Globe className="size-4 text-muted-foreground" />}
+                    <span>{notaAberta.cr4a1_private ? 'Nota Privada' : 'Nota Pública'}</span>
+                  </div>
+                )}
 
                 {workspaces.length > 0 && (
                   <Select value={notaAberta.cr4a1_workspace_id} onValueChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val })}>
@@ -506,8 +877,30 @@ export const NotesPanel = ({
                   </span>
                 )}
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {notaAberta.cr4a1_private ? <><Lock className="size-[14px] text-[#f57c00]" /> Nota Pessoal</> : <><Globe className="size-[14px]" /> Nota Pública</>}
+                  {notaAberta.cr4a1_private ? (
+                    <><Lock className="size-[14px] text-[#f57c00]" /> {isAuthor ? 'Nota Privada' : 'Nota Privada (Compartilhada com você)'}</>
+                  ) : (
+                    <><Globe className="size-[14px]" /> Nota Pública</>
+                  )}
                 </span>
+
+                {/* Status de compartilhamento */}
+                {isAuthor && numVinculados > 0 && (
+                  <span style={{ fontSize: '11px', color: '#f57c00', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                    <Users className="size-[13px]" /> Vinculada a {numVinculados} usuário(s)
+                  </span>
+                )}
+
+                {!isAuthor && (
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {userPermission === 'edicao' ? (
+                      <><Pencil className="size-[13px] text-[#f57c00]" /> Permissão: Ler e Editar</>
+                    ) : (
+                      <><Eye className="size-[13px] text-muted-foreground" /> Permissão: Apenas Leitura</>
+                    )}
+                  </span>
+                )}
+
                 <span style={{ fontSize: '11px', fontWeight: '700', color: wsColor, padding: '4px 8px', background: 'var(--bg-secondary)', borderRadius: '6px', textTransform: 'uppercase' }}>
                   {currentWorkspace?.cr4a1_nome || 'Sem Setor'}
                 </span>
@@ -576,7 +969,7 @@ export const NotesPanel = ({
                     />
                   ) : bloco.type === 'todo' ? (
                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px', padding: '8px 0' }}>
-                      <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} />
+                      <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} disabled={!canEdit} />
                       <input
                         type="text"
                         value={bloco.value}
@@ -643,7 +1036,7 @@ export const NotesPanel = ({
                 }
                 return (
                   <div key={bloco.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} />
+                    <TodoCheckbox checked={!!bloco.checked} onChange={() => toggleTodoChecked(bloco.id)} disabled={!canEdit} />
                     <span style={{ fontSize: '15px', color: bloco.checked ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: bloco.checked ? 'line-through' : 'none', transition: 'color 0.2s' }}>
                       {bloco.value}
                     </span>
@@ -655,6 +1048,18 @@ export const NotesPanel = ({
             </div>
           )}
         </div>
+
+        {/* Modal de Compartilhamento / Vínculos (apenas autor) */}
+        {isCompartilharOpen && (
+          <CompartilharNotaDialog
+            isOpen={isCompartilharOpen}
+            onClose={() => setIsCompartilharOpen(false)}
+            nota={notaAberta}
+            allUsers={allUsers}
+            currentUser={currentUser}
+            onUpdateSharing={handleUpdateSharing}
+          />
+        )}
       </div>
     );
   }
@@ -677,7 +1082,35 @@ export const NotesPanel = ({
 
       {activeNotas.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar notas..." className="max-w-[360px]" inputClassName="rounded-full" />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar notas..." className="max-w-[360px]" inputClassName="rounded-full" />
+
+            {/* Filtro rápido: Todas / Minhas / Compartilhadas */}
+            <div className="flex rounded-full border border-border bg-secondary p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setShareFilter('all')}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${shareFilter === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Todas ({activeNotas.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShareFilter('mine')}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${shareFilter === 'mine' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Minhas ({activeNotas.filter(n => n.cr4a1_user_login === currentUserName).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShareFilter('shared')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition-colors ${shareFilter === 'shared' ? 'bg-card text-[#f57c00] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Users className="size-3" />
+                Compartilhadas ({activeNotas.filter(n => (n.compartilhamento && n.compartilhamento[currentUserName]) || (n.cr4a1_user_login === currentUserName && Object.keys(n.compartilhamento || {}).length > 0)).length})
+              </button>
+            </div>
+          </div>
 
           {availableWorkspaces.length > 1 && (
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
@@ -689,7 +1122,7 @@ export const NotesPanel = ({
                   background: !selectedWorkspaceFilter ? '#f57c00' : 'var(--bg-secondary)', color: !selectedWorkspaceFilter ? 'white' : 'var(--text-title)'
                 }}
               >
-                Todas
+                Todos Setores
               </button>
               {availableWorkspaces.map(ws => (
                 <button
@@ -723,7 +1156,7 @@ export const NotesPanel = ({
       ) : visibleNotas.length === 0 ? (
         <div className="mt-10 text-center text-muted-foreground">
           <SearchX className="mx-auto size-12 opacity-50" />
-          <p>Nenhuma nota corresponde à sua busca.</p>
+          <p>Nenhuma nota corresponde à sua busca ou filtro.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', overflowY: 'auto', paddingBottom: '24px' }}>
@@ -734,6 +1167,10 @@ export const NotesPanel = ({
             const criadaEm = formatarDataCriacao(nota.createdon);
             const blocoPreview = nota.cr4a1_conteudo?.find(b => b.type === 'text' || b.type === 'todo');
             const textoPreview = blocoPreview ? (blocoPreview.type === 'text' ? htmlParaTexto(blocoPreview.value) : blocoPreview.value) : '';
+            const isNoteAuthor = nota.cr4a1_user_login === currentUserName;
+            const sharedCount = Object.keys(nota.compartilhamento || {}).length;
+            const sharedWithMePerm = nota.compartilhamento?.[currentUserName];
+
             return (
               <div
                 key={nota.cr4a1_notas_kairosid}
@@ -753,7 +1190,26 @@ export const NotesPanel = ({
                   <div className="flex shrink-0 items-center gap-1.5">
                     {nota._pendenteSync && <CloudOff className="size-4 text-warning" title="Salva offline — ainda não sincronizada" />}
                     {parseAnexos(nota.cr4a1_arquivos).length > 0 && <Paperclip className="size-4 shrink-0 text-muted-foreground" title={`${parseAnexos(nota.cr4a1_arquivos).length} anexo(s)`} />}
-                    {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title="Nota Privada" />}
+                    {nota.cr4a1_private && <Lock className="size-4 shrink-0 text-[#f57c00]" title={isNoteAuthor ? "Nota Privada" : "Nota Privada (Compartilhada com você)"} />}
+                    {isNoteAuthor && sharedCount > 0 && (
+                      <span className="flex items-center gap-1 rounded bg-[#f57c00]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#f57c00]" title={`Vinculada a ${sharedCount} usuário(s)`}>
+                        <Users className="size-3" />
+                        {sharedCount}
+                      </span>
+                    )}
+                    {!isNoteAuthor && sharedWithMePerm && (
+                      sharedWithMePerm === 'edicao' ? (
+                        <span className="flex items-center gap-1 rounded bg-[#f57c00]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#f57c00]" title="Compartilhada com você (Ler e Editar)">
+                          <Pencil className="size-3" />
+                          Edição
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground" title="Compartilhada com você (Apenas Leitura)">
+                          <Eye className="size-3" />
+                          Leitura
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -764,8 +1220,11 @@ export const NotesPanel = ({
 
                 <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
                   <div className="flex items-center gap-1.5 overflow-hidden text-[11px] text-muted-foreground" title={criadaEm ? `Criada em ${criadaEm}` : undefined}>
-                    <UserIcon className="size-[14px] shrink-0" />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{relative ? `editado ${relative}` : nota.cr4a1_user_login}</span>
+                    <UserAvatar login={nota.cr4a1_user_login} allUsers={allUsers} size={16} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {isNoteAuthor ? 'Você' : (allUsers.find(u => u.cr4a1_username === nota.cr4a1_user_login)?.cr4a1_nome_exibicao || nota.cr4a1_user_login)}
+                      {relative ? ` · ${relative}` : ''}
+                    </span>
                   </div>
                   {nota.cr4a1_evento_id && <Link2 className="size-[14px] shrink-0 text-primary" title="Nota associada a um evento" />}
                 </div>

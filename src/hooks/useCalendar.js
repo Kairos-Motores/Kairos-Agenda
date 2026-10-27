@@ -9,6 +9,7 @@ import { renderUndoToast } from '../components/UndoToast';
 import { ROLE_WORKSPACE_MAP, ALL_KNOWN_ROLES, PROTECTED_ROLES } from '../config/roleWorkspaceMap';
 import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
 import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
+import { parseCompartilhamento, serializeCompartilhamento } from '../utils/notasCompartilhamento';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -46,7 +47,11 @@ export const useCalendar = () => {
     const [appRoles, setAppRoles] = useState([]);
     const [notas, setNotas] = useState(() => {
         try {
-            return JSON.parse(localStorage.getItem('kairos_notas_cache') || '[]');
+            const cached = JSON.parse(localStorage.getItem('kairos_notas_cache') || '[]');
+            return Array.isArray(cached) ? cached.map(n => ({
+                ...n,
+                compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
+            })) : [];
         } catch {
             return [];
         }
@@ -546,9 +551,13 @@ export const useCalendar = () => {
 
             // Regra de privacidade e parsing resiliente
             const notasFiltradas = rawNotas.filter(nota => {
-                return !nota.cr4a1_private || nota.cr4a1_user_login === user;
+                const compartilhamento = parseCompartilhamento(nota.cr4a1_privado);
+                const isAuthor = nota.cr4a1_user_login === user;
+                const isShared = Boolean(compartilhamento && compartilhamento[user]);
+                return !nota.cr4a1_private || isAuthor || isShared;
             }).map(nota => ({
                 ...nota,
+                compartilhamento: parseCompartilhamento(nota.cr4a1_privado),
                 cr4a1_conteudo: safeParseJson(nota.cr4a1_conteudo, []),
                 cr4a1_arquivos: safeParseJson(nota.cr4a1_arquivos, [])
             }));
@@ -566,7 +575,10 @@ export const useCalendar = () => {
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        setNotas(parsed);
+                        setNotas(parsed.map(n => ({
+                            ...n,
+                            compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
+                        })));
                     }
                 }
             } catch (cacheErr) {
@@ -1589,6 +1601,10 @@ export const useCalendar = () => {
         const targetWorkspace = notaData.workspaceId || (workspaces[0]?.cr4a1_calendarios_workspacesid) || (activeWorkspaces[0]) || '';
         const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
         const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
+                const compartilhamento = notaData.compartilhamento !== undefined
+            ? parseCompartilhamento(notaData.compartilhamento)
+            : (notaData.cr4a1_privado ? parseCompartilhamento(notaData.cr4a1_privado) : {});
+        const serializedPrivado = serializeCompartilhamento(compartilhamento);
 
         const novaNota = {
             cr4a1_id_da_nota: generatedId,
@@ -1596,7 +1612,10 @@ export const useCalendar = () => {
             cr4a1_titulo: notaData.titulo || '',
             cr4a1_user_login: user,
             cr4a1_workspace_id: targetWorkspace,
-            cr4a1_private: !!notaData.privado,
+            cr4a1_private: !!(notaData.privado ?? notaData.cr4a1_private),
+
+            cr4a1_privado: serializedPrivado,
+            compartilhamento: compartilhamento,
             cr4a1_evento_id: notaData.eventoId || null,
             cr4a1_conteudo: conteudoArray,
             cr4a1_arquivos: anexosArray,
@@ -1611,6 +1630,8 @@ export const useCalendar = () => {
             cr4a1_user_login: user,
             cr4a1_workspace_id: targetWorkspace,
             cr4a1_private: novaNota.cr4a1_private,
+            cr4a1_privado: serializedPrivado || null,
+
             cr4a1_evento_id: novaNota.cr4a1_evento_id,
             cr4a1_conteudo: JSON.stringify(conteudoArray),
             cr4a1_arquivos: JSON.stringify(anexosArray)
@@ -1662,10 +1683,17 @@ export const useCalendar = () => {
     const updateNota = async (notaId, notaData) => {
         const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
         const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
+        const notaExistente = notas.find(n => n.cr4a1_notas_kairosid === notaId || n.cr4a1_id_da_nota === notaId);
+        const compartilhamento = notaData.compartilhamento !== undefined
+            ? parseCompartilhamento(notaData.compartilhamento)
+            : (notaData.cr4a1_privado ? parseCompartilhamento(notaData.cr4a1_privado) : (notaExistente?.compartilhamento || {}));
+        const serializedPrivado = serializeCompartilhamento(compartilhamento);
 
         const payload = {
             cr4a1_titulo: notaData.titulo ?? notaData.cr4a1_titulo ?? '',
             cr4a1_private: !!(notaData.privado ?? notaData.cr4a1_private),
+            cr4a1_privado: serializedPrivado || null,
+
             cr4a1_evento_id: notaData.eventoId ?? notaData.cr4a1_evento_id ?? null,
             ...(notaData.workspaceId ? { cr4a1_workspace_id: notaData.workspaceId } : {}),
             cr4a1_conteudo: JSON.stringify(conteudoArray),
@@ -1680,6 +1708,8 @@ export const useCalendar = () => {
                         ...n,
                         cr4a1_titulo: payload.cr4a1_titulo,
                         cr4a1_private: payload.cr4a1_private,
+                        cr4a1_privado: payload.cr4a1_privado,
+                        compartilhamento: compartilhamento,
                         cr4a1_evento_id: payload.cr4a1_evento_id,
                         ...(payload.cr4a1_workspace_id ? { cr4a1_workspace_id: payload.cr4a1_workspace_id } : {}),
                         cr4a1_conteudo: conteudoArray,
@@ -1790,6 +1820,7 @@ export const useCalendar = () => {
                 return {
                     ...n,
                     ...patch.body,
+                    compartilhamento: patch.body.cr4a1_privado !== undefined ? parseCompartilhamento(patch.body.cr4a1_privado) : n.compartilhamento,
                     cr4a1_conteudo: parseLista(patch.body.cr4a1_conteudo),
                     cr4a1_arquivos: parseLista(patch.body.cr4a1_arquivos),
                     _pendenteSync: true
@@ -1802,6 +1833,7 @@ export const useCalendar = () => {
             .map(t => ({
                 ...t.body,
                 cr4a1_notas_kairosid: t._tempId,
+                compartilhamento: parseCompartilhamento(t.body.cr4a1_privado),
                 cr4a1_conteudo: parseLista(t.body.cr4a1_conteudo),
                 cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
                 _pendenteSync: true
