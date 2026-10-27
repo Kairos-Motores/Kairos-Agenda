@@ -1,11 +1,12 @@
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
-  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus, Trash2
+  Search, VolumeX, SearchX, X, FileText, User as UserIcon, Check, CloudOff, Paperclip, CalendarPlus, Trash2, CheckCircle2, Cloud
 } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
@@ -113,7 +114,8 @@ export const NotesPanel = ({
   currentUser,
   workspaces = [],
   activeWorkspaces = [],
-  eventId = null
+  eventId = null,
+  isOnline = true
 }) => {
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -121,6 +123,22 @@ export const NotesPanel = ({
   const { confirm, ConfirmDialogHost } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
+
+  // Chave do rascunho temporário
+  const draftStorageKey = notaAberta
+    ? `kairos_draft_note_${notaAberta.cr4a1_notas_kairosid || 'new'}`
+    : null;
+
+  // Autosalvamento do rascunho a cada alteração enquanto em edição
+  useEffect(() => {
+    if (!isEditing || !notaAberta || !draftStorageKey) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(draftStorageKey, JSON.stringify(notaAberta));
+      } catch (e) { void e; }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [isEditing, notaAberta, draftStorageKey]);
 
   const getWorkspaceColor = (wsId) => workspaces.find(w => w.cr4a1_calendarios_workspacesid === wsId)?.cr4a1_cor_hex || '#f57c00';
 
@@ -147,22 +165,48 @@ export const NotesPanel = ({
   const availableWorkspaces = workspaces.filter(ws => activeWorkspaces.includes(ws.cr4a1_calendarios_workspacesid));
 
   const openNota = (nota) => {
-    setNotaAberta({ ...nota, isNew: false }); // Garante que a flag de edição saiba que a nota já existe
+    const draftKey = `kairos_draft_note_${nota.cr4a1_notas_kairosid}`;
+    let notaToOpen = { ...nota, isNew: false };
+    try {
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft);
+        if (draft && (draft.cr4a1_titulo !== nota.cr4a1_titulo || JSON.stringify(draft.cr4a1_conteudo) !== JSON.stringify(nota.cr4a1_conteudo))) {
+          notaToOpen = { ...draft, isNew: false };
+          toast('Rascunho recente recuperado.', { icon: '📝' });
+        }
+      }
+    } catch (e) { void e; }
+    setNotaAberta(notaToOpen);
     setIsEditing(false);
   };
 
   const createNewNota = () => {
-    setNotaAberta({
+    const defaultWorkspace = (activeWorkspaces && activeWorkspaces[0]) || (workspaces && workspaces[0]?.cr4a1_calendarios_workspacesid) || '';
+    let initialNota = {
       cr4a1_notas_kairosid: crypto.randomUUID(),
       isNew: true,
       cr4a1_titulo: '',
       cr4a1_private: false,
-      cr4a1_workspace_id: activeWorkspaces[0] || '',
+      cr4a1_workspace_id: defaultWorkspace,
       cr4a1_evento_id: eventId || '',
       cr4a1_user_login: currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || 'Usuário Atual',
       cr4a1_conteudo: [{ id: crypto.randomUUID(), type: 'text', value: '' }],
       cr4a1_arquivos: []
-    });
+    };
+
+    try {
+      const savedNewDraft = localStorage.getItem('kairos_draft_note_new');
+      if (savedNewDraft) {
+        const parsed = JSON.parse(savedNewDraft);
+        if (parsed && (parsed.cr4a1_titulo?.trim() || parsed.cr4a1_conteudo?.some(b => b.value?.trim()))) {
+          initialNota = { ...parsed, isNew: true };
+          toast('Rascunho anterior recuperado.', { icon: '📝' });
+        }
+      }
+    } catch (e) { void e; }
+
+    setNotaAberta(initialNota);
     setIsEditing(true);
   };
 
@@ -235,7 +279,6 @@ export const NotesPanel = ({
     setIsSaving(true);
     const data = buildNotaPayload();
 
-    // CORREÇÃO DA EDIÇÃO: Valida se a nota possui ID válido e NÃO é uma nova criação
     let idGerado = null;
     if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
       await updateNota(notaAberta.cr4a1_notas_kairosid, data);
@@ -243,12 +286,30 @@ export const NotesPanel = ({
       idGerado = await addNota(data);
     }
 
+    if (draftStorageKey) {
+      try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
+    }
+
     setIsSaving(false);
-    // Offline, addNota devolve o _tempId do rascunho — sem isso, editar/excluir de novo sem
-    // sair da tela criaria uma tarefa nova na fila apontando pro id antigo (que não existe
-    // em lugar nenhum, nem como rascunho nem no Dataverse).
     setNotaAberta(prev => prev ? ({ ...prev, isNew: false, ...(idGerado ? { cr4a1_notas_kairosid: idGerado } : {}) }) : prev);
     setIsEditing(false);
+  };
+
+  const handleBack = async () => {
+    if (isEditing && notaAberta) {
+      const hasContent = Boolean(
+        notaAberta.cr4a1_titulo?.trim() ||
+        notaAberta.cr4a1_conteudo?.some(b => b.value?.trim())
+      );
+      if (hasContent) {
+        await handleSave();
+        return;
+      }
+    }
+    if (draftStorageKey) {
+      try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
+    }
+    setNotaAberta(null);
   };
 
   const handleDeleteClick = async () => {
@@ -262,6 +323,9 @@ export const NotesPanel = ({
     });
     if (!confirmado) return;
 
+    if (draftStorageKey) {
+      try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
+    }
     await deleteNota(notaAberta.cr4a1_notas_kairosid);
     setNotaAberta(null);
   };
@@ -293,10 +357,30 @@ export const NotesPanel = ({
 
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <Button onClick={() => setNotaAberta(null)} variant="outline">
-            <ArrowLeft className="size-[18px]" />
-            Voltar
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleBack} variant="outline" title="Voltar para a lista de notas (salva automaticamente se em edição)">
+              <ArrowLeft className="size-[18px]" />
+              Voltar
+            </Button>
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              {isSaving ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin text-primary" />
+                  <span>Salvando...</span>
+                </>
+              ) : (!isOnline || notaAberta?._pendenteSync) ? (
+                <>
+                  <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-amber-600 dark:text-amber-400">Salvo no dispositivo (offline)</span>
+                </>
+              ) : (
+                <>
+                  <span className="size-2 rounded-full bg-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400">Salvo na nuvem</span>
+                </>
+              )}
+            </span>
+          </div>
 
           <div className="flex gap-3">
             {isEditing ? (
@@ -323,6 +407,9 @@ export const NotesPanel = ({
                           destructive: true,
                         });
                         if (!descartar) return;
+                      }
+                      if (draftStorageKey) {
+                        try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
                       }
                       setNotaAberta(null);
                     } else {

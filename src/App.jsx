@@ -1487,6 +1487,7 @@ function App() {
                     currentUser={currentUser}
                     workspaces={workspaces}
                     activeWorkspaces={activeWorkspaces}
+                    isOnline={isOnline}
                   />
                 </React.Suspense>
               ) : appMode === 'trello' ? (

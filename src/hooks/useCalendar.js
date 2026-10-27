@@ -44,13 +44,34 @@ export const useCalendar = () => {
     // Roles cadastradas em tela (tabela cr4a1_app_roles) — a lista completa exibida nos
     // seletores é availableRoles (roles do código + estas).
     const [appRoles, setAppRoles] = useState([]);
-    const [notas, setNotas] = useState([]);
+    const [notas, setNotas] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('kairos_notas_cache') || '[]');
+        } catch {
+            return [];
+        }
+    });
     // Overrides de allowedRoles por painel de BI (tabela cr4a1_bi_permissaos), editáveis
     // pelo ADMIN em Gerir Utilizadores > Painéis BI. Um painel sem registro aqui usa o
     // allowedRoles padrão definido em src/config/biConfig.js.
     const [biPermissoes, setBiPermissoes] = useState([]);
-    const [workspaces, setWorkspaces] = useState([]);
-    const [activeWorkspaces, setActiveWorkspaces] = useState([]);
+    const [workspaces, setWorkspaces] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('kairos_workspaces_cache') || '[]');
+        } catch {
+            return [];
+        }
+    });
+    const [activeWorkspaces, setActiveWorkspaces] = useState(() => {
+        try {
+            const saved = localStorage.getItem('kairos_active_workspaces');
+            if (saved) return JSON.parse(saved);
+            const cachedWs = JSON.parse(localStorage.getItem('kairos_workspaces_cache') || '[]');
+            return cachedWs.map(w => w.cr4a1_calendarios_workspacesid);
+        } catch {
+            return [];
+        }
+    });
     const [filters, setFilters] = useState({ text: '', users: [], types: [] });
     const [user, setUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [userRole, setUserRole] = useState(() => localStorage.getItem('kairos_user_role') || null);
@@ -236,26 +257,60 @@ export const useCalendar = () => {
 
     const syncPendingQueue = async () => {
         const queue = getQueue();
-        if (queue.length === 0) { toast('Nada pendente para sincronizar.', { icon: '✅' }); return; }
+        if (queue.length === 0) return;
 
         setIsSyncing(true);
-        toast('Sincronizando dados pendentes com a nuvem...', { icon: '🔄' });
 
         const newQueue = [];
         let successCount = 0;
 
-        for (const task of queue) {
+        for (let i = 0; i < queue.length; i++) {
+            const task = queue[i];
             try {
                 let url = `${API_PROXY}?table=${task.table || 'cr4a1_agenda_kairoses'}`;
                 if (task.method !== 'POST') url += `&id=${task.id}`;
 
-                await fetch(url, {
+                const response = await fetch(url, {
                     method: task.method,
                     headers: { 'Content-Type': 'application/json' },
                     body: task.body ? JSON.stringify(task.body) : undefined
                 });
+
+                if (!response.ok) {
+                    // Se for 404 em DELETE ou PATCH de registro obsoleto que já não existe, não bloqueia a fila
+                    if (response.status === 404 && (task.method === 'DELETE' || task.method === 'PATCH')) {
+                        console.warn(`[syncPendingQueue] Registro inexistente (${task.id}), descartando tarefa obsoleta.`);
+                        successCount++;
+                        continue;
+                    }
+                    throw new Error(`Falha no envio da tarefa (HTTP ${response.status})`);
+                }
+
                 successCount++;
+
+                // Se foi criação de nota com _tempId, resolver tempId para ID real do Dataverse nas próximas tarefas da fila
+                if (task.table === 'cr4a1_notas_kairoses' && task._tempId) {
+                    const createdData = await response.json().catch(() => null);
+                    const realId = createdData?.cr4a1_notas_kairosid;
+                    if (realId) {
+                        for (let j = i + 1; j < queue.length; j++) {
+                            if (queue[j].id === task._tempId) {
+                                queue[j].id = realId;
+                            }
+                        }
+                        setNotas(prev => {
+                            const updated = prev.map(n => (n.cr4a1_notas_kairosid === task._tempId || n.cr4a1_id_da_nota === task._tempId) ? {
+                                ...n,
+                                cr4a1_notas_kairosid: realId,
+                                _pendenteSync: false
+                            } : n);
+                            try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+                            return updated;
+                        });
+                    }
+                }
             } catch (err) {
+                console.warn('[syncPendingQueue] Falha ao sincronizar tarefa:', task, err);
                 newQueue.push(task);
             }
         }
@@ -263,12 +318,12 @@ export const useCalendar = () => {
         setQueue(newQueue);
         setIsSyncing(false);
         if (successCount > 0) {
-            toast.success(`${successCount} item(ns) sincronizado(s) com sucesso!`);
+            toast.success(`${successCount} alteração(ões) sincronizada(s) com a nuvem!`);
             fetchEvents();
             fetchNotas();
         }
         if (newQueue.length > 0) {
-            toast.error(`${newQueue.length} item(ns) ainda não sincronizado(s). Tentaremos de novo.`);
+            toast.error(`${newQueue.length} alteração(ões) ainda pendente(s). Sincronizaremos automaticamente.`);
         }
     };
 
@@ -302,12 +357,29 @@ export const useCalendar = () => {
             const data = await response.json();
             const wsList = data.value || [];
             setWorkspaces(wsList);
+            try { localStorage.setItem('kairos_workspaces_cache', JSON.stringify(wsList)); } catch (e) { void e; }
 
             if (activeWorkspaces.length === 0) {
-                setActiveWorkspaces(wsList.map(w => w.cr4a1_calendarios_workspacesid));
+                const activeIds = wsList.map(w => w.cr4a1_calendarios_workspacesid);
+                setActiveWorkspaces(activeIds);
+                try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(activeIds)); } catch (e) { void e; }
             }
-        } catch (error) { console.error('Erro ao buscar Workspaces:', error); }
-    }, [user]);
+        } catch (error) {
+            console.warn('Erro ao buscar Workspaces da nuvem, usando cache local:', error);
+            try {
+                const cached = localStorage.getItem('kairos_workspaces_cache');
+                if (cached) {
+                    const wsList = JSON.parse(cached);
+                    if (Array.isArray(wsList) && wsList.length > 0) {
+                        setWorkspaces(wsList);
+                        if (activeWorkspaces.length === 0) {
+                            setActiveWorkspaces(wsList.map(w => w.cr4a1_calendarios_workspacesid));
+                        }
+                    }
+                }
+            } catch (e) { void e; }
+        }
+    }, [user, activeWorkspaces.length]);
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -432,29 +504,74 @@ export const useCalendar = () => {
         } finally { setLoading(false); }
     }, [workspaces, user]);*/
 
-    // --- NOVA FUNÇÃO: BUSCAR NOTAS ---
+    // --- BUSCAR NOTAS COM RESILIÊNCIA E CACHE OFFLINE ---
     const fetchNotas = useCallback(async () => {
-        if (workspaces.length === 0) {
-            setNotas([]);
+        if (!user) return;
+        let currentWorkspaces = workspaces;
+        if (currentWorkspaces.length === 0) {
+            try {
+                currentWorkspaces = JSON.parse(localStorage.getItem('kairos_workspaces_cache') || '[]');
+            } catch (e) { void e; }
+        }
+
+        if (currentWorkspaces.length === 0) {
             return;
         }
-        try {
-            const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
-            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
-            const data = await response.json();
 
-            // Regra de privacidade
-            const notasFiltradas = (data.value || []).filter(nota => {
+        const safeParseJson = (str, fallback = []) => {
+            if (!str) return fallback;
+            if (typeof str !== 'string') return str;
+            try {
+                return JSON.parse(str);
+            } catch (e) {
+                console.warn('[fetchNotas] JSON corrompido em bloco de nota:', e);
+                return fallback;
+            }
+        };
+
+        try {
+            const wsFilter = currentWorkspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses`, {
+                headers: {
+                    'x-dataverse-filter': wsFilter
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Falha ao obter notas da nuvem (HTTP ${response.status})`);
+            }
+
+            const data = await response.json();
+            const rawNotas = Array.isArray(data.value) ? data.value : [];
+
+            // Regra de privacidade e parsing resiliente
+            const notasFiltradas = rawNotas.filter(nota => {
                 return !nota.cr4a1_private || nota.cr4a1_user_login === user;
             }).map(nota => ({
                 ...nota,
-                cr4a1_conteudo: nota.cr4a1_conteudo ? JSON.parse(nota.cr4a1_conteudo) : [],
-                cr4a1_arquivos: nota.cr4a1_arquivos ? JSON.parse(nota.cr4a1_arquivos) : []
+                cr4a1_conteudo: safeParseJson(nota.cr4a1_conteudo, []),
+                cr4a1_arquivos: safeParseJson(nota.cr4a1_arquivos, [])
             }));
 
             setNotas(notasFiltradas);
+            try {
+                localStorage.setItem('kairos_notas_cache', JSON.stringify(notasFiltradas));
+            } catch (err) {
+                console.warn('[fetchNotas] Falha ao persistir cache de notas:', err);
+            }
         } catch (error) {
-            console.error("Erro ao carregar as notas Notion:", error);
+            console.warn("Sem conexão com a nuvem, carregando notas do cache local:", error);
+            try {
+                const cached = localStorage.getItem('kairos_notas_cache');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setNotas(parsed);
+                    }
+                }
+            } catch (cacheErr) {
+                console.error("Falha ao recuperar cache local de notas:", cacheErr);
+            }
         }
     }, [workspaces, user]);
 
@@ -572,9 +689,11 @@ export const useCalendar = () => {
     }, [events, filters, activeWorkspaces]);
 
     const toggleWorkspaceFilter = (wsId) => {
-        setActiveWorkspaces(prev =>
-            prev.includes(wsId) ? prev.filter(id => id !== wsId) : [...prev, wsId]
-        );
+        setActiveWorkspaces(prev => {
+            const next = prev.includes(wsId) ? prev.filter(id => id !== wsId) : [...prev, wsId];
+            try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(next)); } catch (e) { void e; }
+            return next;
+        });
     };
 
     /*const login = async (username, password) => {
@@ -1458,67 +1577,127 @@ export const useCalendar = () => {
         }
     };
 
-    // --- FUNÇÕES DE ESCRITA DE NOTAS ---
-    // Se a nota editada/excluída ainda nem existe de verdade no Dataverse (só um rascunho
-    // pendente na fila offline, identificado pelo _tempId), não faz sentido enfileirar um
-    // PATCH/DELETE pro servidor — não haveria registro nenhum pra ele apontar. Em vez disso
-    // mexemos direto no rascunho que já está na fila.
+    // --- FUNÇÕES DE ESCRITA DE NOTAS RESILIENTES (CACHE-FIRST + OFFLINE) ---
     const encontrarRascunhoPendente = (notaId) => {
         const queue = getQueue();
-        const idx = queue.findIndex(t => t.table === 'cr4a1_notas_kairoses' && t.method === 'POST' && t._tempId === notaId);
+        const idx = queue.findIndex(t => t.table === 'cr4a1_notas_kairoses' && t.method === 'POST' && (t._tempId === notaId || t.body?.cr4a1_id_da_nota === notaId));
         return { queue, idx };
     };
 
     const addNota = async (notaData) => {
         const generatedId = crypto.randomUUID();
-        const novaNotaDB = { // Usando o nome da coluna correto para o ID
+        const targetWorkspace = notaData.workspaceId || (workspaces[0]?.cr4a1_calendarios_workspacesid) || (activeWorkspaces[0]) || '';
+        const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
+        const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
+
+        const novaNota = {
             cr4a1_id_da_nota: generatedId,
+            cr4a1_notas_kairosid: generatedId,
             cr4a1_titulo: notaData.titulo || '',
             cr4a1_user_login: user,
-            cr4a1_workspace_id: notaData.workspaceId,
+            cr4a1_workspace_id: targetWorkspace,
             cr4a1_private: !!notaData.privado,
             cr4a1_evento_id: notaData.eventoId || null,
-            cr4a1_conteudo: JSON.stringify(notaData.conteudo || []),
-            cr4a1_arquivos: JSON.stringify(notaData.anexos || [])
+            cr4a1_conteudo: conteudoArray,
+            cr4a1_arquivos: anexosArray,
+            createdon: new Date().toISOString(),
+            modifiedon: new Date().toISOString(),
+            _pendenteSync: !isOnline
         };
+
+        const novaNotaDB = {
+            cr4a1_id_da_nota: generatedId,
+            cr4a1_titulo: novaNota.cr4a1_titulo,
+            cr4a1_user_login: user,
+            cr4a1_workspace_id: targetWorkspace,
+            cr4a1_private: novaNota.cr4a1_private,
+            cr4a1_evento_id: novaNota.cr4a1_evento_id,
+            cr4a1_conteudo: JSON.stringify(conteudoArray),
+            cr4a1_arquivos: JSON.stringify(anexosArray)
+        };
+
+        // 1. Atualização otimista imediata no estado local e cache
+        setNotas(prev => {
+            const updated = [novaNota, ...prev.filter(n => n.cr4a1_notas_kairosid !== generatedId && n.cr4a1_id_da_nota !== generatedId)];
+            try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+            return updated;
+        });
 
         if (!isOnline) {
             addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB, _tempId: generatedId });
-            return generatedId; // quem chamou precisa saber o _tempId pra editar/excluir o rascunho depois
+            return generatedId;
         }
 
-        try { // Corrigindo o nome da tabela
+        try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(novaNotaDB)
             });
-            if (!response.ok) throw new Error('Erro ao salvar nota no Dataverse');
+            if (!response.ok) throw new Error(`Erro ao salvar nota (HTTP ${response.status})`);
             const createdData = await response.json().catch(() => null);
-            fetchNotas();
-            toast.success("Nota criada com sucesso!");
-            return createdData?.cr4a1_notas_kairosid || generatedId;
+            const realId = createdData?.cr4a1_notas_kairosid || generatedId;
+
+            // Atualiza com o ID real do Dataverse
+            setNotas(prev => {
+                const updated = prev.map(n => (n.cr4a1_notas_kairosid === generatedId || n.cr4a1_id_da_nota === generatedId) ? {
+                    ...n,
+                    cr4a1_notas_kairosid: realId,
+                    _pendenteSync: false
+                } : n);
+                try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+                return updated;
+            });
+
+            toast.success("Nota salva com sucesso!");
+            return realId;
         } catch (error) {
-            console.error(error);
-            toast.error("Sem conexão. A nota será salva assim que a internet voltar.");
+            console.warn("Sem conexão estável para criar nota online, enfileirando:", error);
+            toast('Nota salva no dispositivo. Sincronizará quando houver internet.', { icon: '☁️' });
             addToQueue({ table: 'cr4a1_notas_kairoses', method: 'POST', body: novaNotaDB, _tempId: generatedId });
             return generatedId;
         }
     };
 
     const updateNota = async (notaId, notaData) => {
+        const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
+        const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
+
         const payload = {
-            cr4a1_titulo: notaData.titulo || '',
-            cr4a1_private: !!notaData.privado,
-            cr4a1_evento_id: notaData.eventoId || null,
-            cr4a1_conteudo: JSON.stringify(notaData.conteudo || []),
-            cr4a1_arquivos: JSON.stringify(notaData.anexos || [])
+            cr4a1_titulo: notaData.titulo ?? notaData.cr4a1_titulo ?? '',
+            cr4a1_private: !!(notaData.privado ?? notaData.cr4a1_private),
+            cr4a1_evento_id: notaData.eventoId ?? notaData.cr4a1_evento_id ?? null,
+            ...(notaData.workspaceId ? { cr4a1_workspace_id: notaData.workspaceId } : {}),
+            cr4a1_conteudo: JSON.stringify(conteudoArray),
+            cr4a1_arquivos: JSON.stringify(anexosArray)
         };
+
+        // 1. Atualização otimista imediata no estado local e cache
+        setNotas(prev => {
+            const updated = prev.map(n => {
+                if (n.cr4a1_notas_kairosid === notaId || n.cr4a1_id_da_nota === notaId) {
+                    return {
+                        ...n,
+                        cr4a1_titulo: payload.cr4a1_titulo,
+                        cr4a1_private: payload.cr4a1_private,
+                        cr4a1_evento_id: payload.cr4a1_evento_id,
+                        ...(payload.cr4a1_workspace_id ? { cr4a1_workspace_id: payload.cr4a1_workspace_id } : {}),
+                        cr4a1_conteudo: conteudoArray,
+                        cr4a1_arquivos: anexosArray,
+                        modifiedon: new Date().toISOString()
+                    };
+                }
+                return n;
+            });
+            try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+            return updated;
+        });
 
         const { queue, idx } = encontrarRascunhoPendente(notaId);
         if (idx >= 0) {
             queue[idx] = { ...queue[idx], body: { ...queue[idx].body, ...payload } };
             setQueue(queue);
+            toast.success("Alterações salvas localmente!");
             return;
         }
 
@@ -1527,18 +1706,17 @@ export const useCalendar = () => {
             return;
         }
 
-        try { // Corrigindo o nome da tabela
+        try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${notaId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error('Erro ao atualizar nota');
-            fetchNotas();
-            toast.success("Nota atualizada!");
+            if (!response.ok) throw new Error(`Erro ao atualizar nota (HTTP ${response.status})`);
+            toast.success("Nota atualizada com sucesso!");
         } catch (error) {
-            console.error(error);
-            toast.error("Sem conexão. A atualização será sincronizada quando a internet voltar.");
+            console.warn("Sem conexão estável para PATCH, enfileirando:", error);
+            toast('Sem conexão. Atualização salva no dispositivo e sincronizará depois.', { icon: '☁️' });
             addToQueue({ table: 'cr4a1_notas_kairoses', method: 'PATCH', id: notaId, body: payload });
         }
     };
@@ -1548,37 +1726,50 @@ export const useCalendar = () => {
         if (idx >= 0) {
             queue.splice(idx, 1);
             setQueue(queue);
+            setNotas(prev => {
+                const updated = prev.filter(n => n.cr4a1_notas_kairosid !== notaId && n.cr4a1_id_da_nota !== notaId);
+                try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+                return updated;
+            });
             toast.success('Rascunho offline removido.');
             return;
         }
 
         const removedNota = notas.find(n => n.cr4a1_notas_kairosid === notaId || n.cr4a1_id_da_nota === notaId);
         const targetId = removedNota?.cr4a1_notas_kairosid || notaId;
-        setNotas(prev => prev.filter(n => n.cr4a1_notas_kairosid !== targetId && n.cr4a1_id_da_nota !== targetId));
+        setNotas(prev => {
+            const updated = prev.filter(n => n.cr4a1_notas_kairosid !== targetId && n.cr4a1_id_da_nota !== targetId);
+            try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+            return updated;
+        });
 
         showUndoToast(
             'Nota excluída.',
-            () => { if (removedNota) setNotas(prev => [...prev, removedNota]); },
+            () => {
+                if (removedNota) {
+                    setNotas(prev => {
+                        const updated = [...prev, removedNota];
+                        try { localStorage.setItem('kairos_notas_cache', JSON.stringify(updated)); } catch (e) { void e; }
+                        return updated;
+                    });
+                }
+            },
             async () => {
                 if (!isOnline) { addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: targetId }); return; }
                 try {
                     const response = await fetch(`${API_PROXY}?table=cr4a1_notas_kairoses&id=${targetId}`, {
                         method: 'DELETE'
                     });
-                    if (!response.ok) throw new Error('Erro ao deletar nota');
+                    if (!response.ok && response.status !== 404) throw new Error('Erro ao deletar nota no servidor');
                 } catch (error) {
-                    console.error(error);
+                    console.warn("Erro ao deletar nota no servidor, enfileirando:", error);
                     addToQueue({ table: 'cr4a1_notas_kairoses', method: 'DELETE', id: targetId });
                 }
             }
         );
     };
 
-    // Mescla as notas vindas do Dataverse com o que ainda está só na fila offline — criações
-    // pendentes viram notas "fantasma" (com o _tempId como id, até o fetchNotas pós-sync
-    // trocar pela versão real), edições pendentes são sobrepostas na nota já carregada, e
-    // exclusões pendentes somem da lista. É assim que uma nota salva sem internet aparece na
-    // hora na tela, em vez de só existir escondida no localStorage.
+    // Mescla notas em memória com itens pendentes na fila offline
     const notasComPendentes = useMemo(() => {
         const queue = getQueue().filter(t => t.table === 'cr4a1_notas_kairoses');
         if (queue.length === 0) return notas;
@@ -1589,26 +1780,32 @@ export const useCalendar = () => {
 
         const parseLista = (valor) => (typeof valor === 'string' ? JSON.parse(valor) : (valor || []));
 
+        const existentesIds = new Set(notas.map(n => n.cr4a1_notas_kairosid || n.cr4a1_id_da_nota));
+
         const existentes = notas
-            .filter(n => !idsExcluidosPendentes.has(n.cr4a1_notas_kairosid))
+            .filter(n => !idsExcluidosPendentes.has(n.cr4a1_notas_kairosid) && !idsExcluidosPendentes.has(n.cr4a1_id_da_nota))
             .map(n => {
-                const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid);
+                const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid || t.id === n.cr4a1_id_da_nota);
                 if (!patch) return n;
                 return {
-                    ...n, ...patch.body,
+                    ...n,
+                    ...patch.body,
                     cr4a1_conteudo: parseLista(patch.body.cr4a1_conteudo),
                     cr4a1_arquivos: parseLista(patch.body.cr4a1_arquivos),
                     _pendenteSync: true
                 };
             });
 
-        const novasPendentes = criacoesPendentes.map(t => ({
-            ...t.body,
-            cr4a1_notas_kairosid: t._tempId,
-            cr4a1_conteudo: parseLista(t.body.cr4a1_conteudo),
-            cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
-            _pendenteSync: true
-        }));
+        // Adiciona pendentes apenas se ainda não existirem na lista
+        const novasPendentes = criacoesPendentes
+            .filter(t => !existentesIds.has(t._tempId))
+            .map(t => ({
+                ...t.body,
+                cr4a1_notas_kairosid: t._tempId,
+                cr4a1_conteudo: parseLista(t.body.cr4a1_conteudo),
+                cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
+                _pendenteSync: true
+            }));
 
         return [...existentes, ...novasPendentes];
         // eslint-disable-next-line react-hooks/exhaustive-deps
