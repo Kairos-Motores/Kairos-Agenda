@@ -19,6 +19,7 @@ import { DraggableEvent, DroppableDay } from './components/DragDropHelpers';
 import { LoginScreen } from './components/LoginScreen';
 import { OnboardingModal } from './components/OnboardingModal';
 import { VisitaModal } from './components/VisitaModal';
+import { WatchPairingModal } from './components/WatchPairingModal';
 import { FilialTemporariaModal } from './components/FilialTemporariaModal';
 import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
@@ -204,6 +205,7 @@ function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
+  const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
   const [preselectedTargetUser, setPreselectedTargetUser] = useState('');
   const [preselectedWorkspaceId, setPreselectedWorkspaceId] = useState('');
   const [isDraggingMember, setIsDraggingMember] = useState(false);
@@ -1258,6 +1260,15 @@ function App() {
                 <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-warning-foreground">{pendingSyncCount}</span>
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsWatchModalOpen(true)}
+              title="Conectar Galaxy Watch"
+              className="text-primary hover:text-primary"
+            >
+              <span className="material-symbols-rounded">watch</span>
+            </Button>
             <Button variant="ghost" size="icon" onClick={logout} title="Sair do sistema" className="text-destructive hover:text-destructive">
               <span className="material-symbols-rounded">logout</span>
             </Button>
@@ -1841,6 +1852,13 @@ function App() {
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} appRoles={appRoles} availableRoles={availableRoles} addAppRole={addAppRole} renameAppRole={renameAppRole} deleteAppRole={deleteAppRole} />}
+          <WatchPairingModal
+            isOpen={isWatchModalOpen}
+            onClose={() => setIsWatchModalOpen(false)}
+            user={user}
+            currentUser={currentUser}
+            userRole={userRole}
+          />
           {isDeleteModalOpen && <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} eventTitle={eventToDelete?.cr4a1_titulo} />}
           {isWorkspaceModalOpen && (
             <WorkspaceModal
@@ -1903,6 +1921,17 @@ function App() {
                   <hr className="border-border" />
 
                   <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
+                  <hr className="border-border" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm block">Galaxy Watch</span>
+                      <span className="text-xs text-muted-foreground">Parear relógio com a sua conta</span>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => { setIsProfileModalOpen(false); setIsWatchModalOpen(true); }} className="gap-1.5">
+                      <span className="material-symbols-rounded text-sm">watch</span>
+                      Parear Relógio
+                    </Button>
+                  </div>
                 </div>
               )}
             </DialogContent>
