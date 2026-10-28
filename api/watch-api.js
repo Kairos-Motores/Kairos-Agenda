@@ -180,12 +180,17 @@ export default async function handler(req, res) {
     // 4. FICHAS DO TRELLO (MINHAS FICHAS PARA O RELÓGIO)
     // ==========================================
     if (action === 'fichas') {
-      const user = req.query.user || req.body?.user;
+      const user = (req.query.user || req.body?.user || '').trim();
       if (!user) return res.status(400).json({ error: 'Usuário obrigatório.' });
+      const userLower = user.toLowerCase();
 
-      const filtro = encodeURIComponent(`cr4a1_responsavel_login eq '${user}'`);
-      const fichasRes = await axios.get(`${envUrl}/api/data/v9.2/cr4a1_fichas?$filter=${filtro}`, { headers: authHeaders });
-      const listaFichas = fichasRes.data.value || [];
+      // Busca fichas e filtra estritamente pelo responsável (case-insensitive)
+      const fichasRes = await axios.get(`${envUrl}/api/data/v9.2/cr4a1_fichas`, { headers: authHeaders });
+      const todasFichas = fichasRes.data.value || [];
+      const listaFichas = todasFichas.filter(f => {
+        if (!f.cr4a1_responsavel_login) return false;
+        return f.cr4a1_responsavel_login.trim().toLowerCase() === userLower;
+      });
 
       const agora = new Date().toISOString();
       const hojeStr = agora.slice(0, 10);
@@ -278,13 +283,14 @@ export default async function handler(req, res) {
       const notasRes = await axios.get(`${envUrl}/api/data/v9.2/cr4a1_notas_kairoses`, { headers: authHeaders });
       const todasNotas = notasRes.data.value || [];
 
-      // Filtra notas acessíveis ao usuário
+      // Filtra estritamente notas do próprio usuário ou compartilhadas diretamente com ele
+      const userLower = (user || '').trim().toLowerCase();
       const acessiveis = todasNotas.filter(n => {
-        if (n.cr4a1_user_login === user) return true;
-        if (!n.cr4a1_privada || n.cr4a1_privada === 'Não' || n.cr4a1_privada === false) return true;
+        const autor = (n.cr4a1_user_login || '').trim().toLowerCase();
+        if (autor === userLower) return true;
         try {
           const comp = JSON.parse(n.cr4a1_compartilhamento || '{}');
-          if (comp[user]) return true;
+          if (comp[user] || comp[userLower]) return true;
         } catch {}
         return false;
       });
