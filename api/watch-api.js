@@ -358,6 +358,72 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
 
+        // ==========================================
+    // 10. EVENTOS DA AGENDA / CALENDÁRIO PARA O RELÓGIO
+    // ==========================================
+    if (action === 'eventos') {
+      const user = (req.query.user || req.body?.user || '').trim().toLowerCase();
+      if (!user) return res.status(400).json({ error: 'Usuário obrigatório.' });
+
+      const eventosRes = await axios.get(
+        `${envUrl}/api/data/v9.2/cr4a1_agenda_kairoses`,
+        { headers: authHeaders }
+      );
+      const todos = eventosRes.data.value || [];
+
+      // Filtra apenas eventos onde o usuário é responsável / participante
+      const meusEventos = todos.filter(e => {
+        if (!e.cr4a1_user_login) return false;
+        const logins = e.cr4a1_user_login.split(',').map(s => s.trim().toLowerCase());
+        return logins.includes(user);
+      });
+
+      const limitePassado = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      const formatados = meusEventos.map(e => {
+        let dataInicio = e.cr4a1_data_inicio ? (e.cr4a1_data_inicio.includes('T') ? e.cr4a1_data_inicio.split('T')[0] : e.cr4a1_data_inicio.slice(0, 10)) : null;
+        let dataFim = e.cr4a1_data_fim ? (e.cr4a1_data_fim.includes('T') ? e.cr4a1_data_fim.split('T')[0] : e.cr4a1_data_fim.slice(0, 10)) : dataInicio;
+
+        let horaInicio = e.cr4a1_hora_inicio || '';
+        let horaFim = e.cr4a1_hora_fim || '';
+
+        // Se dataInicio tiver formato ISO com hora e horaInicio estiver vazia
+        if (!horaInicio && e.cr4a1_data_inicio && e.cr4a1_data_inicio.includes('T')) {
+          const partes = e.cr4a1_data_inicio.split('T')[1];
+          if (partes && partes.length >= 5) {
+            horaInicio = partes.slice(0, 5);
+          }
+        }
+
+        const diaInteiro = Boolean(e.cr4a1_detalhes?.includes('[DIA_INTEIRO]')) || !horaInicio;
+        const detalhesLimpo = stripHtml((e.cr4a1_detalhes || '').replace('[DIA_INTEIRO]', '').trim());
+
+        return {
+          id: e.cr4a1_agenda_kairosid,
+          titulo: e.cr4a1_titulo || 'Sem título',
+          tipo: e.cr4a1_tipo || 'Geral',
+          dataInicio,
+          dataFim,
+          horaInicio,
+          horaFim,
+          diaInteiro,
+          cor: e.cr4a1_cor || '#1a73e8',
+          detalhes: detalhesLimpo,
+          usuario: e.cr4a1_user_login || ''
+        };
+      }).filter(e => !e.dataInicio || e.dataInicio >= limitePassado);
+
+      // Ordena por data de início ascendente, depois por hora de início
+      formatados.sort((a, b) => {
+        const dA = a.dataInicio || '';
+        const dB = b.dataInicio || '';
+        if (dA !== dB) return dA.localeCompare(dB);
+        return (a.horaInicio || '').localeCompare(b.horaInicio || '');
+      });
+
+      return res.status(200).json({ success: true, eventos: formatados });
+    }
+
     // ==========================================
     // 9. CRIAR NOTA RÁPIDA (ex: DITADO POR VOZ NO RELÓGIO)
     // ==========================================
