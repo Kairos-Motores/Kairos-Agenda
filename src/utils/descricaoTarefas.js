@@ -25,6 +25,15 @@ export const htmlParaTexto = (html) => {
   return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
 };
 
+// Retorna o texto simples da descrição excluindo os itens de checklist / tarefas,
+// para evitar repetição do texto das tarefas quando exibidas separadamente.
+export const extrairDescricaoSemTarefas = (html) => {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('ul[data-type="taskList"], li[data-type="taskItem"]').forEach(el => el.remove());
+  return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+};
+
 // Marca (ou desmarca) todas as microtarefas de uma vez — usado quando o cartão inteiro é
 // concluído, pra manter o card e a checklist sempre consistentes entre si.
 export const marcarTodasTarefas = (html, concluida) => {

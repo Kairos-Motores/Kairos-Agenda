@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2 } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -23,7 +23,7 @@ import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
-import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto } from '../utils/descricaoTarefas';
+import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto, extrairDescricaoSemTarefas } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
 import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
@@ -183,6 +183,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [modelosAberto, setModelosAberto] = useState(false);
   const [modelos, setModelos] = useState([]);
   const [listaAutomacao, setListaAutomacao] = useState(null);
+  const [listaExportar, setListaExportar] = useState(null);
+  const [mudarWorkspaceAberto, setMudarWorkspaceAberto] = useState(false);
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -210,7 +212,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      const filtro = q(`contains(cr4a1_colaboradores, '${user}')`);
+      const condicoes = [`contains(cr4a1_colaboradores, '${user}')`];
+      workspaces.forEach(w => {
+        if (w.cr4a1_calendarios_workspacesid) {
+          condicoes.push(`contains(cr4a1_colaboradores, 'ws:${w.cr4a1_calendarios_workspacesid}')`);
+        }
+      });
+      const filtro = q(condicoes.join(' or '));
       const res = await fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtro}`).then(r => r.json());
       if (cancelado) return;
       const conhecidos = new Set(workspaces.map(w => w.cr4a1_calendarios_workspacesid));
@@ -284,12 +292,26 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     return 0;
   }), [minhasFichas]);
 
-  const colaboradoresLogins = useMemo(() => parseAssignees(quadro?.cr4a1_colaboradores), [quadro]);
+  const todosColaboradores = useMemo(() => parseAssignees(quadro?.cr4a1_colaboradores), [quadro]);
+  const colaboradoresLogins = useMemo(() => todosColaboradores.filter(c => !c.startsWith('ws:')), [todosColaboradores]);
+  const workspacesVinculadosIds = useMemo(() => todosColaboradores.filter(c => c.startsWith('ws:')).map(c => c.slice(3)), [todosColaboradores]);
   const membrosBase = useMemo(() => membrosDoWorkspace(workspace, allUsers), [workspace, allUsers]);
   const membros = useMemo(() => {
-    const extras = allUsers.filter(u => colaboradoresLogins.includes(u.cr4a1_username) && !membrosBase.some(b => b.cr4a1_username === u.cr4a1_username));
-    return [...membrosBase, ...extras];
-  }, [membrosBase, allUsers, colaboradoresLogins]);
+    const todosMembros = [...membrosBase];
+    workspacesVinculadosIds.forEach(wsId => {
+      const wsVinculado = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === wsId);
+      if (wsVinculado) {
+        const membrosWs = membrosDoWorkspace(wsVinculado, allUsers);
+        membrosWs.forEach(m => {
+          if (!todosMembros.some(b => b.cr4a1_username === m.cr4a1_username)) {
+            todosMembros.push(m);
+          }
+        });
+      }
+    });
+    const extras = allUsers.filter(u => colaboradoresLogins.includes(u.cr4a1_username) && !todosMembros.some(b => b.cr4a1_username === u.cr4a1_username));
+    return [...todosMembros, ...extras];
+  }, [membrosBase, workspacesVinculadosIds, todasOpcoes, allUsers, colaboradoresLogins]);
   const podeGerenciarColaboradores = isAdmin || (!!workspace && workspace.cr4a1_criador_login === user);
 
   // Quem coordena o setor (mesmo papel "COORD X" que já libera os painéis de BI do setor)
@@ -781,22 +803,68 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     abrirFicha(ficha);
   };
 
-  // Colaboradores do quadro (além dos membros do workspace)
-  const salvarColaboradores = async (novosLogins) => {
+  // Colaboradores e Workspaces vinculados do quadro (além dos membros do workspace)
+  const salvarColaboradoresEWorkspaces = async (novosLogins, novosWsIds) => {
+    const itens = [
+      ...novosLogins.filter(l => !l.startsWith('ws:')),
+      ...novosWsIds.map(id => id.startsWith('ws:') ? id : `ws:${id}`)
+    ];
+    const valorColaboradores = joinAssignees(itens);
     const corpo = {
       cr4a1_nome: workspace?.cr4a1_nome || workspaceId,
       cr4a1_workspace_id: workspaceId,
       cr4a1_criador_login: workspace?.cr4a1_criador_login || user,
-      cr4a1_colaboradores: joinAssignees(novosLogins)
+      cr4a1_colaboradores: valorColaboradores
     };
     try {
-      if (quadro?.cr4a1_quadroid) await patch('cr4a1_quadros', quadro.cr4a1_quadroid, { cr4a1_colaboradores: corpo.cr4a1_colaboradores });
+      if (quadro?.cr4a1_quadroid) await patch('cr4a1_quadros', quadro.cr4a1_quadroid, { cr4a1_colaboradores: valorColaboradores });
       else await post('cr4a1_quadros', corpo);
       recarregar();
-    } catch { toast.error('Erro ao atualizar colaboradores.'); }
+    } catch { toast.error('Erro ao atualizar compartilhamento.'); }
   };
-  const adicionarColaborador = (login) => salvarColaboradores([...colaboradoresLogins, login]);
-  const removerColaborador = (login) => salvarColaboradores(colaboradoresLogins.filter(l => l !== login));
+  const adicionarColaborador = (login) => salvarColaboradoresEWorkspaces([...colaboradoresLogins, login], workspacesVinculadosIds);
+  const removerColaborador = (login) => salvarColaboradoresEWorkspaces(colaboradoresLogins.filter(l => l !== login), workspacesVinculadosIds);
+  const adicionarWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, [...workspacesVinculadosIds, wsId]);
+  const removerWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, workspacesVinculadosIds.filter(id => id !== wsId));
+
+  // Transfere o quadro inteiro (quadro, listas, fichas, etiquetas e eventos vinculados) para outro workspace
+  const transferirQuadroParaWorkspace = async (novoWsId) => {
+    const destino = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === novoWsId);
+    const novoWsNome = destino?.cr4a1_nome || novoWsId;
+    try {
+      if (quadro?.cr4a1_quadroid) {
+        await patch('cr4a1_quadros', quadro.cr4a1_quadroid, {
+          cr4a1_workspace_id: novoWsId,
+          cr4a1_nome: novoWsNome
+        });
+      }
+
+      for (const lista of listas) {
+        await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_workspace_id: novoWsId });
+      }
+
+      for (const ficha of fichas) {
+        await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_workspace_id: novoWsId });
+        if (ficha.cr4a1_evento_id) {
+          await patch('cr4a1_agenda_kairoses', ficha.cr4a1_evento_id, { cr4a1_workspace_id: novoWsId }).catch(() => {});
+        }
+      }
+
+      for (const etiqueta of etiquetas) {
+        await patch('cr4a1_etiquetas', etiqueta.cr4a1_etiquetaid, { cr4a1_workspace_id: novoWsId });
+      }
+
+      setWorkspaceId(novoWsId);
+      setMudarWorkspaceAberto(false);
+      recarregar();
+      refreshEvents?.();
+      toast.success(`Quadro transferido para "${novoWsNome}" com sucesso!`);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao transferir quadro para o novo workspace.');
+      throw error;
+    }
+  };
 
   // Bloqueio de acesso ao Trello do setor (membros do workspace que não devem ver as fichas).
   const salvarBloqueados = async (novosLogins) => {
@@ -1114,6 +1182,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
               <Users className="size-4" /> Compartilhar
             </Button>
+            {podeGerenciarColaboradores && (
+              <Button variant="outline" size="sm" onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
+                <FolderSync className="size-4" /> Mudar Workspace
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
               <LayoutTemplate className="size-4" /> Modelos
             </Button>
@@ -1131,6 +1204,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
+              {podeGerenciarColaboradores && (
+                <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
               <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
             </DropdownMenuContent>
@@ -1146,9 +1222,14 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <Select value={workspaceId} onValueChange={setWorkspaceId}>
             <SelectTrigger className="w-36 sm:w-60"><SelectValue placeholder="Workspace" /></SelectTrigger>
             <SelectContent>
-              {todasOpcoes.map(w => (
-                <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>{w.cr4a1_nome}</SelectItem>
-              ))}
+              {todasOpcoes.map(w => {
+                const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
+                return (
+                  <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                    {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -1280,6 +1361,15 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                     <Zap className="size-4" />
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setListaExportar(lista)}
+                  aria-label={`Exportar ou enviar lista ${lista.cr4a1_nome}`}
+                  title="Exportar ou enviar lista (PDF ou Imagem)"
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  <Share2 className="size-4" />
+                </button>
                 <button onClick={() => apagarLista(lista)} aria-label={`Excluir lista ${lista.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="size-4" />
                 </button>
@@ -1486,16 +1576,43 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           workspace={workspace}
           membrosBase={membrosBase}
           colaboradoresLogins={colaboradoresLogins}
+          workspacesVinculadosIds={workspacesVinculadosIds}
+          todosWorkspaces={todasOpcoes}
           allUsers={allUsers}
           podeEditar={podeGerenciarColaboradores}
           onAdd={adicionarColaborador}
           onRemove={removerColaborador}
+          onAddWorkspaceVinculado={adicionarWorkspaceVinculado}
+          onRemoveWorkspaceVinculado={removerWorkspaceVinculado}
           podeBloquear={podeGerenciarBloqueios}
           bloqueadosLogins={bloqueadosLogins}
           user={user}
           onBlock={bloquearMembro}
           onUnblock={desbloquearMembro}
           onClose={() => setCompartilharAberto(false)}
+        />
+      )}
+
+      {listaExportar && (
+        <ExportarListaDialog
+          lista={listaExportar}
+          fichas={fichasDaLista(listaExportar)}
+          etiquetas={etiquetas}
+          allUsers={allUsers}
+          workspaceNome={workspace?.cr4a1_nome || 'Workspace'}
+          onClose={() => setListaExportar(null)}
+        />
+      )}
+
+      {mudarWorkspaceAberto && (
+        <MudarWorkspaceDialog
+          workspaceAtual={workspace}
+          todosWorkspaces={todasOpcoes}
+          listas={listas}
+          fichas={fichas}
+          etiquetas={etiquetas}
+          onTransferir={transferirQuadroParaWorkspace}
+          onClose={() => setMudarWorkspaceAberto(false)}
         />
       )}
 
@@ -1840,13 +1957,39 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
 };
 
 // Quem pode ver/editar o quadro, além dos membros do workspace do calendário.
-const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUsers, podeEditar, onAdd, onRemove, podeBloquear, bloqueadosLogins = [], user, onBlock, onUnblock, onClose }) => {
+const CompartilharDialog = ({
+  workspace,
+  membrosBase,
+  colaboradoresLogins,
+  workspacesVinculadosIds = [],
+  todosWorkspaces = [],
+  allUsers,
+  podeEditar,
+  onAdd,
+  onRemove,
+  onAddWorkspaceVinculado,
+  onRemoveWorkspaceVinculado,
+  podeBloquear,
+  bloqueadosLogins = [],
+  user,
+  onBlock,
+  onUnblock,
+  onClose
+}) => {
   const [busca, setBusca] = useState('');
+  const [workspaceParaVincular, setWorkspaceParaVincular] = useState('');
   const jaTemAcesso = new Set([...membrosBase.map(m => m.cr4a1_username), ...colaboradoresLogins]);
   const candidatos = busca.trim()
     ? allUsers.filter(u => !jaTemAcesso.has(u.cr4a1_username) && matchesSearch(u.cr4a1_nome_exibicao || u.cr4a1_username, busca)).slice(0, 8)
     : [];
   const membrosBloqueaveis = membrosBase.filter(m => m.cr4a1_username !== workspace?.cr4a1_criador_login && m.cr4a1_username !== user);
+
+  const workspacesDisponiveisParaVincular = useMemo(() => {
+    return (todosWorkspaces || []).filter(w =>
+      w.cr4a1_calendarios_workspacesid !== workspace?.cr4a1_calendarios_workspacesid &&
+      !workspacesVinculadosIds.includes(w.cr4a1_calendarios_workspacesid)
+    );
+  }, [todosWorkspaces, workspace, workspacesVinculadosIds]);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -1863,6 +2006,73 @@ const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUs
             <div className="flex flex-wrap gap-1.5">
               {membrosBase.map(m => <Badge key={m.cr4a1_username} variant="secondary">{m.cr4a1_nome_exibicao || m.cr4a1_username}</Badge>)}
             </div>
+          </div>
+
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <FolderSync className="size-3.5" /> Workspaces vinculados (compartilhamento)
+            </Label>
+            <p className="mb-1.5 text-[11px] text-muted-foreground">
+              Membros destes workspaces também verão e poderão colaborar neste quadro do Trello.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {workspacesVinculadosIds.length === 0 && (
+                <p className="text-[12px] italic text-muted-foreground">Nenhum outro workspace vinculado ainda.</p>
+              )}
+              {workspacesVinculadosIds.map(wsId => {
+                const ws = (todosWorkspaces || []).find(w => w.cr4a1_calendarios_workspacesid === wsId);
+                const nomeWs = ws?.cr4a1_nome || 'Workspace vinculado';
+                return (
+                  <div key={wsId} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{nomeWs}</span>
+                      <Badge variant="outline" className="text-[10px]">Vinculado</Badge>
+                    </div>
+                    {podeEditar && onRemoveWorkspaceVinculado && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveWorkspaceVinculado(wsId)}
+                        aria-label={`Desvincular workspace ${nomeWs}`}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {podeEditar && onAddWorkspaceVinculado && workspacesDisponiveisParaVincular.length > 0 && (
+              <div className="mt-2 flex items-center gap-2">
+                <Select value={workspaceParaVincular} onValueChange={setWorkspaceParaVincular}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Vincular outro workspace..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspacesDisponiveisParaVincular.map(w => (
+                      <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                        {w.cr4a1_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!workspaceParaVincular}
+                  onClick={() => {
+                    if (workspaceParaVincular) {
+                      onAddWorkspaceVinculado(workspaceParaVincular);
+                      setWorkspaceParaVincular('');
+                    }
+                  }}
+                >
+                  <Plus className="size-4" /> Vincular
+                </Button>
+              </div>
+            )}
           </div>
 
           {podeBloquear && membrosBloqueaveis.length > 0 && (
@@ -1934,6 +2144,607 @@ const CompartilharDialog = ({ workspace, membrosBase, colaboradoresLogins, allUs
 
         <DialogFooter>
           <Button onClick={onClose}>Concluído</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Gera resumo em texto puro formatado para cópia rápida na área de transferência
+const gerarResumoTexto = (lista, fichas, workspaceNome, allUsers) => {
+  const dataHoje = format(new Date(), 'dd/MM/yyyy HH:mm');
+  const linhas = [
+    `📋 Lista: ${lista.cr4a1_nome} (${workspaceNome})`,
+    `Emitido em: ${dataHoje}`,
+    `Total de fichas: ${fichas.length}`,
+    '----------------------------------------'
+  ];
+
+  fichas.forEach((f, i) => {
+    const concluida = f.cr4a1_concluida === 'Sim';
+    const status = concluida ? '✅ Concluída' : '⏳ Pendente';
+    const resp = nomeDe(f.cr4a1_responsavel_login, allUsers);
+    const data = f.cr4a1_data_inicio ? ` | Vencimento: ${format(new Date(f.cr4a1_data_inicio), 'dd/MM/yyyy HH:mm')}` : '';
+    linhas.push(`\n${i + 1}. ${f.cr4a1_titulo} [${status}]`);
+    linhas.push(`   Responsável: ${resp}${data}`);
+
+    const textoDesc = extrairDescricaoSemTarefas(f.cr4a1_descricao);
+    if (textoDesc) {
+      linhas.push(`   Descrição: ${textoDesc.slice(0, 200)}${textoDesc.length > 200 ? '...' : ''}`);
+    }
+
+    const tarefas = extrairTarefas(f.cr4a1_descricao);
+    if (tarefas.length > 0) {
+      tarefas.forEach(t => {
+        linhas.push(`     ${t.concluida ? '☑️' : '◻️'} ${t.texto}`);
+      });
+    }
+  });
+
+  return linhas.join('\n');
+};
+
+const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome, onClose }) => {
+  const relatorioRef = useRef(null);
+  const [incluirDescricao, setIncluirDescricao] = useState(true);
+  const [incluirChecklists, setIncluirChecklists] = useState(true);
+  const [incluirMetadados, setIncluirMetadados] = useState(true);
+  const [incluirComentarios, setIncluirComentarios] = useState(false);
+  const [gerando, setGerando] = useState(null); // 'pdf' | 'imagem' | 'compartilhar' | null
+
+  const concluidas = fichas.filter(f => f.cr4a1_concluida === 'Sim').length;
+  const pendentes = fichas.length - concluidas;
+  const atrasadas = fichas.filter(f => comData(f) && f.cr4a1_concluida !== 'Sim' && f.cr4a1_data_inicio < new Date().toISOString()).length;
+
+  const handleExportarPng = async () => {
+    if (!relatorioRef.current) return;
+    setGerando('imagem');
+    try {
+      const { default: html2canvas } = await import('html2canvas-pro');
+      const canvas = await html2canvas(relatorioRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+      const slugLista = (lista.cr4a1_nome || 'lista').toLowerCase().replace(/[^\w-]+/g, '_');
+      const link = document.createElement('a');
+      link.download = `trello-lista-${slugLista}-${format(new Date(), 'yyyy-MM-dd')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast.success('Imagem baixada com sucesso!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao gerar imagem.');
+    } finally {
+      setGerando(null);
+    }
+  };
+
+  const handleExportarPdf = async () => {
+    if (!relatorioRef.current) return;
+    setGerando('pdf');
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas-pro')
+      ]);
+      const canvas = await html2canvas(relatorioRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 28;
+      const contentWidth = pageWidth - (margin * 2);
+      const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+      if (contentHeight + (margin * 2) <= pageHeight) {
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, contentHeight);
+      } else {
+        const pageUsableHeight = pageHeight - (margin * 2);
+        const sliceHeightInCanvas = (pageUsableHeight * canvas.width) / contentWidth;
+        let yCanvas = 0;
+        let pageNum = 0;
+
+        while (yCanvas < canvas.height) {
+          const sliceH = Math.min(sliceHeightInCanvas, canvas.height - yCanvas);
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sliceH;
+          const ctx = pageCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0, yCanvas, canvas.width, sliceH,
+            0, 0, canvas.width, sliceH
+          );
+
+          if (pageNum > 0) pdf.addPage();
+          const sliceContentH = (sliceH * contentWidth) / canvas.width;
+          pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, sliceContentH);
+
+          yCanvas += sliceH;
+          pageNum++;
+        }
+      }
+
+      const slugLista = (lista.cr4a1_nome || 'lista').toLowerCase().replace(/[^\w-]+/g, '_');
+      pdf.save(`trello-lista-${slugLista}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF baixado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao gerar PDF.');
+    } finally {
+      setGerando(null);
+    }
+  };
+
+  const handleCompartilhar = async () => {
+    if (!relatorioRef.current) return;
+    setGerando('compartilhar');
+    try {
+      const { default: html2canvas } = await import('html2canvas-pro');
+      const canvas = await html2canvas(relatorioRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      const slugLista = (lista.cr4a1_nome || 'lista').toLowerCase().replace(/[^\w-]+/g, '_');
+      const resumoTexto = gerarResumoTexto(lista, fichas, workspaceNome, allUsers);
+
+      let compartilhouNativo = false;
+      if (navigator.share) {
+        try {
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+          if (blob) {
+            const file = new File([blob], `trello-lista-${slugLista}.png`, { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                title: `Lista: ${lista.cr4a1_nome}`,
+                text: resumoTexto,
+                files: [file]
+              });
+              compartilhouNativo = true;
+              toast.success('Compartilhado com sucesso!');
+            }
+          }
+        } catch (shareErr) {
+          if (shareErr.name === 'AbortError') return;
+          console.warn('Compartilhamento nativo com arquivo falhou:', shareErr);
+        }
+      }
+
+      if (!compartilhouNativo) {
+        const link = document.createElement('a');
+        link.download = `trello-lista-${slugLista}-${format(new Date(), 'yyyy-MM-dd')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(resumoTexto);
+          toast.success('Imagem baixada e resumo copiado para a área de transferência!');
+        } else {
+          toast.success('Imagem baixada com sucesso!');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao compartilhar lista.');
+    } finally {
+      setGerando(null);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="size-5 text-primary" />
+            Exportar ou Enviar Lista
+          </DialogTitle>
+          <DialogDescription>
+            {lista.cr4a1_nome} • {workspaceNome}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Barra de opções de conteúdo */}
+        <div className="flex flex-wrap items-center gap-4 py-2 border-y border-border text-xs">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch checked={incluirDescricao} onCheckedChange={setIncluirDescricao} />
+            <span>Descrição</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch checked={incluirChecklists} onCheckedChange={setIncluirChecklists} />
+            <span>Checklists</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch checked={incluirMetadados} onCheckedChange={setIncluirMetadados} />
+            <span>Responsáveis e Datas</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch checked={incluirComentarios} onCheckedChange={setIncluirComentarios} />
+            <span>Comentários</span>
+          </label>
+        </div>
+
+        {/* Container rolável com a visualização do documento */}
+        <div className="flex-1 overflow-auto bg-muted/40 p-3 sm:p-4 rounded-xl border border-border flex justify-center">
+          <div
+            ref={relatorioRef}
+            style={{
+              width: '680px',
+              backgroundColor: '#ffffff',
+              color: '#0f172a',
+              padding: '32px 36px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}
+          >
+            {/* Cabeçalho do relatório */}
+            <div style={{ borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>
+                    {lista.cr4a1_nome}
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                    Workspace: <strong>{workspaceNome}</strong> • Gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569' }}>
+                    {fichas.length} {fichas.length === 1 ? 'cartão' : 'cartões'}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', background: '#dcfce7', color: '#166534' }}>
+                    {concluidas} conc.
+                  </span>
+                  {pendentes > 0 && (
+                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', background: '#fef3c7', color: '#92400e' }}>
+                      {pendentes} pend.
+                    </span>
+                  )}
+                  {atrasadas > 0 && (
+                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', background: '#fee2e2', color: '#991b1b' }}>
+                      {atrasadas} atras.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Listagem de cards */}
+            {fichas.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#94a3b8', fontStyle: 'italic', padding: '24px 0' }}>
+                Esta lista não possui cartões no momento.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {fichas.map((ficha, idx) => {
+                  const concluida = ficha.cr4a1_concluida === 'Sim';
+                  const atrasada = comData(ficha) && !concluida && ficha.cr4a1_data_inicio < new Date().toISOString();
+                  const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas)
+                    .map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id))
+                    .filter(Boolean);
+                  const tarefas = extrairTarefas(ficha.cr4a1_descricao);
+                  const tarefasConcluidas = tarefas.filter(t => t.concluida).length;
+                  const descTexto = extrairDescricaoSemTarefas(ficha.cr4a1_descricao);
+                  const anexos = parseAnexos(ficha.cr4a1_arquivos);
+                  const comentarios = parseComentarios(ficha.cr4a1_comentarios);
+
+                  return (
+                    <div
+                      key={ficha.cr4a1_fichaid || idx}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderLeft: ficha.cr4a1_cor ? `5px solid ${ficha.cr4a1_cor}` : (concluida ? '5px solid #22c55e' : '5px solid #94a3b8'),
+                        borderRadius: '8px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      {/* Topo do card: título e status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                        <span style={{
+                          fontSize: '15px',
+                          fontWeight: '700',
+                          color: concluida ? '#64748b' : '#0f172a',
+                          textDecoration: concluida ? 'line-through' : 'none'
+                        }}>
+                          {ficha.cr4a1_titulo}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          {concluida ? (
+                            <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', background: '#dcfce7', color: '#166534' }}>
+                              ✓ Concluída
+                            </span>
+                          ) : atrasada ? (
+                            <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', background: '#fee2e2', color: '#991b1b' }}>
+                              ⚠ Atrasada
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '4px', background: '#f1f5f9', color: '#475569' }}>
+                              Pendente
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Etiquetas */}
+                      {incluirMetadados && etiquetasDaFicha.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {etiquetasDaFicha.map(et => (
+                            <span
+                              key={et.cr4a1_etiquetaid}
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: et.cr4a1_cor || '#e2e8f0',
+                                color: '#ffffff'
+                              }}
+                            >
+                              {et.cr4a1_nome}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Metadados */}
+                      {incluirMetadados && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                          <span>👤 <strong>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</strong></span>
+                          {comData(ficha) && (
+                            <span style={{ color: atrasada ? '#dc2626' : 'inherit' }}>
+                              📅 {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM/yyyy HH:mm')}
+                            </span>
+                          )}
+                          {ficha.cr4a1_recorrencia && (
+                            <span>🔁 {RECORRENCIA_LABEL[ficha.cr4a1_recorrencia]}</span>
+                          )}
+                          {anexos.length > 0 && (
+                            <span>📎 {anexos.length} anexo(s)</span>
+                          )}
+                          {comentarios.length > 0 && (
+                            <span>💬 {comentarios.length} comentário(s)</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Descrição */}
+                      {incluirDescricao && descTexto && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#334155',
+                          backgroundColor: '#f8fafc',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #f1f5f9',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.4'
+                        }}>
+                          {descTexto}
+                        </div>
+                      )}
+
+                      {/* Checklists */}
+                      {incluirChecklists && tarefas.length > 0 && (
+                        <div style={{
+                          backgroundColor: '#f8fafc',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #f1f5f9',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                            <span>Checklist</span>
+                            <span>{tarefasConcluidas}/{tarefas.length} ({Math.round((tarefasConcluidas / tarefas.length) * 100)}%)</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {tarefas.map(t => (
+                              <div key={t.index} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '11px' }}>
+                                <span style={{
+                                  fontSize: '12px',
+                                  color: t.concluida ? '#16a34a' : '#94a3b8',
+                                  fontWeight: 'bold',
+                                  lineHeight: '1'
+                                }}>
+                                  {t.concluida ? '☑' : '☐'}
+                                </span>
+                                <span style={{
+                                  color: t.concluida ? '#94a3b8' : '#1e293b',
+                                  textDecoration: t.concluida ? 'line-through' : 'none',
+                                  flex: 1
+                                }}>
+                                  {t.texto}
+                                </span>
+                                {t.dataVencimento && (
+                                  <span style={{ fontSize: '10px', color: '#64748b' }}>
+                                    {format(new Date(`${t.dataVencimento}T12:00:00`), 'dd/MM')}
+                                  </span>
+                                )}
+                                {t.responsavel && (
+                                  <span style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic' }}>
+                                    {nomeDe(t.responsavel, allUsers)}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Comentários */}
+                      {incluirComentarios && comentarios.length > 0 && (
+                        <div style={{
+                          backgroundColor: '#f8fafc',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #f1f5f9',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '2px' }}>
+                            Comentários ({comentarios.length}):
+                          </span>
+                          {comentarios.map(c => (
+                            <div key={c.id} style={{ fontSize: '11px', color: '#334155' }}>
+                              <strong>{nomeDe(c.autor, allUsers)}:</strong> {c.texto}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
+          <Button variant="outline" onClick={onClose} disabled={!!gerando}>
+            Fechar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportarPng}
+            disabled={!!gerando || fichas.length === 0}
+            className="gap-1.5"
+          >
+            {gerando === 'imagem' ? <Loader2 className="size-4 animate-spin" /> : <ImageIcon className="size-4" />}
+            {gerando === 'imagem' ? 'Gerando Imagem...' : 'Baixar Imagem (PNG)'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportarPdf}
+            disabled={!!gerando || fichas.length === 0}
+            className="gap-1.5"
+          >
+            {gerando === 'pdf' ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
+            {gerando === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
+          </Button>
+          <Button
+            onClick={handleCompartilhar}
+            disabled={!!gerando || fichas.length === 0}
+            className="gap-1.5"
+          >
+            {gerando === 'compartilhar' ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+            {gerando === 'compartilhar' ? 'Enviando...' : 'Enviar / Compartilhar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const MudarWorkspaceDialog = ({ workspaceAtual, todosWorkspaces, listas, fichas, etiquetas, onTransferir, onClose }) => {
+  const [destinoId, setDestinoId] = useState('');
+  const [transferindo, setTransferindo] = useState(false);
+
+  const workspacesDisponiveis = useMemo(() => {
+    return (todosWorkspaces || []).filter(w => w.cr4a1_calendarios_workspacesid !== workspaceAtual?.cr4a1_calendarios_workspacesid);
+  }, [todosWorkspaces, workspaceAtual]);
+
+  const handleConfirmar = async () => {
+    if (!destinoId || transferindo) return;
+    setTransferindo(true);
+    try {
+      await onTransferir(destinoId);
+    } catch {
+      setTransferindo(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !transferindo && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderSync className="size-5 text-primary" />
+            Mudar Workspace do Quadro
+          </DialogTitle>
+          <DialogDescription>
+            Transfira este quadro de Trello com todas as suas listas, fichas e etiquetas para outro workspace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4 py-2">
+          <div className="rounded-xl border border-border bg-secondary p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-xs uppercase font-bold">Workspace atual</span>
+              <Badge variant="outline">{workspaceAtual?.cr4a1_nome || 'Workspace'}</Badge>
+            </div>
+            <div className="mt-2.5 flex items-center justify-around border-t border-border/60 pt-2 text-center text-xs">
+              <div>
+                <span className="block font-bold text-foreground text-sm">{listas.length}</span>
+                <span className="text-muted-foreground text-[11px]">listas</span>
+              </div>
+              <div className="h-6 w-px bg-border/60" />
+              <div>
+                <span className="block font-bold text-foreground text-sm">{fichas.length}</span>
+                <span className="text-muted-foreground text-[11px]">fichas</span>
+              </div>
+              <div className="h-6 w-px bg-border/60" />
+              <div>
+                <span className="block font-bold text-foreground text-sm">{etiquetas.length}</span>
+                <span className="text-muted-foreground text-[11px]">etiquetas</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label>Novo workspace de destino</Label>
+            {workspacesDisponiveis.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground italic">Nenhum outro workspace disponível para transferência.</p>
+            ) : (
+              <Select value={destinoId} onValueChange={setDestinoId} disabled={transferindo}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione o workspace de destino..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {workspacesDisponiveis.map(w => (
+                    <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                      {w.cr4a1_nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Todos os cartões e automações serão migrados para o workspace selecionado e os membros daquele workspace passarão a ter acesso.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={transferindo}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmar}
+            disabled={!destinoId || transferindo || workspacesDisponiveis.length === 0}
+            className="gap-1.5"
+          >
+            {transferindo ? <Loader2 className="size-4 animate-spin" /> : <FolderSync className="size-4" />}
+            {transferindo ? 'Transferindo...' : 'Transferir Quadro'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
