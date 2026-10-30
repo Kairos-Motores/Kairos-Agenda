@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2 } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -30,7 +30,7 @@ import { corTextoLegivel } from '../utils/cor';
 import { parseComentarios, criarComentario } from '../utils/comentarios';
 import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
-import { parseAutomacoes, aplicarAutomacoes, regrasPara, estadoDataAtual, TIPOS_AUTOMACAO, GATILHOS_AUTOMACAO, descricaoAutomacao } from '../utils/automacoes';
+import { parseAutomacoes, parseListaGerentes, aplicarAutomacoes, regrasPara, estadoDataAtual, TIPOS_AUTOMACAO, GATILHOS_AUTOMACAO, descricaoAutomacao } from '../utils/automacoes';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -143,6 +143,55 @@ const ordenar = (lista) => [...lista].sort((a, b) => {
   return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
 });
 
+// Ordenação flexível por critério com preservação de fichas fixadas no topo
+const ordenarFichasPorCriterio = (fichasLista, criterio = 'padrao') => {
+  return [...fichasLista].sort((a, b) => {
+    const fixadaA = a.cr4a1_fixada === 'Sim' ? 0 : 1;
+    const fixadaB = b.cr4a1_fixada === 'Sim' ? 0 : 1;
+    if (fixadaA !== fixadaB) return fixadaA - fixadaB;
+
+    switch (criterio) {
+      case 'data_recente': {
+        if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+        if (!a.cr4a1_data_inicio) return 1;
+        if (!b.cr4a1_data_inicio) return -1;
+        return new Date(b.cr4a1_data_inicio).getTime() - new Date(a.cr4a1_data_inicio).getTime();
+      }
+      case 'data_antiga': {
+        if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+        if (!a.cr4a1_data_inicio) return 1;
+        if (!b.cr4a1_data_inicio) return -1;
+        return new Date(a.cr4a1_data_inicio).getTime() - new Date(b.cr4a1_data_inicio).getTime();
+      }
+      case 'titulo_az': {
+        const tA = (a.cr4a1_titulo || '').trim();
+        const tB = (b.cr4a1_titulo || '').trim();
+        return tA.localeCompare(tB, 'pt-BR', { sensitivity: 'base' });
+      }
+      case 'titulo_za': {
+        const tA = (a.cr4a1_titulo || '').trim();
+        const tB = (b.cr4a1_titulo || '').trim();
+        return tB.localeCompare(tA, 'pt-BR', { sensitivity: 'base' });
+      }
+      case 'pendentes': {
+        const cA = a.cr4a1_concluida === 'Sim' ? 1 : 0;
+        const cB = b.cr4a1_concluida === 'Sim' ? 1 : 0;
+        if (cA !== cB) return cA - cB;
+        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+      }
+      case 'concluidas': {
+        const cA = a.cr4a1_concluida === 'Sim' ? 0 : 1;
+        const cB = b.cr4a1_concluida === 'Sim' ? 0 : 1;
+        if (cA !== cB) return cA - cB;
+        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+      }
+      case 'padrao':
+      default:
+        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+    }
+  });
+};
+
 // Monta o horário de início e fim (1 hora) a partir da data e hora escolhidas no formulário.
 const intervaloDoEvento = (dia, hora) => {
   const inicio = new Date(`${dia}T${hora}:00`);
@@ -183,8 +232,21 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [modelosAberto, setModelosAberto] = useState(false);
   const [modelos, setModelos] = useState([]);
   const [listaAutomacao, setListaAutomacao] = useState(null);
+  const [listaGerentes, setListaGerentes] = useState(null);
+  const [listaMoverWorkspace, setListaMoverWorkspace] = useState(null);
   const [listaExportar, setListaExportar] = useState(null);
   const [mudarWorkspaceAberto, setMudarWorkspaceAberto] = useState(false);
+  const [ordenacaoPorLista, setOrdenacaoPorLista] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kairos_trello_ordem_listas') || '{}'); } catch { return {}; }
+  });
+
+  const mudarOrdenacaoLista = (listaId, criterio) => {
+    setOrdenacaoPorLista(prev => {
+      const proximo = { ...prev, [listaId]: criterio };
+      try { localStorage.setItem('kairos_trello_ordem_listas', JSON.stringify(proximo)); } catch {}
+      return proximo;
+    });
+  };
   const [filtros, setFiltros] = useState(filtrosVazios());
   const [colapsadas, setColapsadas] = useState(() => {
     try { return JSON.parse(localStorage.getItem(TRELLO_COLAPSADAS_KEY) || '[]'); } catch { return []; }
@@ -460,9 +522,46 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
   const salvarAutomacoes = async (lista, automacoes) => {
     try {
-      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: JSON.stringify(automacoes) });
+      const gerentesAtuais = parseListaGerentes(lista.cr4a1_automacao);
+      const novoConteudo = JSON.stringify({ automacoes, gerentes: gerentesAtuais });
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
       recarregar();
     } catch { toast.error('Erro ao salvar automações.'); }
+  };
+
+  const salvarGerentesLista = async (lista, gerentes) => {
+    try {
+      const automacoesAtuais = parseAutomacoes(lista.cr4a1_automacao);
+      const novoConteudo = JSON.stringify({ automacoes: automacoesAtuais, gerentes });
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
+      setListaGerentes(null);
+      recarregar();
+      toast.success('Gerentes da lista atualizados!');
+    } catch {
+      toast.error('Erro ao salvar gerentes da lista.');
+    }
+  };
+
+  const moverListaParaWorkspace = async (lista, novoWsId) => {
+    const destino = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === novoWsId);
+    const novoWsNome = destino?.cr4a1_nome || novoWsId;
+    try {
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_workspace_id: novoWsId });
+      const fichasDaEstaLista = fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+      for (const f of fichasDaEstaLista) {
+        await patch('cr4a1_fichas', f.cr4a1_fichaid, { cr4a1_workspace_id: novoWsId });
+        if (f.cr4a1_evento_id) {
+          await patch('cr4a1_agenda_kairoses', f.cr4a1_evento_id, { cr4a1_workspace_id: novoWsId }).catch(() => {});
+        }
+      }
+      setListaMoverWorkspace(null);
+      recarregar();
+      refreshEvents?.();
+      toast.success(`Lista "${lista.cr4a1_nome}" e fichas movidas para "${novoWsNome}"!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao mover lista para o workspace.');
+    }
   };
 
   const removerEventoDaFicha = async (ficha) => {
@@ -913,7 +1012,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     () => (filtrosAtivos === 0 ? fichas : fichas.filter(f => fichaCombinaComFiltros(f, filtros))),
     [fichas, filtros, filtrosAtivos]
   );
-  const fichasDaLista = (lista) => ordenar(fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid));
+  const fichasDaLista = (lista) => {
+    const doLista = fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+    const crit = ordenacaoPorLista[lista.cr4a1_listaid] || 'padrao';
+    return ordenarFichasPorCriterio(doLista, crit);
+  };
 
   // Marca a ficha como concluída/pendente direto no card, sem abrir o formulário.
   // Concluir o cartão também marca todas as microtarefas (o card reflete o estado delas).
@@ -1004,6 +1107,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const destinoId = destination.droppableId;
     const ficha = fichas.find(f => f.cr4a1_fichaid === draggableId);
     if (!ficha) return;
+
+    mudarOrdenacaoLista(destinoId, 'padrao');
+    if (origemId !== destinoId) mudarOrdenacaoLista(origemId, 'padrao');
 
     // O índice do drag é relativo ao que está visível na tela — com filtro ativo, a posição
     // é calculada em cima de fichasVisiveis (não da lista completa), senão a ficha cairia na
@@ -1294,11 +1400,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       ) : (
       <div className="flex items-start gap-3 overflow-x-auto pb-4">
         {listasVisiveis.map(lista => {
-          const souDono = lista.cr4a1_criador_login === user || isAdmin;
-          // Automações são mais "do quadro" que "da lista" — quem criou o workspace também
-          // deve poder configurá-las, não só quem criou essa lista específica (senão um
-          // coordenador fica sem acesso às automações de listas que outra pessoa criou).
-          const podeGerenciarAutomacoes = souDono || workspace?.cr4a1_criador_login === user;
+          const souCriadorLista = !lista.cr4a1_criador_login || lista.cr4a1_criador_login === user;
+          const gerentesDaLista = parseListaGerentes(lista.cr4a1_automacao);
+          const souGerente = gerentesDaLista.includes(user);
+          const souDono = souCriadorLista || isAdmin;
+          const podeGerenciar = souDono || souGerente || workspace?.cr4a1_criador_login === user;
+          const podeGerenciarAutomacoes = podeGerenciar;
           const pessoal = lista.cr4a1_pessoal === 'Sim';
           const colapsada = colapsadas.includes(lista.cr4a1_listaid);
 
@@ -1326,58 +1433,117 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           }
 
           return (
-            <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 text-muted-foreground hover:text-primary">
+            <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-210px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
+              <div className="flex items-start justify-between gap-1.5">
+                <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
                   <ChevronLeft className="size-4" />
                 </button>
-                <input
+                <textarea
                   key={lista.cr4a1_nome}
                   defaultValue={lista.cr4a1_nome}
+                  rows={1}
                   onBlur={e => renomearLista(lista, e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onInput={e => {
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                  }}
+                  ref={el => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
                   aria-label={`Nome da lista ${lista.cr4a1_nome}`}
-                  readOnly={!souDono && pessoal}
-                  className="min-w-0 flex-1 bg-transparent text-sm font-bold text-foreground outline-none"
+                  readOnly={!podeGerenciar}
+                  className="min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-sm font-bold leading-snug text-foreground outline-none break-words [word-break:normal] hyphens-none focus:ring-1 focus:ring-primary/40 rounded px-1"
                 />
-                <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
-                {souDono && (
-                  <button
-                    onClick={() => alternarListaPessoal(lista)}
-                    aria-label={pessoal ? `Tornar "${lista.cr4a1_nome}" visível para todos` : `Tornar "${lista.cr4a1_nome}" pessoal`}
-                    title={pessoal ? 'Só você vê esta lista — clique para tornar visível' : 'Tornar pessoal (só você vê)'}
-                    className={pessoal ? 'text-primary' : 'text-muted-foreground hover:text-primary'}
-                  >
-                    {pessoal ? <Lock className="size-4" /> : <Unlock className="size-4" />}
-                  </button>
-                )}
-                {podeGerenciarAutomacoes && (
-                  <button
-                    onClick={() => setListaAutomacao(lista)}
-                    aria-label={`Automações da lista ${lista.cr4a1_nome}`}
-                    title="Automações: o que fazer quando uma ficha entra nesta lista"
-                    className={parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-primary'}
-                  >
-                    <Zap className="size-4" />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setListaExportar(lista)}
-                  aria-label={`Exportar ou enviar lista ${lista.cr4a1_nome}`}
-                  title="Exportar ou enviar lista (PDF ou Imagem)"
-                  className="text-muted-foreground hover:text-primary"
-                >
-                  <Share2 className="size-4" />
-                </button>
-                <button onClick={() => apagarLista(lista)} aria-label={`Excluir lista ${lista.cr4a1_nome}`} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="size-4" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">{fichasDaLista(lista).length}</Badge>
+
+                  <ListaOrdenacaoMenu
+                    criterioAtual={ordenacaoPorLista[lista.cr4a1_listaid] || 'padrao'}
+                    onChange={(crit) => mudarOrdenacaoLista(lista.cr4a1_listaid, crit)}
+                  />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Opções da lista ${lista.cr4a1_nome}`}
+                        title="Opções da lista"
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {podeGerenciarAutomacoes && (
+                        <DropdownMenuItem onClick={() => setListaAutomacao(lista)} className="cursor-pointer">
+                          <Zap className={`size-4 mr-2 ${parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : ''}`} />
+                          Automações
+                          {parseAutomacoes(lista.cr4a1_automacao).length > 0 && (
+                            <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
+                              {parseAutomacoes(lista.cr4a1_automacao).length}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => setListaGerentes(lista)} className="cursor-pointer">
+                          <UserCheck className={`size-4 mr-2 ${gerentesDaLista.length > 0 ? 'text-primary' : ''}`} />
+                          Gerentes da Lista
+                          {gerentesDaLista.length > 0 && (
+                            <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
+                              {gerentesDaLista.length}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                      )}
+
+                      {souDono && (
+                        <DropdownMenuItem onClick={() => alternarListaPessoal(lista)} className="cursor-pointer">
+                          {pessoal ? <Unlock className="size-4 mr-2" /> : <Lock className="size-4 mr-2" />}
+                          {pessoal ? 'Tornar Visível para Todos' : 'Tornar Lista Pessoal'}
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => setListaMoverWorkspace(lista)} className="cursor-pointer">
+                          <FolderInput className="size-4 mr-2" />
+                          Mover para outro Workspace
+                        </DropdownMenuItem>
+                      )}
+
+                      <DropdownMenuItem onClick={() => setListaExportar(lista)} className="cursor-pointer">
+                        <Share2 className="size-4 mr-2" />
+                        Exportar ou Enviar Lista
+                      </DropdownMenuItem>
+
+                      {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => apagarLista(lista)} className="cursor-pointer text-destructive focus:text-destructive">
+                          <Trash2 className="size-4 mr-2" />
+                          Excluir Lista
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
               <Droppable droppableId={lista.cr4a1_listaid}>
-                {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex min-h-[8px] flex-col gap-2">
+                {(provided, snapshotDroppable) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`trello-card-list flex-1 overflow-y-auto pr-1 flex min-h-[40px] flex-col gap-2 transition-colors rounded-lg ${snapshotDroppable.isDraggingOver ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
+                  >
                     {fichasDaLista(lista).map((ficha, index) => {
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
                       const concluida = ficha.cr4a1_concluida === 'Sim';
@@ -1397,17 +1563,16 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               ref={providedCard.innerRef}
                               {...providedCard.draggableProps}
                               {...providedCard.dragHandleProps}
-                              className={`flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
-                              style={corCard ? {
-                                backgroundColor: ficha.cr4a1_cor,
-                                borderColor: ficha.cr4a1_cor,
-                                // As classes text-foreground/text-muted-foreground compilam pra
-                                // var(--text-primary)/var(--text-secondary) (não --color-*), que
-                                // é a variável "de baixo" referenciada pelo tema — é essa que
-                                // precisa ser sobrescrita pra herdar nos filhos.
-                                '--text-primary': corCard.principal,
-                                '--text-secondary': corCard.suave
-                              } : undefined}
+                              className={`flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30 z-50' : ''}`}
+                              style={{
+                                ...providedCard.draggableProps.style,
+                                ...(corCard ? {
+                                  backgroundColor: ficha.cr4a1_cor,
+                                  borderColor: ficha.cr4a1_cor,
+                                  '--text-primary': corCard.principal,
+                                  '--text-secondary': corCard.suave
+                                } : {})
+                              }}
                             >
                               {capaImagem && (
                                 <button
@@ -1429,10 +1594,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                 >
                                   {concluida ? <CheckCircle2 className="size-[18px]" /> : <Circle className="size-[18px]" />}
                                 </button>
-                                <button
-                                  type="button"
+                                <div
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={() => abrirFicha(ficha)}
-                                  className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirFicha(ficha); } }}
+                                  className="flex min-w-0 flex-1 flex-col gap-1.5 text-left cursor-pointer select-none"
                                 >
                                   {(etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
                                     <div className="flex flex-wrap items-center gap-1">
@@ -1466,7 +1633,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
                                     <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
                                   </div>
-                                </button>
+                                </div>
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
@@ -1519,7 +1686,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
               <form
                 onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
-                className="flex gap-1.5"
+                className="flex gap-1.5 mt-auto pt-1 shrink-0"
               >
                 <Input
                   value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
@@ -1657,6 +1824,24 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           membros={membrosVisiveis.length ? membrosVisiveis : allUsers}
           onSave={(automacoes) => salvarAutomacoes(listaAutomacao, automacoes)}
           onClose={() => setListaAutomacao(null)}
+        />
+      )}
+
+      {listaGerentes && (
+        <GerentesListaDialog
+          lista={listas.find(l => l.cr4a1_listaid === listaGerentes.cr4a1_listaid) || listaGerentes}
+          allUsers={allUsers}
+          onClose={() => setListaGerentes(null)}
+          onSave={(novosGerentes) => salvarGerentesLista(listaGerentes, novosGerentes)}
+        />
+      )}
+
+      {listaMoverWorkspace && (
+        <MoverListaWorkspaceDialog
+          lista={listaMoverWorkspace}
+          workspaces={todasOpcoes}
+          onClose={() => setListaMoverWorkspace(null)}
+          onConfirm={(novoWsId) => moverListaParaWorkspace(listaMoverWorkspace, novoWsId)}
         />
       )}
     </div>
@@ -3114,6 +3299,206 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={salvar}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ==========================================
+// COMPONENTES AUXILIARES PARA LISTAS DO TRELLO
+// ==========================================
+
+const CRITERIOS_ORDENACAO = [
+  { id: 'padrao', rotulo: 'Padrão (Manual)' },
+  { id: 'data_recente', rotulo: 'Data: Mais recente primeiro' },
+  { id: 'data_antiga', rotulo: 'Data: Mais antiga primeiro' },
+  { id: 'titulo_az', rotulo: 'Título: A → Z' },
+  { id: 'titulo_za', rotulo: 'Título: Z → A' },
+  { id: 'pendentes', rotulo: 'Pendentes primeiro' },
+  { id: 'concluidas', rotulo: 'Concluídas primeiro' }
+];
+
+const ListaOrdenacaoMenu = ({ criterioAtual = 'padrao', onChange }) => {
+  const isCustom = criterioAtual !== 'padrao';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Organizar lista"
+          title={`Organizar lista (${CRITERIOS_ORDENACAO.find(c => c.id === criterioAtual)?.rotulo || 'Padrão'})`}
+          className={`shrink-0 rounded p-1 transition-colors ${isCustom ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-secondary'}`}
+        >
+          <ArrowUpDown className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border">
+          Organizar lista por:
+        </div>
+        {CRITERIOS_ORDENACAO.map(crit => (
+          <DropdownMenuItem
+            key={crit.id}
+            onClick={() => onChange(crit.id)}
+            className="flex items-center justify-between text-xs cursor-pointer py-1.5"
+          >
+            <span className={criterioAtual === crit.id ? 'font-bold text-primary' : ''}>
+              {crit.rotulo}
+            </span>
+            {criterioAtual === crit.id && <Check className="size-3.5 text-primary shrink-0" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const GerentesListaDialog = ({ lista, allUsers = [], onClose, onSave }) => {
+  const gerentesAtuais = useMemo(() => parseListaGerentes(lista?.cr4a1_automacao), [lista]);
+  const [selecionados, setSelecionados] = useState(gerentesAtuais);
+  const [busca, setBusca] = useState('');
+
+  const toggleUsuario = (login) => {
+    setSelecionados(prev => prev.includes(login) ? prev.filter(l => l !== login) : [...prev, login]);
+  };
+
+  const usuariosFiltrados = useMemo(() => {
+    return allUsers.filter(u => {
+      if (u.cr4a1_username === lista?.cr4a1_criador_login) return false;
+      if (!busca.trim()) return true;
+      const termo = busca.toLowerCase();
+      return (u.cr4a1_nome_exibicao || '').toLowerCase().includes(termo) ||
+             (u.cr4a1_username || '').toLowerCase().includes(termo);
+    });
+  }, [allUsers, busca, lista]);
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserCheck className="size-5 text-primary" />
+            Gerentes da Lista
+          </DialogTitle>
+          <DialogDescription>
+            Defina outros usuários para ter os mesmos privilégios de gerenciamento que o criador na lista <strong>{lista?.cr4a1_nome}</strong> (renomear, excluir, automações, ordenação e mover de workspace).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-2">
+          <Input
+            placeholder="Buscar usuário por nome ou login..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="h-9"
+          />
+
+          <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 border border-border rounded-lg p-2">
+            {usuariosFiltrados.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum usuário encontrado.</p>
+            ) : (
+              usuariosFiltrados.map(u => {
+                const isSelected = selecionados.includes(u.cr4a1_username);
+                return (
+                  <label
+                    key={u.cr4a1_username}
+                    className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors text-xs ${isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary border border-transparent'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserAvatar login={u.cr4a1_username} allUsers={allUsers} size={22} />
+                      <div className="truncate">
+                        <span className="font-semibold block truncate">{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
+                        <span className="text-[11px] text-muted-foreground truncate block">@{u.cr4a1_username}</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleUsuario(u.cr4a1_username)}
+                      className="size-4 rounded text-primary focus:ring-primary accent-primary"
+                    />
+                  </label>
+                );
+              })
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Criador da lista: <strong>{lista?.cr4a1_criador_login || 'Admin'}</strong>
+          </p>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="button" onClick={() => onSave(selecionados)}>Salvar Gerentes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const MoverListaWorkspaceDialog = ({ lista, workspaces = [], onClose, onConfirm }) => {
+  const [workspaceDestinoId, setWorkspaceDestinoId] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const opcoesValidas = useMemo(() => {
+    return workspaces.filter(w => w.cr4a1_calendarios_workspacesid !== lista?.cr4a1_workspace_id);
+  }, [workspaces, lista]);
+
+  const handleMover = async () => {
+    if (!workspaceDestinoId) {
+      toast.error('Selecione o workspace de destino.');
+      return;
+    }
+    setSalvando(true);
+    try {
+      await onConfirm(workspaceDestinoId);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open && !salvando) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderInput className="size-5 text-primary" />
+            Mover Lista para outro Workspace
+          </DialogTitle>
+          <DialogDescription>
+            Transferir a lista <strong>{lista?.cr4a1_nome}</strong> para outro workspace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-2">
+          <Label className="text-xs font-semibold">Workspace de destino:</Label>
+          <Select value={workspaceDestinoId} onValueChange={setWorkspaceDestinoId}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione o novo workspace..." />
+            </SelectTrigger>
+            <SelectContent>
+              {opcoesValidas.map(w => (
+                <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                  {w.cr4a1_nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="rounded-lg border border-border bg-secondary/50 p-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">O que acontece ao mover:</p>
+            <p>• A lista e todas as suas fichas serão movidas para o novo workspace.</p>
+            <p>• Quaisquer eventos criados a partir dessas fichas na agenda também serão transferidos para o novo workspace automaticamente.</p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="ghost" disabled={salvando} onClick={onClose}>Cancelar</Button>
+          <Button type="button" disabled={!workspaceDestinoId || salvando} onClick={handleMover}>
+            {salvando ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
+            Mover Lista
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

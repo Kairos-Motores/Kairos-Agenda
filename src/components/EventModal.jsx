@@ -46,6 +46,56 @@ export const EventModal = ({
     const [isPrivate, setIsPrivate] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [targetUserSearch, setTargetUserSearch] = useState('');
+    const [criarFichaTrello, setCriarFichaTrello] = useState(false);
+    const [trelloListId, setTrelloListId] = useState('');
+    const [trelloListas, setTrelloListas] = useState([]);
+    const [carregandoListas, setCarregandoListas] = useState(false);
+
+    // Carrega listas do Trello pertencentes ao workspace selecionado
+    useEffect(() => {
+        if (!isOpen || !formData.workspaceId) return;
+        let cancelado = false;
+        setCarregandoListas(true);
+        const wsFilter = encodeURIComponent(`cr4a1_workspace_id eq '${formData.workspaceId}'`);
+        fetch(`/api/dataverse-proxy?table=cr4a1_listas&$filter=${wsFilter}`)
+            .then(r => r.json())
+            .then(data => {
+                if (cancelado) return;
+                const ordenadas = (data.value || []).sort((a, b) => (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0));
+                setTrelloListas(ordenadas);
+                setTrelloListId(prev => {
+                    if (prev && ordenadas.some(l => l.cr4a1_listaid === prev)) return prev;
+                    return ordenadas[0]?.cr4a1_listaid || '';
+                });
+            })
+            .catch(() => {})
+            .finally(() => { if (!cancelado) setCarregandoListas(false); });
+        return () => { cancelado = true; };
+    }, [isOpen, formData.workspaceId]);
+
+    // Ao editar evento, verifica se ele já está vinculado a uma ficha do Trello
+    useEffect(() => {
+        if (!isOpen) return;
+        if (editingEvent?.cr4a1_agenda_kairosid) {
+            const eventoId = editingEvent.cr4a1_agenda_kairosid;
+            const filtro = encodeURIComponent(`cr4a1_evento_id eq '${eventoId}'`);
+            fetch(`/api/dataverse-proxy?table=cr4a1_fichas&$filter=${filtro}`)
+                .then(r => r.json())
+                .then(data => {
+                    const ficha = (data.value || [])[0];
+                    if (ficha) {
+                        setCriarFichaTrello(true);
+                        setTrelloListId(ficha.cr4a1_lista_id || '');
+                    } else {
+                        setCriarFichaTrello(false);
+                    }
+                })
+                .catch(() => setCriarFichaTrello(false));
+        } else {
+            setCriarFichaTrello(false);
+            setTrelloListId('');
+        }
+    }, [editingEvent, isOpen]);
 
     useEffect(() => {
         if (editingEvent) {
@@ -134,7 +184,7 @@ export const EventModal = ({
                     <button onClick={onClose} aria-label="Fechar" className="flex size-9 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <X className="size-[18px]" />
                     </button>
-                    <h2 className="text-[17px] font-bold text-foreground">{editingEvent ? 'Editar Ficha' : 'Nova Ficha'}</h2>
+                    <h2 className="text-[17px] font-bold text-foreground">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</h2>
                     <Button size="sm" disabled={isSaving} onClick={handleSave}>{isSaving ? 'A guardar...' : 'Salvar'}</Button>
                 </div>
 

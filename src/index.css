@@ -247,6 +247,25 @@ body {
 }
 [data-theme='dark'] ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
 
+.trello-card-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-accent) transparent;
+}
+.trello-card-list::-webkit-scrollbar {
+  width: 5px;
+}
+.trello-card-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.trello-card-list::-webkit-scrollbar-thumb {
+  background-color: var(--text-accent);
+  border-radius: 10px;
+}
+.trello-card-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-accent);
+  filter: brightness(0.85);
+}
+
 .nav-container {
   display: flex;
   align-items: center;

@@ -707,8 +707,62 @@ function App() {
 
   const handleSaveEvent = async (data) => {
     try {
-      if (data.cr4a1_event_id) await updateEvent(data);
-      else await addEvent(data);
+      const saved = data.cr4a1_event_id ? await updateEvent(data) : await addEvent(data);
+      const eventoId = saved?.cr4a1_agenda_kairosid || data.cr4a1_agenda_kairosid;
+
+      if (eventoId) {
+        const filtroFicha = encodeURIComponent(`cr4a1_evento_id eq '${eventoId}'`);
+        const resBuscaFicha = await fetch(`/api/dataverse-proxy?table=cr4a1_fichas&$filter=${filtroFicha}`)
+          .then(r => r.json())
+          .catch(() => ({ value: [] }));
+        const fichaExistente = (resBuscaFicha.value || [])[0];
+
+        if (data.criarFichaTrello && data.trelloListId) {
+          const utcStartDate = data.allDay
+            ? `${data.startDate}T00:00:00`
+            : new Date(`${data.startDate}T${data.startHour || '08:00'}:00`).toISOString();
+          const targetUsers = parseAssignees(data.targetUser);
+          const responsavel = targetUsers[0] || user;
+
+          if (fichaExistente) {
+            await fetch(`/api/dataverse-proxy?table=cr4a1_fichas&id=${fichaExistente.cr4a1_fichaid}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cr4a1_titulo: data.title || data.cr4a1_titulo,
+                cr4a1_lista_id: data.trelloListId,
+                cr4a1_workspace_id: data.workspaceId,
+                cr4a1_responsavel_login: responsavel,
+                cr4a1_data_inicio: utcStartDate,
+                cr4a1_descricao: data.details || ''
+              })
+            }).catch(() => {});
+          } else {
+            await fetch(`/api/dataverse-proxy?table=cr4a1_fichas`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cr4a1_titulo: data.title || data.cr4a1_titulo,
+                cr4a1_lista_id: data.trelloListId,
+                cr4a1_workspace_id: data.workspaceId,
+                cr4a1_responsavel_login: responsavel,
+                cr4a1_criador_login: user,
+                cr4a1_data_inicio: utcStartDate,
+                cr4a1_evento_id: eventoId,
+                cr4a1_concluida: 'Não',
+                cr4a1_notificado: 'Sim',
+                cr4a1_descricao: data.details || '',
+                cr4a1_ordem: 999
+              })
+            }).catch(() => {});
+          }
+        } else if (!data.criarFichaTrello && fichaExistente) {
+          await fetch(`/api/dataverse-proxy?table=cr4a1_fichas&id=${fichaExistente.cr4a1_fichaid}`, {
+            method: 'DELETE'
+          }).catch(() => {});
+        }
+      }
+
       toast.success("Guardado com sucesso!");
       setIsModalOpen(false);
     } catch (err) { toast.error("Falha ao guardar."); throw err; }
@@ -717,7 +771,18 @@ function App() {
   const confirmDelete = async () => {
     if (!eventToDelete) return;
     try {
-      await deleteEvent(eventToDelete.cr4a1_agenda_kairosid, eventToDelete.cr4a1_user_login);
+      const eventoId = eventToDelete.cr4a1_agenda_kairosid;
+      await deleteEvent(eventoId, eventToDelete.cr4a1_user_login);
+      if (eventoId) {
+        const filtro = encodeURIComponent(`cr4a1_evento_id eq '${eventoId}'`);
+        fetch(`/api/dataverse-proxy?table=cr4a1_fichas&$filter=${filtro}`)
+          .then(r => r.json())
+          .then(data => {
+            (data.value || []).forEach(f => {
+              fetch(`/api/dataverse-proxy?table=cr4a1_fichas&id=${f.cr4a1_fichaid}`, { method: 'DELETE' }).catch(() => {});
+            });
+          }).catch(() => {});
+      }
       toast.success("Eliminado."); setIsDeleteModalOpen(false); setEventToDelete(null);
     } catch (err) { toast.error("Falha ao eliminar."); }
   };

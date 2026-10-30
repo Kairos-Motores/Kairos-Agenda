@@ -5,7 +5,23 @@ import { parseAssignees, joinAssignees } from './assignees';
 // regra é {id, gatilho, etiquetaGatilho?, tipo, valor?}.
 export const parseAutomacoes = (raw) => {
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.automacoes)) return parsed.automacoes;
+    if (parsed && Array.isArray(parsed.regras)) return parsed.regras;
+    return [];
+  } catch { return []; }
+};
+
+// Gerentes adicionais com permissões idênticas ao criador da lista
+export const parseListaGerentes = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.gerentes)) return parsed.gerentes.filter(Boolean);
+    return [];
+  } catch { return []; }
 };
 
 export const GATILHOS_AUTOMACAO = {

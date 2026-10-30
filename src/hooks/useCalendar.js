@@ -787,7 +787,9 @@ export const useCalendar = () => {
                 throw new Error(errorData.error?.message || 'Erro ao salvar no Dataverse');
             }
 
+            const savedData = await response.json().catch(() => ({}));
             fetchEvents();
+            return { ...newEventDB, cr4a1_agenda_kairosid: savedData?.cr4a1_agenda_kairosid || generatedId };
         } catch (error) {
             toast.error(`Erro ao salvar evento.`);
             console.error("Erro detalhado:", error);
@@ -835,6 +837,7 @@ export const useCalendar = () => {
             if (!response.ok) throw new Error('Falha na resposta do servidor');
 
             fetchEvents();
+            return { ...eventData, cr4a1_agenda_kairosid: id };
         } catch (error) {
             toast.error("Erro ao atualizar evento.");
             addToQueue({ method: 'PATCH', id: id, body: updatedEventDB });
