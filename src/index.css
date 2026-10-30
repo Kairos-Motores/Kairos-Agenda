@@ -252,18 +252,21 @@ body {
   scrollbar-color: var(--text-accent) transparent;
 }
 .trello-card-list::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 .trello-card-list::-webkit-scrollbar-track {
   background: transparent;
 }
 .trello-card-list::-webkit-scrollbar-thumb {
   background-color: var(--text-accent);
-  border-radius: 10px;
+  border-radius: 9999px;
 }
 .trello-card-list::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-accent);
   filter: brightness(0.85);
+}
+.trello-card-list > * {
+  flex-shrink: 0 !important;
 }
 
 .nav-container {

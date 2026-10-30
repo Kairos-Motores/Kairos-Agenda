@@ -1434,7 +1434,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
           return (
             <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-210px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
-              <div className="flex items-start justify-between gap-1.5">
+              <div className="flex items-start justify-between gap-1.5 shrink-0">
                 <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
                   <ChevronLeft className="size-4" />
                 </button>
@@ -1542,7 +1542,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`trello-card-list flex-1 overflow-y-auto pr-1 flex min-h-[40px] flex-col gap-2 transition-colors rounded-lg ${snapshotDroppable.isDraggingOver ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
+                    style={{ minHeight: fichasDaLista(lista).length === 0 ? '48px' : '0px' }}
+                    className={`trello-card-list flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1.5 flex flex-col gap-2 transition-colors rounded-lg overscroll-contain ${snapshotDroppable.isDraggingOver ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
                   >
                     {fichasDaLista(lista).map((ficha, index) => {
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
@@ -1563,7 +1564,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               ref={providedCard.innerRef}
                               {...providedCard.draggableProps}
                               {...providedCard.dragHandleProps}
-                              className={`flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30 z-50' : ''}`}
+                              className={`flex flex-col shrink-0 min-h-fit gap-1.5 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30 z-50' : ''}`}
                               style={{
                                 ...providedCard.draggableProps.style,
                                 ...(corCard ? {
@@ -1578,7 +1579,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); setAnexoCardPreview(capaImagem); }}
-                                  className="-mx-3 -mt-3 mb-0.5 block overflow-hidden"
+                                  className="-mx-3 -mt-3 mb-0.5 block overflow-hidden rounded-t-xl"
                                   aria-label={`Visualizar ${capaImagem.name}`}
                                 >
                                   <img src={capaImagem.base64} alt={capaImagem.name} className="h-28 w-full object-cover" />
