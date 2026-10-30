@@ -4,18 +4,18 @@
 const LIMITE_ATIVIDADES = 200;
 
 export const PRIORIDADES_FICHA = {
-  '': { label: 'Sem prioridade', badgeClass: 'bg-secondary text-muted-foreground border-border', dotColor: '#94a3b8' },
-  baixa: { label: 'Baixa', badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', dotColor: '#10b981' },
-  media: { label: 'Média', badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', dotColor: '#f59e0b' },
-  alta: { label: 'Alta', badgeClass: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30', dotColor: '#f97316' },
-  critica: { label: 'Crítica', badgeClass: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30', dotColor: '#ef4444' }
+  '': { label: 'Sem prioridade', badgeClass: 'bg-secondary text-muted-foreground border-border', dotColor: '#94a3b8', cor: '#64748b' },
+  baixa: { label: 'Baixa', badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', dotColor: '#10b981', cor: '#10b981' },
+  media: { label: 'Média', badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', dotColor: '#f59e0b', cor: '#f59e0b' },
+  alta: { label: 'Alta', badgeClass: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30', dotColor: '#f97316', cor: '#f97316' },
+  critica: { label: 'Crítica', badgeClass: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30', dotColor: '#ef4444', cor: '#ef4444' }
 };
 
 export const STATUS_APROVACAO_FICHA = {
-  '': { label: 'Sem status extra', badgeClass: 'bg-secondary text-muted-foreground' },
-  em_analise: { label: 'Em Aprovação', badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
-  aprovado: { label: 'Aprovado ✓', badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  revisar: { label: 'Ajustes Solicitados', badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' }
+  '': { label: 'Sem status extra', badgeClass: 'bg-secondary text-muted-foreground', cor: '#64748b' },
+  em_analise: { label: 'Em Aprovação', badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300', cor: '#3b82f6' },
+  aprovado: { label: 'Aprovado ✓', badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', cor: '#10b981' },
+  revisar: { label: 'Ajustes Solicitados', badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300', cor: '#f59e0b' }
 };
 
 export const META_PADRAO = () => ({

@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellRing, Play, Pause, Clock, Flag, ExternalLink, DollarSign, Kanban, Table2, CalendarRange, BarChart3, Sparkles, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -81,7 +81,7 @@ const TRELLO_COLAPSADAS_KEY = 'kairos_trello_listas_colapsadas';
 // Intervalo do polling que mantém o quadro em sincronia entre quem está vendo o mesmo Trello.
 const TRELLO_POLL_MS = 5000;
 
-const filtrosVazios = () => ({ busca: '', responsaveis: [], etiquetasIds: [], status: 'todas', comData: 'todas', dataDe: '', dataAte: '', anexos: 'todas' });
+const filtrosVazios = () => ({ busca: '', responsaveis: [], etiquetasIds: [], status: 'todas', comData: 'todas', dataDe: '', dataAte: '', anexos: 'todas', prioridade: 'todas', seguindo: false, apenasModelos: false });
 
 // Estilo dos chips de filtro (e dos outros botões de alternância tipo pílula espalhados
 // pelo painel) — um só lugar pra manter o ativo/inativo consistente.
@@ -96,15 +96,22 @@ const contarFiltrosAtivos = (f) => [
   f.comData !== 'todas',
   !!f.dataDe,
   !!f.dataAte,
-  f.anexos !== 'todas'
+  f.anexos !== 'todas',
+  (f.prioridade || 'todas') !== 'todas',
+  !!f.seguindo,
+  !!f.apenasModelos
 ].filter(Boolean).length;
 
-const fichaCombinaComFiltros = (ficha, f) => {
+const fichaCombinaComFiltros = (ficha, f, usuarioAtual = '') => {
+  const meta = parseFichaMeta(ficha.cr4a1_atividades);
   if (f.busca.trim()) {
-    const alvo = `${ficha.cr4a1_titulo || ''} ${htmlParaTexto(ficha.cr4a1_descricao)}`;
+    const alvo = `${ficha.cr4a1_titulo || ''} ${htmlParaTexto(ficha.cr4a1_descricao)} ${meta.campoTexto || ''}`;
     if (!matchesSearch(alvo, f.busca)) return false;
   }
-  if (f.responsaveis.length > 0 && !f.responsaveis.includes(ficha.cr4a1_responsavel_login)) return false;
+  if (f.responsaveis.length > 0) {
+    const resps = [ficha.cr4a1_responsavel_login, ...(meta.coResponsaveis || [])].filter(Boolean);
+    if (!f.responsaveis.some(r => resps.includes(r))) return false;
+  }
   if (f.etiquetasIds.length > 0) {
     const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas);
     if (!f.etiquetasIds.some(id => etiquetasDaFicha.includes(id))) return false;
@@ -120,6 +127,12 @@ const fichaCombinaComFiltros = (ficha, f) => {
   const temAnexos = parseAnexos(ficha.cr4a1_arquivos).length > 0;
   if (f.anexos === 'com' && !temAnexos) return false;
   if (f.anexos === 'sem' && temAnexos) return false;
+  if (f.prioridade && f.prioridade !== 'todas') {
+    if (f.prioridade === 'sem' && meta.prioridade) return false;
+    if (f.prioridade !== 'sem' && meta.prioridade !== f.prioridade) return false;
+  }
+  if (f.seguindo && !(meta.observadores || []).includes(usuarioAtual)) return false;
+  if (f.apenasModelos && !meta.ehModelo) return false;
   return true;
 };
 
@@ -1613,8 +1626,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   );
 
   const fichasVisiveis = useMemo(
-    () => (filtrosAtivos === 0 ? fichasAtivas : fichasAtivas.filter(f => fichaCombinaComFiltros(f, filtros))),
-    [fichasAtivas, filtros, filtrosAtivos]
+    () => (filtrosAtivos === 0 ? fichasAtivas : fichasAtivas.filter(f => fichaCombinaComFiltros(f, filtros, user))),
+    [fichasAtivas, filtros, filtrosAtivos, user]
   );
   const fichasDaLista = (lista) => {
     const doLista = fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
@@ -2225,21 +2238,28 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           allUsers={allUsers}
           membros={membrosVisiveis}
           user={user}
+          nomeDe={nomeDe}
+          UserAvatar={UserAvatar}
+          EtiquetaChip={EtiquetaChip}
           onAbrirFicha={abrirFicha}
           onToggleConcluida={toggleConcluida}
+          onMoverLista={moverFichaRapido}
           onMudarLista={moverFichaRapido}
           onMudarResponsavel={mudarResponsavelRapido}
           onMudarPrioridade={(ficha, prio) => atualizarMetaRapidoFicha(ficha, { prioridade: prio })}
+          onDuplicarFicha={duplicarFicha}
           onDuplicar={duplicarFicha}
+          onArquivarFicha={arquivarFicha}
           onArquivar={arquivarFicha}
           onToggleCronometro={alternarCronometroFicha}
-          EtiquetaChip={EtiquetaChip}
         />
       ) : modoVisao === 'cronograma' ? (
         <TrelloCronogramaView
           fichas={listasVisiveis.flatMap(l => fichasDaLista(l))}
           listas={listasVisiveis}
           allUsers={allUsers}
+          nomeDe={nomeDe}
+          UserAvatar={UserAvatar}
           onAbrirFicha={abrirFicha}
           onToggleConcluida={toggleConcluida}
         />
@@ -2249,6 +2269,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           listas={listasVisiveis}
           etiquetas={etiquetas}
           allUsers={allUsers}
+          nomeDe={nomeDe}
+          UserAvatar={UserAvatar}
           onAbrirFicha={abrirFicha}
         />
       ) : (
@@ -3386,7 +3408,7 @@ const FichaForm = ({
               <SelectTrigger className="h-9 bg-card"><SelectValue placeholder="Sem prioridade" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__sem__">Sem prioridade</SelectItem>
-                {Object.entries(PRIORIDADES_FICHA).map(([k, info]) => (
+                {Object.entries(PRIORIDADES_FICHA).filter(([k]) => Boolean(k)).map(([k, info]) => (
                   <SelectItem key={k} value={k}>{info.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -3398,7 +3420,7 @@ const FichaForm = ({
               <SelectTrigger className="h-9 bg-card"><SelectValue placeholder="Não aplicável" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__sem__">Não aplicável</SelectItem>
-                {Object.entries(STATUS_APROVACAO_FICHA).map(([k, info]) => (
+                {Object.entries(STATUS_APROVACAO_FICHA).filter(([k]) => Boolean(k)).map(([k, info]) => (
                   <SelectItem key={k} value={k}>{info.label}</SelectItem>
                 ))}
               </SelectContent>
