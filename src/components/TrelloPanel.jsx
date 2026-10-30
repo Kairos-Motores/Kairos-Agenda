@@ -690,7 +690,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_atividades: registrarAtividade(null, 'criada', user)
       });
       const criada = await resCriada.json();
-      notificarMencoes({
+      await notificarMencoes({
         textoNovo: titulo,
         textoAntigo: '',
         origem: 'Ficha do Trello',
@@ -823,12 +823,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
       // Notifica mencões no título e na descrição da ficha
       const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
-      const textoAntigo = `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}`;
-      notificarMencoes({
+      const textoAntigo = original ? `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}` : '';
+      await notificarMencoes({
         textoNovo,
         textoAntigo,
         origem: 'Ficha do Trello',
-        itemTitulo: form.titulo || original.cr4a1_titulo,
+        itemTitulo: form.titulo || original?.cr4a1_titulo || 'Ficha',
         autor: user,
         currentUser: user,
         allUsers,
@@ -1151,7 +1151,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const atividades = registrarAtividade(ficha.cr4a1_atividades, 'comentario', user);
 
     // Notifica mencões em comentários da ficha
-    notificarMencoes({
+    await notificarMencoes({
       textoNovo: texto,
       textoAntigo: '',
       origem: 'Comentário no Trello',

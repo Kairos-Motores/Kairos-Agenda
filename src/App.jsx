@@ -740,7 +740,7 @@ function App() {
       // 1. Notifica menções com @usuario no título e nos detalhes do evento
       const textoNovo = `${data.title || data.cr4a1_titulo || ''}\n${data.details || data.cr4a1_descricao || ''}`;
       const textoAntigo = editingEvent ? `${editingEvent.cr4a1_titulo || ''}\n${editingEvent.cr4a1_detalhes || ''}` : '';
-      notificarMencoes({
+      await notificarMencoes({
         textoNovo,
         textoAntigo,
         origem: 'Evento na Agenda',

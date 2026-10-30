@@ -25,37 +25,37 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 
   const coresTipo = {
     mencao: {
-      primary: '#7c3aed',
-      lightBg: '#f5f3ff',
-      border: '#ddd6fe',
+      primary: '#7A4536',
+      lightBg: '#FAF0EB',
+      border: '#E8CFC6',
       badge: 'Menção',
       icone: '💬'
     },
     evento_proximo: {
-      primary: '#d97706',
-      lightBg: '#fffbeb',
-      border: '#fde68a',
+      primary: '#B45309',
+      lightBg: '#FDF6E8',
+      border: '#F4DCB4',
       badge: 'Evento Próximo',
       icone: '⏰'
     },
     compartilhamento: {
-      primary: '#059669',
-      lightBg: '#ecfdf5',
-      border: '#a7f3d0',
+      primary: '#2D6A4F',
+      lightBg: '#EEF6F2',
+      border: '#C8E8D7',
       badge: 'Compartilhamento',
       icone: '🤝'
     },
     cogerente: {
-      primary: '#2563eb',
-      lightBg: '#eff6ff',
-      border: '#bfdbfe',
+      primary: '#6B46C1',
+      lightBg: '#F5F1FA',
+      border: '#DFD1F3',
       badge: 'Co-Gerência',
       icone: '⭐'
     },
     padrao: {
-      primary: '#1a73e8',
-      lightBg: '#eef4ff',
-      border: '#d3e3fd',
+      primary: '#7A4536',
+      lightBg: '#FAF0EB',
+      border: '#E8CFC6',
       badge: 'Notificação',
       icone: '🔔'
     }
@@ -65,13 +65,13 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 
   // Extract key-value details for the table
   const linhasDetalhes = [];
-  if (detalhes.origem) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;width:130px;vertical-align:top;">Origem:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.origem}</td></tr>`);
-  if (detalhes.itemTitulo) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Item:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.itemTitulo}</td></tr>`);
-  if (detalhes.workspace) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Workspace:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.workspace}</td></tr>`);
-  if (detalhes.lista) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Lista:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.lista}</td></tr>`);
-  if (detalhes.dataHora) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Horário:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.dataHora}</td></tr>`);
-  if (detalhes.responsavel) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Responsável:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.responsavel}</td></tr>`);
-  if (autor) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Por:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${autor}</td></tr>`);
+  if (detalhes.origem) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;width:130px;vertical-align:top;">Origem:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.origem}</td></tr>`);
+  if (detalhes.itemTitulo) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Item:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.itemTitulo}</td></tr>`);
+  if (detalhes.workspace) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Workspace:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.workspace}</td></tr>`);
+  if (detalhes.lista) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Lista:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.lista}</td></tr>`);
+  if (detalhes.dataHora) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Horário:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.dataHora}</td></tr>`);
+  if (detalhes.responsavel) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Responsável:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.responsavel}</td></tr>`);
+  if (autor) linhasDetalhes.push(`<tr><td style="padding:8px 0;color:#8C776E;font-size:13px;font-weight:500;vertical-align:top;">Por:</td><td style="padding:8px 0;color:#2D1E18;font-size:13px;font-weight:600;vertical-align:top;">${autor}</td></tr>`);
 
   return `
 <!DOCTYPE html>
@@ -89,40 +89,40 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
     img { -ms-interpolation-mode: bicubic; border: 0; }
   </style>
 </head>
-<body style="margin:0; padding:0; background-color:#f0f4f9; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1e293b; -webkit-font-smoothing:antialiased;">
+<body style="margin:0; padding:0; background-color:#FAF7F2; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#2D1E18; -webkit-font-smoothing:antialiased;">
   <!-- Container Table -->
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f0f4f9; padding:40px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FAF7F2; padding:40px 16px;">
     <tr>
       <td align="center">
         <!-- Main Card -->
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:580px; width:100%; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 12px 32px rgba(15,23,42,0.08); border:1px solid #e2e8f0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:580px; width:100%; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 12px 36px rgba(122,69,54,0.08); border:1px solid #EAE3D9;">
           
-          <!-- Brand Accent Strip -->
+          <!-- Terracotta Brand Accent Strip -->
           <tr>
-            <td style="background:linear-gradient(90deg, #1a73e8 0%, #4285f4 50%, ${config.primary} 100%); height:6px; font-size:0; line-height:0;">
+            <td style="background:linear-gradient(90deg, #7A4536 0%, #A45B45 50%, #C97D67 100%); height:6px; font-size:0; line-height:0;">
               &nbsp;
             </td>
           </tr>
 
           <!-- Header with Kairós Logo and Notification Badge -->
           <tr>
-            <td style="background-color:#ffffff; padding:28px 36px 20px 36px; border-bottom:1px solid #f1f5f9;">
+            <td style="background-color:#ffffff; padding:28px 36px 20px 36px; border-bottom:1px solid #F4EFEB;">
               <table width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td align="left" style="vertical-align:middle;">
                     <table cellspacing="0" cellpadding="0" border="0">
                       <tr>
                         <td style="vertical-align:middle; padding-right:12px;">
-                          <!-- Calendar Icon in Brand Blue -->
-                          <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg, #1a73e8 0%, #1557b0 100%); text-align:center; line-height:42px; box-shadow:0 4px 10px rgba(26,115,232,0.25);">
-                            <span style="color:#ffffff; font-size:22px; line-height:42px; display:inline-block;">📅</span>
+                          <!-- Calendar Icon in Terracotta -->
+                          <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg, #7A4536 0%, #5E3226 100%); text-align:center; line-height:42px; box-shadow:0 4px 12px rgba(122,69,54,0.25);">
+                            <span style="color:#ffffff; font-size:20px; line-height:42px; display:inline-block;">📅</span>
                           </div>
                         </td>
                         <td style="vertical-align:middle;">
-                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:18px; font-weight:800; letter-spacing:0.3px; color:#0f172a; line-height:1.2;">
-                            KAIRÓS <span style="color:#1a73e8; font-weight:700;">AGENDA</span>
+                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:18px; font-weight:800; letter-spacing:0.4px; color:#3D251D; line-height:1.2;">
+                            KAIRÓS <span style="color:#7A4536; font-weight:700;">AGENDA</span>
                           </div>
-                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:11px; font-weight:600; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:11px; font-weight:600; color:#8C776E; letter-spacing:0.6px; text-transform:uppercase;">
                             Kairós Motores
                           </div>
                         </td>
@@ -142,19 +142,19 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
           <!-- Main Content Body -->
           <tr>
             <td style="background-color:#ffffff; padding:32px 36px;">
-              <h1 style="margin:0 0 16px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:21px; font-weight:700; color:#0f172a; line-height:1.35; letter-spacing:-0.2px;">
+              <h1 style="margin:0 0 16px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:21px; font-weight:700; color:#2D1E18; line-height:1.35; letter-spacing:-0.2px;">
                 ${titulo}
               </h1>
 
-              <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.65; color:#334155; margin-bottom:24px;">
+              <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.65; color:#4A3A32; margin-bottom:24px;">
                 ${mensagem}
               </div>
 
               ${detalhes.trecho ? `
               <!-- Excerpt / Quote Box -->
-              <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid ${config.primary}; border-radius:12px; padding:16px 20px; margin-bottom:24px;">
-                <div style="font-family:'Poppins', -apple-system, sans-serif; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; margin-bottom:6px;">Conteúdo mencionado:</div>
-                <div style="font-family:'Poppins', -apple-system, sans-serif; font-style:italic; color:#1e293b; font-size:14px; line-height:1.6;">
+              <div style="background-color:#FAF7F2; border:1px solid #EAE3D9; border-left:4px solid ${config.primary}; border-radius:12px; padding:16px 20px; margin-bottom:24px;">
+                <div style="font-family:'Poppins', -apple-system, sans-serif; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#8C776E; margin-bottom:6px;">Conteúdo mencionado:</div>
+                <div style="font-family:'Poppins', -apple-system, sans-serif; font-style:italic; color:#2D1E18; font-size:14px; line-height:1.6;">
                   "${detalhes.trecho}"
                 </div>
               </div>
@@ -162,18 +162,18 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 
               ${linhasDetalhes.length > 0 ? `
               <!-- Details Summary Table -->
-              <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:18px 22px; margin-bottom:28px;">
+              <div style="background-color:#FAF7F2; border:1px solid #EAE3D9; border-radius:14px; padding:18px 22px; margin-bottom:28px;">
                 <table width="100%" cellspacing="0" cellpadding="0" border="0" style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                   ${linhasDetalhes.join('')}
                 </table>
               </div>
               ` : ''}
 
-              <!-- Primary Call to Action Button -->
+              <!-- Primary Call to Action Button in Official Terracotta -->
               <table width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td align="center" style="padding:10px 0 6px 0;">
-                    <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="background:linear-gradient(135deg, #1a73e8 0%, #1557b0 100%); color:#ffffff !important; text-decoration:none !important; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; font-weight:600; padding:14px 34px; border-radius:50px; display:inline-block; box-shadow:0 4px 14px rgba(26,115,232,0.35); letter-spacing:0.2px;">
+                    <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="background:linear-gradient(135deg, #7A4536 0%, #5E3226 100%); color:#ffffff !important; text-decoration:none !important; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; font-weight:600; padding:14px 36px; border-radius:50px; display:inline-block; box-shadow:0 4px 16px rgba(122,69,54,0.3); letter-spacing:0.2px;">
                       Abrir no Kairós Agenda →
                     </a>
                   </td>
@@ -184,12 +184,12 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc; padding:24px 36px; border-top:1px solid #e2e8f0; text-align:center;">
-              <p style="margin:0 0 6px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#64748b; line-height:1.5;">
+            <td style="background-color:#FAF7F2; padding:24px 36px; border-top:1px solid #EAE3D9; text-align:center;">
+              <p style="margin:0 0 6px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#8C776E; line-height:1.5;">
                 Esta é uma notificação automática gerada pela <strong>Kairós Agenda</strong>.
               </p>
-              <p style="margin:0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#94a3b8; line-height:1.5;">
-                ${dataHoje} • <strong>Kairós Motores</strong> • <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="color:#1a73e8; text-decoration:none; font-weight:600;">kairosagenda.vercel.app</a>
+              <p style="margin:0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#A8948B; line-height:1.5;">
+                ${dataHoje} • <strong>Kairós Motores</strong> • <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="color:#7A4536; text-decoration:none; font-weight:600;">kairosagenda.vercel.app</a>
               </p>
             </td>
           </tr>
@@ -203,6 +203,14 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
   }

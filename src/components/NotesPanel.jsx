@@ -640,10 +640,10 @@ export const NotesPanel = ({
 
     // Notifica mencões com @usuario adicionadas nesta nota
     const textoCompletoNovo = `${notaAberta.cr4a1_titulo || ''}\n${(notaAberta.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}`;
-    const notaOriginal = notas.find(n => n.cr4a1_notas_kairosid === notaAberta.cr4a1_notas_kairosid);
-    const textoCompletoAntigo = notaOriginal ? `${notaOriginal.cr4a1_titulo || ''}\n${(notaOriginal.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}` : '';
+    const notaOriginal = notas.find(n => n.cr4a1_notas_kairosid === notaAberta.cr4a1_notas_kairosid || n.cr4a1_id_da_nota === notaAberta.cr4a1_notas_kairosid);
+    const textoCompletoAntigo = (notaOriginal && !notaAberta.isNew) ? `${notaOriginal.cr4a1_titulo || ''}\n${(notaOriginal.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}` : '';
 
-    notificarMencoes({
+    await notificarMencoes({
       textoNovo: textoCompletoNovo,
       textoAntigo: textoCompletoAntigo,
       origem: 'Nota',
