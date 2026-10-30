@@ -1,15 +1,26 @@
 import axios from 'axios';
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-dataverse-filter');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   const {
     DATAVERSE_TENANT_ID, DATAVERSE_CLIENT_ID,
     DATAVERSE_CLIENT_SECRET, DATAVERSE_ENV_URL
   } = process.env;
 
   const { table, id } = req.query;
-  
+
   // CORREÇÃO: Tenta pegar o filtro do Header OU do parâmetro '$filter' na URL
   const filter = req.headers['x-dataverse-filter'] || req.query['$filter'];
+  const select = req.query['$select'];
+  const top = req.query['$top'];
+  const orderby = req.query['$orderby'];
 
   try {
     const tokenRes = await axios.post(
@@ -42,9 +53,13 @@ export default async function handler(req, res) {
       data: req.method === 'DELETE' ? null : req.body
     };
 
-    // Aplica o filtro se ele existir e não for uma busca por ID específico
-    if (filter && !id) {
-      axiosConfig.params = { '$filter': filter };
+    const params = {};
+    if (filter && !id) params['$filter'] = filter;
+    if (select) params['$select'] = select;
+    if (top) params['$top'] = top;
+    if (orderby) params['$orderby'] = orderby;
+    if (Object.keys(params).length > 0) {
+      axiosConfig.params = params;
     }
 
     const dataverseRes = await axios(axiosConfig);

@@ -2,10 +2,11 @@ import { toast } from 'react-hot-toast';
 import { htmlParaTexto } from './descricaoTarefas';
 
 const API_MAIL = '/api/mail-send';
+const API_PROXY = '/api/dataverse-proxy';
 const NOTIFICACOES_STORAGE_KEY = 'kairos_notificacoes_recentes';
 
 /**
- * Resolve o usuário e seu e-mail configurado no perfil ou em cr4a1_credenciaises/localStorage.
+ * Resolve o usuário e seu e-mail cadastrado na tabela de credenciais (cr4a1_credenciaises).
  */
 export const resolverInfoDestinatario = (destinatario, allUsers = []) => {
   if (!destinatario) return { username: '', nomeExibicao: '', email: '' };
@@ -13,19 +14,20 @@ export const resolverInfoDestinatario = (destinatario, allUsers = []) => {
   const limpoLower = limpo.toLowerCase();
 
   // 1. Busca exata por username
-  let userObj = allUsers.find(u => (u.cr4a1_username || '').toLowerCase() === limpoLower);
+  let userObj = allUsers.find(u => (u.cr4a1_username || '').trim().toLowerCase() === limpoLower);
 
-  // 2. Busca por e-mail já associado
+  // 2. Busca por e-mail já associado na tabela de credenciais
   if (!userObj) {
-    userObj = allUsers.find(u => (u.cr4a1_email || u.email || '').toLowerCase() === limpoLower);
+    userObj = allUsers.find(u => (u.cr4a1_email || u.email || '').trim().toLowerCase() === limpoLower);
   }
 
-  // 3. Busca por nome de exibição (ex: Douglas Nou ou Douglas)
+  // 3. Busca por nome de exibição (priorizando quem possui e-mail cadastrado em cr4a1_credenciaises)
   if (!userObj) {
-    userObj = allUsers.find(u => {
-      const nome = (u.cr4a1_nome_exibicao || '').toLowerCase();
+    const candidatos = allUsers.filter(u => {
+      const nome = (u.cr4a1_nome_exibicao || '').trim().toLowerCase();
       return nome === limpoLower || nome.startsWith(limpoLower) || nome.split(' ')[0] === limpoLower;
     });
+    userObj = candidatos.find(u => u.cr4a1_email || u.email) || candidatos[0];
   }
 
   // 4. Busca por prefixo de e-mail (ex: douglas.nou)
@@ -39,31 +41,16 @@ export const resolverInfoDestinatario = (destinatario, allUsers = []) => {
   const username = userObj?.cr4a1_username || limpo;
   const nomeExibicao = userObj?.cr4a1_nome_exibicao || username;
 
-  let email = userObj?.cr4a1_email || userObj?.email;
+  let email = (userObj?.cr4a1_email || userObj?.email || '').trim();
   if (!email) {
     try {
       const cached = JSON.parse(localStorage.getItem('kairos_user_emails') || '{}');
-      email = cached[username.toLowerCase()] || cached[limpoLower];
+      email = (cached[username.toLowerCase()] || cached[limpoLower] || '').trim();
     } catch (e) { void e; }
   }
 
-  if (!email) {
-    const logged = (typeof window !== 'undefined' ? localStorage.getItem('kairos_logged_user') : '') || '';
-    if (logged && logged.toLowerCase() === username.toLowerCase()) {
-      try {
-        const profileEmail = localStorage.getItem('kairos_user_profile_email');
-        if (profileEmail) email = profileEmail;
-      } catch (e) { void e; }
-    }
-  }
-
-  // Fallback conhecido para a conta de teste do Douglas
-  if (!email && (username.toLowerCase() === 'douglas' || limpoLower === 'douglas' || username.toLowerCase().includes('douglas'))) {
-    email = 'dodonou3@gmail.com';
-  }
-
-  if (!email) {
-    email = limpo.includes('@') ? limpo : `${username}@kairosmotores.com`;
+  if (!email && limpo.includes('@')) {
+    email = limpo;
   }
 
   return {
@@ -71,6 +58,60 @@ export const resolverInfoDestinatario = (destinatario, allUsers = []) => {
     nomeExibicao,
     email
   };
+};
+
+/**
+ * Consulta diretamente a tabela cr4a1_credenciaises caso o e-mail ainda não esteja carregado em memória.
+ */
+export const resolverInfoDestinatarioCredenciais = async (destinatario, allUsers = []) => {
+  const info = resolverInfoDestinatario(destinatario, allUsers);
+  if (info.email) return info;
+
+  const loginAlvo = (info.username || destinatario || '').trim().replace(/^@/, '').toLowerCase();
+  if (!loginAlvo) return info;
+
+  try {
+    const query = `table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title`;
+    let res = await fetch(`${API_PROXY}?${query}`).catch(() => null);
+    if (!res || !res.ok) {
+      res = await fetch(`https://kairosagenda.vercel.app/api/dataverse-proxy?${query}`).catch(() => null);
+    }
+
+    if (res && res.ok) {
+      const data = await res.json();
+      const lista = Array.isArray(data.value) ? data.value : [];
+
+      const cached = {};
+      try {
+        Object.assign(cached, JSON.parse(localStorage.getItem('kairos_user_emails') || '{}'));
+      } catch (e) { void e; }
+
+      let encontrado = null;
+      for (const item of lista) {
+        const u = (item.cr4a1_usu_x00e1_rio || '').trim().toLowerCase();
+        const em = (item.cr4a1_email || '').trim();
+        const t = (item.cr4a1_title || '').trim();
+        if (u && em) {
+          cached[u] = em;
+        }
+        if (u === loginAlvo && (!encontrado || (!encontrado.email && em))) {
+          encontrado = { username: item.cr4a1_usu_x00e1_rio.trim(), nomeExibicao: t || info.nomeExibicao, email: em };
+        }
+      }
+
+      try {
+        localStorage.setItem('kairos_user_emails', JSON.stringify(cached));
+      } catch (e) { void e; }
+
+      if (encontrado && encontrado.email) {
+        return encontrado;
+      }
+    }
+  } catch (err) {
+    console.warn('[resolverInfoDestinatarioCredenciais] Erro ao consultar cr4a1_credenciaises:', err?.message);
+  }
+
+  return info;
 };
 
 /**
@@ -213,9 +254,8 @@ export const notificarMencoes = async ({
   const autorNome = autorInfo.nomeExibicao || autor || currentUser || 'Kairós Agenda';
 
   for (const dest of destinatarios) {
-    const info = resolverInfoDestinatario(dest, allUsers);
+    const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
     const trecho = extrairTrechoMencao(textoNovo, dest);
-    const titulo = `${autorNome} mencionou você em ${origem}: "${itemTitulo}"`;
     const mensagem = `Você foi mencionado por <strong>${autorNome}</strong> em <strong>${itemTitulo}</strong> (${origem}).`;
 
     // 1. Salva para o sininho/app
@@ -228,9 +268,15 @@ export const notificarMencoes = async ({
       origem
     });
 
-    // 2. Dispara envio de e-mail com retorno visual imediato
+    if (!info.email) {
+      toast.error(`O usuário @${info.username} não possui e-mail cadastrado na tabela de credenciais.`, { duration: 5000 });
+      continue;
+    }
+
+    // 2. Dispara envio de e-mail para o endereço cadastrado em cr4a1_credenciaises
     try {
       const resEmail = await enviarAlertaEmail({
+        usuarios: [info.username],
         destinatarios: [info.email],
         tipo: 'mencao',
         titulo: `Você foi mencionado em ${origem}: "${itemTitulo}"`,
@@ -249,7 +295,8 @@ export const notificarMencoes = async ({
         console.error('[notificarMencoes] Falha ao enviar e-mail:', resEmail.error);
         toast.error(`Aviso: falha ao enviar e-mail para ${info.email} (${resEmail.error})`, { duration: 5000 });
       } else {
-        toast.success(`Menção enviada por e-mail para @${info.username} (${info.email})`, { duration: 4500 });
+        const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
+        toast.success(`Menção enviada por e-mail para @${info.username} (${emailEnviado})`, { duration: 4500 });
       }
     } catch (err) {
       console.error('[notificarMencoes] Erro inesperado:', err);
@@ -269,16 +316,28 @@ export const notificarEventoProximo = async ({
   if (!event || !event.cr4a1_user_login) return;
   const destList = event.cr4a1_user_login.split(',').map(s => s.trim()).filter(Boolean);
 
-  const titulo = `Evento em ${diffMin === 0 ? 'instantes' : `${diffMin} minutos`}: "${event.cr4a1_titulo}"`;
   const mensagem = diffMin === 0
     ? `O seu evento <strong>"${event.cr4a1_titulo}"</strong> está começando agora!`
     : `O seu evento <strong>"${event.cr4a1_titulo}"</strong> começará em aproximadamente ${diffMin} minutos.`;
 
   for (const dest of destList) {
-    const info = resolverInfoDestinatario(dest, allUsers);
+    const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
 
-    // 1. Envia por E-mail
-    enviarAlertaEmail({
+    // 1. Salva para o sininho/app
+    salvarNotificacaoNoApp({
+      destinatario: info.username,
+      tipo: 'evento_proximo',
+      titulo: 'Lembrete de Evento',
+      mensagem: `O evento "${event.cr4a1_titulo}" está agendado para ${diffMin === 0 ? 'agora' : `daqui a ${diffMin} min`}.`,
+      itemTitulo: event.cr4a1_titulo,
+      origem: 'Agenda'
+    });
+
+    if (!info.email) continue;
+
+    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    await enviarAlertaEmail({
+      usuarios: [info.username],
       destinatarios: [info.email],
       tipo: 'evento_proximo',
       titulo: `Lembrete: "${event.cr4a1_titulo}" em ${diffMin} minutos`,
@@ -289,16 +348,6 @@ export const notificarEventoProximo = async ({
         itemTitulo: event.cr4a1_titulo,
         dataHora: `${event.cr4a1_hora_inicio || 'Horário marcado'} (${diffMin} min restantes)`
       }
-    });
-
-    // 2. Salva para o sininho/app
-    salvarNotificacaoNoApp({
-      destinatario: info.username,
-      tipo: 'evento_proximo',
-      titulo: 'Lembrete de Evento',
-      mensagem: `O evento "${event.cr4a1_titulo}" está agendado para ${diffMin === 0 ? 'agora' : `daqui a ${diffMin} min`}.`,
-      itemTitulo: event.cr4a1_titulo,
-      origem: 'Agenda'
     });
   }
 };
@@ -328,10 +377,23 @@ export const notificarCompartilhamento = async ({
   const mensagem = `<strong>${autorNome}</strong> compartilhou <strong>"${itemTitulo}"</strong> (${tipoItem}) com você no Kairós Agenda.`;
 
   for (const dest of listaAlvos) {
-    const info = resolverInfoDestinatario(dest, allUsers);
+    const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
 
-    // 1. Envia por E-mail
-    enviarAlertaEmail({
+    // 1. Salva para o sininho/app
+    salvarNotificacaoNoApp({
+      destinatario: info.username,
+      tipo: 'compartilhamento',
+      titulo: `${tipoItem} Compartilhada`,
+      mensagem: `${autorNome} compartilhou "${itemTitulo}" com você.`,
+      itemTitulo,
+      origem: tipoItem
+    });
+
+    if (!info.email) continue;
+
+    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    const resEmail = await enviarAlertaEmail({
+      usuarios: [info.username],
       destinatarios: [info.email],
       tipo: 'compartilhamento',
       titulo,
@@ -344,17 +406,8 @@ export const notificarCompartilhamento = async ({
       }
     });
 
-    // 2. Salva para o sininho/app
-    salvarNotificacaoNoApp({
-      destinatario: info.username,
-      tipo: 'compartilhamento',
-      titulo: `${tipoItem} Compartilhada`,
-      mensagem: `${autorNome} compartilhou "${itemTitulo}" com você.`,
-      itemTitulo,
-      origem: tipoItem
-    });
-
-    toast.success(`Compartilhamento notificado por e-mail para ${info.nomeExibicao} (${info.email})`, { duration: 3500 });
+    const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
+    toast.success(`Compartilhamento notificado por e-mail para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
   }
 };
 
@@ -382,10 +435,23 @@ export const notificarCoGerencia = async ({
   const mensagem = `<strong>${autorNome}</strong> adicionou você como co-gerente da lista <strong>"${listaNome}"</strong> no workspace <strong>"${workspaceNome}"</strong>. Você agora possui permissões totais de gerenciamento sobre esta lista.`;
 
   for (const dest of listaAlvos) {
-    const info = resolverInfoDestinatario(dest, allUsers);
+    const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
 
-    // 1. Envia por E-mail
-    enviarAlertaEmail({
+    // 1. Salva para o sininho/app
+    salvarNotificacaoNoApp({
+      destinatario: info.username,
+      tipo: 'cogerente',
+      titulo: 'Novo Co-Gerente',
+      mensagem: `Você agora é co-gerente da lista "${listaNome}".`,
+      itemTitulo: listaNome,
+      origem: 'Trello'
+    });
+
+    if (!info.email) continue;
+
+    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    const resEmail = await enviarAlertaEmail({
+      usuarios: [info.username],
       destinatarios: [info.email],
       tipo: 'cogerente',
       titulo,
@@ -398,16 +464,7 @@ export const notificarCoGerencia = async ({
       }
     });
 
-    // 2. Salva para o sininho/app
-    salvarNotificacaoNoApp({
-      destinatario: info.username,
-      tipo: 'cogerente',
-      titulo: 'Novo Co-Gerente',
-      mensagem: `Você agora é co-gerente da lista "${listaNome}".`,
-      itemTitulo: listaNome,
-      origem: 'Trello'
-    });
-
-    toast.success(`Co-gerência notificada por e-mail para ${info.nomeExibicao} (${info.email})`, { duration: 3500 });
+    const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
+    toast.success(`Co-gerência notificada por e-mail para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
   }
 };

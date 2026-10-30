@@ -1,5 +1,6 @@
 /* global process */
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 
 // URL oficial da Kairós Agenda (sem hífen)
 const APP_URL = 'https://kairosagenda.vercel.app';
@@ -13,6 +14,57 @@ const getEnv = (key, fallback = '') => {
   }
   return val;
 };
+
+/**
+ * Busca registros da tabela cr4a1_credenciaises no Dataverse para resolver o cr4a1_email oficial do usuário.
+ */
+async function carregarCredenciaisDataverse() {
+  const tenantId = getEnv('DATAVERSE_TENANT_ID');
+  const clientId = getEnv('DATAVERSE_CLIENT_ID');
+  const clientSecret = getEnv('DATAVERSE_CLIENT_SECRET');
+  const envUrl = getEnv('DATAVERSE_ENV_URL');
+
+  if (tenantId && clientId && clientSecret && envUrl) {
+    try {
+      const tokenRes = await axios.post(
+        `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+        new URLSearchParams({
+          client_id: clientId,
+          scope: `${envUrl}/.default`,
+          client_secret: clientSecret,
+          grant_type: 'client_credentials',
+        })
+      );
+      const accessToken = tokenRes.data.access_token;
+      const res = await axios.get(
+        `${envUrl}/api/data/v9.2/cr4a1_credenciaises?$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'OData-MaxVersion': '4.0',
+            'OData-Version': '4.0'
+          }
+        }
+      );
+      if (Array.isArray(res.data?.value)) {
+        return res.data.value;
+      }
+    } catch (err) {
+      console.warn('[mail-send] Falha ao consultar Dataverse direto, tentando via proxy:', err.message);
+    }
+  }
+
+  try {
+    const proxyRes = await axios.get(`${APP_URL}/api/dataverse-proxy?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title`);
+    if (Array.isArray(proxyRes.data?.value)) {
+      return proxyRes.data.value;
+    }
+  } catch (err) {
+    console.warn('[mail-send] Falha ao consultar proxy de credenciais:', err.message);
+  }
+
+  return [];
+}
 
 // Builds a clean, branded HTML email template matching Kairós Agenda visual identity
 function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
@@ -217,6 +269,7 @@ export default async function handler(req, res) {
 
   const {
     destinatarios = [],
+    usuarios = [],
     tipo = 'padrao',
     titulo = 'Notificação da Kairós Agenda',
     mensagem = '',
@@ -224,7 +277,12 @@ export default async function handler(req, res) {
     detalhes = {}
   } = req.body || {};
 
-  if (!destinatarios || (Array.isArray(destinatarios) && destinatarios.length === 0)) {
+  const entradasBrutas = [
+    ...(Array.isArray(usuarios) ? usuarios : [usuarios]),
+    ...(Array.isArray(destinatarios) ? destinatarios : [destinatarios])
+  ].filter(Boolean);
+
+  if (entradasBrutas.length === 0) {
     return res.status(400).json({ error: 'Nenhum destinatário informado.' });
   }
 
@@ -239,21 +297,50 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Configurações de e-mail não definidas no servidor.' });
   }
 
-  const defaultDomain = user.includes('@') ? user.split('@')[1] : 'kairosmotores.com';
+  // Consulta a tabela cr4a1_credenciaises para resolver o cr4a1_email oficial cadastrado
+  const credenciais = await carregarCredenciaisDataverse();
+  const mapaPorUsuario = new Map();
+  const mapaPorNome = new Map();
 
-  // Format array of recipients, adding default domain if missing
-  const listaDestinatarios = (Array.isArray(destinatarios) ? destinatarios : [destinatarios])
-    .filter(Boolean)
-    .map(dest => {
-      const limpo = String(dest).trim().replace(/^@/, '');
-      if (limpo.includes('@')) return limpo;
-      return `${limpo}@${defaultDomain}`;
-    });
+  credenciais.forEach(c => {
+    const emailCad = (c.cr4a1_email || '').trim();
+    if (!emailCad) return;
+    if (c.cr4a1_usu_x00e1_rio) {
+      mapaPorUsuario.set(c.cr4a1_usu_x00e1_rio.trim().toLowerCase(), emailCad);
+    }
+    if (c.cr4a1_title) {
+      mapaPorNome.set(c.cr4a1_title.trim().toLowerCase(), emailCad);
+    }
+  });
+
+  const listaDestinatarios = [];
+  for (const item of entradasBrutas) {
+    const limpo = String(item).trim().replace(/^@/, '');
+    const limpoLower = limpo.toLowerCase();
+    if (!limpo) continue;
+
+    // 1. Verifica na tabela cr4a1_credenciaises por login (cr4a1_usu_x00e1_rio) ou nome (cr4a1_title)
+    if (mapaPorUsuario.has(limpoLower)) {
+      listaDestinatarios.push(mapaPorUsuario.get(limpoLower));
+      continue;
+    }
+    if (mapaPorNome.has(limpoLower)) {
+      listaDestinatarios.push(mapaPorNome.get(limpoLower));
+      continue;
+    }
+
+    // 2. Se já for um e-mail completo (ex: vindo de cr4a1_credenciaises no frontend)
+    if (limpo.includes('@')) {
+      listaDestinatarios.push(limpo);
+    }
+  }
 
   const emailsUnicos = [...new Set(listaDestinatarios)];
 
   if (emailsUnicos.length === 0) {
-    return res.status(400).json({ error: 'Nenhum endereço de e-mail válido gerado.' });
+    return res.status(400).json({
+      error: 'O usuário mencionado não possui e-mail cadastrado na tabela de credenciais (cr4a1_credenciaises).'
+    });
   }
 
   try {

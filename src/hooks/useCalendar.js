@@ -390,32 +390,45 @@ export const useCalendar = () => {
         try {
             const [resUsers, resCreds] = await Promise.all([
                 fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`),
-                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_credenciaisid`).catch(() => null)
+                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title,cr4a1_credenciaisid`).catch(() => null)
             ]);
             const dataUsers = await resUsers.json();
             const dataCreds = resCreds && resCreds.ok ? await resCreds.json() : { value: [] };
 
             const credsMap = new Map();
+            const credEmailsCache = {};
             (dataCreds.value || []).forEach(c => {
                 if (c.cr4a1_usu_x00e1_rio) {
-                    credsMap.set(c.cr4a1_usu_x00e1_rio.toLowerCase(), {
-                        email: c.cr4a1_email || '',
-                        credenciaisId: c.cr4a1_credenciaisid
-                    });
+                    const key = c.cr4a1_usu_x00e1_rio.trim().toLowerCase();
+                    const existing = credsMap.get(key);
+                    const emailLimpo = (c.cr4a1_email || '').trim();
+                    if (!existing || (!existing.email && emailLimpo)) {
+                        credsMap.set(key, {
+                            email: emailLimpo,
+                            title: (c.cr4a1_title || '').trim(),
+                            credenciaisId: c.cr4a1_credenciaisid
+                        });
+                    }
+                    if (emailLimpo) {
+                        credEmailsCache[key] = emailLimpo;
+                    }
                 }
             });
 
-            let cachedEmails = {};
             try {
-                cachedEmails = JSON.parse(localStorage.getItem('kairos_user_emails') || '{}');
+                if (Object.keys(credEmailsCache).length > 0) {
+                    localStorage.setItem('kairos_user_emails', JSON.stringify(credEmailsCache));
+                }
             } catch (e) { void e; }
 
             const merged = (dataUsers.value || []).map(u => {
-                const uname = (u.cr4a1_username || '').toLowerCase();
+                const uname = (u.cr4a1_username || '').trim().toLowerCase();
                 const cred = credsMap.get(uname);
-                const email = cred?.email || cachedEmails[uname] || u.cr4a1_email || '';
+                // Prioriza estritamente o e-mail cadastrado na tabela de credenciais (cr4a1_credenciaises)
+                const email = cred?.email || (u.cr4a1_email || '').trim() || '';
                 return {
                     ...u,
+                    cr4a1_nome_exibicao: u.cr4a1_nome_exibicao || cred?.title || u.cr4a1_username,
                     cr4a1_email: email,
                     email: email,
                     cr4a1_credenciaisid: cred?.credenciaisId || u.cr4a1_credenciaisid
