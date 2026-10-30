@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellRing, Play, Pause, Clock, Flag, ExternalLink, DollarSign, Kanban, Table2, CalendarRange, BarChart3, Sparkles, ArrowRightLeft } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -38,10 +38,33 @@ import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlPara
 import { compressImage } from '../utils/compressImage';
 import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
-import { parseComentarios, criarComentario } from '../utils/comentarios';
-import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
+import { parseComentarios, criarComentario, EMOJIS_REACAO_COMENTARIO, alternarReacaoComentario } from '../utils/comentarios';
+import {
+  parseAtividades,
+  registrarAtividade,
+  descricaoAtividade,
+  parseFichaMeta,
+  atualizarFichaMeta,
+  PRIORIDADES_FICHA,
+  STATUS_APROVACAO_FICHA,
+  calcularTempoTotalMin,
+  formatarDuracaoMin
+} from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
-import { parseAutomacoes, parseListaGerentes, aplicarAutomacoes, regrasPara, estadoDataAtual, TIPOS_AUTOMACAO, GATILHOS_AUTOMACAO, descricaoAutomacao, ehFichaArquivada } from '../utils/automacoes';
+import {
+  parseAutomacoes,
+  parseListaGerentes,
+  parseListaCor,
+  serializarConfigLista,
+  aplicarAutomacoes,
+  regrasPara,
+  estadoDataAtual,
+  TIPOS_AUTOMACAO,
+  GATILHOS_AUTOMACAO,
+  descricaoAutomacao,
+  ehFichaArquivada
+} from '../utils/automacoes';
+import { TrelloTabelaView, TrelloCronogramaView, TrelloPainelView } from './TrelloViews';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -241,6 +264,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [minhasFichas, setMinhasFichas] = useState([]);
   const [minhasFichasCarregando, setMinhasFichasCarregando] = useState(false);
   const [arquivadasAberto, setArquivadasAberto] = useState(false);
+  const [modoVisao, setModoVisao] = useState('kanban');
+  const [listaMoverFichas, setListaMoverFichas] = useState(null);
   const [modelosAberto, setModelosAberto] = useState(false);
   const [modelos, setModelos] = useState([]);
   const [listaAutomacao, setListaAutomacao] = useState(null);
@@ -659,8 +684,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
   const salvarAutomacoes = async (lista, automacoes) => {
     try {
-      const gerentesAtuais = parseListaGerentes(lista.cr4a1_automacao);
-      const novoConteudo = JSON.stringify({ automacoes, gerentes: gerentesAtuais });
+      const novoConteudo = serializarConfigLista(lista.cr4a1_automacao, { automacoes });
       await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
       recarregar();
     } catch { toast.error('Erro ao salvar automações.'); }
@@ -680,14 +704,96 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           allUsers
         });
       }
-      const automacoesAtuais = parseAutomacoes(lista.cr4a1_automacao);
-      const novoConteudo = JSON.stringify({ automacoes: automacoesAtuais, gerentes });
+      const novoConteudo = serializarConfigLista(lista.cr4a1_automacao, { gerentes });
       await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
       setListaGerentes(null);
       recarregar();
       toast.success('Gerentes da lista atualizados!');
     } catch {
       toast.error('Erro ao salvar gerentes da lista.');
+    }
+  };
+
+  const definirCorLista = async (lista, corHex) => {
+    try {
+      const novoConteudo = serializarConfigLista(lista.cr4a1_automacao, { cor: corHex || '' });
+      setListas(prev => prev.map(l => l.cr4a1_listaid === lista.cr4a1_listaid ? { ...l, cr4a1_automacao: novoConteudo } : l));
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
+    } catch {
+      toast.error('Erro ao atualizar cor da lista.');
+    }
+  };
+
+  // Clona uma lista inteira com todas as suas fichas ativas
+  const clonarListaInteira = async (lista) => {
+    const fichasParaClonar = fichasAtivas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+    try {
+      const resLista = await post('cr4a1_listas', {
+        cr4a1_nome: `${lista.cr4a1_nome} (Cópia)`,
+        cr4a1_workspace_id: workspaceId,
+        cr4a1_ordem: listas.length,
+        cr4a1_criador_login: user,
+        cr4a1_pessoal: lista.cr4a1_pessoal || 'Não',
+        cr4a1_automacao: lista.cr4a1_automacao || ''
+      });
+      const novaListaCriada = await resLista.json();
+      const novoListaId = novaListaCriada.cr4a1_listaid;
+
+      for (let i = 0; i < fichasParaClonar.length; i += 1) {
+        const f = fichasParaClonar[i];
+        await post('cr4a1_fichas', {
+          cr4a1_titulo: f.cr4a1_titulo,
+          cr4a1_descricao: f.cr4a1_descricao || '',
+          cr4a1_lista_id: novoListaId,
+          cr4a1_workspace_id: workspaceId,
+          cr4a1_responsavel_login: f.cr4a1_responsavel_login || user,
+          cr4a1_criador_login: user,
+          cr4a1_ordem: i,
+          cr4a1_data_inicio: f.cr4a1_data_inicio || null,
+          cr4a1_concluida: f.cr4a1_concluida || 'Não',
+          cr4a1_notificado: 'Sim',
+          cr4a1_etiquetas: f.cr4a1_etiquetas || '',
+          cr4a1_arquivos: f.cr4a1_arquivos || '[]',
+          cr4a1_cor: f.cr4a1_cor || '',
+          cr4a1_stickers: f.cr4a1_stickers || '',
+          cr4a1_recorrencia: f.cr4a1_recorrencia || '',
+          cr4a1_fixada: f.cr4a1_fixada === 'Sim' ? 'Sim' : 'Não',
+          cr4a1_atividades: registrarAtividade(f.cr4a1_atividades, 'duplicada', user, `clonada da lista ${lista.cr4a1_nome}`)
+        });
+      }
+      recarregar();
+      toast.success(`Lista "${lista.cr4a1_nome}" clonada com ${fichasParaClonar.length} ficha(s)!`);
+    } catch {
+      toast.error('Erro ao clonar lista.');
+    }
+  };
+
+  // Move todas as fichas ativas de uma lista para outra lista de destino
+  const moverTodasFichasDeLista = async (listaOrigem, listaDestinoId) => {
+    if (!listaOrigem || !listaDestinoId || listaOrigem.cr4a1_listaid === listaDestinoId) return;
+    const daOrigem = fichasAtivas.filter(f => f.cr4a1_lista_id === listaOrigem.cr4a1_listaid);
+    const destinoObj = listas.find(l => l.cr4a1_listaid === listaDestinoId);
+    if (daOrigem.length === 0) {
+      toast('Não há fichas nesta lista para mover.');
+      setListaMoverFichas(null);
+      return;
+    }
+    try {
+      let ordemBase = fichasAtivas.filter(f => f.cr4a1_lista_id === listaDestinoId).length;
+      for (const f of daOrigem) {
+        const atividades = registrarAtividade(f.cr4a1_atividades, 'movida', user, destinoObj?.cr4a1_nome || '');
+        await patch('cr4a1_fichas', f.cr4a1_fichaid, {
+          cr4a1_lista_id: listaDestinoId,
+          cr4a1_ordem: ordemBase,
+          cr4a1_atividades: atividades
+        });
+        ordemBase += 1;
+      }
+      setListaMoverFichas(null);
+      recarregar();
+      toast.success(`${daOrigem.length} ficha(s) movida(s) para "${destinoObj?.cr4a1_nome || 'lista de destino'}"!`);
+    } catch {
+      toast.error('Erro ao mover fichas entre listas.');
     }
   };
 
@@ -893,6 +999,240 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     } catch { toast.error('Erro ao criar a próxima ocorrência recorrente.'); }
   };
 
+  // Notifica os observadores ("Seguindo ficha") e co-responsáveis sobre atualizações na ficha
+  const notificarObservadoresECoResponsaveis = async (fichaAtual, descricaoAcao) => {
+    const meta = parseFichaMeta(fichaAtual.cr4a1_atividades);
+    const alvos = [...new Set([...(meta.observadores || []), ...(meta.coResponsaveis || [])])]
+      .map(l => String(l).trim().toLowerCase())
+      .filter(l => l && l !== (user || '').toLowerCase());
+    if (alvos.length === 0) return;
+
+    const wsNome = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '';
+    const listaNome = listas.find(l => l.cr4a1_listaid === fichaAtual.cr4a1_lista_id)?.cr4a1_nome || '';
+    const autorNome = nomeDe(user, allUsers);
+
+    for (const login of alvos) {
+      const info = await resolverInfoDestinatarioCredenciais(login, allUsers);
+      const pushTitle = `🔔 Ficha atualizada: ${fichaAtual.cr4a1_titulo}`;
+      const pushBody = `${autorNome} ${descricaoAcao} na ficha "${fichaAtual.cr4a1_titulo}".`;
+      const pushTag = `watch-${fichaAtual.cr4a1_fichaid}-${Date.now()}`;
+
+      salvarNotificacaoNoApp({
+        destinatario: info.username,
+        tipo: 'compartilhamento',
+        titulo: `Atualização em Ficha Seguida`,
+        mensagem: pushBody,
+        itemTitulo: fichaAtual.cr4a1_titulo,
+        origem: 'Trello'
+      });
+
+      enviarAlertaPush({
+        usuarios: [info.username],
+        title: pushTitle,
+        body: pushBody,
+        url: '/',
+        tag: pushTag
+      });
+
+      if (info.email) {
+        enviarAlertaEmail({
+          usuarios: [info.username],
+          destinatarios: [info.email],
+          tipo: 'compartilhamento',
+          titulo: `🔔 Atualização na ficha "${fichaAtual.cr4a1_titulo}"`,
+          mensagem: `<strong>${autorNome}</strong> ${descricaoAcao} na ficha <strong>"${fichaAtual.cr4a1_titulo}"</strong> que você acompanha.`,
+          autor: autorNome,
+          detalhes: {
+            origem: 'Ficha Seguida / Co-responsável (Trello)',
+            itemTitulo: fichaAtual.cr4a1_titulo,
+            workspace: wsNome,
+            lista: listaNome
+          }
+        });
+      }
+    }
+  };
+
+  // Duplica uma ficha imediatamente com 1 clique
+  const duplicarFicha = async (ficha, destinoListaId) => {
+    const listaAlvo = destinoListaId || ficha.cr4a1_lista_id;
+    const metaAtual = parseFichaMeta(ficha.cr4a1_atividades);
+    const atividadesNova = registrarAtividade(null, 'duplicada', user, '', {
+      ...metaAtual,
+      ehModelo: false,
+      tempoGastoMin: 0,
+      cronometroInicio: null
+    });
+    try {
+      await post('cr4a1_fichas', {
+        cr4a1_titulo: `${ficha.cr4a1_titulo} (Cópia)`,
+        cr4a1_descricao: ficha.cr4a1_descricao || '',
+        cr4a1_lista_id: listaAlvo,
+        cr4a1_workspace_id: ficha.cr4a1_workspace_id || workspaceId,
+        cr4a1_responsavel_login: ficha.cr4a1_responsavel_login || user,
+        cr4a1_criador_login: user,
+        cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === listaAlvo).length,
+        cr4a1_data_inicio: ficha.cr4a1_data_inicio || null,
+        cr4a1_concluida: 'Não',
+        cr4a1_notificado: 'Sim',
+        cr4a1_etiquetas: ficha.cr4a1_etiquetas || '',
+        cr4a1_arquivos: ficha.cr4a1_arquivos || '[]',
+        cr4a1_cor: ficha.cr4a1_cor || '',
+        cr4a1_stickers: ficha.cr4a1_stickers || '',
+        cr4a1_recorrencia: ficha.cr4a1_recorrencia || '',
+        cr4a1_fixada: 'Não',
+        cr4a1_atividades: atividadesNova
+      });
+      setEditando(null);
+      recarregar();
+      toast.success('Ficha duplicada com sucesso!');
+    } catch {
+      toast.error('Erro ao duplicar ficha.');
+    }
+  };
+
+  // Cria uma nova ficha em qualquer lista a partir de uma Ficha Modelo
+  const criarFichaAPartirDeModelo = async (modeloFicha, listaDestinoId) => {
+    const metaModelo = parseFichaMeta(modeloFicha.cr4a1_atividades);
+    const atividadesNova = registrarAtividade(null, 'criada', user, `a partir do modelo "${modeloFicha.cr4a1_titulo}"`, {
+      ...metaModelo,
+      ehModelo: false,
+      tempoGastoMin: 0,
+      cronometroInicio: null
+    });
+    try {
+      const resCriada = await post('cr4a1_fichas', {
+        cr4a1_titulo: modeloFicha.cr4a1_titulo,
+        cr4a1_descricao: marcarTodasTarefas(modeloFicha.cr4a1_descricao || '', false),
+        cr4a1_lista_id: listaDestinoId,
+        cr4a1_workspace_id: workspaceId,
+        cr4a1_responsavel_login: modeloFicha.cr4a1_responsavel_login || user,
+        cr4a1_criador_login: user,
+        cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === listaDestinoId).length,
+        cr4a1_concluida: 'Não',
+        cr4a1_notificado: 'Sim',
+        cr4a1_etiquetas: modeloFicha.cr4a1_etiquetas || '',
+        cr4a1_arquivos: modeloFicha.cr4a1_arquivos || '[]',
+        cr4a1_cor: modeloFicha.cr4a1_cor || '',
+        cr4a1_stickers: modeloFicha.cr4a1_stickers || '',
+        cr4a1_recorrencia: modeloFicha.cr4a1_recorrencia || '',
+        cr4a1_fixada: 'Não',
+        cr4a1_atividades: atividadesNova
+      });
+      const criada = await resCriada.json();
+      recarregar();
+      await executarAutomacoes(criada, listaDestinoId, 'criada');
+      toast.success(`Ficha criada a partir do modelo "${modeloFicha.cr4a1_titulo}"!`);
+    } catch {
+      toast.error('Erro ao criar ficha a partir do modelo.');
+    }
+  };
+
+  // Seguir / Parar de seguir ficha (Observador)
+  const alternarSeguirFicha = async (ficha) => {
+    const meta = parseFichaMeta(ficha.cr4a1_atividades);
+    const jaSegue = (meta.observadores || []).includes(user);
+    const novosObs = jaSegue
+      ? meta.observadores.filter(u => u !== user)
+      : [...(meta.observadores || []), user];
+    const novoAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, { observadores: novosObs });
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_atividades: novoAtividades } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid)
+      ? {
+        ...prev,
+        original: { ...prev.original, cr4a1_atividades: novoAtividades },
+        form: { ...prev.form, observadores: novosObs }
+      }
+      : prev);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novoAtividades });
+      toast.success(jaSegue ? 'Você deixou de seguir esta ficha.' : 'Você agora está seguindo esta ficha 🔔');
+    } catch {
+      toast.error('Erro ao atualizar acompanhamento da ficha.');
+    }
+  };
+
+  // Play / Pause do cronômetro de tempo da ficha
+  const alternarCronometroFicha = async (ficha) => {
+    const meta = parseFichaMeta(ficha.cr4a1_atividades);
+    let patchMeta;
+    if (meta.cronometroInicio) {
+      const totalAcumulado = calcularTempoTotalMin(meta);
+      patchMeta = { tempoGastoMin: totalAcumulado, cronometroInicio: null };
+    } else {
+      patchMeta = { cronometroInicio: new Date().toISOString() };
+    }
+    const novoAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, patchMeta);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_atividades: novoAtividades } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid)
+      ? {
+        ...prev,
+        original: { ...prev.original, cr4a1_atividades: novoAtividades },
+        form: { ...prev.form, ...patchMeta }
+      }
+      : prev);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novoAtividades });
+      toast.success(patchMeta.cronometroInicio ? 'Cronômetro iniciado ⏱️' : 'Cronômetro pausado e tempo registrado!');
+    } catch {
+      toast.error('Erro ao atualizar cronômetro.');
+    }
+  };
+
+  // Atualiza rapidamente metadados da ficha (ex.: prioridade no menu rápido ou na tabela)
+  const atualizarMetaRapidoFicha = async (ficha, patchMeta) => {
+    const novoAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, patchMeta);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_atividades: novoAtividades } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novoAtividades });
+    } catch {
+      toast.error('Erro ao atualizar ficha.');
+    }
+  };
+
+  // Move ficha rapidamente de lista (pela tabela ou menu rápido do cartão)
+  const moverFichaRapido = async (ficha, novaListaId) => {
+    if (!novaListaId || novaListaId === ficha.cr4a1_lista_id) return;
+    const nomeLista = listas.find(l => l.cr4a1_listaid === novaListaId)?.cr4a1_nome || '';
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, 'movida', user, nomeLista);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades });
+      await executarAutomacoes({ ...ficha, cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades }, novaListaId, 'entrou');
+      notificarObservadoresECoResponsaveis({ ...ficha, cr4a1_lista_id: novaListaId }, `moveu a ficha para a lista "${nomeLista}"`);
+    } catch {
+      toast.error('Erro ao mover ficha.');
+    }
+  };
+
+  // Altera o responsável principal rapidamente (pela tabela ou menu rápido do cartão)
+  const mudarResponsavelRapido = async (ficha, novoLogin) => {
+    if (!novoLogin || novoLogin === ficha.cr4a1_responsavel_login) return;
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, 'responsavel', user, nomeDe(novoLogin, allUsers));
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_responsavel_login: novoLogin, cr4a1_atividades: atividades } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_responsavel_login: novoLogin, cr4a1_atividades: atividades });
+      if (novoLogin !== user) {
+        notificarCompartilhamento({
+          tipoItem: 'Ficha do Trello',
+          itemTitulo: ficha.cr4a1_titulo,
+          autor: user,
+          destinatarios: [novoLogin],
+          currentUser: user,
+          allUsers,
+          detalhes: {
+            origem: 'Trello',
+            workspace: workspace?.cr4a1_nome || '',
+            lista: listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id)?.cr4a1_nome || ''
+          }
+        });
+      }
+      await executarAutomacoes({ ...ficha, cr4a1_responsavel_login: novoLogin, cr4a1_atividades: atividades }, ficha.cr4a1_lista_id, 'responsavel_atribuido');
+    } catch {
+      toast.error('Erro ao alterar responsável.');
+    }
+  };
+
   // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
   const salvarFicha = async (form, original) => {
     // Havendo microtarefas, elas mandam no "concluída" (ex.: adicionar uma tarefa nova
@@ -908,17 +1248,34 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const dataMudou = (dataIso || '') !== (original.cr4a1_data_inicio || '');
     const avisar = dataDefinida && (!comData(original) || responsavelMudou || dataMudou);
 
+    const novoMeta = {
+      coResponsaveis: form.coResponsaveis || [],
+      observadores: form.observadores || [],
+      prioridade: form.prioridade || '',
+      custo: form.custo || '',
+      linkUrl: form.linkUrl || '',
+      statusAprovacao: form.statusAprovacao || '',
+      campoTexto: form.campoTexto || '',
+      capaModo: form.capaModo || 'inteiro',
+      capaImagemIndex: form.capaImagemIndex ?? 0,
+      dataInicioTrabalho: form.dataInicioTrabalho || '',
+      ehModelo: !!form.ehModelo,
+      tempoEstimadoMin: Number(form.tempoEstimadoMin) || 0,
+      tempoGastoMin: Number(form.tempoGastoMin) || 0,
+      cronometroInicio: form.cronometroInicio || null
+    };
+
     // Registra no histórico só as mudanças que importam pra quem acompanha a ficha (não cada
     // tecla digitada no título/descrição).
     const listaMudou = form.listaId !== original.cr4a1_lista_id;
     const concluidaMudou = concluidaFinal !== (original.cr4a1_concluida === 'Sim');
-    let atividades = original.cr4a1_atividades;
+    let atividades = atualizarFichaMeta(original.cr4a1_atividades, novoMeta);
     if (listaMudou) {
       const nomeLista = listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '';
-      atividades = registrarAtividade(atividades, 'movida', user, nomeLista);
+      atividades = registrarAtividade(atividades, 'movida', user, nomeLista, novoMeta);
     }
-    if (responsavelMudou) atividades = registrarAtividade(atividades, 'responsavel', user, nomeDe(form.responsavel, allUsers));
-    if (concluidaMudou) atividades = registrarAtividade(atividades, concluidaFinal ? 'concluida' : 'reaberta', user);
+    if (responsavelMudou) atividades = registrarAtividade(atividades, 'responsavel', user, nomeDe(form.responsavel, allUsers), novoMeta);
+    if (concluidaMudou) atividades = registrarAtividade(atividades, concluidaFinal ? 'concluida' : 'reaberta', user, '', novoMeta);
 
     let eventoId = original.cr4a1_evento_id || '';
     try {
@@ -971,13 +1328,19 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || ''
       });
 
-      // Notifica novo responsável atribuído à ficha
-      if (form.responsavel && form.responsavel !== original.cr4a1_responsavel_login && form.responsavel !== user) {
+      // Notifica novo responsável e novos co-responsáveis atribuídos à ficha
+      const metaAntigo = parseFichaMeta(original.cr4a1_atividades);
+      const novosCoResp = (form.coResponsaveis || []).filter(c => !(metaAntigo.coResponsaveis || []).includes(c) && c !== user);
+      const destinatariosAtribuicao = [
+        ...(form.responsavel && form.responsavel !== original.cr4a1_responsavel_login && form.responsavel !== user ? [form.responsavel] : []),
+        ...novosCoResp
+      ];
+      if (destinatariosAtribuicao.length > 0) {
         notificarCompartilhamento({
           tipoItem: 'Ficha do Trello',
           itemTitulo: form.titulo || original.cr4a1_titulo,
           autor: user,
-          destinatarios: [form.responsavel],
+          destinatarios: [...new Set(destinatariosAtribuicao)],
           currentUser: user,
           allUsers,
           detalhes: {
@@ -1026,8 +1389,6 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         });
       }
 
-      // Automações da lista: trocar de lista pelo próprio formulário dispara as mesmas regras
-      // do drag-and-drop; concluir, reabrir, atribuir responsável, definir prazo e adicionar etiqueta também valem aqui.
       const fichaPosSave = {
         ...original,
         cr4a1_titulo: form.titulo,
@@ -1037,11 +1398,16 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_data_inicio: dataIso,
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
-        cr4a1_cor: form.cor || ''
+        cr4a1_cor: form.cor || '',
+        cr4a1_atividades: atividades
       };
-      if (listaMudou) await executarAutomacoes(fichaPosSave, form.listaId, 'entrou');
+      if (listaMudou) {
+        await executarAutomacoes(fichaPosSave, form.listaId, 'entrou');
+        notificarObservadoresECoResponsaveis(fichaPosSave, `moveu a ficha para "${listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || ''}"`);
+      }
       if (concluidaMudou && concluidaFinal) {
         await executarAutomacoes(fichaPosSave, form.listaId, 'concluida');
+        notificarObservadoresECoResponsaveis(fichaPosSave, 'marcou a ficha como concluída');
         if (tarefasDaDescricao.length > 0) {
           await executarAutomacoes(fichaPosSave, form.listaId, 'checklist_concluida');
         }
@@ -1083,6 +1449,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const abrirFicha = (ficha) => {
     const dataIso = ficha.cr4a1_data_inicio;
     const data = dataIso ? new Date(dataIso) : null;
+    const meta = parseFichaMeta(ficha.cr4a1_atividades);
     setEditando({
       original: ficha,
       form: {
@@ -1097,7 +1464,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         anexos: parseAnexos(ficha.cr4a1_arquivos),
         cor: ficha.cr4a1_cor || '',
         stickers: parseAssignees(ficha.cr4a1_stickers),
-        recorrencia: ficha.cr4a1_recorrencia || ''
+        recorrencia: ficha.cr4a1_recorrencia || '',
+        ...meta
       }
     });
   };
@@ -1239,6 +1607,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     () => fichas.filter(f => ehFichaArquivada(f)),
     [fichas]
   );
+  const fichasModelos = useMemo(
+    () => fichasAtivas.filter(f => parseFichaMeta(f.cr4a1_atividades).ehModelo),
+    [fichasAtivas]
+  );
 
   const fichasVisiveis = useMemo(
     () => (filtrosAtivos === 0 ? fichasAtivas : fichasAtivas.filter(f => fichaCombinaComFiltros(f, filtros))),
@@ -1369,6 +1741,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       if (novoValor === 'Sim') {
         await criarProximaRecorrencia(ficha);
         await executarAutomacoes({ ...ficha, cr4a1_concluida: 'Sim', cr4a1_descricao: novaDescricao }, ficha.cr4a1_lista_id, 'concluida');
+        notificarObservadoresECoResponsaveis(ficha, 'marcou a ficha como concluída');
       } else {
         await executarAutomacoes({ ...ficha, cr4a1_concluida: 'Não', cr4a1_descricao: novaDescricao }, ficha.cr4a1_lista_id, 'reaberta');
       }
@@ -1440,6 +1813,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json, cr4a1_atividades: atividades });
       await executarAutomacoes({ ...ficha, cr4a1_comentarios: json, cr4a1_atividades: atividades }, ficha.cr4a1_lista_id, 'comentario_adicionado');
+      notificarObservadoresECoResponsaveis(ficha, `comentou: "${texto.slice(0, 80)}"`);
     } catch {
       toast.error('Erro ao comentar.');
     }
@@ -1453,6 +1827,18 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
     } catch {
       toast.error('Erro ao excluir comentário.');
+    }
+  };
+
+  // Alterna reação de emoji num comentário da ficha
+  const alternarReacaoNoComentario = async (ficha, comentarioId, emoji) => {
+    const json = alternarReacaoComentario(ficha.cr4a1_comentarios, comentarioId, emoji, user);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json } : f));
+    setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json } } : prev);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
+    } catch {
+      toast.error('Erro ao reagir ao comentário.');
     }
   };
 
@@ -1534,9 +1920,39 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   return (
     <div className="flex w-full flex-col gap-4 rounded-2xl p-3" style={fundoEstilo}>
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-extrabold text-foreground">Fichas</h2>
-          <p className="text-sm text-muted-foreground">Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-extrabold text-foreground">Fichas</h2>
+            <p className="text-sm text-muted-foreground">Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
+          </div>
+          {!minhasFichasAberto && !estouBloqueado && (
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-card/90 p-1 shadow-xs">
+              {[
+                { id: 'kanban', label: 'Quadro', icon: Columns3 },
+                { id: 'tabela', label: 'Tabela', icon: Table2 },
+                { id: 'cronograma', label: 'Cronograma', icon: GanttChart },
+                { id: 'painel', label: 'Painel', icon: BarChart3 }
+              ].map(visao => {
+                const Icone = visao.icon;
+                const ativo = modoVisao === visao.id;
+                return (
+                  <button
+                    key={visao.id}
+                    type="button"
+                    onClick={() => setModoVisao(visao.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      ativo
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
+                  >
+                    <Icone className="size-3.5" />
+                    <span className="hidden md:inline">{visao.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {membrosVisiveis.length > 0 && (
@@ -1624,6 +2040,32 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       <button key={valor} type="button" onClick={() => setFiltro('anexos', valor)} className={chipClass(filtros.anexos === valor)}>{rotulo}</button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <Label className="mb-1.5">Prioridade</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['todas', 'Todas'], ['critica', 'Crítica'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa'], ['sem', 'Sem prioridade']].map(([valor, rotulo]) => (
+                      <button key={valor} type="button" onClick={() => setFiltro('prioridade', valor)} className={chipClass(filtros.prioridade === valor)}>{rotulo}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setFiltro('seguindo', !filtros.seguindo)}
+                    className={chipClass(filtros.seguindo)}
+                  >
+                    🔔 Seguindo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltro('apenasModelos', !filtros.apenasModelos)}
+                    className={chipClass(filtros.apenasModelos)}
+                  >
+                    📋 Apenas Modelos
+                  </button>
                 </div>
 
                 {filtrosAtivos > 0 && (
@@ -1775,6 +2217,40 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           <p className="text-sm font-semibold text-foreground">Seu acesso ao Trello deste workspace foi bloqueado.</p>
           <p className="text-xs text-muted-foreground">Fale com o coordenador do setor ou com um ADMIN se achar que isso é um engano.</p>
         </div>
+      ) : modoVisao === 'tabela' ? (
+        <TrelloTabelaView
+          fichas={listasVisiveis.flatMap(l => fichasDaLista(l))}
+          listas={listasVisiveis}
+          etiquetas={etiquetas}
+          allUsers={allUsers}
+          membros={membrosVisiveis}
+          user={user}
+          onAbrirFicha={abrirFicha}
+          onToggleConcluida={toggleConcluida}
+          onMudarLista={moverFichaRapido}
+          onMudarResponsavel={mudarResponsavelRapido}
+          onMudarPrioridade={(ficha, prio) => atualizarMetaRapidoFicha(ficha, { prioridade: prio })}
+          onDuplicar={duplicarFicha}
+          onArquivar={arquivarFicha}
+          onToggleCronometro={alternarCronometroFicha}
+          EtiquetaChip={EtiquetaChip}
+        />
+      ) : modoVisao === 'cronograma' ? (
+        <TrelloCronogramaView
+          fichas={listasVisiveis.flatMap(l => fichasDaLista(l))}
+          listas={listasVisiveis}
+          allUsers={allUsers}
+          onAbrirFicha={abrirFicha}
+          onToggleConcluida={toggleConcluida}
+        />
+      ) : modoVisao === 'painel' ? (
+        <TrelloPainelView
+          fichas={listasVisiveis.flatMap(l => fichasDaLista(l))}
+          listas={listasVisiveis}
+          etiquetas={etiquetas}
+          allUsers={allUsers}
+          onAbrirFicha={abrirFicha}
+        />
       ) : (
       <div className="flex items-start gap-3 overflow-x-auto pb-4">
         {listasVisiveis.map(lista => {
@@ -1786,6 +2262,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           const podeGerenciarAutomacoes = podeGerenciar;
           const pessoal = lista.cr4a1_pessoal === 'Sim';
           const colapsada = colapsadas.includes(lista.cr4a1_listaid);
+          const corDaLista = parseListaCor(lista.cr4a1_automacao);
 
           if (colapsada) {
             return (
@@ -1794,6 +2271,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                   <section
                     ref={provided.innerRef}
                     {...provided.droppableProps}
+                    style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
                     className={`flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
                   >
                     <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Expandir lista ${lista.cr4a1_nome}`} title="Expandir lista" className="text-muted-foreground hover:text-primary">
@@ -1811,7 +2289,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           }
 
           return (
-            <section key={lista.cr4a1_listaid} className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-210px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}>
+            <section
+              key={lista.cr4a1_listaid}
+              style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
+              className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-210px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+            >
               <div className="flex items-start justify-between gap-1.5 shrink-0">
                 <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
                   <ChevronLeft className="size-4" />
@@ -1860,7 +2342,36 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                         <MoreHorizontal className="size-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent align="end" className="w-60">
+                      {podeGerenciar && (
+                        <div className="px-2 py-1.5 border-b border-border mb-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Cor da Lista</span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => definirCorLista(lista, '')}
+                              title="Sem cor"
+                              className="flex size-5 items-center justify-center rounded-full border border-dashed border-border bg-card text-[10px]"
+                            >
+                              {!corDaLista && <Check className="size-3 text-muted-foreground" />}
+                            </button>
+                            {themeColors.map(c => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => definirCorLista(lista, c.hex)}
+                                title={c.label}
+                                className="size-5 rounded-full transition-transform active:scale-90"
+                                style={{
+                                  backgroundColor: c.hex,
+                                  boxShadow: corDaLista === c.hex ? `0 0 0 2px var(--card), 0 0 0 3.5px ${c.hex}` : 'none'
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {podeGerenciarAutomacoes && (
                         <DropdownMenuItem onClick={() => setListaAutomacao(lista)} className="cursor-pointer">
                           <Zap className={`size-4 mr-2 ${parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : ''}`} />
@@ -1882,6 +2393,20 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                               {gerentesDaLista.length}
                             </Badge>
                           )}
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => clonarListaInteira(lista)} className="cursor-pointer">
+                          <Copy className="size-4 mr-2" />
+                          Copiar / Clonar Lista Inteira
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && listasVisiveis.length > 1 && (
+                        <DropdownMenuItem onClick={() => setListaMoverFichas(lista)} className="cursor-pointer">
+                          <ArrowRightLeft className="size-4 mr-2" />
+                          Mover Todas as Fichas para...
                         </DropdownMenuItem>
                       )}
 
@@ -1945,10 +2470,20 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const anexosDaFicha = parseAnexos(ficha.cr4a1_arquivos);
                       const qtdAnexos = anexosDaFicha.length;
                       const qtdComentarios = parseComentarios(ficha.cr4a1_comentarios).length;
-                      const capaImagem = primeiraImagem(anexosDaFicha);
+                      const meta = parseFichaMeta(ficha.cr4a1_atividades);
+                      const imagensAnexadas = anexosDaFicha.filter(a => a.type?.startsWith('image/'));
+                      const capaImagem = imagensAnexadas[meta.capaImagemIndex || 0] || primeiraImagem(anexosDaFicha);
                       const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
-                      const corCard = ficha.cr4a1_cor ? corTextoLegivel(ficha.cr4a1_cor) : null;
+                      const modoCapa = meta.capaModo || 'inteiro';
+                      const corCard = (ficha.cr4a1_cor && modoCapa === 'inteiro') ? corTextoLegivel(ficha.cr4a1_cor) : null;
                       const fixada = ficha.cr4a1_fixada === 'Sim';
+                      const prioInfo = meta.prioridade ? PRIORIDADES_FICHA[meta.prioridade] : null;
+                      const aprovInfo = meta.statusAprovacao ? STATUS_APROVACAO_FICHA[meta.statusAprovacao] : null;
+                      const tempoTotal = calcularTempoTotalMin(meta);
+                      const emAndamento = Boolean(meta.cronometroInicio);
+                      const seguindo = (meta.observadores || []).includes(user);
+                      const coResps = meta.coResponsaveis || [];
+
                       return (
                         <Draggable key={ficha.cr4a1_fichaid} draggableId={ficha.cr4a1_fichaid} index={index}>
                           {(providedCard, snapshot) => (
@@ -1967,11 +2502,17 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                 } : {})
                               }}
                             >
+                              {ficha.cr4a1_cor && modoCapa === 'faixa' && (
+                                <div
+                                  className="-mx-3 -mt-3 mb-1 h-2.5 rounded-t-xl"
+                                  style={{ backgroundColor: ficha.cr4a1_cor }}
+                                />
+                              )}
                               {capaImagem && (
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); setAnexoCardPreview(capaImagem); }}
-                                  className="-mx-3 -mt-3 mb-0.5 block overflow-hidden rounded-t-xl"
+                                  className={`-mx-3 ${ficha.cr4a1_cor && modoCapa === 'faixa' ? '-mt-1' : '-mt-3 rounded-t-xl'} mb-0.5 block overflow-hidden`}
                                   aria-label={`Visualizar ${capaImagem.name}`}
                                 >
                                   <img src={capaImagem.base64} alt={capaImagem.name} className="h-28 w-full object-cover" />
@@ -1994,18 +2535,85 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirFicha(ficha); } }}
                                   className="flex min-w-0 flex-1 flex-col gap-1.5 text-left cursor-pointer select-none"
                                 >
-                                  {(etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
+                                  {(meta.ehModelo || prioInfo || aprovInfo || etiquetasDaFicha.length > 0 || stickersDaFicha.length > 0) && (
                                     <div className="flex flex-wrap items-center gap-1">
+                                      {meta.ehModelo && (
+                                        <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                          📋 Modelo
+                                        </span>
+                                      )}
+                                      {prioInfo && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                                          style={{ backgroundColor: prioInfo.cor }}
+                                        >
+                                          <Flag className="size-2.5" /> {prioInfo.label}
+                                        </span>
+                                      )}
+                                      {aprovInfo && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-bold"
+                                          style={{ borderColor: aprovInfo.cor, color: aprovInfo.cor, backgroundColor: `${aprovInfo.cor}15` }}
+                                        >
+                                          {aprovInfo.label}
+                                        </span>
+                                      )}
                                       {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
                                       {stickersDaFicha.map((emoji, i) => <Sticker key={i} emoji={emoji} size={16} />)}
                                     </div>
                                   )}
                                   <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-60' : ''}`}>{ficha.cr4a1_titulo}</span>
+
+                                  {(meta.campoTexto || meta.custo || meta.linkUrl) && (
+                                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                      {meta.campoTexto && (
+                                        <span className="rounded bg-secondary px-1.5 py-0.5 font-medium text-foreground">
+                                          {meta.campoTexto}
+                                        </span>
+                                      )}
+                                      {meta.custo && (
+                                        <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/15 px-1.5 py-0.5 font-bold text-emerald-500">
+                                          R$ {meta.custo}
+                                        </span>
+                                      )}
+                                      {meta.linkUrl && (
+                                        <a
+                                          href={meta.linkUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          className="inline-flex items-center gap-0.5 rounded bg-primary/15 px-1.5 py-0.5 font-semibold text-primary hover:underline"
+                                        >
+                                          <Link2 className="size-2.5" /> Link
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                    {comData(ficha) && (
-                                      <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
+                                    {(meta.dataInicioTrabalho || comData(ficha)) && (
+                                      <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${comData(ficha) ? corUrgenciaData(ficha.cr4a1_data_inicio, concluida) : 'bg-secondary text-muted-foreground'}`}>
                                         <CalendarDays className="size-3" />
-                                        {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                                        {meta.dataInicioTrabalho ? `${format(new Date(`${meta.dataInicioTrabalho}T12:00:00`), 'dd/MM')}${comData(ficha) ? ' → ' : ''}` : ''}
+                                        {comData(ficha) ? format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm') : ''}
+                                      </span>
+                                    )}
+                                    {(tempoTotal > 0 || meta.tempoEstimadoMin > 0 || emAndamento) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); alternarCronometroFicha(ficha); }}
+                                        title={emAndamento ? 'Pausar cronômetro' : 'Iniciar cronômetro'}
+                                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                                          emAndamento ? 'bg-primary text-primary-foreground animate-pulse' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                        }`}
+                                      >
+                                        {emAndamento ? <Pause className="size-2.5" /> : <Timer className="size-2.5" />}
+                                        {formatarDuracaoMin(tempoTotal)}{meta.tempoEstimadoMin > 0 ? `/${formatarDuracaoMin(meta.tempoEstimadoMin)}` : ''}
+                                      </button>
+                                    )}
+                                    {seguindo && (
+                                      <span className="inline-flex items-center text-primary" title="Você está seguindo esta ficha">
+                                        <Bell className="size-3" fill="currentColor" />
                                       </span>
                                     )}
                                     {ficha.cr4a1_recorrencia && (
@@ -2023,29 +2631,90 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                         <MessageCircle className="size-3" /> {qtdComentarios}
                                       </span>
                                     )}
-                                    <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
-                                    <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                                    <div className="flex items-center -space-x-1">
+                                      <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
+                                      {coResps.slice(0, 3).map(co => (
+                                        <UserAvatar key={co} login={co} allUsers={allUsers} size={15} className="ring-1 ring-card" />
+                                      ))}
+                                    </div>
+                                    <span className="truncate max-w-[100px]">{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}{coResps.length > 0 ? ` +${coResps.length}` : ''}</span>
                                   </div>
                                 </div>
-                                <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                                <div className="mt-0.5 flex shrink-0 items-center gap-0.5">
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
                                     aria-label={fixada ? `Desafixar "${ficha.cr4a1_titulo}"` : `Fixar "${ficha.cr4a1_titulo}" no topo da lista`}
                                     title={fixada ? 'Desafixar' : 'Fixar no topo da lista'}
-                                    className={`shrink-0 ${fixada ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                    className={`shrink-0 p-0.5 ${fixada ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
                                   >
-                                    <Pin className="size-[15px]" fill={fixada ? 'currentColor' : 'none'} />
+                                    <Pin className="size-[14px]" fill={fixada ? 'currentColor' : 'none'} />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); arquivarFicha(ficha); }}
-                                    aria-label={`Arquivar "${ficha.cr4a1_titulo}"`}
-                                    title="Arquivar ficha"
-                                    className="shrink-0 text-muted-foreground/40 hover:text-primary"
-                                  >
-                                    <Archive className="size-[15px]" />
-                                  </button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={e => e.stopPropagation()}
+                                        aria-label="Ações rápidas da ficha"
+                                        title="Ações rápidas"
+                                        className="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:bg-secondary hover:text-primary"
+                                      >
+                                        <MoreHorizontal className="size-[15px]" />
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52" onClick={e => e.stopPropagation()}>
+                                      <DropdownMenuItem onClick={() => alternarSeguirFicha(ficha)} className="cursor-pointer">
+                                        {seguindo ? <BellOff className="size-4 mr-2" /> : <Bell className="size-4 mr-2" />}
+                                        {seguindo ? 'Parar de seguir' : 'Seguir ficha 🔔'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => alternarCronometroFicha(ficha)} className="cursor-pointer">
+                                        {emAndamento ? <Pause className="size-4 mr-2 text-primary" /> : <Play className="size-4 mr-2" />}
+                                        {emAndamento ? 'Pausar cronômetro' : 'Iniciar cronômetro'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => duplicarFicha(ficha)} className="cursor-pointer">
+                                        <Copy className="size-4 mr-2" />
+                                        Duplicar ficha
+                                      </DropdownMenuItem>
+                                      <div className="px-2 py-1.5 border-y border-border my-1">
+                                        <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Prioridade</span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {[['', 'Sem'], ['baixa', 'Baixa'], ['media', 'Média'], ['alta', 'Alta'], ['critica', 'Crítica']].map(([val, lbl]) => (
+                                            <button
+                                              key={val || 'sem'}
+                                              type="button"
+                                              onClick={() => atualizarMetaRapidoFicha(ficha, { prioridade: val })}
+                                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold border ${
+                                                (meta.prioridade || '') === val ? 'border-primary bg-primary/15 text-primary' : 'border-border bg-secondary text-muted-foreground hover:text-foreground'
+                                              }`}
+                                            >
+                                              {lbl}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      {listasVisiveis.length > 1 && (
+                                        <div className="px-2 py-1 border-b border-border mb-1">
+                                          <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Mover para lista</span>
+                                          <div className="flex flex-col gap-0.5 max-h-28 overflow-y-auto">
+                                            {listasVisiveis.filter(l => l.cr4a1_listaid !== ficha.cr4a1_lista_id).map(l => (
+                                              <button
+                                                key={l.cr4a1_listaid}
+                                                type="button"
+                                                onClick={() => moverFichaRapido(ficha, l.cr4a1_listaid)}
+                                                className="text-left text-xs px-1.5 py-1 rounded hover:bg-secondary truncate text-foreground"
+                                              >
+                                                → {l.cr4a1_nome}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      <DropdownMenuItem onClick={() => arquivarFicha(ficha)} className="cursor-pointer">
+                                        <Archive className="size-4 mr-2" />
+                                        Arquivar ficha
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
                               {microtarefas.length > 0 && (
@@ -2088,18 +2757,41 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                 )}
               </Droppable>
 
-              <form
-                onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
-                className="flex gap-1.5 mt-auto pt-1 shrink-0"
-              >
-                <Input
-                  value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
-                  onChange={e => setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
-                  placeholder="Nova ficha..."
-                  className="h-9 bg-card"
-                />
-                <Button type="submit" size="sm" variant="outline" aria-label="Adicionar ficha"><Plus className="size-4" /></Button>
-              </form>
+              <div className="mt-auto flex flex-col gap-1.5 pt-1 shrink-0">
+                <form
+                  onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
+                  className="flex gap-1.5"
+                >
+                  <Input
+                    value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
+                    onChange={e => setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
+                    placeholder="Nova ficha..."
+                    className="h-9 bg-card"
+                  />
+                  <Button type="submit" size="sm" variant="outline" aria-label="Adicionar ficha"><Plus className="size-4" /></Button>
+                </form>
+                {fichasModelos.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="h-7 justify-start text-xs text-muted-foreground hover:text-foreground">
+                        <Sparkles className="size-3.5 mr-1.5 text-primary" /> Criar a partir de modelo ({fichasModelos.length})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-60">
+                      {fichasModelos.map(mod => (
+                        <DropdownMenuItem
+                          key={mod.cr4a1_fichaid}
+                          onClick={() => criarFichaAPartirDeModelo(mod, lista.cr4a1_listaid)}
+                          className="cursor-pointer"
+                        >
+                          <LayoutTemplate className="size-3.5 mr-2 text-primary" />
+                          <span className="truncate">{mod.cr4a1_titulo}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </section>
           );
         })}
@@ -2120,7 +2812,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl">
             <FichaForm
               inicial={editando.form}
               listas={listasVisiveis}
@@ -2134,12 +2826,47 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               isAdmin={isAdmin}
               arquivada={ehFichaArquivada(editando.original)}
               onToggleArquivo={() => ehFichaArquivada(editando.original) ? desarquivarFicha(editando.original) : arquivarFicha(editando.original)}
+              onDuplicar={() => { duplicarFicha(editando.original); setEditando(null); }}
+              onReagirComentario={(comentarioId, emoji) => alternarReacaoNoComentario(editando.original, comentarioId, emoji)}
               onAddComentario={(texto) => adicionarComentario(editando.original, texto)}
               onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
               onDelete={() => excluirFicha(editando.original)}
             />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {listaMoverFichas && (
+        <Dialog open onOpenChange={(open) => !open && setListaMoverFichas(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowRightLeft className="size-4 text-primary" /> Mover Todas as Fichas
+              </DialogTitle>
+              <DialogDescription>
+                Escolha a lista de destino para mover todas as fichas de &quot;{listaMoverFichas.cr4a1_nome}&quot;.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-1.5 py-2">
+              {listasVisiveis
+                .filter(l => l.cr4a1_listaid !== listaMoverFichas.cr4a1_listaid)
+                .map(l => (
+                  <Button
+                    key={l.cr4a1_listaid}
+                    variant="outline"
+                    className="justify-between"
+                    onClick={() => moverTodasFichasDeLista(listaMoverFichas, l.cr4a1_listaid)}
+                  >
+                    <span className="truncate">{l.cr4a1_nome}</span>
+                    <Badge variant="secondary">{fichasDaLista(l).length}</Badge>
+                  </Button>
+                ))}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setListaMoverFichas(null)}>Cancelar</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -2293,7 +3020,27 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
 
 const MAX_STICKERS_POR_FICHA = 8;
 
-const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], atividades = [], usuarioAtual, isAdmin, arquivada = false, onToggleArquivo, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
+const FichaForm = ({
+  inicial,
+  listas,
+  membros,
+  allUsers,
+  etiquetas,
+  workspaceNome,
+  comentarios = [],
+  atividades = [],
+  usuarioAtual,
+  isAdmin,
+  arquivada = false,
+  onToggleArquivo,
+  onDuplicar,
+  onReagirComentario,
+  onAddComentario,
+  onRemoverComentario,
+  onCancel,
+  onSave,
+  onDelete
+}) => {
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
@@ -2312,6 +3059,19 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
     if (atuais.length >= MAX_STICKERS_POR_FICHA) return;
     set('stickers', [...atuais, emoji]);
   };
+  const alternarCoResponsavel = (login) => {
+    const atuais = form.coResponsaveis || [];
+    set('coResponsaveis', atuais.includes(login) ? atuais.filter(u => u !== login) : [...atuais, login]);
+  };
+  const alternarObservador = (login) => {
+    const atuais = form.observadores || [];
+    set('observadores', atuais.includes(login) ? atuais.filter(u => u !== login) : [...atuais, login]);
+  };
+  const seguindo = (form.observadores || []).includes(usuarioAtual);
+  const imagensAnexadas = useMemo(
+    () => (form.anexos || []).filter(a => a.type?.startsWith('image/')),
+    [form.anexos]
+  );
 
   // Com microtarefas na descrição, "concluída" deixa de ser uma escolha manual — ela
   // reflete se todas as microtarefas estão marcadas (mesma regra do card na lista).
@@ -2323,6 +3083,20 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
   // já reflete a cor escolhida na hora, igual ao Trello faz ao editar o cover do card.
   const corCabecalho = form.cor ? corTextoLegivel(form.cor) : null;
 
+  const alternarCronometroLocal = () => {
+    if (form.cronometroInicio) {
+      const inicioMs = new Date(form.cronometroInicio).getTime();
+      const deltaMin = Number.isNaN(inicioMs) ? 0 : Math.max(1, Math.round((Date.now() - inicioMs) / 60000));
+      setForm(prev => ({
+        ...prev,
+        tempoGastoMin: (Number(prev.tempoGastoMin) || 0) + deltaMin,
+        cronometroInicio: null
+      }));
+    } else {
+      set('cronometroInicio', new Date().toISOString());
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <DialogHeader
@@ -2333,8 +3107,44 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
           '--text-secondary': corCabecalho.suave
         } : undefined}
       >
-        <DialogTitle>Ficha</DialogTitle>
-        <DialogDescription>{workspaceNome}</DialogDescription>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <DialogTitle className="flex items-center gap-2">
+              Ficha
+              {form.ehModelo && (
+                <Badge variant="secondary" className="text-[10px]">📋 Modelo de Ficha</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>{workspaceNome}</DialogDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={seguindo ? 'default' : 'outline'}
+              onClick={() => alternarObservador(usuarioAtual)}
+              title="Receber alertas sobre movimentações e comentários desta ficha"
+            >
+              {seguindo ? <Bell className="size-3.5 fill-current" /> : <Bell className="size-3.5" />}
+              {seguindo ? 'Seguindo' : 'Seguir'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={form.ehModelo ? 'default' : 'outline'}
+              onClick={() => set('ehModelo', !form.ehModelo)}
+              title="Transformar esta ficha em um Modelo reutilizável"
+            >
+              <LayoutTemplate className="size-3.5" />
+              {form.ehModelo ? 'É Modelo' : 'Tornar Modelo'}
+            </Button>
+            {onDuplicar && (
+              <Button type="button" size="sm" variant="outline" onClick={onDuplicar} title="Criar uma cópia idêntica desta ficha">
+                <Copy className="size-3.5" /> Duplicar
+              </Button>
+            )}
+          </div>
+        </div>
       </DialogHeader>
 
       <div>
@@ -2391,53 +3201,98 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
         </div>
       )}
 
-      <div>
-        <Label>Cor da ficha</Label>
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-secondary p-2">
-          <button
-            type="button"
-            onClick={() => set('cor', '')}
-            title="Sem cor"
-            aria-label="Sem cor"
-            className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-card"
-          >
-            {!form.cor && <Check className="size-3.5 text-muted-foreground" />}
-          </button>
-          {themeColors.map(c => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => set('cor', c.hex)}
-              title={c.label}
-              aria-label={c.label}
-              className="size-6 shrink-0 rounded-full transition-transform active:scale-90"
-              style={{ backgroundColor: c.hex, boxShadow: form.cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <Label className="flex items-center justify-between">
-          <span>Stickers</span>
-          <span className="text-[10px] font-normal normal-case text-muted-foreground">{(form.stickers || []).length}/{MAX_STICKERS_POR_FICHA}</span>
-        </Label>
-        <div className="grid max-h-32 grid-cols-10 gap-1 overflow-y-auto rounded-xl border border-border bg-secondary p-2">
-          {stickers.map(emoji => {
-            const selecionado = (form.stickers || []).includes(emoji);
-            return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label>Cor e Capa da Ficha</Label>
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-secondary p-2.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
-                key={emoji}
                 type="button"
-                onClick={() => alternarSticker(emoji)}
-                title={emoji}
-                aria-label={emoji}
-                className={`flex size-7 items-center justify-center rounded-lg transition-transform active:scale-90 ${selecionado ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-card'}`}
+                onClick={() => set('cor', '')}
+                title="Sem cor"
+                aria-label="Sem cor"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-card"
               >
-                <Sticker emoji={emoji} size={20} />
+                {!form.cor && <Check className="size-3.5 text-muted-foreground" />}
               </button>
-            );
-          })}
+              {themeColors.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => set('cor', c.hex)}
+                  title={c.label}
+                  aria-label={c.label}
+                  className="size-6 shrink-0 rounded-full transition-transform active:scale-90"
+                  style={{ backgroundColor: c.hex, boxShadow: form.cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
+                />
+              ))}
+            </div>
+            {form.cor && (
+              <div className="flex items-center gap-1.5 pt-1 border-t border-border/60">
+                <span className="text-[11px] text-muted-foreground mr-1">Estilo da capa:</span>
+                {[
+                  ['inteiro', 'Cartão inteiro'],
+                  ['faixa', 'Faixa no topo']
+                ].map(([modo, rotulo]) => (
+                  <button
+                    key={modo}
+                    type="button"
+                    onClick={() => set('capaModo', modo)}
+                    className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold border transition-colors ${
+                      (form.capaModo || 'inteiro') === modo
+                        ? 'border-primary bg-primary/15 text-primary'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+            )}
+            {imagensAnexadas.length > 1 && (
+              <div className="flex flex-col gap-1 pt-1 border-t border-border/60">
+                <span className="text-[11px] text-muted-foreground">Imagem de capa:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {imagensAnexadas.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => set('capaImagemIndex', idx)}
+                      className={`overflow-hidden rounded-lg border-2 transition-all ${
+                        (form.capaImagemIndex || 0) === idx ? 'border-primary ring-2 ring-primary/30' : 'border-transparent opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={img.base64} alt={img.name} className="h-9 w-12 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <Label className="flex items-center justify-between">
+            <span>Stickers</span>
+            <span className="text-[10px] font-normal normal-case text-muted-foreground">{(form.stickers || []).length}/{MAX_STICKERS_POR_FICHA}</span>
+          </Label>
+          <div className="grid max-h-32 grid-cols-8 gap-1 overflow-y-auto rounded-xl border border-border bg-secondary p-2">
+            {stickers.map(emoji => {
+              const selecionado = (form.stickers || []).includes(emoji);
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => alternarSticker(emoji)}
+                  title={emoji}
+                  aria-label={emoji}
+                  className={`flex size-7 items-center justify-center rounded-lg transition-transform active:scale-90 ${selecionado ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-card'}`}
+                >
+                  <Sticker emoji={emoji} size={20} />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -2452,7 +3307,7 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
           </Select>
         </div>
         <div>
-          <Label>Responsável</Label>
+          <Label>Responsável Principal</Label>
           <Select value={form.responsavel} onValueChange={v => set('responsavel', v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -2464,11 +3319,184 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
         </div>
       </div>
 
+      {/* Múltiplos Responsáveis (Co-responsáveis) & Observadores */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <DateField label="Data (opcional)" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
-        <TimeField label="Hora" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
+        <div className="rounded-xl border border-border bg-secondary/60 p-2.5">
+          <Label className="mb-1.5 flex items-center gap-1.5 text-xs">
+            <Users className="size-3.5 text-primary" /> Co-responsáveis ({(form.coResponsaveis || []).length})
+          </Label>
+          <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+            {(membros.length ? membros : allUsers)
+              .filter(u => u.cr4a1_username !== form.responsavel)
+              .map(u => {
+                const ativo = (form.coResponsaveis || []).includes(u.cr4a1_username);
+                return (
+                  <button
+                    key={u.cr4a1_username}
+                    type="button"
+                    onClick={() => alternarCoResponsavel(u.cr4a1_username)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                      ativo
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-secondary/60 p-2.5">
+          <Label className="mb-1.5 flex items-center gap-1.5 text-xs">
+            <Bell className="size-3.5 text-primary" /> Observadores ({(form.observadores || []).length})
+          </Label>
+          <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+            {(membros.length ? membros : allUsers).map(u => {
+              const ativo = (form.observadores || []).includes(u.cr4a1_username);
+              return (
+                <button
+                  key={u.cr4a1_username}
+                  type="button"
+                  onClick={() => alternarObservador(u.cr4a1_username)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                    ativo
+                      ? 'border-primary bg-primary/20 text-primary'
+                      : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-      {form.dia && <p className="text-xs text-muted-foreground">Limpar a data mantém a ficha no quadro, mas ela sai da agenda.</p>}
+
+      {/* Campos Personalizados (Custom Fields) */}
+      <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-3">
+        <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+          <Flag className="size-3.5 text-primary" /> Campos Personalizados
+        </Label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs">Prioridade</Label>
+            <Select value={form.prioridade || '__sem__'} onValueChange={v => set('prioridade', v === '__sem__' ? '' : v)}>
+              <SelectTrigger className="h-9 bg-card"><SelectValue placeholder="Sem prioridade" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__sem__">Sem prioridade</SelectItem>
+                {Object.entries(PRIORIDADES_FICHA).map(([k, info]) => (
+                  <SelectItem key={k} value={k}>{info.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Status de Aprovação</Label>
+            <Select value={form.statusAprovacao || '__sem__'} onValueChange={v => set('statusAprovacao', v === '__sem__' ? '' : v)}>
+              <SelectTrigger className="h-9 bg-card"><SelectValue placeholder="Não aplicável" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__sem__">Não aplicável</SelectItem>
+                {Object.entries(STATUS_APROVACAO_FICHA).map(([k, info]) => (
+                  <SelectItem key={k} value={k}>{info.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1"><DollarSign className="size-3" /> Custo / Orçamento (R$)</Label>
+            <Input
+              value={form.custo || ''}
+              onChange={e => set('custo', e.target.value)}
+              placeholder="Ex.: 1.500,00"
+              className="h-9 bg-card"
+            />
+          </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1"><Link2 className="size-3" /> Link externo / Documento</Label>
+            <Input
+              value={form.linkUrl || ''}
+              onChange={e => set('linkUrl', e.target.value)}
+              placeholder="https://..."
+              className="h-9 bg-card"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs">Referência / Campo livre (Cliente, OS, Tag curta)</Label>
+            <Input
+              value={form.campoTexto || ''}
+              onChange={e => set('campoTexto', e.target.value)}
+              placeholder="Ex.: OS #4821 — Cliente Kairós"
+              className="h-9 bg-card"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Datas: Início do Trabalho + Data de Entrega (Prazo) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <Label>Data de Início</Label>
+          <input
+            type="date"
+            value={form.dataInicioTrabalho || ''}
+            onChange={e => set('dataInicioTrabalho', e.target.value)}
+            className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </div>
+        <DateField label="Prazo / Entrega" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
+        <TimeField label="Hora da Entrega" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
+      </div>
+      {form.dia && <p className="text-xs text-muted-foreground">Limpar o prazo mantém a ficha no quadro, mas ela sai da agenda.</p>}
+
+      {/* Estimativa de Tempo & Cronômetro */}
+      <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label className="mb-0 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+            <Timer className="size-3.5 text-primary" /> Controle de Tempo (Time Tracking)
+          </Label>
+          <Button
+            type="button"
+            size="sm"
+            variant={form.cronometroInicio ? 'default' : 'outline'}
+            onClick={alternarCronometroLocal}
+            className="h-7 text-xs"
+          >
+            {form.cronometroInicio ? (
+              <>
+                <Pause className="size-3.5" /> Pausar Cronômetro
+              </>
+            ) : (
+              <>
+                <Play className="size-3.5" /> Iniciar Cronômetro
+              </>
+            )}
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Tempo Estimado (min)</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.tempoEstimadoMin || 0}
+              onChange={e => set('tempoEstimadoMin', Math.max(0, Number(e.target.value) || 0))}
+              className="h-9 bg-card"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Tempo Gasto (min)</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.tempoGastoMin || 0}
+              onChange={e => set('tempoGastoMin', Math.max(0, Number(e.target.value) || 0))}
+              className="h-9 bg-card"
+            />
+          </div>
+        </div>
+      </div>
 
       <div>
         <Label className="flex items-center gap-1.5"><Repeat className="size-3.5" /> Repetir</Label>
@@ -2506,6 +3534,32 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
                   <span className="shrink-0 text-[10px] text-muted-foreground">{format(new Date(c.data), 'dd/MM/yyyy HH:mm')}</span>
                 </div>
                 <p className="whitespace-pre-wrap break-words text-foreground">{c.texto}</p>
+                {onReagirComentario && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    {EMOJIS_REACAO_COMENTARIO.map(emoji => {
+                      const usuariosReagiram = Array.isArray(c.reacoes?.[emoji]) ? c.reacoes[emoji] : [];
+                      const euReagi = usuariosReagiram.includes(usuarioAtual);
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => onReagirComentario(c.id, emoji)}
+                          title={usuariosReagiram.length > 0 ? usuariosReagiram.map(u => nomeDe(u, allUsers)).join(', ') : `Reagir com ${emoji}`}
+                          className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] transition-colors ${
+                            euReagi
+                              ? 'border-primary bg-primary/15 font-bold text-primary'
+                              : usuariosReagiram.length > 0
+                                ? 'border-border bg-card text-foreground'
+                                : 'border-transparent bg-card/50 opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <span>{emoji}</span>
+                          {usuariosReagiram.length > 0 && <span className="text-[10px]">{usuariosReagiram.length}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               {(c.autor === usuarioAtual || isAdmin) && (
                 <button type="button" onClick={() => onRemoverComentario(c.id)} aria-label="Excluir comentário" className="shrink-0 text-muted-foreground hover:text-destructive">

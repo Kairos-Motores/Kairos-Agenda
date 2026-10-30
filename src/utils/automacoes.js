@@ -25,6 +25,23 @@ export const parseListaGerentes = (raw) => {
   } catch { return []; }
 };
 
+// Cor de destaque personalizada da lista (guardada em cr4a1_automacao)
+export const parseListaCor = (raw) => {
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed.cor === 'string') ? parsed.cor : '';
+  } catch { return ''; }
+};
+
+// Serializa { automacoes, gerentes, cor } preservando os campos existentes
+export const serializarConfigLista = (rawAtual, mudancas = {}) => {
+  const automacoes = mudancas.automacoes !== undefined ? mudancas.automacoes : parseAutomacoes(rawAtual);
+  const gerentes = mudancas.gerentes !== undefined ? mudancas.gerentes : parseListaGerentes(rawAtual);
+  const cor = mudancas.cor !== undefined ? mudancas.cor : parseListaCor(rawAtual);
+  return JSON.stringify({ automacoes, gerentes, cor });
+};
+
 // Verifica se uma ficha está no espaço de arquivadas
 export const ehFichaArquivada = (ficha) =>
   ficha?.cr4a1_fixada === 'Arq' || ficha?.cr4a1_fixada === 'Arquivada';
