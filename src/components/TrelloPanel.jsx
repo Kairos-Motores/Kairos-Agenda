@@ -1,3 +1,4 @@
+import { notificarMencoes, notificarCompartilhamento, notificarCoGerencia } from '../utils/alertas';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
@@ -531,6 +532,18 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
 
   const salvarGerentesLista = async (lista, gerentes) => {
     try {
+      const gerentesAtuais = parseListaGerentes(lista.cr4a1_automacao);
+      const novosGerentes = gerentes.filter(g => !gerentesAtuais.includes(g) && g !== user);
+      if (novosGerentes.length > 0) {
+        notificarCoGerencia({
+          listaNome: lista.cr4a1_nome,
+          workspaceNome: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
+          novosGerentes,
+          autor: user,
+          currentUser: user,
+          allUsers
+        });
+      }
       const automacoesAtuais = parseAutomacoes(lista.cr4a1_automacao);
       const novoConteudo = JSON.stringify({ automacoes: automacoesAtuais, gerentes });
       await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConteudo });
@@ -796,6 +809,39 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         eventoId = criado.cr4a1_agenda_kairosid;
       }
 
+      // Notifica mencões no título e na descrição da ficha
+      const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
+      const textoAntigo = `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}`;
+      notificarMencoes({
+        textoNovo,
+        textoAntigo,
+        origem: 'Ficha do Trello',
+        itemTitulo: form.titulo || original.cr4a1_titulo,
+        autor: user,
+        currentUser: user,
+        allUsers,
+        workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
+        lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || ''
+      });
+
+      // Notifica novo responsável atribuído à ficha
+      if (form.responsavel && form.responsavel !== original.cr4a1_responsavel_login && form.responsavel !== user) {
+        notificarCompartilhamento({
+          tipoItem: 'Ficha do Trello',
+          itemTitulo: form.titulo || original.cr4a1_titulo,
+          autor: user,
+          destinatarios: [form.responsavel],
+          currentUser: user,
+          allUsers,
+          detalhes: {
+            origem: 'Trello',
+            workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
+            lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '',
+            dataHora: form.dia ? `${form.dia} ${form.hora || ''}` : ''
+          }
+        });
+      }
+
       await patch('cr4a1_fichas', original.cr4a1_fichaid, {
         cr4a1_titulo: form.titulo,
         cr4a1_descricao: form.descricao || '',
@@ -921,7 +967,21 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       recarregar();
     } catch { toast.error('Erro ao atualizar compartilhamento.'); }
   };
-  const adicionarColaborador = (login) => salvarColaboradoresEWorkspaces([...colaboradoresLogins, login], workspacesVinculadosIds);
+  const adicionarColaborador = (login) => {
+    salvarColaboradoresEWorkspaces([...colaboradoresLogins, login], workspacesVinculadosIds);
+    notificarCompartilhamento({
+      tipoItem: 'Quadro do Trello',
+      itemTitulo: workspace?.cr4a1_nome || 'Quadro de Tarefas',
+      autor: user,
+      destinatarios: [login],
+      currentUser: user,
+      allUsers,
+      detalhes: {
+        origem: 'Trello',
+        workspace: workspace?.cr4a1_nome || workspaceId
+      }
+    });
+  };
   const removerColaborador = (login) => salvarColaboradoresEWorkspaces(colaboradoresLogins.filter(l => l !== login), workspacesVinculadosIds);
   const adicionarWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, [...workspacesVinculadosIds, wsId]);
   const removerWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, workspacesVinculadosIds.filter(id => id !== wsId));
@@ -1077,6 +1137,19 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const comentarios = [...parseComentarios(ficha.cr4a1_comentarios), criarComentario(user, texto)];
     const json = JSON.stringify(comentarios);
     const atividades = registrarAtividade(ficha.cr4a1_atividades, 'comentario', user);
+
+    // Notifica mencões em comentários da ficha
+    notificarMencoes({
+      textoNovo: texto,
+      textoAntigo: '',
+      origem: 'Comentário no Trello',
+      itemTitulo: ficha.cr4a1_titulo,
+      autor: user,
+      currentUser: user,
+      allUsers,
+      workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === ficha.cr4a1_workspace_id)?.cr4a1_nome || '',
+      lista: listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id)?.cr4a1_nome || ''
+    });
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json, cr4a1_atividades: atividades } : f));
     setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json, cr4a1_atividades: atividades } } : prev);
     try {

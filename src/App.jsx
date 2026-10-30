@@ -1,3 +1,5 @@
+import { notificarEventoProximo, notificarCompartilhamento } from './utils/alertas';
+import { NotificationBell } from './components/NotificationBell';
 import { matchesSearch } from './utils/search';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
@@ -500,6 +502,11 @@ function App() {
               new Notification(title, options);
             }
             notifiedRef.current.add(notificationKey);
+
+            // Envia alerta por e-mail e salva notificação no app para eventos próximos
+            if (diffMin === 15 || diffMin === 30 || diffMin === 0) {
+              notificarEventoProximo({ event, diffMin, allUsers });
+            }
           }
         }
       });
@@ -1374,9 +1381,7 @@ function App() {
                 <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
                 <span>{format(now, 'HH:mm')}</span>
               </div>
-              <Button variant="ghost" size="icon" onClick={requestNotificationPermission} title="Ativar Notificações">
-                <span className="material-symbols-rounded">notifications</span>
-              </Button>
+              <NotificationBell user={user} />
               <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
               </Button>

@@ -1,3 +1,4 @@
+import { notificarMencoes, notificarCompartilhamento } from '../utils/alertas';
 import { SearchField } from './ui/search-field';
 import { matchesSearch } from '../utils/search';
 import React, { useState, useEffect } from 'react';
@@ -584,6 +585,24 @@ export const NotesPanel = ({
   };
 
   const handleUpdateSharing = async (novoCompartilhamento) => {
+    const antigos = Object.keys(notaAberta?.compartilhamento || {});
+    const novos = Object.keys(novoCompartilhamento || {}).filter(u => !antigos.includes(u));
+
+    if (novos.length > 0) {
+      notificarCompartilhamento({
+        tipoItem: 'Nota',
+        itemTitulo: notaAberta?.cr4a1_titulo || 'Nota sem título',
+        autor: currentUserName,
+        destinatarios: novos,
+        currentUser: currentUserName,
+        allUsers,
+        detalhes: {
+          origem: 'Notas',
+          workspace: workspaces?.find(w => w.cr4a1_calendarios_workspacesid === notaAberta?.cr4a1_workspace_id)?.cr4a1_nome || ''
+        }
+      });
+    }
+
     setNotaAberta(prev => {
       if (!prev) return prev;
       const updated = {
@@ -610,6 +629,22 @@ export const NotesPanel = ({
 
     setIsSaving(true);
     const data = buildNotaPayload();
+
+    // Notifica mencões com @usuario adicionadas nesta nota
+    const textoCompletoNovo = `${notaAberta.cr4a1_titulo || ''}\n${(notaAberta.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}`;
+    const notaOriginal = notas.find(n => n.cr4a1_notas_kairosid === notaAberta.cr4a1_notas_kairosid);
+    const textoCompletoAntigo = notaOriginal ? `${notaOriginal.cr4a1_titulo || ''}\n${(notaOriginal.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}` : '';
+
+    notificarMencoes({
+      textoNovo: textoCompletoNovo,
+      textoAntigo: textoCompletoAntigo,
+      origem: 'Nota',
+      itemTitulo: notaAberta.cr4a1_titulo || 'Nota sem título',
+      autor: currentUserName,
+      currentUser: currentUserName,
+      allUsers,
+      workspace: workspaces?.find(w => w.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id)?.cr4a1_nome || ''
+    });
 
     let idGerado = null;
     if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
