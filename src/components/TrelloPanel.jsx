@@ -2004,10 +2004,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     // minHeight faz o fundo já ocupar a tela toda de cara, em vez de só aparecer atrás das
     // listas curtas — mas sem limitar a altura: se as listas crescerem, o fundo cresce junto.
     if (currentUser?.cr4a1_trello_fundo_imagem) {
-      return { backgroundImage: `url(${currentUser.cr4a1_trello_fundo_imagem})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 'calc(100vh - 220px)' };
+      return { backgroundImage: `url(${currentUser.cr4a1_trello_fundo_imagem})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 'calc(100vh - 60px)' };
     }
     if (currentUser?.cr4a1_trello_fundo_cor) {
-      return { backgroundColor: currentUser.cr4a1_trello_fundo_cor, minHeight: 'calc(100vh - 220px)' };
+      return { backgroundColor: currentUser.cr4a1_trello_fundo_cor, minHeight: 'calc(100vh - 60px)' };
     }
     return undefined;
   }, [currentUser]);
@@ -2015,15 +2015,18 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const headerOutlineBtnClass = headerTemaFundo?.btnOutlineClass || '';
 
   return (
-    <div className="flex w-full flex-col gap-4 rounded-2xl p-3" style={fundoEstilo}>
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-extrabold text-foreground" style={headerTemaFundo?.tituloStyle}>Fichas</h2>
-            <p className="text-sm text-muted-foreground" style={headerTemaFundo?.subtituloStyle}>Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
-          </div>
+    <div className="flex w-full flex-col gap-2.5 rounded-2xl p-2.5" style={fundoEstilo}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2
+            className="text-lg font-extrabold text-foreground"
+            style={headerTemaFundo?.tituloStyle}
+            title="Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável."
+          >
+            Fichas
+          </h2>
           {!minhasFichasAberto && !estouBloqueado && (
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-card/90 p-1 shadow-xs">
+            <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 shadow-xs">
               {[
                 { id: 'kanban', label: 'Quadro', icon: Columns3 },
                 { id: 'tabela', label: 'Tabela', icon: Table2 },
@@ -2037,7 +2040,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                     key={visao.id}
                     type="button"
                     onClick={() => setModoVisao(visao.id)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
                       ativo
                         ? 'bg-primary text-primary-foreground shadow-xs'
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -2051,7 +2054,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             </div>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           {membrosVisiveis.length > 0 && (
             <button
               type="button"
@@ -2060,10 +2063,10 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               className="flex items-center -space-x-2"
             >
               {membrosVisiveis.slice(0, 6).map(m => (
-                <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={28} className="ring-2 ring-[var(--card)]" />
+                <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={26} className="ring-2 ring-[var(--card)]" />
               ))}
               {membrosVisiveis.length > 6 && (
-                <div className="flex size-[28px] items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
+                <div className="flex size-[26px] items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
                   +{membrosVisiveis.length - 6}
                 </div>
               )}
@@ -2071,8 +2074,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           )}
           <Popover open={filtrosAberto} onOpenChange={setFiltrosAberto}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={`relative ${headerOutlineBtnClass}`} aria-label="Filtros">
-                <Filter className="size-4" /> <span className="hidden sm:inline">Filtros</span>
+              <Button variant="outline" size="sm" className={`relative h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} aria-label="Filtros">
+                <Filter className="size-3.5" /> <span className="hidden sm:inline">Filtros</span>
                 {filtrosAtivos > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{filtrosAtivos}</span>
                 )}
@@ -2176,32 +2179,32 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           {/* Ações secundárias (menos usadas no dia a dia) — fica como botões soltos a partir
               de sm, e some pra dentro de um menu "Mais" só no mobile, pra não lotar o
               cabeçalho de linhas de botão com texto antes mesmo do quadro aparecer. */}
-          <div className="hidden items-center gap-3 sm:flex">
-            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setFundoAberto(true)}>
-              <Palette className="size-4" /> Fundo
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setFundoAberto(true)}>
+              <Palette className="size-3.5" /> Fundo
             </Button>
-            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setEtiquetasAberto(true)}>
-              <Tag className="size-4" /> Etiquetas
+            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setEtiquetasAberto(true)}>
+              <Tag className="size-3.5" /> Etiquetas
             </Button>
-            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setCompartilharAberto(true)}>
-              <Users className="size-4" /> Compartilhar
+            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setCompartilharAberto(true)}>
+              <Users className="size-3.5" /> Compartilhar
             </Button>
             {podeGerenciarColaboradores && (
-              <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
-                <FolderSync className="size-4" /> Mudar Workspace
+              <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
+                <FolderSync className="size-3.5" /> Mudar Workspace
               </Button>
             )}
-            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setModelosAberto(true)}>
-              <LayoutTemplate className="size-4" /> Modelos
+            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setModelosAberto(true)}>
+              <LayoutTemplate className="size-3.5" /> Modelos
             </Button>
-            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={exportarQuadro}>
-              <FileSpreadsheet className="size-4" /> Exportar
+            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={exportarQuadro}>
+              <FileSpreadsheet className="size-3.5" /> Exportar
             </Button>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={`sm:hidden ${headerOutlineBtnClass}`} aria-label="Mais ações">
-                <MoreHorizontal className="size-4" />
+              <Button variant="outline" size="sm" className={`h-8 px-2 text-xs sm:hidden ${headerOutlineBtnClass}`} aria-label="Mais ações">
+                <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -2224,9 +2227,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             onClick={() => setArquivadasAberto(true)}
             aria-label="Fichas arquivadas"
             title="Abrir espaço de fichas arquivadas"
-            className={`relative ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
+            className={`relative h-8 px-2.5 text-xs ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
           >
-            <Archive className="size-4" />
+            <Archive className="size-3.5" />
             <span className="hidden sm:inline">Arquivadas</span>
             {fichasArquivadas.length > 0 && (
               <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px]">
@@ -2239,12 +2242,12 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             size="sm"
             onClick={() => setMinhasFichasAberto(v => !v)}
             aria-label="Minhas fichas"
-            className={!minhasFichasAberto ? headerOutlineBtnClass : ''}
+            className={`h-8 px-2.5 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
           >
-            <UserCircle2 className="size-4" /> <span className="hidden sm:inline">Minhas fichas</span>
+            <UserCircle2 className="size-3.5" /> <span className="hidden sm:inline">Minhas fichas</span>
           </Button>
           <Select value={workspaceId} onValueChange={setWorkspaceId}>
-            <SelectTrigger className="w-36 sm:w-60"><SelectValue placeholder="Workspace" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-36 text-xs sm:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
             <SelectContent>
               {todasOpcoes.map(w => {
                 const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
@@ -2359,7 +2362,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           onAbrirFicha={abrirFicha}
         />
       ) : (
-      <div className="flex items-start gap-3 overflow-x-auto pb-4">
+      <div className="flex items-start gap-3 overflow-x-auto pb-2">
         {listasVisiveis.map(lista => {
           const souCriadorLista = !lista.cr4a1_criador_login || lista.cr4a1_criador_login === user;
           const gerentesDaLista = parseListaGerentes(lista.cr4a1_automacao);
@@ -2399,7 +2402,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             <section
               key={lista.cr4a1_listaid}
               style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-              className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-210px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+              className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
             >
               <div className="flex items-start justify-between gap-1.5 shrink-0">
                 <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
