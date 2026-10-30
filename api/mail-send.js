@@ -104,6 +104,13 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
       badge: 'Co-Gerência',
       icone: '⭐'
     },
+    automacao: {
+      primary: '#7A4536',
+      lightBg: '#FAF0EB',
+      border: '#E8CFC6',
+      badge: 'Automação Trello',
+      icone: '⚡'
+    },
     padrao: {
       primary: '#7A4536',
       lightBg: '#FAF0EB',

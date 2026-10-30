@@ -1,4 +1,13 @@
-import { notificarMencoes, notificarCompartilhamento, notificarCoGerencia } from '../utils/alertas';
+import {
+  notificarMencoes,
+  notificarCompartilhamento,
+  notificarCoGerencia,
+  enviarAlertaEmail,
+  enviarAlertaPush,
+  salvarNotificacaoNoApp,
+  dispararNotificacaoDispositivo,
+  resolverInfoDestinatarioCredenciais
+} from '../utils/alertas';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
@@ -389,8 +398,116 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   // que é onde esse controle é gerenciado.
   const membrosVisiveis = useMemo(() => membros.filter(m => !bloqueadosLogins.includes(m.cr4a1_username)), [membros, bloqueadosLogins]);
 
+  // Dispara os e-mails configurados nas regras de automação da lista, resolvendo o endereço
+  // na tabela cr4a1_credenciaises (cr4a1_email) e notificando também no app/dispositivo.
+  const dispararEmailsAutomacao = async (emails, fichaAtual, lista, gatilho) => {
+    if (!emails || !emails.length || !lista) return;
+    const gatilhoLabel = GATILHOS_AUTOMACAO[gatilho] || gatilho;
+    const wsNome = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '';
+    const autorInfo = await resolverInfoDestinatarioCredenciais(user, allUsers);
+    const autorNome = autorInfo.nomeExibicao || user || 'Automação Trello';
+
+    for (const item of emails) {
+      let loginsAlvo = [];
+      if (item.alvo === 'responsavel') {
+        if (fichaAtual.cr4a1_responsavel_login) loginsAlvo = [fichaAtual.cr4a1_responsavel_login];
+      } else if (item.alvo === 'usuario') {
+        if (item.usuario) loginsAlvo = [item.usuario];
+      } else if (item.alvo === 'gerentes') {
+        const gerentes = [lista.cr4a1_criador_login, ...parseListaGerentes(lista.cr4a1_automacao)].filter(Boolean);
+        loginsAlvo = [...new Set(gerentes)];
+      }
+
+      for (const login of loginsAlvo) {
+        const info = await resolverInfoDestinatarioCredenciais(login, allUsers);
+        const msgExtra = item.mensagemPersonalizada
+          ? `<br><br><strong>Mensagem da automação:</strong> "${item.mensagemPersonalizada}"`
+          : '';
+        const mensagemHtml = `A automação da lista <strong>"${lista.cr4a1_nome}"</strong> foi acionada para a ficha <strong>"${fichaAtual.cr4a1_titulo}"</strong> (Gatilho: <em>${gatilhoLabel}</em>).${msgExtra}`;
+        const pushTitle = `⚡ Automação Trello: ${fichaAtual.cr4a1_titulo}`;
+        const pushBody = item.mensagemPersonalizada
+          ? `${lista.cr4a1_nome}: ${item.mensagemPersonalizada}`
+          : `Lista "${lista.cr4a1_nome}" — ${gatilhoLabel}`;
+        const pushTag = `auto-${fichaAtual.cr4a1_fichaid}-${gatilho}-${info.username}`;
+
+        salvarNotificacaoNoApp({
+          destinatario: info.username,
+          tipo: 'automacao',
+          titulo: `Automação: ${lista.cr4a1_nome}`,
+          mensagem: pushBody,
+          itemTitulo: fichaAtual.cr4a1_titulo,
+          origem: 'Trello'
+        });
+
+        enviarAlertaPush({
+          usuarios: [info.username],
+          title: pushTitle,
+          body: pushBody,
+          url: '/',
+          tag: pushTag
+        });
+        dispararNotificacaoDispositivo({
+          title: pushTitle,
+          body: pushBody,
+          tag: pushTag,
+          destinatario: info.username
+        });
+
+        if (!info.email) {
+          toast.error(`Automação: @${info.username} não possui e-mail na tabela de credenciais.`, { duration: 4500 });
+          continue;
+        }
+
+        const resEmail = await enviarAlertaEmail({
+          usuarios: [info.username],
+          destinatarios: [info.email],
+          tipo: 'automacao',
+          titulo: `⚡ Automação Trello: "${fichaAtual.cr4a1_titulo}" (${lista.cr4a1_nome})`,
+          mensagem: mensagemHtml,
+          autor: autorNome,
+          detalhes: {
+            origem: `Automação Trello (${gatilhoLabel})`,
+            itemTitulo: fichaAtual.cr4a1_titulo,
+            workspace: wsNome,
+            lista: lista.cr4a1_nome,
+            responsavel: nomeDe(fichaAtual.cr4a1_responsavel_login, allUsers),
+            trecho: item.mensagemPersonalizada || ''
+          }
+        });
+
+        if (resEmail && !resEmail.error) {
+          const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
+          toast.success(`Automação: e-mail enviado para ${info.nomeExibicao} (${emailEnviado})`, { duration: 4000 });
+        }
+      }
+    }
+  };
+
+  // Duplica uma ficha em outras listas quando configurado na automação
+  const duplicarFichaAutomacao = async (fichaAtual, listasDestinoIds) => {
+    if (!listasDestinoIds || !listasDestinoIds.length) return;
+    for (const destListaId of listasDestinoIds) {
+      await post('cr4a1_fichas', {
+        cr4a1_titulo: fichaAtual.cr4a1_titulo,
+        cr4a1_descricao: fichaAtual.cr4a1_descricao || '',
+        cr4a1_lista_id: destListaId,
+        cr4a1_workspace_id: fichaAtual.cr4a1_workspace_id || workspaceId,
+        cr4a1_responsavel_login: fichaAtual.cr4a1_responsavel_login || user,
+        cr4a1_criador_login: user,
+        cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === destListaId).length,
+        cr4a1_data_inicio: fichaAtual.cr4a1_data_inicio || null,
+        cr4a1_concluida: fichaAtual.cr4a1_concluida || 'Não',
+        cr4a1_notificado: 'Sim',
+        cr4a1_etiquetas: fichaAtual.cr4a1_etiquetas || '',
+        cr4a1_cor: fichaAtual.cr4a1_cor || '',
+        cr4a1_fixada: fichaAtual.cr4a1_fixada || 'Não',
+        cr4a1_atividades: registrarAtividade(null, 'criada', user, 'duplicada por automação')
+      });
+    }
+  };
+
   // Executa as automações de uma lista que combinam com o gatilho informado sobre uma ficha —
-  // usado pelos gatilhos "ao vivo" (criar, mover, concluir, etiquetar). Não re-dispara
+  // usado pelos gatilhos "ao vivo" (criar, mover, concluir, etiquetar, etc.). Não re-dispara
   // automações da lista de destino quando a própria ação é "mover" (um só salto por vez, pra
   // não entrar num loop entre duas listas que se movem uma pra outra).
   const executarAutomacoes = async (ficha, listaId, gatilho, etiquetaId) => {
@@ -399,7 +516,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const regras = regrasPara(parseAutomacoes(lista.cr4a1_automacao), gatilho, etiquetaId);
     const resultado = aplicarAutomacoes(regras, ficha.cr4a1_etiquetas);
     if (!resultado) return;
-    const { patch: mudancas, comentarios, notificar } = resultado;
+    const { patch: mudancas, comentarios, notificar, emails, duplicarPara } = resultado;
+    const fichaAtualizada = { ...ficha, ...mudancas };
     try {
       if (Object.keys(mudancas).length) {
         await patch('cr4a1_fichas', ficha.cr4a1_fichaid, mudancas);
@@ -411,10 +529,14 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json });
         setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_comentarios: json } : f));
       }
+      if (duplicarPara?.length) {
+        await duplicarFichaAutomacao(fichaAtualizada, duplicarPara);
+      }
       if (notificar) {
-        fetch('/api/push-send', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichaId: ficha.cr4a1_fichaid })
-        }).catch(() => {});
+        enviarAlertaPush({ fichaId: ficha.cr4a1_fichaid });
+      }
+      if (emails?.length) {
+        await dispararEmailsAutomacao(emails, fichaAtualizada, lista, gatilho);
       }
       recarregar();
     } catch { toast.error('Erro ao executar automação.'); }
@@ -447,7 +569,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     return () => { cancelado = true; clearInterval(intervalo); };
   }, [workspaceId, versao]);
 
-  // Gatilhos "vencendo"/"atrasada" não dependem de nenhuma ação do usuário — rodam sozinhos
+  // Gatilhos "vencendo"/"urgente"/"atrasada" não dependem de nenhuma ação do usuário — rodam sozinhos
   // sempre que o quadro atualiza (a cada poll, já que fichas/listas trocam de referência a
   // cada busca nova). cr4a1_autodataestado guarda o último estado já processado de cada ficha,
   // pra regra não disparar de novo a cada 5s.
@@ -464,18 +586,27 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         }
         const lista = listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id);
         const regras = regrasPara(parseAutomacoes(lista?.cr4a1_automacao), estadoAtual);
-        if (!regras.length) continue;
+        if (!regras.length) {
+          patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_autodataestado: estadoAtual }).catch(() => {});
+          continue;
+        }
         const resultado = aplicarAutomacoes(regras, ficha.cr4a1_etiquetas);
         try {
-          await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_autodataestado: estadoAtual, ...(resultado?.patch || {}) });
+          const mudancas = resultado?.patch || {};
+          const fichaAtualizada = { ...ficha, ...mudancas };
+          await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_autodataestado: estadoAtual, ...mudancas });
           if (resultado?.comentarios.length) {
             const todos = resultado.comentarios.reduce((acc, texto) => [...acc, criarComentario(user, texto)], parseComentarios(ficha.cr4a1_comentarios));
             await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: JSON.stringify(todos) });
           }
+          if (resultado?.duplicarPara?.length) {
+            await duplicarFichaAutomacao(fichaAtualizada, resultado.duplicarPara);
+          }
           if (resultado?.notificar) {
-            fetch('/api/push-send', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fichaId: ficha.cr4a1_fichaid })
-            }).catch(() => {});
+            enviarAlertaPush({ fichaId: ficha.cr4a1_fichaid });
+          }
+          if (resultado?.emails?.length) {
+            await dispararEmailsAutomacao(resultado.emails, fichaAtualizada, lista, estadoAtual);
           }
         } catch { /* falha silenciosa — tenta de novo no próximo poll */ }
       }
@@ -892,18 +1023,34 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       }
 
       // Automações da lista: trocar de lista pelo próprio formulário dispara as mesmas regras
-      // do drag-and-drop; concluir e adicionar etiqueta também valem aqui, não só nos atalhos
-      // rápidos do card.
+      // do drag-and-drop; concluir, reabrir, atribuir responsável, definir prazo e adicionar etiqueta também valem aqui.
       const fichaPosSave = {
         ...original,
+        cr4a1_titulo: form.titulo,
+        cr4a1_descricao: form.descricao || '',
         cr4a1_lista_id: form.listaId,
         cr4a1_responsavel_login: form.responsavel,
+        cr4a1_data_inicio: dataIso,
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
         cr4a1_cor: form.cor || ''
       };
       if (listaMudou) await executarAutomacoes(fichaPosSave, form.listaId, 'entrou');
-      if (concluidaMudou && concluidaFinal) await executarAutomacoes(fichaPosSave, form.listaId, 'concluida');
+      if (concluidaMudou && concluidaFinal) {
+        await executarAutomacoes(fichaPosSave, form.listaId, 'concluida');
+        if (tarefasDaDescricao.length > 0) {
+          await executarAutomacoes(fichaPosSave, form.listaId, 'checklist_concluida');
+        }
+      }
+      if (concluidaMudou && !concluidaFinal) {
+        await executarAutomacoes(fichaPosSave, form.listaId, 'reaberta');
+      }
+      if (responsavelMudou && form.responsavel) {
+        await executarAutomacoes(fichaPosSave, form.listaId, 'responsavel_atribuido');
+      }
+      if (dataMudou && dataDefinida) {
+        await executarAutomacoes(fichaPosSave, form.listaId, 'prazo_definido');
+      }
       const etiquetasOriginais = parseAssignees(original.cr4a1_etiquetas);
       for (const etiquetaId of form.etiquetas.filter(id => !etiquetasOriginais.includes(id))) {
         await executarAutomacoes(fichaPosSave, form.listaId, 'etiqueta', etiquetaId);
@@ -1101,7 +1248,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_concluida: novoValor, cr4a1_descricao: novaDescricao, cr4a1_atividades: atividades });
       if (novoValor === 'Sim') {
         await criarProximaRecorrencia(ficha);
-        await executarAutomacoes(ficha, ficha.cr4a1_lista_id, 'concluida');
+        await executarAutomacoes({ ...ficha, cr4a1_concluida: 'Sim', cr4a1_descricao: novaDescricao }, ficha.cr4a1_lista_id, 'concluida');
+      } else {
+        await executarAutomacoes({ ...ficha, cr4a1_concluida: 'Não', cr4a1_descricao: novaDescricao }, ficha.cr4a1_lista_id, 'reaberta');
       }
     } catch {
       toast.error('Erro ao atualizar ficha.');
@@ -1132,9 +1281,13 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida } : f));
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida });
+      const fichaAtualizada = { ...ficha, cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida };
       if (!concluidaAntes && novoConcluida === 'Sim') {
         await criarProximaRecorrencia(ficha);
-        await executarAutomacoes(ficha, ficha.cr4a1_lista_id, 'concluida');
+        await executarAutomacoes(fichaAtualizada, ficha.cr4a1_lista_id, 'concluida');
+        await executarAutomacoes(fichaAtualizada, ficha.cr4a1_lista_id, 'checklist_concluida');
+      } else if (concluidaAntes && novoConcluida === 'Não') {
+        await executarAutomacoes(fichaAtualizada, ficha.cr4a1_lista_id, 'reaberta');
       }
     } catch {
       toast.error('Erro ao atualizar microtarefa.');
@@ -1166,6 +1319,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     setEditando(prev => (prev && prev.original.cr4a1_fichaid === ficha.cr4a1_fichaid) ? { ...prev, original: { ...prev.original, cr4a1_comentarios: json, cr4a1_atividades: atividades } } : prev);
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_comentarios: json, cr4a1_atividades: atividades });
+      await executarAutomacoes({ ...ficha, cr4a1_comentarios: json, cr4a1_atividades: atividades }, ficha.cr4a1_lista_id, 'comentario_adicionado');
     } catch {
       toast.error('Erro ao comentar.');
     }
@@ -3187,16 +3341,28 @@ const ModelosDialog = ({ modelos, podeGerenciar, onSalvarComoModelo, onAplicar, 
   );
 };
 
-// Regras "quando uma ficha entra nesta lista, faça X" — disparadas tanto arrastando a ficha
-// quanto trocando a lista pelo próprio formulário da ficha.
+// Regras "quando X acontecer com uma ficha desta lista, faça Y" — disparadas tanto por eventos
+// ao vivo quanto pelos gatilhos de tempo (vencendo, urgente, atrasada).
 const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose }) => {
   const automacoes = parseAutomacoes(lista.cr4a1_automacao);
   const [gatilho, setGatilho] = useState('entrou');
   const [etiquetaGatilho, setEtiquetaGatilho] = useState('');
-  const [tipo, setTipo] = useState('responsavel');
+  const [tipo, setTipo] = useState('email_responsavel');
   const [valor, setValor] = useState('');
+  const [mensagemEmail, setMensagemEmail] = useState('');
 
-  const precisaValor = tipo === 'responsavel' || tipo === 'etiqueta' || tipo === 'cor' || tipo === 'mover' || tipo === 'comentar';
+  const precisaValor = [
+    'responsavel',
+    'email_usuario',
+    'etiqueta',
+    'remover_etiqueta',
+    'cor',
+    'mover',
+    'duplicar_para',
+    'prazo_dias',
+    'comentar'
+  ].includes(tipo);
+  const aceitaMensagemEmail = ['email_responsavel', 'email_usuario', 'email_gerentes'].includes(tipo);
   const precisaEtiquetaGatilho = gatilho === 'etiqueta';
   const outrasListas = listas.filter(l => l.cr4a1_listaid !== lista.cr4a1_listaid);
   const podeAdicionar = (!precisaValor || !!valor) && (!precisaEtiquetaGatilho || !!etiquetaGatilho);
@@ -3206,14 +3372,16 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
     const regra = { id: crypto.randomUUID(), gatilho, tipo };
     if (precisaEtiquetaGatilho) regra.etiquetaGatilho = etiquetaGatilho;
     if (precisaValor) regra.valor = valor;
+    if (aceitaMensagemEmail && mensagemEmail.trim()) regra.mensagemEmail = mensagemEmail.trim();
     onSave([...automacoes, regra]);
     setValor('');
+    setMensagemEmail('');
   };
   const remover = (idx) => onSave(automacoes.filter((_, i) => i !== idx));
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle><Zap className="size-5" /> Automações da lista</DialogTitle>
           <DialogDescription>Regras aplicadas às fichas da lista &quot;{lista.cr4a1_nome}&quot;.</DialogDescription>
@@ -3224,8 +3392,8 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
             {automacoes.length === 0 && <p className="py-2 text-center text-sm text-muted-foreground">Nenhuma automação configurada.</p>}
             {automacoes.map((regra, idx) => (
               <div key={regra.id || idx} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
-                <span>{descricaoAutomacao(regra, { etiquetas, allUsers: membros, listas })}</span>
-                <button type="button" onClick={() => remover(idx)} aria-label="Remover regra" className="text-muted-foreground hover:text-destructive">
+                <span className="leading-snug">{descricaoAutomacao(regra, { etiquetas, allUsers: membros, listas })}</span>
+                <button type="button" onClick={() => remover(idx)} aria-label="Remover regra" className="shrink-0 text-muted-foreground hover:text-destructive">
                   <X className="size-4" />
                 </button>
               </div>
@@ -3235,7 +3403,7 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
           <div className="flex flex-col gap-2 rounded-2xl border border-border p-3">
             <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Nova regra</span>
 
-            <Label className="mb-0 text-[11px]">Quando</Label>
+            <Label className="mb-0 text-[11px]">Quando (Gatilho)</Label>
             <Select value={gatilho} onValueChange={(v) => { setGatilho(v); setEtiquetaGatilho(''); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -3252,23 +3420,37 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
               </Select>
             )}
 
-            <Label className="mb-0 mt-1 text-[11px]">Faça</Label>
-            <Select value={tipo} onValueChange={(v) => { setTipo(v); setValor(''); }}>
+            <Label className="mb-0 mt-1 text-[11px]">Faça (Ação)</Label>
+            <Select value={tipo} onValueChange={(v) => { setTipo(v); setValor(v === 'prazo_dias' ? '3' : ''); setMensagemEmail(''); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(TIPOS_AUTOMACAO).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
               </SelectContent>
             </Select>
 
-            {tipo === 'responsavel' && (
+            {(tipo === 'responsavel' || tipo === 'email_usuario') && (
               <Select value={valor} onValueChange={setValor}>
-                <SelectTrigger><SelectValue placeholder="Escolher pessoa" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Escolher pessoa (e-mail via tabela de credenciais)" /></SelectTrigger>
                 <SelectContent>
-                  {membros.map(m => <SelectItem key={m.cr4a1_username} value={m.cr4a1_username}>{m.cr4a1_nome_exibicao || m.cr4a1_username}</SelectItem>)}
+                  {membros.map(m => (
+                    <SelectItem key={m.cr4a1_username} value={m.cr4a1_username}>
+                      {m.cr4a1_nome_exibicao || m.cr4a1_username}{m.cr4a1_email ? ` (${m.cr4a1_email})` : ''}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}
-            {tipo === 'etiqueta' && (
+
+            {aceitaMensagemEmail && (
+              <Input
+                value={mensagemEmail}
+                onChange={e => setMensagemEmail(e.target.value)}
+                placeholder="Mensagem adicional no e-mail (opcional)"
+                className="text-xs"
+              />
+            )}
+
+            {(tipo === 'etiqueta' || tipo === 'remover_etiqueta') && (
               <Select value={valor} onValueChange={setValor}>
                 <SelectTrigger><SelectValue placeholder="Escolher etiqueta" /></SelectTrigger>
                 <SelectContent>
@@ -3276,17 +3458,35 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
                 </SelectContent>
               </Select>
             )}
-            {tipo === 'mover' && (
+
+            {(tipo === 'mover' || tipo === 'duplicar_para') && (
               <Select value={valor} onValueChange={setValor}>
-                <SelectTrigger><SelectValue placeholder="Escolher lista" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Escolher lista de destino" /></SelectTrigger>
                 <SelectContent>
                   {outrasListas.map(l => <SelectItem key={l.cr4a1_listaid} value={l.cr4a1_listaid}>{l.cr4a1_nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
-            {tipo === 'comentar' && (
-              <Textarea value={valor} onChange={e => setValor(e.target.value)} placeholder="Texto do comentário" className="min-h-[60px]" />
+
+            {tipo === 'prazo_dias' && (
+              <Select value={valor} onValueChange={setValor}>
+                <SelectTrigger><SelectValue placeholder="Quantos dias a partir de agora?" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">+1 dia (Amanhã às 09:00)</SelectItem>
+                  <SelectItem value="2">+2 dias</SelectItem>
+                  <SelectItem value="3">+3 dias</SelectItem>
+                  <SelectItem value="5">+5 dias</SelectItem>
+                  <SelectItem value="7">+7 dias (1 semana)</SelectItem>
+                  <SelectItem value="15">+15 dias</SelectItem>
+                  <SelectItem value="30">+30 dias (1 mês)</SelectItem>
+                </SelectContent>
+              </Select>
             )}
+
+            {tipo === 'comentar' && (
+              <Textarea value={valor} onChange={e => setValor(e.target.value)} placeholder="Texto do comentário automático" className="min-h-[60px]" />
+            )}
+
             {tipo === 'cor' && (
               <div className="flex flex-wrap items-center gap-1.5">
                 {themeColors.map(c => (
