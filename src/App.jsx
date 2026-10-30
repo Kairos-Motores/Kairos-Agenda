@@ -221,6 +221,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [aniversarioEdit, setAniversarioEdit] = useState('');
   const [emailEdit, setEmailEdit] = useState('');
+  const [deviceNotificationPermission, setDeviceNotificationPermission] = useState(() => (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default');
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
@@ -709,20 +710,28 @@ function App() {
       toast.error('Este navegador não suporta notificações.');
       return;
     }
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      toast.success('Notificações ativadas!', { icon: '🔔' });
-      registerPushSubscription(user).catch(() => {});
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification('Kairós Agenda', {
-            body: 'As notificações estão a funcionar perfeitamente!',
-            icon: '/icon-512.jpg'
+    try {
+      const permission = await Notification.requestPermission();
+      setDeviceNotificationPermission(permission);
+      if (permission === 'granted') {
+        toast.success('Notificações no dispositivo ativadas!', { icon: '🔔' });
+        registerPushSubscription(user).catch(() => {});
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification('Kairós Agenda', {
+              body: 'As notificações neste dispositivo estão ativas e funcionando!',
+              icon: '/icon-512.jpg'
+            });
           });
-        });
+        }
+      } else if (permission === 'denied') {
+        toast.error('Notificações bloqueadas nas configurações do seu navegador.');
+      } else {
+        toast('Permissão de notificações não confirmada.');
       }
-    } else {
-      toast.error('As notificações foram bloqueadas.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao solicitar permissão de notificações.');
     }
   };
 
@@ -1427,6 +1436,18 @@ function App() {
                 <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
                 <span>{format(now, 'HH:mm')}</span>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={requestNotificationPermission}
+                aria-label={deviceNotificationPermission === 'granted' ? 'Notificações no dispositivo ativadas' : 'Ativar notificações neste dispositivo'}
+                title={deviceNotificationPermission === 'granted' ? 'Notificações no dispositivo ativadas (Clique para testar)' : 'Ativar Notificações neste Dispositivo'}
+                className={deviceNotificationPermission === 'granted' ? 'text-primary hover:text-primary' : 'text-muted-foreground hover:text-foreground'}
+              >
+                <span className="material-symbols-rounded">
+                  {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
+                </span>
+              </Button>
               <NotificationBell user={user} />
               <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
                 <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
@@ -2054,6 +2075,26 @@ function App() {
                   <hr className="border-border" />
 
                   <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
+                  <hr className="border-border" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-sm block">Notificações no Dispositivo</span>
+                      <span className="text-xs text-muted-foreground">
+                        {deviceNotificationPermission === 'granted' ? 'Notificações ativas no navegador' : 'Permitir alertas nesta máquina ou celular'}
+                      </span>
+                    </div>
+                    <Button
+                      variant={deviceNotificationPermission === 'granted' ? 'outline' : 'default'}
+                      size="sm"
+                      onClick={requestNotificationPermission}
+                      className="gap-1.5"
+                    >
+                      <span className="material-symbols-rounded text-sm">
+                        {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
+                      </span>
+                      {deviceNotificationPermission === 'granted' ? 'Ativas (Testar)' : 'Ativar'}
+                    </Button>
+                  </div>
                   <hr className="border-border" />
                   <div className="flex items-center justify-between">
                     <div>
