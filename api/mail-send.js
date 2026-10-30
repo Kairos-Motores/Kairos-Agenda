@@ -1,17 +1,20 @@
 /* global process */
 import nodemailer from 'nodemailer';
 
+// URL oficial da Kairós Agenda (sem hífen)
+const APP_URL = 'https://kairosagenda.vercel.app';
+
 // Helper to sanitize environment variables
 const getEnv = (key, fallback = '') => {
   let val = process.env[key] || fallback;
   val = String(val).trim();
-  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && v.endsWith("'"))) {
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
     val = val.slice(1, -1);
   }
   return val;
 };
 
-// Builds a clean, branded HTML email template for Kairós Agenda
+// Builds a clean, branded HTML email template matching Kairós Agenda visual identity
 function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
   const dataHoje = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -21,24 +24,54 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
   });
 
   const coresTipo = {
-    mencao: { bg: '#8b5cf6', badge: 'MENÇÃO', icone: '💬' },
-    evento_proximo: { bg: '#f59e0b', badge: 'EVENTO PRÓXIMO', icone: '⏰' },
-    compartilhamento: { bg: '#10b981', badge: 'COMPARTILHAMENTO', icone: '🤝' },
-    cogerente: { bg: '#3b82f6', badge: 'CO-GERÊNCIA', icone: '⭐' },
-    padrao: { bg: '#1a73e8', badge: 'NOTIFICAÇÃO', icone: '🔔' }
+    mencao: {
+      primary: '#7c3aed',
+      lightBg: '#f5f3ff',
+      border: '#ddd6fe',
+      badge: 'Menção',
+      icone: '💬'
+    },
+    evento_proximo: {
+      primary: '#d97706',
+      lightBg: '#fffbeb',
+      border: '#fde68a',
+      badge: 'Evento Próximo',
+      icone: '⏰'
+    },
+    compartilhamento: {
+      primary: '#059669',
+      lightBg: '#ecfdf5',
+      border: '#a7f3d0',
+      badge: 'Compartilhamento',
+      icone: '🤝'
+    },
+    cogerente: {
+      primary: '#2563eb',
+      lightBg: '#eff6ff',
+      border: '#bfdbfe',
+      badge: 'Co-Gerência',
+      icone: '⭐'
+    },
+    padrao: {
+      primary: '#1a73e8',
+      lightBg: '#eef4ff',
+      border: '#d3e3fd',
+      badge: 'Notificação',
+      icone: '🔔'
+    }
   };
 
   const config = coresTipo[tipo] || coresTipo.padrao;
 
   // Extract key-value details for the table
   const linhasDetalhes = [];
-  if (detalhes.origem) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;width:120px;">Origem:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.origem}</td></tr>`);
-  if (detalhes.itemTitulo) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Item:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.itemTitulo}</td></tr>`);
-  if (detalhes.workspace) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Workspace:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.workspace}</td></tr>`);
-  if (detalhes.lista) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Lista:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.lista}</td></tr>`);
-  if (detalhes.dataHora) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Horário:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.dataHora}</td></tr>`);
-  if (detalhes.responsavel) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Responsável:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${detalhes.responsavel}</td></tr>`);
-  if (autor) linhasDetalhes.push(`<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">Por:</td><td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${autor}</td></tr>`);
+  if (detalhes.origem) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;width:130px;vertical-align:top;">Origem:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.origem}</td></tr>`);
+  if (detalhes.itemTitulo) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Item:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.itemTitulo}</td></tr>`);
+  if (detalhes.workspace) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Workspace:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.workspace}</td></tr>`);
+  if (detalhes.lista) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Lista:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.lista}</td></tr>`);
+  if (detalhes.dataHora) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Horário:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.dataHora}</td></tr>`);
+  if (detalhes.responsavel) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Responsável:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${detalhes.responsavel}</td></tr>`);
+  if (autor) linhasDetalhes.push(`<tr><td style="padding:7px 0;color:#64748b;font-size:13px;font-weight:500;vertical-align:top;">Por:</td><td style="padding:7px 0;color:#0f172a;font-size:13px;font-weight:600;vertical-align:top;">${autor}</td></tr>`);
 
   return `
 <!DOCTYPE html>
@@ -46,24 +79,59 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${titulo}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table { border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f5f7;padding:32px 16px;">
+<body style="margin:0; padding:0; background-color:#f0f4f9; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1e293b; -webkit-font-smoothing:antialiased;">
+  <!-- Container Table -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f0f4f9; padding:40px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-          <!-- Top Accent Bar -->
+        <!-- Main Card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:580px; width:100%; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 12px 32px rgba(15,23,42,0.08); border:1px solid #e2e8f0;">
+          
+          <!-- Brand Accent Strip -->
           <tr>
-            <td style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:24px 32px;border-bottom:3px solid ${config.bg};">
-              <table width="100%" cellspacing="0" cellpadding="0">
+            <td style="background:linear-gradient(90deg, #1a73e8 0%, #4285f4 50%, ${config.primary} 100%); height:6px; font-size:0; line-height:0;">
+              &nbsp;
+            </td>
+          </tr>
+
+          <!-- Header with Kairós Logo and Notification Badge -->
+          <tr>
+            <td style="background-color:#ffffff; padding:28px 36px 20px 36px; border-bottom:1px solid #f1f5f9;">
+              <table width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td>
-                    <span style="font-size:18px;font-weight:800;letter-spacing:1px;color:#ffffff;display:inline-block;">KAIRÓS <span style="color:#60a5fa;">AGENDA</span></span>
+                  <td align="left" style="vertical-align:middle;">
+                    <table cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="vertical-align:middle; padding-right:12px;">
+                          <!-- Calendar Icon in Brand Blue -->
+                          <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg, #1a73e8 0%, #1557b0 100%); text-align:center; line-height:42px; box-shadow:0 4px 10px rgba(26,115,232,0.25);">
+                            <span style="color:#ffffff; font-size:22px; line-height:42px; display:inline-block;">📅</span>
+                          </div>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:18px; font-weight:800; letter-spacing:0.3px; color:#0f172a; line-height:1.2;">
+                            KAIRÓS <span style="color:#1a73e8; font-weight:700;">AGENDA</span>
+                          </div>
+                          <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:11px; font-weight:600; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                            Kairós Motores
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
-                  <td align="right">
-                    <span style="background:${config.bg};color:#ffffff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:9999px;letter-spacing:0.5px;text-transform:uppercase;">
-                      ${config.badge}
+                  <td align="right" style="vertical-align:middle;">
+                    <span style="background-color:${config.lightBg}; color:${config.primary}; border:1px solid ${config.border}; font-size:11px; font-weight:700; padding:6px 14px; border-radius:100px; letter-spacing:0.5px; text-transform:uppercase; display:inline-block; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                      ${config.icone} ${config.badge}
                     </span>
                   </td>
                 </tr>
@@ -71,36 +139,41 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
             </td>
           </tr>
 
-          <!-- Main Content -->
+          <!-- Main Content Body -->
           <tr>
-            <td style="padding:32px;">
-              <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
-                ${config.icone} ${titulo}
+            <td style="background-color:#ffffff; padding:32px 36px;">
+              <h1 style="margin:0 0 16px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:21px; font-weight:700; color:#0f172a; line-height:1.35; letter-spacing:-0.2px;">
+                ${titulo}
               </h1>
 
-              <div style="font-size:15px;line-height:1.6;color:#374151;margin-bottom:24px;">
+              <div style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.65; color:#334155; margin-bottom:24px;">
                 ${mensagem}
               </div>
 
               ${detalhes.trecho ? `
-              <div style="background:#f8fafc;border-left:4px solid ${config.bg};border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:24px;font-style:italic;color:#475569;font-size:14px;line-height:1.5;">
-                "${detalhes.trecho}"
+              <!-- Excerpt / Quote Box -->
+              <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid ${config.primary}; border-radius:12px; padding:16px 20px; margin-bottom:24px;">
+                <div style="font-family:'Poppins', -apple-system, sans-serif; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; margin-bottom:6px;">Conteúdo mencionado:</div>
+                <div style="font-family:'Poppins', -apple-system, sans-serif; font-style:italic; color:#1e293b; font-size:14px; line-height:1.6;">
+                  "${detalhes.trecho}"
+                </div>
               </div>
               ` : ''}
 
               ${linhasDetalhes.length > 0 ? `
-              <div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:28px;">
-                <table width="100%" cellspacing="0" cellpadding="0">
+              <!-- Details Summary Table -->
+              <div style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:18px 22px; margin-bottom:28px;">
+                <table width="100%" cellspacing="0" cellpadding="0" border="0" style="font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                   ${linhasDetalhes.join('')}
                 </table>
               </div>
               ` : ''}
 
-              <!-- Action Button -->
-              <table width="100%" cellspacing="0" cellpadding="0">
+              <!-- Primary Call to Action Button -->
+              <table width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td align="center" style="padding:8px 0 16px 0;">
-                    <a href="https://kairos-agenda.vercel.app" style="background:#1a73e8;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;display:inline-block;box-shadow:0 2px 4px rgba(26,115,232,0.3);">
+                  <td align="center" style="padding:10px 0 6px 0;">
+                    <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="background:linear-gradient(135deg, #1a73e8 0%, #1557b0 100%); color:#ffffff !important; text-decoration:none !important; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; font-weight:600; padding:14px 34px; border-radius:50px; display:inline-block; box-shadow:0 4px 14px rgba(26,115,232,0.35); letter-spacing:0.2px;">
                       Abrir no Kairós Agenda →
                     </a>
                   </td>
@@ -111,10 +184,12 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
 
           <!-- Footer -->
           <tr>
-            <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
-                Esta é uma notificação automática gerada pela <strong>Kairós Agenda</strong>.<br>
-                ${dataHoje} • Kairós Motores
+            <td style="background-color:#f8fafc; padding:24px 36px; border-top:1px solid #e2e8f0; text-align:center;">
+              <p style="margin:0 0 6px 0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#64748b; line-height:1.5;">
+                Esta é uma notificação automática gerada pela <strong>Kairós Agenda</strong>.
+              </p>
+              <p style="margin:0; font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; color:#94a3b8; line-height:1.5;">
+                ${dataHoje} • <strong>Kairós Motores</strong> • <a href="${APP_URL}" target="_blank" rel="noopener noreferrer" style="color:#1a73e8; text-decoration:none; font-weight:600;">kairosagenda.vercel.app</a>
               </p>
             </td>
           </tr>
@@ -188,7 +263,7 @@ export default async function handler(req, res) {
       from: `"Kairós Agenda" <${user}>`,
       to: emailsUnicos.join(', '),
       subject: `[Kairós Agenda] ${titulo}`,
-      text: `${titulo}\n\n${mensagem}\n\n${detalhes.trecho ? `"${detalhes.trecho}"\n\n` : ''}Acesse: https://kairos-agenda.vercel.app`,
+      text: `${titulo}\n\n${mensagem}\n\n${detalhes.trecho ? `"${detalhes.trecho}"\n\n` : ''}Acesse: ${APP_URL}`,
       html
     });
 
