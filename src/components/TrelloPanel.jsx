@@ -1934,6 +1934,72 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     return () => { if (dragEndRef) dragEndRef.current = null; };
   });
 
+  const [imagemLuminancia, setImagemLuminancia] = useState(null);
+
+  useEffect(() => {
+    const imgSrc = currentUser?.cr4a1_trello_fundo_imagem;
+    if (!imgSrc) {
+      setImagemLuminancia(null);
+      return;
+    }
+    let cancelado = false;
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (cancelado) return;
+      try {
+        const canvas = document.createElement('canvas');
+        const w = 64;
+        const h = 24;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, img.width, Math.max(1, Math.round(img.height * 0.35)), 0, 0, w, h);
+        const { data } = ctx.getImageData(0, 0, w, h);
+        let soma = 0;
+        const pixels = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          soma += (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
+        }
+        setImagemLuminancia(pixels > 0 ? soma / pixels : 0.4);
+      } catch {
+        setImagemLuminancia(0.4);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelado) setImagemLuminancia(0.4);
+    };
+    img.src = imgSrc;
+    return () => { cancelado = true; };
+  }, [currentUser?.cr4a1_trello_fundo_imagem]);
+
+  const headerTemaFundo = useMemo(() => {
+    const temImagem = !!currentUser?.cr4a1_trello_fundo_imagem;
+    const temCor = !!currentUser?.cr4a1_trello_fundo_cor;
+    if (!temImagem && !temCor) return null;
+
+    let fundoClaro = false;
+    if (temImagem) {
+      fundoClaro = imagemLuminancia !== null ? imagemLuminancia > 0.68 : false;
+    } else if (temCor) {
+      const info = corTextoLegivel(currentUser.cr4a1_trello_fundo_cor);
+      fundoClaro = info ? info.principal === '#1a1a1a' : false;
+    }
+
+    if (fundoClaro) {
+      return {
+        tituloStyle: { color: '#0f172a', textShadow: '0 1px 3px rgba(255,255,255,0.85)' },
+        subtituloStyle: { color: 'rgba(15, 23, 42, 0.85)', fontWeight: 500, textShadow: '0 1px 2px rgba(255,255,255,0.8)' },
+        btnOutlineClass: 'bg-white/80 !text-slate-900 !border-slate-900/25 backdrop-blur-md shadow-xs hover:bg-white/95'
+      };
+    }
+    return {
+      tituloStyle: { color: '#ffffff', textShadow: '0 1px 6px rgba(0,0,0,0.65), 0 0 2px rgba(0,0,0,0.5)' },
+      subtituloStyle: { color: 'rgba(255, 255, 255, 0.92)', fontWeight: 500, textShadow: '0 1px 4px rgba(0,0,0,0.65), 0 0 2px rgba(0,0,0,0.5)' },
+      btnOutlineClass: 'bg-slate-900/55 !text-white !border-white/35 backdrop-blur-md shadow-xs hover:bg-slate-900/75'
+    };
+  }, [currentUser?.cr4a1_trello_fundo_imagem, currentUser?.cr4a1_trello_fundo_cor, imagemLuminancia]);
+
   const fundoEstilo = useMemo(() => {
     // minHeight faz o fundo já ocupar a tela toda de cara, em vez de só aparecer atrás das
     // listas curtas — mas sem limitar a altura: se as listas crescerem, o fundo cresce junto.
@@ -1946,13 +2012,15 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     return undefined;
   }, [currentUser]);
 
+  const headerOutlineBtnClass = headerTemaFundo?.btnOutlineClass || '';
+
   return (
     <div className="flex w-full flex-col gap-4 rounded-2xl p-3" style={fundoEstilo}>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <h2 className="text-2xl font-extrabold text-foreground">Fichas</h2>
-            <p className="text-sm text-muted-foreground">Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
+            <h2 className="text-2xl font-extrabold text-foreground" style={headerTemaFundo?.tituloStyle}>Fichas</h2>
+            <p className="text-sm text-muted-foreground" style={headerTemaFundo?.subtituloStyle}>Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável.</p>
           </div>
           {!minhasFichasAberto && !estouBloqueado && (
             <div className="flex items-center gap-1 rounded-xl border border-border bg-card/90 p-1 shadow-xs">
@@ -2003,7 +2071,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
           )}
           <Popover open={filtrosAberto} onOpenChange={setFiltrosAberto}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="relative" aria-label="Filtros">
+              <Button variant="outline" size="sm" className={`relative ${headerOutlineBtnClass}`} aria-label="Filtros">
                 <Filter className="size-4" /> <span className="hidden sm:inline">Filtros</span>
                 {filtrosAtivos > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{filtrosAtivos}</span>
@@ -2109,30 +2177,30 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               de sm, e some pra dentro de um menu "Mais" só no mobile, pra não lotar o
               cabeçalho de linhas de botão com texto antes mesmo do quadro aparecer. */}
           <div className="hidden items-center gap-3 sm:flex">
-            <Button variant="outline" size="sm" onClick={() => setFundoAberto(true)}>
+            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setFundoAberto(true)}>
               <Palette className="size-4" /> Fundo
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setEtiquetasAberto(true)}>
+            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setEtiquetasAberto(true)}>
               <Tag className="size-4" /> Etiquetas
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCompartilharAberto(true)}>
+            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setCompartilharAberto(true)}>
               <Users className="size-4" /> Compartilhar
             </Button>
             {podeGerenciarColaboradores && (
-              <Button variant="outline" size="sm" onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
+              <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
                 <FolderSync className="size-4" /> Mudar Workspace
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setModelosAberto(true)}>
+            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={() => setModelosAberto(true)}>
               <LayoutTemplate className="size-4" /> Modelos
             </Button>
-            <Button variant="outline" size="sm" onClick={exportarQuadro}>
+            <Button variant="outline" size="sm" className={headerOutlineBtnClass} onClick={exportarQuadro}>
               <FileSpreadsheet className="size-4" /> Exportar
             </Button>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="sm:hidden" aria-label="Mais ações">
+              <Button variant="outline" size="sm" className={`sm:hidden ${headerOutlineBtnClass}`} aria-label="Mais ações">
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -2156,7 +2224,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             onClick={() => setArquivadasAberto(true)}
             aria-label="Fichas arquivadas"
             title="Abrir espaço de fichas arquivadas"
-            className="relative"
+            className={`relative ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
           >
             <Archive className="size-4" />
             <span className="hidden sm:inline">Arquivadas</span>
@@ -2171,6 +2239,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             size="sm"
             onClick={() => setMinhasFichasAberto(v => !v)}
             aria-label="Minhas fichas"
+            className={!minhasFichasAberto ? headerOutlineBtnClass : ''}
           >
             <UserCircle2 className="size-4" /> <span className="hidden sm:inline">Minhas fichas</span>
           </Button>

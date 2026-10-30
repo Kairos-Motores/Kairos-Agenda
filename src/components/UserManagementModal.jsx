@@ -46,7 +46,7 @@ const commonEmojis = [
     '☕', '🍱', '🍕', '🥤', '🏋️', '🥋', '🧘', '🚶', '🎉', '🏆'
 ];
 
-export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission, availableRoles = [], appRoles = [], addAppRole, renameAppRole, deleteAppRole }) => {
+export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPendentes = [], criarUsuarioDaCredencial, updateUserColor, eventTypes = [], addEventType, updateEventType, deleteEventType, isAdmin = false, updateUserRoles, addUser, deleteUser, currentUsername, biPermissoes = [], upsertBiPermission, resetBiPermission, availableRoles = [], appRoles = [], addAppRole, renameAppRole, deleteAppRole }) => {
     const { confirm, ConfirmDialogHost } = useConfirm();
     const [userSearch, setUserSearch] = useState('');
     // BI_CONFIG e biPermissoes têm só algumas dezenas de itens — reconstruir o mapa
@@ -58,6 +58,18 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeEmoji, setNewTypeEmoji] = useState('📝');
     const [newTypeLayer, setNewTypeLayer] = useState('nenhuma');
+    const [credSearch, setCredSearch] = useState('');
+    const [creatingCredUser, setCreatingCredUser] = useState(null);
+
+    const handleCriarCredencial = async (credUser) => {
+        if (!credUser || creatingCredUser || !criarUsuarioDaCredencial) return;
+        setCreatingCredUser(credUser.cr4a1_username);
+        try {
+            await criarUsuarioDaCredencial(credUser);
+        } finally {
+            setCreatingCredUser(null);
+        }
+    };
 
     const handleAddUser = async () => {
         const result = await addUser(newUsername, newPassword);
@@ -196,6 +208,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                 <Tabs defaultValue="users">
                     <TabsList>
                         <TabsTrigger value="users">Membros</TabsTrigger>
+                        <TabsTrigger value="credenciais">Credenciais {credenciaisPendentes.length > 0 ? `(${credenciaisPendentes.length})` : ''}</TabsTrigger>
                         <TabsTrigger value="types">Tipos de Evento</TabsTrigger>
                         {isAdmin && <TabsTrigger value="roles">Roles</TabsTrigger>}
                         {isAdmin && <TabsTrigger value="bi">Painéis BI</TabsTrigger>}
@@ -235,6 +248,56 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, updateUserColor
                                     onResetUsage={handleResetUserUsage}
                                 />
                             ))}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="credenciais" className="flex flex-col gap-3">
+                        <div className="rounded-2xl border border-border bg-secondary/50 p-3 text-xs text-muted-foreground">
+                            Usuários ativos em <strong>cr4a1_credenciaises</strong> que ainda não estão cadastrados na tabela de usuários da agenda (<strong>cr4a1_usuarios_agendas</strong>). Clique em qualquer usuário abaixo para criá-lo automaticamente na agenda.
+                        </div>
+                        <SearchField value={credSearch} onChange={setCredSearch} placeholder="Buscar por nome, login ou filial..." />
+                        <div className="flex flex-col gap-2">
+                            {credenciaisPendentes.filter(c =>
+                                matchesSearch(c.cr4a1_username, credSearch) ||
+                                matchesSearch(c.cr4a1_nome_exibicao || '', credSearch) ||
+                                matchesSearch(c.cr4a1_title || '', credSearch) ||
+                                matchesSearch(c.cr4a1_unidade || '', credSearch)
+                            ).map(c => {
+                                const isCreating = creatingCredUser === c.cr4a1_username;
+                                return (
+                                    <button
+                                        key={c.cr4a1_credenciaisid || c.cr4a1_username}
+                                        type="button"
+                                        disabled={!!creatingCredUser}
+                                        onClick={() => handleCriarCredencial(c)}
+                                        className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-secondary px-4 py-3 text-left transition-colors hover:border-primary hover:bg-primary/5 cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                                                {(c.cr4a1_nome_exibicao || c.cr4a1_username)?.[0]?.toUpperCase()}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="truncate text-sm font-semibold text-foreground">{c.cr4a1_nome_exibicao}</span>
+                                                    {c.cr4a1_unidade && <Badge variant="outline" className="text-[10px]">{c.cr4a1_unidade}</Badge>}
+                                                </div>
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    @{c.cr4a1_username}{c.cr4a1_title ? ` • ${c.cr4a1_title}` : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+                                            <UserPlus className="size-3.5" />
+                                            {isCreating ? 'Criando...' : 'Criar na Agenda'}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                            {credenciaisPendentes.length === 0 && (
+                                <p className="py-6 text-center text-sm text-muted-foreground">
+                                    Todos os usuários ativos de credenciais já estão na tabela da agenda.
+                                </p>
+                            )}
                         </div>
                     </TabsContent>
 

@@ -84,7 +84,7 @@ const APPS = [
 function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, credenciaisPendentes = [], criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
@@ -108,6 +108,19 @@ function App() {
   // --- NOVOS ESTADOS DE BUSCA NO MENU SANDUÍCHE ---
   const [workspaceSearchTerm, setWorkspaceSearchTerm] = useState('');
   const [userUnitFilter, setUserUnitFilter] = useState('Todas');
+  const [isCredenciaisMenuOpen, setIsCredenciaisMenuOpen] = useState(false);
+  const [credenciaisSearchTerm, setCredenciaisSearchTerm] = useState('');
+  const [creatingCredUsername, setCreatingCredUsername] = useState(null);
+
+  const handleClickCriarCredencial = async (credUser) => {
+    if (!credUser || creatingCredUsername) return;
+    setCreatingCredUsername(credUser.cr4a1_username);
+    try {
+      await criarUsuarioDaCredencial(credUser);
+    } finally {
+      setCreatingCredUsername(null);
+    }
+  };
 
   const availableUserUnits = useMemo(() => {
     const unitsSet = new Set(allUsers.map(u => u.cr4a1_unidade).filter(Boolean));
@@ -1296,6 +1309,87 @@ function App() {
                 )}
               </>
             )}
+
+            {credenciaisPendentes.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCredenciaisMenuOpen(prev => !prev)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px',
+                    padding: '10px 12px', cursor: 'pointer', color: 'var(--text-primary)'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-accent)' }}>person_add</span>
+                    Usuários das Credenciais ({credenciaisPendentes.length})
+                  </span>
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-secondary)' }}>
+                    {isCredenciaisMenuOpen ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+                {isCredenciaisMenuOpen && (
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Clique num usuário ativo das credenciais para criá-lo automaticamente na agenda:
+                    </span>
+                    <Input
+                      placeholder="Buscar nas credenciais..."
+                      value={credenciaisSearchTerm}
+                      onChange={e => setCredenciaisSearchTerm(e.target.value)}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {credenciaisPendentes.filter(c =>
+                        !credenciaisSearchTerm.trim() ||
+                        matchesSearch(c.cr4a1_username, credenciaisSearchTerm) ||
+                        matchesSearch(c.cr4a1_nome_exibicao || '', credenciaisSearchTerm) ||
+                        matchesSearch(c.cr4a1_title || '', credenciaisSearchTerm) ||
+                        matchesSearch(c.cr4a1_unidade || '', credenciaisSearchTerm)
+                      ).map(c => {
+                        const isCreating = creatingCredUsername === c.cr4a1_username;
+                        return (
+                          <button
+                            key={c.cr4a1_credenciaisid || c.cr4a1_username}
+                            type="button"
+                            disabled={!!creatingCredUsername}
+                            onClick={() => handleClickCriarCredencial(c)}
+                            title={`Clique para criar ${c.cr4a1_nome_exibicao} (@${c.cr4a1_username}) na agenda`}
+                            className="boing-effect"
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                              padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)',
+                              background: 'var(--bg-primary)', cursor: isCreating ? 'wait' : 'pointer'
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--text-accent)',
+                                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#fff', fontSize: '11px', fontWeight: '700'
+                              }}
+                            >
+                              {(c.cr4a1_nome_exibicao || c.cr4a1_username)?.[0]?.toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {c.cr4a1_nome_exibicao}
+                              </div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                @{c.cr4a1_username}{c.cr4a1_unidade ? ` • ${c.cr4a1_unidade}` : ''}
+                              </div>
+                            </div>
+                            <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-accent)', flexShrink: 0 }}>
+                              {isCreating ? 'progress_activity' : 'add_circle'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1988,7 +2082,7 @@ function App() {
             />
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
-          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} appRoles={appRoles} availableRoles={availableRoles} addAppRole={addAppRole} renameAppRole={renameAppRole} deleteAppRole={deleteAppRole} />}
+          {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} credenciaisPendentes={credenciaisPendentes} criarUsuarioDaCredencial={criarUsuarioDaCredencial} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} appRoles={appRoles} availableRoles={availableRoles} addAppRole={addAppRole} renameAppRole={renameAppRole} deleteAppRole={deleteAppRole} />}
           <WatchPairingModal
             isOpen={isWatchModalOpen}
             onClose={() => setIsWatchModalOpen(false)}

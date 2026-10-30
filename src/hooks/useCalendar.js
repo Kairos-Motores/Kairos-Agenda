@@ -16,6 +16,16 @@ const API_PROXY = '/api/dataverse-proxy';
 // Converte uma data do Dataverse (UTC com Z, ou yyyy-MM-dd) para o dia no fuso local.
 const diaLocal = (valor) => (valor?.includes('Z') ? format(new Date(valor), 'yyyy-MM-dd') : valor);
 
+// Formata o primeiro e o último nome de cr4a1_title com a primeira letra maiúscula e as demais minúsculas
+// Ex.: "MARCOS SOUSA BARRETO FILHO" -> "Marcos Filho"
+export const formatarPrimeiroEUltimoNome = (title) => {
+    if (!title || !String(title).trim()) return '';
+    const partes = String(title).trim().split(/\s+/).filter(Boolean);
+    const capitalizar = (palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+    if (partes.length === 1) return capitalizar(partes[0]);
+    return `${capitalizar(partes[0])} ${capitalizar(partes[partes.length - 1])}`;
+};
+
 // Mesmo username pode estar cadastrado mais de uma vez no Dataverse; a lista de
 // usuários mostra uma linha por pessoa, preferindo o registro que já tem cargo.
 const uniqueByUsername = (list) => {
@@ -83,6 +93,7 @@ export const useCalendar = () => {
     const [viewedUser, setViewedUser] = useState(() => localStorage.getItem('kairos_logged_user') || null);
     const [isValidatingSession, setIsValidatingSession] = useState(!!localStorage.getItem('kairos_logged_user'));
     const [allUsers, setAllUsers] = useState([]);
+    const [credenciaisPendentes, setCredenciaisPendentes] = useState([]);
     const [eventTypes, setEventTypes] = useState(() => {
         const saved = localStorage.getItem('kairos_event_types');
         return saved ? JSON.parse(saved) : [{ id: '1', name: 'Tarefa', emoji: '📝', layer: 'nenhuma' }, { id: '2', name: 'Reunião', emoji: '🤝', layer: 'nenhuma' }];
@@ -390,7 +401,7 @@ export const useCalendar = () => {
         try {
             const [resUsers, resCreds] = await Promise.all([
                 fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`),
-                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title,cr4a1_credenciaisid`).catch(() => null)
+                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title,cr4a1_credenciaisid,cr4a1_matr_x00ed_cula,cr4a1_xstatus,cr4a1_filial,cr4a1_agenda_roles,statecode`).catch(() => null)
             ]);
             const dataUsers = await resUsers.json();
             const dataCreds = resCreds && resCreds.ok ? await resCreds.json() : { value: [] };
@@ -406,7 +417,13 @@ export const useCalendar = () => {
                         credsMap.set(key, {
                             email: emailLimpo,
                             title: (c.cr4a1_title || '').trim(),
-                            credenciaisId: c.cr4a1_credenciaisid
+                            credenciaisId: c.cr4a1_credenciaisid,
+                            matricula: String(c.cr4a1_matr_x00ed_cula || '').trim(),
+                            status: (c.cr4a1_xstatus || '').trim(),
+                            filial: (c.cr4a1_filial || '').trim(),
+                            agendaRoles: (c.cr4a1_agenda_roles || '').trim(),
+                            statecode: c.statecode,
+                            rawUsername: c.cr4a1_usu_x00e1_rio.trim()
                         });
                     }
                     if (emailLimpo) {
@@ -421,20 +438,61 @@ export const useCalendar = () => {
                 }
             } catch (e) { void e; }
 
+            const agendaUsernamesSet = new Set();
             const merged = (dataUsers.value || []).map(u => {
                 const uname = (u.cr4a1_username || '').trim().toLowerCase();
+                if (uname) agendaUsernamesSet.add(uname);
                 const cred = credsMap.get(uname);
                 // Prioriza estritamente o e-mail cadastrado na tabela de credenciais (cr4a1_credenciaises)
                 const email = cred?.email || (u.cr4a1_email || '').trim() || '';
+                const nomeExibicaoJaPreenchido = u.cr4a1_nome_exibicao && String(u.cr4a1_nome_exibicao).trim();
+                const nomeFormatadoPadrao = formatarPrimeiroEUltimoNome(cred?.title);
+                const nomeExibicaoFinal = nomeExibicaoJaPreenchido
+                    ? String(u.cr4a1_nome_exibicao).trim()
+                    : (nomeFormatadoPadrao || u.cr4a1_username);
+
+                // Se a coluna cr4a1_nome_exibicao ainda estiver vazia no Dataverse, persiste o padrão (Primeiro + Último nome)
+                if (!nomeExibicaoJaPreenchido && nomeFormatadoPadrao && u.cr4a1_usuarios_agendaid) {
+                    fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${u.cr4a1_usuarios_agendaid}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cr4a1_nome_exibicao: nomeFormatadoPadrao })
+                    }).catch(() => {});
+                }
+
                 return {
                     ...u,
-                    cr4a1_nome_exibicao: u.cr4a1_nome_exibicao || cred?.title || u.cr4a1_username,
+                    cr4a1_nome_exibicao: nomeExibicaoFinal,
                     cr4a1_email: email,
                     email: email,
                     cr4a1_credenciaisid: cred?.credenciaisId || u.cr4a1_credenciaisid
                 };
             });
 
+            // Usuários ativos em cr4a1_credenciaises que ainda não estão em cr4a1_usuarios_agendas
+            const pendentes = [];
+            credsMap.forEach((cred, key) => {
+                const isInativo = cred.status.toLowerCase() === 'inativo' || cred.statecode === 1;
+                if (!isInativo && !agendaUsernamesSet.has(key)) {
+                    const nomePadrao = formatarPrimeiroEUltimoNome(cred.title) || cred.rawUsername;
+                    pendentes.push({
+                        cr4a1_username: cred.rawUsername,
+                        cr4a1_nome_exibicao: nomePadrao,
+                        cr4a1_title: cred.title,
+                        cr4a1_password: cred.matricula || cred.rawUsername,
+                        cr4a1_unidade: cred.filial || '',
+                        cr4a1_role: cred.agendaRoles || 'COMUM',
+                        cr4a1_email: cred.email || '',
+                        email: cred.email || '',
+                        cr4a1_credenciaisid: cred.credenciaisId,
+                        cr4a1_xstatus: cred.status || 'Ativo',
+                        _apenasCredencial: true
+                    });
+                }
+            });
+            pendentes.sort((a, b) => (a.cr4a1_nome_exibicao || '').localeCompare(b.cr4a1_nome_exibicao || '', 'pt-BR'));
+
+            setCredenciaisPendentes(pendentes);
             setAllUsers(uniqueByUsername(merged));
         } catch (error) { console.error('Erro ao buscar usuários:', error); }
     }, []);
@@ -1298,10 +1356,19 @@ export const useCalendar = () => {
                 return { success: false };
             }
 
+            const credMatch = credenciaisPendentes.find(c => (c.cr4a1_username || '').toLowerCase() === trimmed.toLowerCase());
+            const nomePadrao = credMatch?.cr4a1_nome_exibicao || '';
+
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cr4a1_username: trimmed, cr4a1_password: password, cr4a1_role: '', cr4a1_unidade: '' })
+                body: JSON.stringify({
+                    cr4a1_username: trimmed,
+                    cr4a1_password: password,
+                    cr4a1_role: credMatch?.cr4a1_role || '',
+                    cr4a1_unidade: credMatch?.cr4a1_unidade || '',
+                    ...(nomePadrao ? { cr4a1_nome_exibicao: nomePadrao } : {})
+                })
             });
             if (!response.ok) throw new Error('Falha ao criar no Dataverse.');
 
@@ -1311,6 +1378,56 @@ export const useCalendar = () => {
         } catch (error) {
             console.error(error);
             toast.error('Erro ao criar usuário.');
+            return { success: false };
+        }
+    };
+
+    const criarUsuarioDaCredencial = async (credUser) => {
+        try {
+            const username = (credUser?.cr4a1_username || '').trim();
+            if (!username) return { success: false };
+
+            const filter = encodeURIComponent(`cr4a1_username eq '${username}'`);
+            const checkRes = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&$filter=${filter}`);
+            const checkData = await checkRes.json();
+            if (checkData.value && checkData.value.length > 0) {
+                await fetchUsers();
+                toast.success(`Usuário "${credUser.cr4a1_nome_exibicao || username}" já está na agenda!`);
+                return { success: true };
+            }
+
+            const nomeExibicao = credUser.cr4a1_nome_exibicao || formatarPrimeiroEUltimoNome(credUser.cr4a1_title) || username;
+            const password = String(credUser.cr4a1_password || username).trim();
+            const unidade = (credUser.cr4a1_unidade || '').trim();
+            const role = (credUser.cr4a1_role || 'COMUM').trim();
+
+            const payload = {
+                cr4a1_username: username,
+                cr4a1_password: password,
+                cr4a1_nome_exibicao: nomeExibicao,
+                cr4a1_unidade: unidade,
+                cr4a1_role: role
+            };
+
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Falha ao criar usuário na tabela da agenda.');
+
+            await adicionarUsuarioAoCalendarioComum(username);
+            if (unidade) {
+                await addMemberToWorkspaceByName(unidade, username).catch(() => {});
+            }
+
+            await fetchUsers();
+            await fetchWorkspaces();
+            toast.success(`Usuário "${nomeExibicao}" criado automaticamente na agenda!`);
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao criar usuário da credencial:', error);
+            toast.error('Erro ao criar usuário na agenda.');
             return { success: false };
         }
     };
@@ -2103,7 +2220,7 @@ export const useCalendar = () => {
 
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
-        allUsers, eventTypes, addEventType, updateEventType, deleteEventType, notification,
+        allUsers, credenciaisPendentes, criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, notification,
         updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
