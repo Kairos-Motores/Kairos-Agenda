@@ -388,9 +388,41 @@ export const useCalendar = () => {
 
     const fetchUsers = useCallback(async () => {
         try {
-            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`);
-            const data = await response.json();
-            setAllUsers(uniqueByUsername(data.value || []));
+            const [resUsers, resCreds] = await Promise.all([
+                fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`),
+                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_credenciaisid`).catch(() => null)
+            ]);
+            const dataUsers = await resUsers.json();
+            const dataCreds = resCreds && resCreds.ok ? await resCreds.json() : { value: [] };
+
+            const credsMap = new Map();
+            (dataCreds.value || []).forEach(c => {
+                if (c.cr4a1_usu_x00e1_rio) {
+                    credsMap.set(c.cr4a1_usu_x00e1_rio.toLowerCase(), {
+                        email: c.cr4a1_email || '',
+                        credenciaisId: c.cr4a1_credenciaisid
+                    });
+                }
+            });
+
+            let cachedEmails = {};
+            try {
+                cachedEmails = JSON.parse(localStorage.getItem('kairos_user_emails') || '{}');
+            } catch (e) { void e; }
+
+            const merged = (dataUsers.value || []).map(u => {
+                const uname = (u.cr4a1_username || '').toLowerCase();
+                const cred = credsMap.get(uname);
+                const email = cred?.email || cachedEmails[uname] || u.cr4a1_email || '';
+                return {
+                    ...u,
+                    cr4a1_email: email,
+                    email: email,
+                    cr4a1_credenciaisid: cred?.credenciaisId || u.cr4a1_credenciaisid
+                };
+            });
+
+            setAllUsers(uniqueByUsername(merged));
         } catch (error) { console.error('Erro ao buscar usuários:', error); }
     }, []);
 
@@ -1543,6 +1575,51 @@ export const useCalendar = () => {
         }
     };
 
+    const updateUserEmail = async (userId, userLogin, newEmail) => {
+        try {
+            const cleanEmail = (newEmail || '').trim().toLowerCase();
+            const targetUser = allUsers.find(u => u.cr4a1_usuarios_agendaid === userId || (u.cr4a1_username || '').toLowerCase() === (userLogin || '').toLowerCase());
+            const login = targetUser?.cr4a1_username || userLogin;
+
+            // 1. Persiste no cache local rápido
+            if (login) {
+                try {
+                    const cached = JSON.parse(localStorage.getItem('kairos_user_emails') || '{}');
+                    cached[login.toLowerCase()] = cleanEmail;
+                    localStorage.setItem('kairos_user_emails', JSON.stringify(cached));
+                } catch (e) { void e; }
+            }
+
+            // 2. Atualiza estado imediatamente
+            setAllUsers(prev => prev.map(u => {
+                if (u.cr4a1_usuarios_agendaid === userId || (u.cr4a1_username || '').toLowerCase() === (login || '').toLowerCase()) {
+                    return { ...u, cr4a1_email: cleanEmail, email: cleanEmail };
+                }
+                return u;
+            }));
+
+            // 3. Salva no Dataverse cr4a1_credenciaises
+            let credId = targetUser?.cr4a1_credenciaisid;
+            if (!credId && login) {
+                const filtro = encodeURIComponent(`cr4a1_usu_x00e1_rio eq '${login}'`);
+                const resBusca = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$filter=${filtro}`).then(r => r.json()).catch(() => ({ value: [] }));
+                credId = resBusca.value?.[0]?.cr4a1_credenciaisid;
+            }
+
+            if (credId) {
+                await fetch(`${API_PROXY}?table=cr4a1_credenciaises&id=${credId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_email: cleanEmail })
+                });
+            }
+            return true;
+        } catch (error) {
+            console.error('Erro ao atualizar email:', error);
+            return false;
+        }
+    };
+
     const updateProfile = async (userId, profileData) => {
         try {
             const formattedBirthday = profileData.aniversario ? `${profileData.aniversario}T12:00:00Z` : null;
@@ -1558,8 +1635,19 @@ export const useCalendar = () => {
             });
 
             if (response.ok) {
+                const targetUser = allUsers.find(u => u.cr4a1_usuarios_agendaid === userId);
+                if (profileData.email !== undefined) {
+                    await updateUserEmail(userId, targetUser?.cr4a1_username, profileData.email);
+                }
+
                 setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
-                    { ...u, cr4a1_nome_exibicao: profileData.nomeExibicao, cr4a1_foto: profileData.foto, cr4a1_aniversario: formattedBirthday } : u
+                    {
+                        ...u,
+                        cr4a1_nome_exibicao: profileData.nomeExibicao,
+                        cr4a1_foto: profileData.foto,
+                        cr4a1_aniversario: formattedBirthday,
+                        ...(profileData.email !== undefined ? { cr4a1_email: profileData.email, email: profileData.email } : {})
+                    } : u
                 ));
                 toast.success("Perfil atualizado!");
             } else {
@@ -2007,7 +2095,7 @@ export const useCalendar = () => {
         loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, syncPendingQueue, pendingSyncCount, updateWhatsApp, addWorkspace, updateWorkspace,
-        updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
+        updateUnit, updateProfile, updateUserEmail, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,

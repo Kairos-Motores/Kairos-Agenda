@@ -387,7 +387,10 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                     <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: user.cr4a1_cor || '#3498db' }} />
                     <span className="flex min-w-0 flex-col">
                         <span className="truncate text-sm font-medium text-foreground">{user.cr4a1_nome_exibicao || user.cr4a1_username}</span>
-                        {user.cr4a1_nome_exibicao && <span className="truncate text-[11px] text-muted-foreground">@{user.cr4a1_username}</span>}
+                        <span className="truncate text-[11px] text-muted-foreground">
+                            @{user.cr4a1_username}
+                            {(user.cr4a1_email || user.email) ? ` • ${user.cr4a1_email || user.email}` : ''}
+                        </span>
                     </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">

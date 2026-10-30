@@ -220,6 +220,7 @@ function App() {
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('kairos_accent_color') || '#1a73e8');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [aniversarioEdit, setAniversarioEdit] = useState('');
+  const [emailEdit, setEmailEdit] = useState('');
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
@@ -287,7 +288,10 @@ function App() {
 
   const currentUser = allUsers.find(u => u.cr4a1_username === user);
   useEffect(() => {
-    if (isProfileModalOpen) setAniversarioEdit(currentUser?.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : '');
+    if (isProfileModalOpen) {
+      setAniversarioEdit(currentUser?.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : '');
+      setEmailEdit(currentUser?.cr4a1_email || currentUser?.email || '');
+    }
   }, [isProfileModalOpen, currentUser]);
 
   const taskEvents = useMemo(() => {
@@ -471,9 +475,7 @@ function App() {
 
   useEffect(() => {
     const checkNotifications = () => {
-      if (Notification.permission !== 'granted') return;
       const now = new Date();
-      const milestones = [30, 15, 5, 0];
       events.forEach(event => {
         if (event.cr4a1_dia_inteiro || !event.cr4a1_hora_inicio) return;
         const [year, month, day] = event.cr4a1_data_inicio.split('T')[0].split('-').map(Number);
@@ -482,12 +484,27 @@ function App() {
         const diffMs = eventDate - now;
         const diffMin = Math.floor(diffMs / 60000);
 
-        if (milestones.includes(diffMin)) {
+        // Verifica se o evento pertence ao usuário logado ou se foi atribuído a ele
+        const responsaveis = (event.cr4a1_user_login || '').split(',').map(s => s.trim().toLowerCase());
+        const souResponsavel = responsaveis.includes((user || '').toLowerCase());
+
+        // 1. Alerta por E-mail e Sininho no App (15 minutos antes de começar)
+        if (souResponsavel && diffMin >= 0 && diffMin <= 15) {
+          const mailKey = `mail_event_${event.cr4a1_agenda_kairosid}_${event.cr4a1_data_inicio}`;
+          if (!sessionStorage.getItem(mailKey)) {
+            sessionStorage.setItem(mailKey, 'true');
+            notificarEventoProximo({ event, diffMin, allUsers });
+          }
+        }
+
+        // 2. Notificação Desktop do Navegador (se permissão concedida)
+        const milestones = [30, 15, 5, 0];
+        if (souResponsavel && milestones.includes(diffMin) && Notification.permission === 'granted') {
           const notificationKey = `${event.cr4a1_agenda_kairosid}_${diffMin}`;
           if (!notifiedRef.current.has(notificationKey)) {
             const title = `📌 ${event.cr4a1_titulo}`;
             const options = {
-              body: diffMin === 0 ? "A começar agora!" : `Em ${diffMin} minutes.`,
+              body: diffMin === 0 ? "A começar agora!" : `Em ${diffMin} minutos.`,
               icon: '/icon-512.jpg',
               tag: event.cr4a1_agenda_kairosid,
               badge: '/icon-512.jpg',
@@ -502,19 +519,16 @@ function App() {
               new Notification(title, options);
             }
             notifiedRef.current.add(notificationKey);
-
-            // Envia alerta por e-mail e salva notificação no app para eventos próximos
-            if (diffMin === 15 || diffMin === 30 || diffMin === 0) {
-              notificarEventoProximo({ event, diffMin, allUsers });
-            }
           }
         }
       });
       if (notifiedRef.current.size > 50) notifiedRef.current.clear();
     };
+
+    checkNotifications();
     const timer = setInterval(checkNotifications, 30000);
     return () => clearInterval(timer);
-  }, [events]);
+  }, [events, allUsers, user]);
 
   useEffect(() => {
     const clockTimer = setInterval(() => setNow(new Date()), 30000);
@@ -1996,7 +2010,8 @@ function App() {
                       onChange={(e) => compressImage(e.target.files[0], (res) => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                         nomeExibicao: document.getElementById('n-up')?.value || currentUser.cr4a1_nome_exibicao,
                         aniversario: aniversarioEdit || currentUser.cr4a1_aniversario,
-                        foto: res
+                        foto: res,
+                        email: emailEdit || currentUser.cr4a1_email
                       }))}
                     />
                   </div>
@@ -2004,6 +2019,21 @@ function App() {
                   <div>
                     <Label>Nome de Exibição</Label>
                     <Input type="text" defaultValue={currentUser.cr4a1_nome_exibicao || user} id="n-up" />
+                  </div>
+
+                  <div>
+                    <Label>E-mail para Alertas e Notificações</Label>
+                    <Input
+                      type="email"
+                      placeholder="seu.email@kairosmotores.com"
+                      value={emailEdit}
+                      onChange={(e) => setEmailEdit(e.target.value)}
+                      id="e-up"
+                      className="mt-1"
+                    />
+                    <span className="text-[11px] text-muted-foreground mt-1 block">
+                      Receba alertas por e-mail de menções (@seu_usuario), eventos próximos e compartilhamentos.
+                    </span>
                   </div>
 
                   <DateField label="Aniversário" selectedDate={aniversarioEdit} onSelect={setAniversarioEdit} allowClear />
@@ -2014,7 +2044,8 @@ function App() {
                     onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
                       nomeExibicao: document.getElementById('n-up').value,
                       aniversario: aniversarioEdit,
-                      foto: currentUser.cr4a1_foto
+                      foto: currentUser.cr4a1_foto,
+                      email: emailEdit
                     })}
                   >
                     Salvar Dados do Perfil

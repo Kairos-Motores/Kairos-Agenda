@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
     X, Smile, CalendarDays, CalendarClock, Clock, History, LayoutGrid, Bookmark, Users,
-    ChevronLeft, ChevronRight, Check, Upload, FileText, Plus, Trash2, Lock
+    ChevronLeft, ChevronRight, Check, Upload, FileText, Plus, Trash2, Lock, KanbanSquare
 } from 'lucide-react';
 import { parseAssignees } from '../utils/assignees';
 import { Dialog, DialogContent } from './ui/dialog';
@@ -169,7 +169,7 @@ export const EventModal = ({
         if (formData.endDate && formData.startDate && formData.endDate < formData.startDate) return toast.error('A data final não pode ser anterior à data inicial.');
         setIsSaving(true);
         try {
-            await onSave({ ...formData, cr4a1_titulo: formData.title, cr4a1_descricao: formData.details, cr4a1_subtasks: JSON.stringify(subtasks), cr4a1_privado: isPrivate });
+            await onSave({ ...formData, criarFichaTrello, trelloListId, cr4a1_titulo: formData.title, cr4a1_descricao: formData.details, cr4a1_subtasks: JSON.stringify(subtasks), cr4a1_privado: isPrivate });
         } catch {
             setIsSaving(false);
         }
@@ -234,6 +234,38 @@ export const EventModal = ({
                     <div className="flex flex-col gap-1 rounded-3xl border border-primary/10 bg-primary/5 px-4.5 py-2.5">
                         <SwitchRow label="Compromisso de Dia Inteiro" checked={formData.allDay} onChange={val => setFormData({ ...formData, allDay: val })} />
                         <SwitchRow label="Restringir Visibilidade" icon={Lock} checked={isPrivate} onChange={setIsPrivate} />
+                    </div>
+
+                    <div className="flex flex-col gap-2.5 rounded-3xl border border-primary/20 bg-primary/5 p-4">
+                        <SwitchRow
+                            label="Converter evento em Ficha no Trello"
+                            icon={KanbanSquare}
+                            checked={criarFichaTrello}
+                            onChange={setCriarFichaTrello}
+                        />
+                        {criarFichaTrello && (
+                            <div className="pt-2 border-t border-primary/10 flex flex-col gap-1.5">
+                                <Label className="text-xs font-semibold text-foreground">Lista de Destino no Trello (Workspace Selecionado)</Label>
+                                {carregandoListas ? (
+                                    <p className="text-xs text-muted-foreground py-1">Carregando listas do Trello...</p>
+                                ) : trelloListas.length === 0 ? (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 py-1">Nenhuma lista encontrada neste workspace. Crie uma lista no painel Trello antes.</p>
+                                ) : (
+                                    <Select value={trelloListId} onValueChange={setTrelloListId}>
+                                        <SelectTrigger className="bg-card">
+                                            <SelectValue placeholder="Selecione a lista de destino..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {trelloListas.map(lista => (
+                                                <SelectItem key={lista.cr4a1_listaid} value={lista.cr4a1_listaid}>
+                                                    {lista.cr4a1_nome}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
