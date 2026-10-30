@@ -19,6 +19,7 @@ import { RichTextEditor, aplicarAtributoTarefa } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
+import { MentionInput, MentionTextarea } from './ui/mention-autocomplete';
 import { Sticker } from './ui/sticker';
 import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
@@ -2001,13 +2002,13 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
 
       <div>
         <Label>Título</Label>
-        <Input value={form.titulo} onChange={e => set('titulo', e.target.value)} />
+        <MentionInput allUsers={allUsers} value={form.titulo} onChange={e => set('titulo', e.target.value)} />
       </div>
 
       <div>
         <Label>Descrição</Label>
         <p className="mb-1 text-[11px] text-muted-foreground">Use o ícone de checklist para criar microtarefas — elas aparecem e podem ser marcadas direto no card.</p>
-        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} onEditorReady={setEditorDescricao} />
+        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} onEditorReady={setEditorDescricao} allUsers={allUsers} />
       </div>
 
       {temTarefas && (
@@ -2178,11 +2179,12 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
           ))}
         </div>
         <div className="mt-2 flex items-end gap-2">
-          <Textarea
+          <MentionTextarea
+            allUsers={allUsers}
             value={novoComentario}
             onChange={e => setNovoComentario(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); comentarEnviar(); } }}
-            placeholder="Escreva um comentário..."
+            placeholder="Escreva um comentário... Use @ para mencionar alguém"
             className="min-h-[40px] py-2"
           />
           <Button type="button" size="sm" onClick={comentarEnviar} disabled={!novoComentario.trim()} aria-label="Comentar">

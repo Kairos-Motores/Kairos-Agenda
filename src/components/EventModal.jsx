@@ -14,6 +14,7 @@ import { TimeField } from './ui/time-field';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
+import { MentionInput, MentionTextarea } from './ui/mention-autocomplete';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
@@ -190,7 +191,8 @@ export const EventModal = ({
 
                 <div className="flex flex-col gap-[18px]">
                     <div className="flex items-center gap-3 rounded-[20px] border border-border bg-secondary px-3.5 py-1.5">
-                        <input
+                        <MentionInput
+                            allUsers={allUsers}
                             placeholder="Nome do Evento ou Tarefa..."
                             value={formData.title}
                             onChange={e => setFormData({ ...formData, title: e.target.value })}
@@ -341,9 +343,10 @@ export const EventModal = ({
 
                     <div className="flex flex-col rounded-[20px] border border-border bg-secondary px-4 py-2.5">
                         <Label>Descrição Detalhada</Label>
-                        <Textarea
+                        <MentionTextarea
+                            allUsers={allUsers}
                             rows={3}
-                            placeholder="Adicione as pautas ou informações da entrega..."
+                            placeholder="Adicione as pautas ou informações da entrega... Use @ para mencionar alguém"
                             value={formData.details}
                             onChange={e => setFormData({ ...formData, details: e.target.value })}
                             className="resize-none border-none bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"

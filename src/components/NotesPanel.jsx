@@ -19,6 +19,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { AttachmentsField } from './ui/attachments-field';
 import { RichTextEditor } from './ui/rich-text-editor';
+import { MentionInput } from './ui/mention-autocomplete';
 import { parseAnexos } from '../utils/anexos';
 import { htmlParaTexto } from '../utils/descricaoTarefas';
 import { canUserViewNota, getNotaPermissions } from '../utils/notasCompartilhamento';
@@ -882,7 +883,8 @@ export const NotesPanel = ({
         }}>
 
           {isEditing ? (
-            <input
+            <MentionInput
+              allUsers={allUsers}
               type="text"
               placeholder="Título da Nota..."
               value={notaAberta.cr4a1_titulo}
@@ -1054,8 +1056,9 @@ export const NotesPanel = ({
                       <RichTextEditor
                         value={bloco.value}
                         onChange={v => handleBlockChange(bloco.id, v)}
-                        placeholder="Escreva um texto..."
+                        placeholder="Escreva um texto... (use @ para mencionar)"
                         minHeightClass="min-h-[44px]"
+                        allUsers={allUsers}
                       />
                     </div>
                   )}

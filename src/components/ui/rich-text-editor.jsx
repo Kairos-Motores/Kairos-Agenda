@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle, FontFamily } from '@tiptap/extension-text-style';
@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { textFonts } from '../../constants/textFonts';
 import { themeColors } from '../../constants/materialColors';
+import { filtrarUsuariosParaMencao, MentionSuggestionsMenu } from './mention-autocomplete';
 
 // Marca-texto aplicado em opacidade reduzida (não na cor cheia) — assim a paleta inteira do
 // tema (claras e escuras) continua legível por cima, sem precisar restringir as opções a só
@@ -92,8 +93,33 @@ const ToolbarButton = ({ active, onClick, title, children }) => (
   </button>
 );
 
-export const RichTextEditor = ({ value, onChange, onEditorReady, editable = true, placeholder = '', minHeightClass = 'min-h-[120px]' }) => {
+export const RichTextEditor = ({
+  value,
+  onChange,
+  onEditorReady,
+  editable = true,
+  placeholder = '',
+  minHeightClass = 'min-h-[120px]',
+  allUsers = []
+}) => {
   const [marcadorAberto, setMarcadorAberto] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionCoords, setMentionCoords] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const filteredUsers = useMemo(() => {
+    return filtrarUsuariosParaMencao(allUsers, mentionQuery);
+  }, [allUsers, mentionQuery]);
+
+  const mentionOpenRef = useRef(false);
+  mentionOpenRef.current = mentionOpen;
+  const filteredUsersRef = useRef([]);
+  filteredUsersRef.current = filteredUsers;
+  const selectedIndexRef = useRef(0);
+  selectedIndexRef.current = selectedIndex;
+  const selectUserRef = useRef(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -106,11 +132,81 @@ export const RichTextEditor = ({ value, onChange, onEditorReady, editable = true
     ],
     content: value || '',
     editable,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+      checkMention();
+    },
+    onSelectionUpdate: () => {
+      checkMention();
+    },
     editorProps: {
-      attributes: { class: `rich-text-content ${minHeightClass} px-3 py-2 text-sm text-foreground outline-none` }
+      attributes: { class: `rich-text-content ${minHeightClass} px-3 py-2 text-sm text-foreground outline-none` },
+      handleKeyDown: (view, event) => {
+        if (mentionOpenRef.current && filteredUsersRef.current.length > 0) {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setSelectedIndex(prev => (prev + 1) % filteredUsersRef.current.length);
+            return true;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setSelectedIndex(prev => (prev - 1 + filteredUsersRef.current.length) % filteredUsersRef.current.length);
+            return true;
+          }
+          if (event.key === 'Enter' || event.key === 'Tab') {
+            event.preventDefault();
+            const user = filteredUsersRef.current[selectedIndexRef.current];
+            if (user) selectUserRef.current?.(user);
+            return true;
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            setMentionOpen(false);
+            return true;
+          }
+        }
+        return false;
+      }
     }
   });
+
+  const selectUser = useCallback((user) => {
+    if (!editor || !user) return;
+    const { from } = editor.state.selection;
+    const textBefore = editor.state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\0');
+    const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
+    if (match) {
+      const matchStart = from - match[0].length;
+      editor.chain().focus().deleteRange({ from: matchStart, to: from }).insertContent(`@${user.cr4a1_username} `).run();
+      setMentionOpen(false);
+    }
+  }, [editor]);
+  selectUserRef.current = selectUser;
+
+  const checkMention = useCallback(() => {
+    if (!editor || !editor.isEditable) return;
+    const { from } = editor.state.selection;
+    const textBefore = editor.state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\0');
+    const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
+
+    if (match) {
+      setMentionQuery(match[1]);
+      setSelectedIndex(0);
+      try {
+        const coords = editor.view.coordsAtPos(from);
+        setMentionCoords({
+          top: coords.bottom + 6,
+          left: coords.left,
+          bottom: coords.bottom
+        });
+        setMentionOpen(true);
+      } catch {
+        setMentionOpen(false);
+      }
+    } else {
+      setMentionOpen(false);
+    }
+  }, [editor]);
 
   useEffect(() => {
     if (editor && onEditorReady) onEditorReady(editor);
@@ -188,6 +284,14 @@ export const RichTextEditor = ({ value, onChange, onEditorReady, editable = true
         </Popover>
       </div>
       <EditorContent editor={editor} />
+      {mentionOpen && filteredUsers.length > 0 && (
+        <MentionSuggestionsMenu
+          users={filteredUsers}
+          selectedIndex={selectedIndex}
+          onSelect={selectUser}
+          coords={mentionCoords}
+        />
+      )}
     </div>
   );
 };
