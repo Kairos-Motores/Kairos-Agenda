@@ -488,14 +488,28 @@ export const TrelloPainelView = ({
   etiquetas = [],
   allUsers = [],
   nomeDe,
-  UserAvatar
+  UserAvatar,
+  onAbrirFicha
 }) => {
+  const [listaSelecionadaId, setListaSelecionadaId] = useState(null);
+
+  const listaSelecionada = useMemo(
+    () => listas.find(l => l.cr4a1_listaid === listaSelecionadaId) || null,
+    [listas, listaSelecionadaId]
+  );
+
+  const fichasAnalisadas = useMemo(
+    () => (listaSelecionada ? fichas.filter(f => f.cr4a1_lista_id === listaSelecionada.cr4a1_listaid) : fichas),
+    [fichas, listaSelecionada]
+  );
+
   const stats = useMemo(() => {
     const agoraIso = new Date().toISOString();
-    const total = fichas.length;
-    const concluidas = fichas.filter(f => f.cr4a1_concluida === 'Sim').length;
+    const totalQuadro = fichas.length;
+    const total = fichasAnalisadas.length;
+    const concluidas = fichasAnalisadas.filter(f => f.cr4a1_concluida === 'Sim').length;
     const pendentes = total - concluidas;
-    const atrasadas = fichas.filter(
+    const atrasadas = fichasAnalisadas.filter(
       f => f.cr4a1_concluida !== 'Sim' && f.cr4a1_data_inicio && f.cr4a1_data_inicio < agoraIso
     ).length;
 
@@ -505,7 +519,7 @@ export const TrelloPainelView = ({
 
     const porPrioridade = { critica: 0, alta: 0, media: 0, baixa: 0, '': 0 };
 
-    fichas.forEach(f => {
+    fichasAnalisadas.forEach(f => {
       const meta = parseFichaMeta(f.cr4a1_atividades);
       tempoGastoTotal += calcularTempoTotalMin(meta);
       tempoEstimadoTotal += Number(meta.tempoEstimadoMin) || 0;
@@ -520,17 +534,19 @@ export const TrelloPainelView = ({
     const porLista = listas.map(l => {
       const daLista = fichas.filter(f => f.cr4a1_lista_id === l.cr4a1_listaid);
       const conc = daLista.filter(f => f.cr4a1_concluida === 'Sim').length;
+      const atras = daLista.filter(f => f.cr4a1_concluida !== 'Sim' && f.cr4a1_data_inicio && f.cr4a1_data_inicio < agoraIso).length;
       return {
         id: l.cr4a1_listaid,
         nome: l.cr4a1_nome,
         total: daLista.length,
-        concluidas: conc
+        concluidas: conc,
+        atrasadas: atras
       };
     });
 
-    const logins = [...new Set(fichas.map(f => f.cr4a1_responsavel_login || ''))];
+    const logins = [...new Set(fichasAnalisadas.map(f => f.cr4a1_responsavel_login || ''))];
     const porResponsavel = logins.map(login => {
-      const doResp = fichas.filter(f => (f.cr4a1_responsavel_login || '') === login);
+      const doResp = fichasAnalisadas.filter(f => (f.cr4a1_responsavel_login || '') === login);
       const conc = doResp.filter(f => f.cr4a1_concluida === 'Sim').length;
       const atras = doResp.filter(f => f.cr4a1_concluida !== 'Sim' && f.cr4a1_data_inicio && f.cr4a1_data_inicio < agoraIso).length;
       return {
@@ -543,11 +559,12 @@ export const TrelloPainelView = ({
     }).sort((a, b) => b.total - a.total);
 
     const porEtiqueta = etiquetas.map(et => {
-      const qtd = fichas.filter(f => parseAssignees(f.cr4a1_etiquetas).includes(et.cr4a1_etiquetaid)).length;
+      const qtd = fichasAnalisadas.filter(f => parseAssignees(f.cr4a1_etiquetas).includes(et.cr4a1_etiquetaid)).length;
       return { ...et, qtd };
-    }).sort((a, b) => b.qtd - a.qtd);
+    }).filter(et => !listaSelecionada || et.qtd > 0).sort((a, b) => b.qtd - a.qtd);
 
     return {
+      totalQuadro,
       total,
       concluidas,
       pendentes,
@@ -560,24 +577,72 @@ export const TrelloPainelView = ({
       porPrioridade,
       porEtiqueta
     };
-  }, [fichas, listas, etiquetas, allUsers, nomeDe]);
+  }, [fichas, fichasAnalisadas, listas, listaSelecionada, etiquetas, allUsers, nomeDe]);
 
   const taxaConclusao = stats.total > 0 ? Math.round((stats.concluidas / stats.total) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Barra rápida de seleção de lista */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Escopo do Painel:
+          </span>
+          <button
+            type="button"
+            onClick={() => setListaSelecionadaId(null)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+              !listaSelecionada
+                ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                : 'border-border bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Quadro Inteiro ({fichas.length})
+          </button>
+          {stats.porLista.map(l => {
+            const ativa = listaSelecionada?.cr4a1_listaid === l.id;
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => setListaSelecionadaId(prev => (prev === l.id ? null : l.id))}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  ativa
+                    ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                    : 'border-border bg-secondary text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {l.nome} ({l.total})
+              </button>
+            );
+          })}
+        </div>
+        {listaSelecionada && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setListaSelecionadaId(null)} className="h-7 text-xs">
+            Ver todas as listas
+          </Button>
+        )}
+      </div>
+
       {/* KPIs principais */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Total de Fichas</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            {listaSelecionada ? `Fichas na Lista` : 'Total de Fichas'}
+          </span>
           <div className="mt-1 text-2xl font-extrabold text-foreground">{stats.total}</div>
-          <span className="text-[11px] text-muted-foreground">em {listas.length} lista(s)</span>
+          <span className="text-[11px] text-muted-foreground truncate block">
+            {listaSelecionada ? `Lista: ${listaSelecionada.cr4a1_nome}` : `em ${listas.length} lista(s)`}
+          </span>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <span className="text-xs font-bold uppercase tracking-wide text-success">Concluídas</span>
           <div className="mt-1 text-2xl font-extrabold text-success">{stats.concluidas}</div>
-          <span className="text-[11px] text-muted-foreground">{taxaConclusao}% do quadro</span>
+          <span className="text-[11px] text-muted-foreground">
+            {taxaConclusao}% {listaSelecionada ? 'desta lista' : 'do quadro'}
+          </span>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -614,26 +679,53 @@ export const TrelloPainelView = ({
 
       {/* Gráficos em Grid */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Fichas por Lista */}
+        {/* Fichas por Lista (clicável para filtrar) */}
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-            <BarChart3 className="size-4 text-primary" /> Fichas por Lista
-          </h3>
-          <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <BarChart3 className="size-4 text-primary" /> Fichas por Lista
+              <span className="text-[11px] font-normal text-muted-foreground">(clique em uma lista para filtrar)</span>
+            </h3>
+            {listaSelecionada && (
+              <button
+                type="button"
+                onClick={() => setListaSelecionadaId(null)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Limpar seleção
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
             {stats.porLista.map(l => {
-              const pct = stats.total > 0 ? Math.round((l.total / stats.total) * 100) : 0;
+              const pct = stats.totalQuadro > 0 ? Math.round((l.total / stats.totalQuadro) * 100) : 0;
+              const selecionada = listaSelecionada?.cr4a1_listaid === l.id;
               return (
-                <div key={l.id} className="flex flex-col gap-1">
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => setListaSelecionadaId(prev => (prev === l.id ? null : l.id))}
+                  className={`flex flex-col gap-1.5 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                    selecionada
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                      : listaSelecionada
+                        ? 'border-border/50 bg-card/50 opacity-60 hover:opacity-100 hover:bg-secondary/40'
+                        : 'border-border/60 bg-secondary/20 hover:border-primary/40 hover:bg-secondary/40'
+                  }`}
+                >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-foreground">{l.nome}</span>
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      {l.nome}
+                      {selecionada && <Badge variant="default" className="text-[9px] px-1.5 py-0">Filtrando</Badge>}
+                    </span>
                     <span className="text-muted-foreground">
-                      {l.total} ficha(s) • {l.concluidas} concluída(s) ({pct}%)
+                      {l.total} ficha(s) • {l.concluidas} concluída(s) ({pct}% do quadro)
                     </span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary">
                     <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -643,36 +735,42 @@ export const TrelloPainelView = ({
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Users className="size-4 text-primary" /> Carga por Responsável
+            {listaSelecionada && <Badge variant="secondary" className="text-[10px]">{listaSelecionada.cr4a1_nome}</Badge>}
           </h3>
-          <div className="flex flex-col gap-2.5">
-            {stats.porResponsavel.map(r => {
-              const pct = stats.total > 0 ? Math.round((r.total / stats.total) * 100) : 0;
-              return (
-                <div key={r.login || '__sem__'} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                      <UserAvatar login={r.login} allUsers={allUsers} size={18} />
-                      <span>{r.nome}</span>
+          {stats.porResponsavel.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma ficha encontrada.</p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {stats.porResponsavel.map(r => {
+                const pct = stats.total > 0 ? Math.round((r.total / stats.total) * 100) : 0;
+                return (
+                  <div key={r.login || '__sem__'} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                        <UserAvatar login={r.login} allUsers={allUsers} size={18} />
+                        <span>{r.nome}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span>{r.total} ficha(s)</span>
+                        <span className="text-success">{r.concluidas} ok</span>
+                        {r.atrasadas > 0 && <span className="font-bold text-destructive">{r.atrasadas} atras.</span>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span>{r.total} ficha(s)</span>
-                      <span className="text-success">{r.concluidas} ok</span>
-                      {r.atrasadas > 0 && <span className="font-bold text-destructive">{r.atrasadas} atras.</span>}
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Distribuição por Prioridade */}
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Flag className="size-4 text-primary" /> Distribuição por Prioridade
+            {listaSelecionada && <Badge variant="secondary" className="text-[10px]">{listaSelecionada.cr4a1_nome}</Badge>}
           </h3>
           <div className="flex flex-col gap-2.5">
             {['critica', 'alta', 'media', 'baixa', ''].map(pKey => {
@@ -701,9 +799,12 @@ export const TrelloPainelView = ({
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Tag className="size-4 text-primary" /> Fichas por Etiqueta
+            {listaSelecionada && <Badge variant="secondary" className="text-[10px]">{listaSelecionada.cr4a1_nome}</Badge>}
           </h3>
           {stats.porEtiqueta.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhuma etiqueta cadastrada neste quadro.</p>
+            <p className="text-xs text-muted-foreground">
+              {listaSelecionada ? 'Nenhuma etiqueta usada nas fichas desta lista.' : 'Nenhuma etiqueta cadastrada neste quadro.'}
+            </p>
           ) : (
             <div className="flex flex-col gap-2.5">
               {stats.porEtiqueta.map(et => {
@@ -727,6 +828,62 @@ export const TrelloPainelView = ({
           )}
         </div>
       </div>
+
+      {/* Detalhamento de fichas da lista selecionada */}
+      {listaSelecionada && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Layers className="size-4 text-primary" /> Fichas da lista &quot;{listaSelecionada.cr4a1_nome}&quot; ({fichasAnalisadas.length})
+            </h3>
+          </div>
+          {fichasAnalisadas.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Esta lista não possui fichas no momento.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {fichasAnalisadas.map(ficha => {
+                const concluida = ficha.cr4a1_concluida === 'Sim';
+                const meta = parseFichaMeta(ficha.cr4a1_atividades);
+                const prioCfg = meta.prioridade ? PRIORIDADES_FICHA[meta.prioridade] : null;
+                return (
+                  <button
+                    key={ficha.cr4a1_fichaid}
+                    type="button"
+                    onClick={() => onAbrirFicha?.(ficha)}
+                    className="flex flex-col gap-1.5 rounded-xl border border-border bg-secondary/30 p-3 text-left transition-colors hover:border-primary"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-xs font-bold text-foreground truncate ${concluida ? 'line-through opacity-60' : ''}`}>
+                        {ficha.cr4a1_titulo}
+                      </span>
+                      {prioCfg && (
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                          style={{ backgroundColor: prioCfg.dotColor }}
+                        >
+                          {prioCfg.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
+                        <span className="truncate max-w-[120px]">{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                      </div>
+                      {ficha.cr4a1_data_inicio && (
+                        <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${corUrgenciaData(ficha.cr4a1_data_inicio, concluida)}`}>
+                          <CalendarDays className="size-3" />
+                          {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

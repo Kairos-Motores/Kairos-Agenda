@@ -26,7 +26,7 @@ import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor, aplicarAtributoTarefa } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { MentionInput, MentionTextarea } from './ui/mention-autocomplete';
 import { Sticker } from './ui/sticker';
@@ -190,6 +190,8 @@ const ordenar = (lista) => [...lista].sort((a, b) => {
   return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
 });
 
+const PESO_PRIORIDADE = { critica: 4, alta: 3, media: 2, baixa: 1, '': 0 };
+
 // Ordenação flexível por critério com preservação de fichas fixadas no topo
 const ordenarFichasPorCriterio = (fichasLista, criterio = 'padrao') => {
   return [...fichasLista].sort((a, b) => {
@@ -198,6 +200,20 @@ const ordenarFichasPorCriterio = (fichasLista, criterio = 'padrao') => {
     if (fixadaA !== fixadaB) return fixadaA - fixadaB;
 
     switch (criterio) {
+      case 'prioridade_alta': {
+        const pA = PESO_PRIORIDADE[parseFichaMeta(a.cr4a1_atividades).prioridade || ''] || 0;
+        const pB = PESO_PRIORIDADE[parseFichaMeta(b.cr4a1_atividades).prioridade || ''] || 0;
+        if (pA !== pB) return pB - pA;
+        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+      }
+      case 'prioridade_baixa': {
+        const rawA = parseFichaMeta(a.cr4a1_atividades).prioridade || '';
+        const rawB = parseFichaMeta(b.cr4a1_atividades).prioridade || '';
+        const pA = rawA ? PESO_PRIORIDADE[rawA] : 99;
+        const pB = rawB ? PESO_PRIORIDADE[rawB] : 99;
+        if (pA !== pB) return pA - pB;
+        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+      }
       case 'data_recente': {
         if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
         if (!a.cr4a1_data_inicio) return 1;
@@ -2366,32 +2382,46 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-60">
                       {podeGerenciar && (
-                        <div className="px-2 py-1.5 border-b border-border mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Cor da Lista</span>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => definirCorLista(lista, '')}
-                              title="Sem cor"
-                              className="flex size-5 items-center justify-center rounded-full border border-dashed border-border bg-card text-[10px]"
-                            >
-                              {!corDaLista && <Check className="size-3 text-muted-foreground" />}
-                            </button>
-                            {themeColors.map(c => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => definirCorLista(lista, c.hex)}
-                                title={c.label}
-                                className="size-5 rounded-full transition-transform active:scale-90"
-                                style={{
-                                  backgroundColor: c.hex,
-                                  boxShadow: corDaLista === c.hex ? `0 0 0 2px var(--card), 0 0 0 3.5px ${c.hex}` : 'none'
-                                }}
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger className="cursor-pointer">
+                            <Palette className="size-4 mr-2" />
+                            <span>Cor da Lista</span>
+                            {corDaLista && (
+                              <span
+                                className="ml-auto mr-1 size-3.5 rounded-full border border-border shrink-0"
+                                style={{ backgroundColor: corDaLista }}
                               />
-                            ))}
-                          </div>
-                        </div>
+                            )}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-52 p-2.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+                              Escolher cor da lista
+                            </span>
+                            <div className="grid grid-cols-6 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => definirCorLista(lista, '')}
+                                title="Sem cor"
+                                className="flex size-6 items-center justify-center rounded-full border border-dashed border-border bg-card text-[10px]"
+                              >
+                                {!corDaLista && <Check className="size-3.5 text-muted-foreground" />}
+                              </button>
+                              {themeColors.map(c => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => definirCorLista(lista, c.hex)}
+                                  title={c.label}
+                                  className="size-6 rounded-full transition-transform active:scale-90"
+                                  style={{
+                                    backgroundColor: c.hex,
+                                    boxShadow: corDaLista === c.hex ? `0 0 0 2px var(--card), 0 0 0 3.5px ${c.hex}` : 'none'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                       )}
 
                       {podeGerenciarAutomacoes && (
@@ -5055,6 +5085,8 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
 
 const CRITERIOS_ORDENACAO = [
   { id: 'padrao', rotulo: 'Padrão (Manual)' },
+  { id: 'prioridade_alta', rotulo: 'Prioridade: Mais alta primeiro' },
+  { id: 'prioridade_baixa', rotulo: 'Prioridade: Mais baixa primeiro' },
   { id: 'data_recente', rotulo: 'Data: Mais recente primeiro' },
   { id: 'data_antiga', rotulo: 'Data: Mais antiga primeiro' },
   { id: 'titulo_az', rotulo: 'Título: A → Z' },
