@@ -145,11 +145,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Nenhum destinatário informado.' });
   }
 
-  const host = getEnv('MAIL_HOST');
+  const host = getEnv('MAIL_HOST', 'email-ssl.com.br');
   const port = parseInt(getEnv('MAIL_PORT', '465'), 10);
   const secure = getEnv('MAIL_SECURE', 'true').toLowerCase() === 'true' || port === 465;
-  const user = getEnv('MAIL_USER');
-  const pass = getEnv('MAIL_PASSWORD');
+  const user = getEnv('MAIL_USER', 'lumen@kairosmotores.com');
+  const pass = getEnv('MAIL_PASSWORD', 'Lumen@#741');
 
   if (!host || !user || !pass) {
     console.error('Configurações SMTP incompletas no .env');

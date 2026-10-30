@@ -689,6 +689,17 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cr4a1_atividades: registrarAtividade(null, 'criada', user)
       });
       const criada = await resCriada.json();
+      notificarMencoes({
+        textoNovo: titulo,
+        textoAntigo: '',
+        origem: 'Ficha do Trello',
+        itemTitulo: titulo,
+        autor: user,
+        currentUser: user,
+        allUsers,
+        workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
+        lista: lista.cr4a1_nome
+      });
       setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
       recarregar();
       await executarAutomacoes(criada, lista.cr4a1_listaid, 'criada');

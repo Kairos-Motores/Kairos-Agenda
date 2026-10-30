@@ -1,4 +1,4 @@
-import { notificarEventoProximo, notificarCompartilhamento } from './utils/alertas';
+import { notificarEventoProximo, notificarCompartilhamento, notificarMencoes } from './utils/alertas';
 import { NotificationBell } from './components/NotificationBell';
 import { matchesSearch } from './utils/search';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -714,6 +714,38 @@ function App() {
 
   const handleSaveEvent = async (data) => {
     try {
+      // 1. Notifica menções com @usuario no título e nos detalhes do evento
+      const textoNovo = `${data.title || data.cr4a1_titulo || ''}\n${data.details || data.cr4a1_descricao || ''}`;
+      const textoAntigo = editingEvent ? `${editingEvent.cr4a1_titulo || ''}\n${editingEvent.cr4a1_detalhes || ''}` : '';
+      notificarMencoes({
+        textoNovo,
+        textoAntigo,
+        origem: 'Evento na Agenda',
+        itemTitulo: data.title || data.cr4a1_titulo || 'Evento',
+        autor: user,
+        currentUser: user,
+        allUsers,
+        workspace: workspaces.find(w => w.cr4a1_calendarios_workspacesid === data.workspaceId)?.cr4a1_nome || ''
+      });
+
+      // 2. Notifica se o evento foi atribuído a outro usuário
+      const responsaveis = parseAssignees(data.targetUser || data.cr4a1_user_login);
+      const novosResponsaveis = responsaveis.filter(r => r && r !== user && (!editingEvent || !parseAssignees(editingEvent.cr4a1_user_login).includes(r)));
+      if (novosResponsaveis.length > 0) {
+        notificarCompartilhamento({
+          tipoItem: 'Evento na Agenda',
+          itemTitulo: data.title || data.cr4a1_titulo || 'Evento',
+          autor: user,
+          destinatarios: novosResponsaveis,
+          currentUser: user,
+          allUsers,
+          detalhes: {
+            origem: 'Agenda',
+            dataHora: data.startDate ? `${data.startDate} ${data.startHour || ''}` : ''
+          }
+        });
+      }
+
       const saved = data.cr4a1_event_id ? await updateEvent(data) : await addEvent(data);
       const eventoId = saved?.cr4a1_agenda_kairosid || data.cr4a1_agenda_kairosid;
 
