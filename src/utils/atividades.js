@@ -25,6 +25,8 @@ export const descricaoAtividade = (atividade, nomeDe) => {
     case 'comentario': return `${nome} comentou`;
     case 'fixada': return `${nome} fixou a ficha`;
     case 'desafixada': return `${nome} desafixou a ficha`;
+    case 'arquivada': return atividade.detalhe ? `Ficha arquivada (${atividade.detalhe})` : `${nome} arquivou a ficha`;
+    case 'desarquivada': return `${nome} restaurou a ficha para o quadro`;
     default: return `${nome} atualizou a ficha`;
   }
 };

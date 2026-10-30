@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -41,7 +41,7 @@ import { corTextoLegivel } from '../utils/cor';
 import { parseComentarios, criarComentario } from '../utils/comentarios';
 import { parseAtividades, registrarAtividade, descricaoAtividade } from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
-import { parseAutomacoes, parseListaGerentes, aplicarAutomacoes, regrasPara, estadoDataAtual, TIPOS_AUTOMACAO, GATILHOS_AUTOMACAO, descricaoAutomacao } from '../utils/automacoes';
+import { parseAutomacoes, parseListaGerentes, aplicarAutomacoes, regrasPara, estadoDataAtual, TIPOS_AUTOMACAO, GATILHOS_AUTOMACAO, descricaoAutomacao, ehFichaArquivada } from '../utils/automacoes';
 import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
@@ -240,6 +240,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
   const [minhasFichasAberto, setMinhasFichasAberto] = useState(false);
   const [minhasFichas, setMinhasFichas] = useState([]);
   const [minhasFichasCarregando, setMinhasFichasCarregando] = useState(false);
+  const [arquivadasAberto, setArquivadasAberto] = useState(false);
   const [modelosAberto, setModelosAberto] = useState(false);
   const [modelos, setModelos] = useState([]);
   const [listaAutomacao, setListaAutomacao] = useState(null);
@@ -343,7 +344,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         if (cancelado) return;
         const workspacesBloqueados = new Set((resBloqueios.value || []).map(qd => qd.cr4a1_workspace_id));
         const idsAcessiveis = new Set(todasOpcoes.map(w => w.cr4a1_calendarios_workspacesid));
-        setMinhasFichas((resFichas.value || []).filter(f => idsAcessiveis.has(f.cr4a1_workspace_id) && !workspacesBloqueados.has(f.cr4a1_workspace_id)));
+        setMinhasFichas((resFichas.value || []).filter(f => !ehFichaArquivada(f) && idsAcessiveis.has(f.cr4a1_workspace_id) && !workspacesBloqueados.has(f.cr4a1_workspace_id)));
       } catch {
         if (!cancelado) toast.error('Erro ao carregar suas fichas.');
       } finally {
@@ -517,6 +518,9 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     const resultado = aplicarAutomacoes(regras, ficha.cr4a1_etiquetas);
     if (!resultado) return;
     const { patch: mudancas, comentarios, notificar, emails, duplicarPara } = resultado;
+    if (mudancas.cr4a1_fixada === 'Arq') {
+      mudancas.cr4a1_atividades = registrarAtividade(ficha.cr4a1_atividades, 'arquivada', user, 'por automação');
+    }
     const fichaAtualizada = { ...ficha, ...mudancas };
     try {
       if (Object.keys(mudancas).length) {
@@ -1227,14 +1231,130 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
     } catch { toast.error('Erro ao excluir etiqueta.'); }
   };
 
+  const fichasAtivas = useMemo(
+    () => fichas.filter(f => !ehFichaArquivada(f)),
+    [fichas]
+  );
+  const fichasArquivadas = useMemo(
+    () => fichas.filter(f => ehFichaArquivada(f)),
+    [fichas]
+  );
+
   const fichasVisiveis = useMemo(
-    () => (filtrosAtivos === 0 ? fichas : fichas.filter(f => fichaCombinaComFiltros(f, filtros))),
-    [fichas, filtros, filtrosAtivos]
+    () => (filtrosAtivos === 0 ? fichasAtivas : fichasAtivas.filter(f => fichaCombinaComFiltros(f, filtros))),
+    [fichasAtivas, filtros, filtrosAtivos]
   );
   const fichasDaLista = (lista) => {
     const doLista = fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
     const crit = ordenacaoPorLista[lista.cr4a1_listaid] || 'padrao';
     return ordenarFichasPorCriterio(doLista, crit);
+  };
+
+  // Arquiva uma ficha individual (move para o Espaço de Fichas Arquivadas e dispara gatilho "arquivada")
+  const arquivarFicha = async (ficha) => {
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, 'arquivada', user);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_fixada: 'Arq', cr4a1_atividades: atividades } : f));
+    setEditando(null);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_fixada: 'Arq', cr4a1_atividades: atividades });
+      await executarAutomacoes({ ...ficha, cr4a1_fixada: 'Arq', cr4a1_atividades: atividades }, ficha.cr4a1_lista_id, 'arquivada');
+      toast.success(`Ficha "${ficha.cr4a1_titulo}" arquivada.`);
+    } catch {
+      toast.error('Erro ao arquivar ficha.');
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_fixada: ficha.cr4a1_fixada, cr4a1_atividades: ficha.cr4a1_atividades } : f));
+    }
+  };
+
+  // Restaura uma ficha arquivada de volta para sua lista original (ou outra lista escolhida)
+  const desarquivarFicha = async (ficha, destinoListaId) => {
+    const listaOriginalExiste = listas.some(l => l.cr4a1_listaid === ficha.cr4a1_lista_id);
+    const listaAlvoId = destinoListaId || (listaOriginalExiste ? ficha.cr4a1_lista_id : listas[0]?.cr4a1_listaid || ficha.cr4a1_lista_id);
+    const atividades = registrarAtividade(ficha.cr4a1_atividades, 'desarquivada', user);
+    const corpo = { cr4a1_fixada: 'Não', cr4a1_lista_id: listaAlvoId, cr4a1_atividades: atividades };
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, ...corpo } : f));
+    setEditando(null);
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, corpo);
+      toast.success(`Ficha "${ficha.cr4a1_titulo}" restaurada ao quadro!`);
+    } catch {
+      toast.error('Erro ao restaurar ficha.');
+      recarregar();
+    }
+  };
+
+  // Arquiva todas as fichas concluídas de uma lista específica
+  const arquivarConcluidasDaLista = async (lista) => {
+    const concluidas = fichasAtivas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid && f.cr4a1_concluida === 'Sim');
+    if (concluidas.length === 0) {
+      toast('Não há fichas concluídas nesta lista para arquivar.');
+      return;
+    }
+    if (!(await confirm(`Arquivar ${concluidas.length} ficha(s) concluída(s) da lista "${lista.cr4a1_nome}"?`, { title: 'Arquivar concluídas' }))) return;
+    try {
+      for (const f of concluidas) {
+        const atividades = registrarAtividade(f.cr4a1_atividades, 'arquivada', user, 'lote de concluídas');
+        await patch('cr4a1_fichas', f.cr4a1_fichaid, { cr4a1_fixada: 'Arq', cr4a1_atividades: atividades });
+      }
+      recarregar();
+      toast.success(`${concluidas.length} ficha(s) concluída(s) arquivada(s)!`);
+    } catch {
+      toast.error('Erro ao arquivar fichas concluídas.');
+    }
+  };
+
+  // Arquiva todas as fichas ativas de uma lista específica
+  const arquivarTodasDaLista = async (lista) => {
+    const daLista = fichasAtivas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+    if (daLista.length === 0) {
+      toast('Esta lista já está vazia.');
+      return;
+    }
+    if (!(await confirm(`Arquivar todas as ${daLista.length} ficha(s) da lista "${lista.cr4a1_nome}"?`, { title: 'Arquivar fichas da lista' }))) return;
+    try {
+      for (const f of daLista) {
+        const atividades = registrarAtividade(f.cr4a1_atividades, 'arquivada', user, `lista ${lista.cr4a1_nome}`);
+        await patch('cr4a1_fichas', f.cr4a1_fichaid, { cr4a1_fixada: 'Arq', cr4a1_atividades: atividades });
+      }
+      recarregar();
+      toast.success(`${daLista.length} ficha(s) arquivada(s)!`);
+    } catch {
+      toast.error('Erro ao arquivar fichas da lista.');
+    }
+  };
+
+  // Restaura todas as fichas arquivadas do workspace
+  const restaurarTodasArquivadas = async () => {
+    if (fichasArquivadas.length === 0) return;
+    if (!(await confirm(`Restaurar todas as ${fichasArquivadas.length} ficha(s) arquivada(s) para o quadro?`, { title: 'Restaurar todas' }))) return;
+    try {
+      for (const f of fichasArquivadas) {
+        const listaOriginalExiste = listas.some(l => l.cr4a1_listaid === f.cr4a1_lista_id);
+        const listaAlvoId = listaOriginalExiste ? f.cr4a1_lista_id : (listas[0]?.cr4a1_listaid || f.cr4a1_lista_id);
+        const atividades = registrarAtividade(f.cr4a1_atividades, 'desarquivada', user);
+        await patch('cr4a1_fichas', f.cr4a1_fichaid, { cr4a1_fixada: 'Não', cr4a1_lista_id: listaAlvoId, cr4a1_atividades: atividades });
+      }
+      recarregar();
+      toast.success('Todas as fichas foram restauradas ao quadro!');
+    } catch {
+      toast.error('Erro ao restaurar fichas arquivadas.');
+    }
+  };
+
+  // Exclui permanentemente todas as fichas arquivadas do workspace
+  const excluirTodasArquivadas = async () => {
+    if (fichasArquivadas.length === 0) return;
+    if (!(await confirm(`Excluir permanentemente todas as ${fichasArquivadas.length} ficha(s) arquivada(s)? Esta ação não pode ser desfeita.`, { title: 'Esvaziar arquivo' }))) return;
+    try {
+      for (const f of fichasArquivadas) {
+        await removerEventoDaFicha(f);
+        await apagar('cr4a1_fichas', f.cr4a1_fichaid);
+      }
+      recarregar();
+      refreshEvents?.();
+      toast.success('Espaço de arquivadas esvaziado.');
+    } catch {
+      toast.error('Erro ao excluir fichas arquivadas.');
+    }
   };
 
   // Marca a ficha como concluída/pendente direto no card, sem abrir o formulário.
@@ -1554,8 +1674,27 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               )}
               <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
               <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setArquivadasAberto(true)}>
+                <Archive className="size-4" /> Arquivadas ({fichasArquivadas.length})
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant={arquivadasAberto ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setArquivadasAberto(true)}
+            aria-label="Fichas arquivadas"
+            title="Abrir espaço de fichas arquivadas"
+            className="relative"
+          >
+            <Archive className="size-4" />
+            <span className="hidden sm:inline">Arquivadas</span>
+            {fichasArquivadas.length > 0 && (
+              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px]">
+                {fichasArquivadas.length}
+              </Badge>
+            )}
+          </Button>
           <Button
             variant={minhasFichasAberto ? 'default' : 'outline'}
             size="sm"
@@ -1766,6 +1905,20 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       </DropdownMenuItem>
 
                       {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => arquivarConcluidasDaLista(lista)} className="cursor-pointer">
+                          <Archive className="size-4 mr-2" />
+                          Arquivar Concluídas da Lista
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && (
+                        <DropdownMenuItem onClick={() => arquivarTodasDaLista(lista)} className="cursor-pointer">
+                          <Archive className="size-4 mr-2" />
+                          Arquivar Todas as Fichas
+                        </DropdownMenuItem>
+                      )}
+
+                      {podeGerenciar && (
                         <DropdownMenuItem onClick={() => apagarLista(lista)} className="cursor-pointer text-destructive focus:text-destructive">
                           <Trash2 className="size-4 mr-2" />
                           Excluir Lista
@@ -1874,15 +2027,26 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
                                   </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
-                                  aria-label={fixada ? `Desafixar "${ficha.cr4a1_titulo}"` : `Fixar "${ficha.cr4a1_titulo}" no topo da lista`}
-                                  title={fixada ? 'Desafixar' : 'Fixar no topo da lista'}
-                                  className={`mt-0.5 shrink-0 ${fixada ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
-                                >
-                                  <Pin className="size-[15px]" fill={fixada ? 'currentColor' : 'none'} />
-                                </button>
+                                <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
+                                    aria-label={fixada ? `Desafixar "${ficha.cr4a1_titulo}"` : `Fixar "${ficha.cr4a1_titulo}" no topo da lista`}
+                                    title={fixada ? 'Desafixar' : 'Fixar no topo da lista'}
+                                    className={`shrink-0 ${fixada ? 'text-primary' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                  >
+                                    <Pin className="size-[15px]" fill={fixada ? 'currentColor' : 'none'} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); arquivarFicha(ficha); }}
+                                    aria-label={`Arquivar "${ficha.cr4a1_titulo}"`}
+                                    title="Arquivar ficha"
+                                    className="shrink-0 text-muted-foreground/40 hover:text-primary"
+                                  >
+                                    <Archive className="size-[15px]" />
+                                  </button>
+                                </div>
                               </div>
                               {microtarefas.length > 0 && (
                                 <div className="flex flex-col gap-1.5 pl-[26px]">
@@ -1968,6 +2132,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               atividades={parseAtividades(editando.original.cr4a1_atividades)}
               usuarioAtual={user}
               isAdmin={isAdmin}
+              arquivada={ehFichaArquivada(editando.original)}
+              onToggleArquivo={() => ehFichaArquivada(editando.original) ? desarquivarFicha(editando.original) : arquivarFicha(editando.original)}
               onAddComentario={(texto) => adicionarComentario(editando.original, texto)}
               onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
@@ -1976,6 +2142,23 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {arquivadasAberto && (
+        <ArquivadasDialog
+          fichasArquivadas={fichasArquivadas}
+          listas={listas}
+          etiquetas={etiquetas}
+          allUsers={allUsers}
+          workspaceNome={workspace?.cr4a1_nome}
+          podeGerenciar={podeGerenciarColaboradores}
+          onAbrirFicha={(ficha) => abrirFicha(ficha)}
+          onRestaurar={(ficha, destinoListaId) => desarquivarFicha(ficha, destinoListaId)}
+          onExcluir={(ficha) => excluirFicha(ficha)}
+          onRestaurarTodas={restaurarTodasArquivadas}
+          onExcluirTodas={excluirTodasArquivadas}
+          onClose={() => setArquivadasAberto(false)}
+        />
       )}
 
       {compartilharAberto && (
@@ -2110,7 +2293,7 @@ const EtiquetaChip = ({ etiqueta, compacta, onClick, selecionada }) => {
 
 const MAX_STICKERS_POR_FICHA = 8;
 
-const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], atividades = [], usuarioAtual, isAdmin, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
+const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNome, comentarios = [], atividades = [], usuarioAtual, isAdmin, arquivada = false, onToggleArquivo, onAddComentario, onRemoverComentario, onCancel, onSave, onDelete }) => {
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
@@ -2369,16 +2552,214 @@ const FichaForm = ({ inicial, listas, membros, allUsers, etiquetas, workspaceNom
         </div>
       )}
 
-      <DialogFooter className="justify-between">
-        <Button variant="ghost" className="text-destructive" onClick={onDelete}>
-          <Trash2 className="size-4" /> Excluir
-        </Button>
+      <DialogFooter className="flex-wrap justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
+            <Trash2 className="size-4" /> Excluir
+          </Button>
+          {onToggleArquivo && (
+            <Button type="button" variant="outline" size="sm" onClick={onToggleArquivo}>
+              {arquivada ? (
+                <>
+                  <ArchiveRestore className="size-4" /> Restaurar ao quadro
+                </>
+              ) : (
+                <>
+                  <Archive className="size-4" /> Arquivar
+                </>
+              )}
+            </Button>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel}>Cancelar</Button>
           <Button onClick={() => onSave(form)} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
         </div>
       </DialogFooter>
     </div>
+  );
+};
+
+// Espaço de Fichas Arquivadas do workspace: permite pesquisar, filtrar por lista original,
+// inspecionar a ficha, restaurá-la para sua lista (ou para outra lista) e excluir permanentemente.
+const ArquivadasDialog = ({
+  fichasArquivadas = [],
+  listas = [],
+  etiquetas = [],
+  allUsers = [],
+  workspaceNome = '',
+  podeGerenciar = false,
+  onAbrirFicha,
+  onRestaurar,
+  onExcluir,
+  onRestaurarTodas,
+  onExcluirTodas,
+  onClose
+}) => {
+  const [busca, setBusca] = useState('');
+  const [listaFiltro, setListaFiltro] = useState('__todas__');
+
+  const filtradas = useMemo(() => {
+    return fichasArquivadas.filter(ficha => {
+      if (listaFiltro !== '__todas__' && ficha.cr4a1_lista_id !== listaFiltro) return false;
+      if (busca.trim()) {
+        const nomeLista = listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id)?.cr4a1_nome || '';
+        const resp = nomeDe(ficha.cr4a1_responsavel_login, allUsers);
+        const alvo = `${ficha.cr4a1_titulo || ''} ${htmlParaTexto(ficha.cr4a1_descricao)} ${nomeLista} ${resp}`;
+        if (!matchesSearch(alvo, busca)) return false;
+      }
+      return true;
+    });
+  }, [fichasArquivadas, listaFiltro, busca, listas, allUsers]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Archive className="size-5 text-primary" /> Espaço de Fichas Arquivadas
+            <Badge variant="secondary" className="ml-1">{fichasArquivadas.length}</Badge>
+          </DialogTitle>
+          <DialogDescription>
+            Fichas arquivadas do workspace &quot;{workspaceNome || 'Atual'}&quot;. Você pode restaurá-las ao quadro a qualquer momento ou excluí-las permanentemente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <SearchField value={busca} onChange={setBusca} placeholder="Buscar ficha arquivada por título, descrição ou responsável..." />
+          </div>
+          {listas.length > 0 && (
+            <Select value={listaFiltro} onValueChange={setListaFiltro}>
+              <SelectTrigger className="w-full sm:w-52">
+                <SelectValue placeholder="Filtrar por lista" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__todas__">Todas as listas</SelectItem>
+                {listas.map(l => (
+                  <SelectItem key={l.cr4a1_listaid} value={l.cr4a1_listaid}>{l.cr4a1_nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-2.5 py-1">
+          {filtradas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/40 p-10 text-center">
+              <Archive className="size-8 text-muted-foreground" />
+              <p className="text-sm font-semibold text-foreground">
+                {fichasArquivadas.length === 0
+                  ? 'Nenhuma ficha arquivada neste workspace.'
+                  : 'Nenhuma ficha arquivada corresponde ao filtro.'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Você pode arquivar fichas pelo ícone no cartão, pelo menu da lista ou usando regras de automação.
+              </p>
+            </div>
+          ) : (
+            filtradas.map(ficha => {
+              const listaOrig = listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id);
+              const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
+              const concluida = ficha.cr4a1_concluida === 'Sim';
+              const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
+              const atividadesFicha = parseAtividades(ficha.cr4a1_atividades);
+              const ultimaArquivada = [...atividadesFicha].reverse().find(a => a.tipo === 'arquivada');
+
+              return (
+                <div
+                  key={ficha.cr4a1_fichaid}
+                  className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3.5 transition-colors hover:border-primary/50 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onAbrirFicha(ficha)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrirFicha(ficha); } }}
+                    className="flex min-w-0 flex-1 flex-col gap-1.5 cursor-pointer text-left"
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px]">
+                        Lista: {listaOrig?.cr4a1_nome || 'Lista removida'}
+                      </Badge>
+                      {concluida && (
+                        <Badge variant="secondary" className="text-[10px] text-success">
+                          Concluída
+                        </Badge>
+                      )}
+                      {etiquetasDaFicha.map(et => <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} compacta />)}
+                      {stickersDaFicha.map((emoji, i) => <Sticker key={i} emoji={emoji} size={15} />)}
+                    </div>
+
+                    <span className={`text-sm font-semibold text-foreground ${concluida ? 'line-through opacity-70' : ''}`}>
+                      {ficha.cr4a1_titulo}
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      <div className="inline-flex items-center gap-1">
+                        <UserAvatar login={ficha.cr4a1_responsavel_login} allUsers={allUsers} size={16} />
+                        <span>{nomeDe(ficha.cr4a1_responsavel_login, allUsers)}</span>
+                      </div>
+                      {comData(ficha) && (
+                        <span className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 font-medium">
+                          <CalendarDays className="size-3" />
+                          {format(new Date(ficha.cr4a1_data_inicio), 'dd/MM/yyyy HH:mm')}
+                        </span>
+                      )}
+                      {ultimaArquivada?.data && (
+                        <span className="text-[10px] opacity-75">
+                          Arquivada em {format(new Date(ultimaArquivada.data), 'dd/MM/yyyy HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1.5 pt-1 sm:pt-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onRestaurar(ficha)}
+                      title="Restaurar ficha para a lista"
+                    >
+                      <ArchiveRestore className="size-4" /> Restaurar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => onExcluir(ficha)}
+                      title="Excluir ficha permanentemente"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <DialogFooter className="flex-wrap justify-between gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {fichasArquivadas.length > 0 && (
+              <>
+                <Button type="button" variant="outline" size="sm" onClick={onRestaurarTodas}>
+                  <ArchiveRestore className="size-4" /> Restaurar todas ({fichasArquivadas.length})
+                </Button>
+                {podeGerenciar && (
+                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onExcluirTodas}>
+                    <Trash2 className="size-4" /> Esvaziar arquivo
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+          <Button type="button" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

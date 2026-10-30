@@ -25,11 +25,16 @@ export const parseListaGerentes = (raw) => {
   } catch { return []; }
 };
 
+// Verifica se uma ficha está no espaço de arquivadas
+export const ehFichaArquivada = (ficha) =>
+  ficha?.cr4a1_fixada === 'Arq' || ficha?.cr4a1_fixada === 'Arquivada';
+
 export const GATILHOS_AUTOMACAO = {
   entrou: 'Ficha entrar na lista',
   criada: 'Ficha for criada na lista',
   concluida: 'Ficha for concluída',
   reaberta: 'Ficha concluída for reaberta',
+  arquivada: 'Ficha for arquivada',
   etiqueta: 'Etiqueta for adicionada',
   responsavel_atribuido: 'Responsável for atribuído ou alterado',
   prazo_definido: 'Prazo (data) for definido ou alterado',
@@ -54,6 +59,8 @@ export const TIPOS_AUTOMACAO = {
   reabrir: 'Marcar como pendente',
   fixar: 'Fixar ficha no topo da lista',
   desafixar: 'Desafixar ficha do topo',
+  arquivar: 'Arquivar ficha',
+  desarquivar: 'Restaurar ficha (desarquivar)',
   prazo_dias: 'Definir prazo automático (+X dias)',
   mover: 'Mover para outra lista',
   duplicar_para: 'Duplicar ficha em outra lista',
@@ -63,7 +70,7 @@ export const TIPOS_AUTOMACAO = {
 // As regras baseadas em data (vencendo/urgente/atrasada) rodam sozinhas a cada poll do quadro — sem
 // esse "estado atual", disparariam de novo a cada 5s enquanto a condição continuar valendo.
 export const estadoDataAtual = (ficha) => {
-  if (!ficha.cr4a1_data_inicio || ficha.cr4a1_concluida === 'Sim') return '';
+  if (!ficha.cr4a1_data_inicio || ficha.cr4a1_concluida === 'Sim' || ehFichaArquivada(ficha)) return '';
   const horas = (new Date(ficha.cr4a1_data_inicio) - new Date()) / 3600000;
   if (horas < 0) return 'atrasada';
   if (horas <= 2) return 'urgente';
@@ -128,6 +135,12 @@ export const aplicarAutomacoes = (regras, etiquetasAtuaisCsv) => {
         patch.cr4a1_fixada = 'Sim';
         break;
       case 'desafixar':
+        patch.cr4a1_fixada = 'Não';
+        break;
+      case 'arquivar':
+        patch.cr4a1_fixada = 'Arq';
+        break;
+      case 'desarquivar':
         patch.cr4a1_fixada = 'Não';
         break;
       case 'prazo_dias': {
@@ -237,6 +250,12 @@ export const descricaoAutomacao = (regra, { etiquetas = [], allUsers = [], lista
       break;
     case 'desafixar':
       acao = 'desafixar do topo da lista';
+      break;
+    case 'arquivar':
+      acao = 'arquivar a ficha';
+      break;
+    case 'desarquivar':
+      acao = 'restaurar (desarquivar) a ficha';
       break;
     case 'prazo_dias':
       acao = `definir prazo para +${regra.valor || 1} dia(s)`;
