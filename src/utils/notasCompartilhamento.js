@@ -93,11 +93,14 @@ export function canUserViewNota(nota, currentUsername) {
   const isPrivate = nota.cr4a1_private === true || nota.cr4a1_private === 'true';
   if (!isPrivate) return true;
 
-  const isAuthor = nota.cr4a1_user_login === currentUsername;
-  if (isAuthor) return true;
+  const normUser = String(currentUsername || '').trim().toLowerCase();
+  const authorNorm = String(nota.cr4a1_user_login || '').trim().toLowerCase();
+  if (normUser && authorNorm && normUser === authorNorm) return true;
+  if (normUser === 'admin') return true;
 
   const compartilhamento = nota.compartilhamento || parseCompartilhamento(nota.cr4a1_privado);
-  return Boolean(compartilhamento && compartilhamento[currentUsername]);
+  if (!compartilhamento || !normUser) return false;
+  return Object.keys(compartilhamento).some(u => u.trim().toLowerCase() === normUser);
 }
 
 /**
@@ -119,6 +122,10 @@ export function getNotaPermissions(nota, currentUsername) {
     };
   }
 
+  const normUser = String(currentUsername || '').trim().toLowerCase();
+  const authorNorm = String(nota.cr4a1_user_login || '').trim().toLowerCase();
+  const isAdmin = normUser === 'admin' || (typeof window !== 'undefined' && localStorage.getItem('kairos_user_role') === 'ADMIN');
+
   // Nova nota sendo criada pelo usuário
   if (nota.isNew || !nota.cr4a1_user_login) {
     return {
@@ -130,9 +137,14 @@ export function getNotaPermissions(nota, currentUsername) {
     };
   }
 
-  const isAuthor = nota.cr4a1_user_login === currentUsername;
+  const isAuthor = (normUser && authorNorm && normUser === authorNorm) || isAdmin;
   const compartilhamento = nota.compartilhamento || parseCompartilhamento(nota.cr4a1_privado);
-  const sharedPerm = compartilhamento?.[currentUsername];
+  
+  let sharedPerm = compartilhamento?.[currentUsername];
+  if (!sharedPerm && compartilhamento && normUser) {
+    const key = Object.keys(compartilhamento).find(k => k.trim().toLowerCase() === normUser);
+    if (key) sharedPerm = compartilhamento[key];
+  }
 
   if (isAuthor) {
     return {

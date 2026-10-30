@@ -421,7 +421,14 @@ export const NotesPanel = ({
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
   const [shareFilter, setShareFilter] = useState('all'); // 'all' | 'mine' | 'shared'
 
-  const currentUserName = currentUser?.cr4a1_username || currentUser?.login || currentUser?.nome || currentUser?.name || '';
+  const currentUserName = (
+    currentUser?.cr4a1_username ||
+    currentUser?.login ||
+    currentUser?.username ||
+    (typeof currentUser === 'string' ? currentUser : '') ||
+    (typeof window !== 'undefined' ? localStorage.getItem('kairos_logged_user') : '') ||
+    ''
+  ).trim();
 
   // Chave do rascunho temporário
   const draftStorageKey = notaAberta
@@ -700,7 +707,8 @@ export const NotesPanel = ({
   }, [isEditing, notaAberta, currentUserName]);
 
   const handleDeleteClick = async () => {
-    if (!notaAberta?.cr4a1_notas_kairosid || notaAberta.isNew) return;
+    const id = notaAberta?.cr4a1_notas_kairosid || notaAberta?.cr4a1_id_da_nota;
+    if (!id || notaAberta.isNew) return;
     const permissions = getNotaPermissions(notaAberta, currentUserName);
     if (!permissions.canDelete) {
       toast.error('Apenas o autor pode excluir esta nota.');
@@ -719,8 +727,13 @@ export const NotesPanel = ({
     if (draftStorageKey) {
       try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
     }
-    await deleteNota(notaAberta.cr4a1_notas_kairosid);
-    setNotaAberta(null);
+    try {
+      await deleteNota(id);
+      setNotaAberta(null);
+    } catch (err) {
+      console.error('Erro ao excluir nota:', err);
+      toast.error('Erro ao excluir nota. Tente novamente.');
+    }
   };
 
   // TELA DE DETALHE DA NOTA (LEITURA OU EDIÇÃO)
@@ -1129,6 +1142,9 @@ export const NotesPanel = ({
             onUpdateSharing={handleUpdateSharing}
           />
         )}
+
+        {/* Diálogo de Confirmação (Exclusão e Descarte na tela de detalhe/edição) */}
+        {ConfirmDialogHost}
       </div>
     );
   }
