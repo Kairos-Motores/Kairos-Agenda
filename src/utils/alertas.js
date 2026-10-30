@@ -2,6 +2,7 @@ import { toast } from 'react-hot-toast';
 import { htmlParaTexto } from './descricaoTarefas';
 
 const API_MAIL = '/api/mail-send';
+const API_PUSH = '/api/push-send';
 const API_PROXY = '/api/dataverse-proxy';
 const NOTIFICACOES_STORAGE_KEY = 'kairos_notificacoes_recentes';
 
@@ -183,6 +184,81 @@ export const salvarNotificacaoNoApp = (notificacao) => {
 };
 
 /**
+ * Dispara notificação nativa no dispositivo atual (smartphone, tablet ou notebook) via Service Worker ou Notification API.
+ * O uso da mesma `tag` evita duplicidade caso o Web Push remoto também chegue neste mesmo aparelho.
+ */
+export const dispararNotificacaoDispositivo = async ({ title, body, tag, destinatario }) => {
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const loggedUser = (localStorage.getItem('kairos_logged_user') || '').trim().toLowerCase();
+    if (destinatario && loggedUser && destinatario.trim().toLowerCase() !== loggedUser) {
+      // Se o destinatário é outra pessoa, apenas o Web Push remoto (enviarAlertaPush) notificará os aparelhos dela
+      return;
+    }
+
+    const options = {
+      body,
+      icon: '/icon-512.jpg',
+      badge: '/favicon.svg',
+      vibrate: [200, 100, 200],
+      tag: tag || `kairos-${Date.now()}`,
+      renotify: true
+    };
+
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration && registration.showNotification) {
+        await registration.showNotification(title, options);
+        return;
+      }
+    }
+
+    new Notification(title, options);
+  } catch (err) {
+    console.warn('[dispararNotificacaoDispositivo] Aviso:', err?.message);
+  }
+};
+
+/**
+ * Dispara Web Push remoto via API para todos os dispositivos inscritos do usuário (smartphones, tablets e notebooks).
+ */
+export const enviarAlertaPush = async (payload) => {
+  try {
+    let res = null;
+    let data = null;
+
+    try {
+      res = await fetch(API_PUSH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch (localErr) {
+      console.warn('[enviarAlertaPush] Falha na rota local, usando produção:', localErr?.message);
+    }
+
+    if (!data || !res || !res.ok) {
+      const prodRes = await fetch('https://kairosagenda.vercel.app/api/push-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      data = await prodRes.json();
+    }
+
+    return data;
+  } catch (err) {
+    console.warn('Falha ao disparar Web Push para dispositivos:', err?.message);
+    return { error: err.message };
+  }
+};
+
+/**
  * Dispara envio de e-mail via API backend (com fallback automático se em dev/local)
  */
 export const enviarAlertaEmail = async (payload) => {
@@ -257,23 +333,41 @@ export const notificarMencoes = async ({
     const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
     const trecho = extrairTrechoMencao(textoNovo, dest);
     const mensagem = `Você foi mencionado por <strong>${autorNome}</strong> em <strong>${itemTitulo}</strong> (${origem}).`;
+    const pushTag = `mencao-${info.username}-${itemTitulo}`;
+    const pushTitle = `💬 Menção em ${origem}`;
+    const pushBody = `${autorNome} mencionou você em "${itemTitulo}"${trecho ? `: "${trecho}"` : ''}`;
 
     // 1. Salva para o sininho/app
     salvarNotificacaoNoApp({
       destinatario: info.username,
       tipo: 'mencao',
       titulo: `Menção em ${origem}`,
-      mensagem: `${autorNome} mencionou você em "${itemTitulo}": "${trecho}"`,
+      mensagem: pushBody,
       itemTitulo,
       origem
     });
 
+    // 2. Dispara Push para dispositivos móveis/desktop (smartphones, tablets, notebooks)
+    enviarAlertaPush({
+      usuarios: [info.username],
+      title: pushTitle,
+      body: pushBody,
+      url: '/',
+      tag: pushTag
+    });
+    dispararNotificacaoDispositivo({
+      title: pushTitle,
+      body: pushBody,
+      tag: pushTag,
+      destinatario: info.username
+    });
+
     if (!info.email) {
-      toast.error(`O usuário @${info.username} não possui e-mail cadastrado na tabela de credenciais.`, { duration: 5000 });
+      toast.error(`O usuário @${info.username} foi notificado no app/dispositivo, mas não possui e-mail na tabela de credenciais.`, { duration: 5000 });
       continue;
     }
 
-    // 2. Dispara envio de e-mail para o endereço cadastrado em cr4a1_credenciaises
+    // 3. Dispara envio de e-mail para o endereço cadastrado em cr4a1_credenciaises
     try {
       const resEmail = await enviarAlertaEmail({
         usuarios: [info.username],
@@ -296,7 +390,7 @@ export const notificarMencoes = async ({
         toast.error(`Aviso: falha ao enviar e-mail para ${info.email} (${resEmail.error})`, { duration: 5000 });
       } else {
         const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
-        toast.success(`Menção enviada por e-mail para @${info.username} (${emailEnviado})`, { duration: 4500 });
+        toast.success(`Menção enviada para @${info.username} (${emailEnviado})`, { duration: 4500 });
       }
     } catch (err) {
       console.error('[notificarMencoes] Erro inesperado:', err);
@@ -320,22 +414,37 @@ export const notificarEventoProximo = async ({
     ? `O seu evento <strong>"${event.cr4a1_titulo}"</strong> está começando agora!`
     : `O seu evento <strong>"${event.cr4a1_titulo}"</strong> começará em aproximadamente ${diffMin} minutos.`;
 
+  const pushTitle = `⏰ Lembrete: ${event.cr4a1_titulo}`;
+  const pushBody = diffMin === 0
+    ? `O evento "${event.cr4a1_titulo}" está começando agora!`
+    : `O evento "${event.cr4a1_titulo}" começará em ${diffMin} min.`;
+
   for (const dest of destList) {
     const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
+    const pushTag = `evento-${event.cr4a1_agenda_kairosid}-${diffMin}`;
 
     // 1. Salva para o sininho/app
     salvarNotificacaoNoApp({
       destinatario: info.username,
       tipo: 'evento_proximo',
       titulo: 'Lembrete de Evento',
-      mensagem: `O evento "${event.cr4a1_titulo}" está agendado para ${diffMin === 0 ? 'agora' : `daqui a ${diffMin} min`}.`,
+      mensagem: pushBody,
       itemTitulo: event.cr4a1_titulo,
       origem: 'Agenda'
     });
 
+    // 2. Dispara Web Push para smartphones, tablets e notebooks do usuário
+    enviarAlertaPush({
+      usuarios: [info.username],
+      title: pushTitle,
+      body: pushBody,
+      url: '/',
+      tag: pushTag
+    });
+
     if (!info.email) continue;
 
-    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    // 3. Envia por E-mail cadastrado na tabela de credenciais
     await enviarAlertaEmail({
       usuarios: [info.username],
       destinatarios: [info.email],
@@ -375,23 +484,41 @@ export const notificarCompartilhamento = async ({
 
   const titulo = `${autorNome} compartilhou ${tipoItem === 'Nota' ? 'uma nota' : tipoItem === 'Ficha do Trello' ? 'uma ficha' : tipoItem === 'Lista do Trello' ? 'uma lista' : 'um evento'} com você`;
   const mensagem = `<strong>${autorNome}</strong> compartilhou <strong>"${itemTitulo}"</strong> (${tipoItem}) com você no Kairós Agenda.`;
+  const pushTitle = `🤝 ${tipoItem} compartilhado(a)`;
+  const pushBody = `${autorNome} compartilhou "${itemTitulo}" com você.`;
 
   for (const dest of listaAlvos) {
     const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
+    const pushTag = `compartilhamento-${info.username}-${itemTitulo}`;
 
     // 1. Salva para o sininho/app
     salvarNotificacaoNoApp({
       destinatario: info.username,
       tipo: 'compartilhamento',
       titulo: `${tipoItem} Compartilhada`,
-      mensagem: `${autorNome} compartilhou "${itemTitulo}" com você.`,
+      mensagem: pushBody,
       itemTitulo,
       origem: tipoItem
     });
 
+    // 2. Dispara Web Push para todos os dispositivos (smartphones, tablets, notebooks)
+    enviarAlertaPush({
+      usuarios: [info.username],
+      title: pushTitle,
+      body: pushBody,
+      url: '/',
+      tag: pushTag
+    });
+    dispararNotificacaoDispositivo({
+      title: pushTitle,
+      body: pushBody,
+      tag: pushTag,
+      destinatario: info.username
+    });
+
     if (!info.email) continue;
 
-    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    // 3. Envia por E-mail cadastrado na tabela de credenciais
     const resEmail = await enviarAlertaEmail({
       usuarios: [info.username],
       destinatarios: [info.email],
@@ -407,7 +534,7 @@ export const notificarCompartilhamento = async ({
     });
 
     const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
-    toast.success(`Compartilhamento notificado por e-mail para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
+    toast.success(`Compartilhamento notificado para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
   }
 };
 
@@ -433,23 +560,41 @@ export const notificarCoGerencia = async ({
 
   const titulo = `Você foi adicionado como co-gerente da lista "${listaNome}"`;
   const mensagem = `<strong>${autorNome}</strong> adicionou você como co-gerente da lista <strong>"${listaNome}"</strong> no workspace <strong>"${workspaceNome}"</strong>. Você agora possui permissões totais de gerenciamento sobre esta lista.`;
+  const pushTitle = `⭐ Nova Co-Gerência no Trello`;
+  const pushBody = `${autorNome} adicionou você como co-gerente da lista "${listaNome}".`;
 
   for (const dest of listaAlvos) {
     const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
+    const pushTag = `cogerente-${info.username}-${listaNome}`;
 
     // 1. Salva para o sininho/app
     salvarNotificacaoNoApp({
       destinatario: info.username,
       tipo: 'cogerente',
       titulo: 'Novo Co-Gerente',
-      mensagem: `Você agora é co-gerente da lista "${listaNome}".`,
+      mensagem: pushBody,
       itemTitulo: listaNome,
       origem: 'Trello'
     });
 
+    // 2. Dispara Web Push para todos os dispositivos (smartphones, tablets, notebooks)
+    enviarAlertaPush({
+      usuarios: [info.username],
+      title: pushTitle,
+      body: pushBody,
+      url: '/',
+      tag: pushTag
+    });
+    dispararNotificacaoDispositivo({
+      title: pushTitle,
+      body: pushBody,
+      tag: pushTag,
+      destinatario: info.username
+    });
+
     if (!info.email) continue;
 
-    // 2. Envia por E-mail cadastrado na tabela de credenciais
+    // 3. Envia por E-mail cadastrado na tabela de credenciais
     const resEmail = await enviarAlertaEmail({
       usuarios: [info.username],
       destinatarios: [info.email],
@@ -465,6 +610,6 @@ export const notificarCoGerencia = async ({
     });
 
     const emailEnviado = resEmail?.destinatarios?.[0] || info.email;
-    toast.success(`Co-gerência notificada por e-mail para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
+    toast.success(`Co-gerência notificada para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
   }
 };

@@ -79,32 +79,50 @@ self.addEventListener('fetch', (event) => {
 
 // 1. Ouvir a chegada de uma notificação
 self.addEventListener('push', (event) => {
-  let data = { title: 'Kairós Agenda', body: 'Você tem um novo compromisso!' };
-  
+  let data = { title: 'Kairós Agenda', body: 'Você tem uma nova notificação!' };
+
   if (event.data) {
-    data = event.data.json();
+    try {
+      data = event.data.json();
+    } catch {
+      data = { title: 'Kairós Agenda', body: event.data.text() };
+    }
   }
 
   const options = {
-    body: data.body,
-    icon: '/icon-512.jpg', // Usando o ícone definido no seu manifest[cite: 5]
+    body: data.body || 'Nova atualização no Kairós Agenda.',
+    icon: '/icon-512.jpg',
     badge: '/favicon.svg',
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200],
+    tag: data.tag || `kairos-${Date.now()}`,
+    renotify: true,
+    requireInteraction: false,
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: '1'
+      url: data.url || '/'
     }
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'Kairós Agenda', options)
   );
 });
 
 // 2. Ouvir o clique na notificação
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
   event.waitUntil(
-    clients.openWindow('/') // Abre o app ao clicar
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });

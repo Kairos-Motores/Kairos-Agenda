@@ -8,9 +8,11 @@ const urlBase64ToUint8Array = (base64) => {
   return Uint8Array.from(raw, c => c.charCodeAt(0));
 };
 
-// Inscreve o dispositivo para Web Push e guarda a inscrição no Dataverse, uma vez por endpoint.
+// Inscreve o dispositivo (smartphone, tablet ou notebook) para Web Push e guarda a inscrição no Dataverse, uma vez por endpoint.
 export const registerPushSubscription = async (username) => {
-  if (!username || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  const cleanUser = String(username || '').trim().toLowerCase();
+  if (!cleanUser || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+
   const registration = await navigator.serviceWorker.ready;
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
@@ -22,16 +24,17 @@ export const registerPushSubscription = async (username) => {
   const json = subscription.toJSON();
 
   // Memo não pode ser filtrado no Dataverse: busca as inscrições do usuário e compara o endpoint aqui.
-  const filter = encodeURIComponent(`cr4a1_username eq '${username}'`);
-  const existing = await (await fetch(`${API_PROXY}?table=cr4a1_push_subscriptions&$filter=${filter}`)).json();
+  const filter = encodeURIComponent(`cr4a1_username eq '${cleanUser}'`);
+  const existingRes = await fetch(`${API_PROXY}?table=cr4a1_push_subscriptions&$filter=${filter}`).catch(() => null);
+  const existing = existingRes && existingRes.ok ? await existingRes.json() : { value: [] };
   if ((existing.value || []).some(s => s.cr4a1_endpoint === json.endpoint)) return true;
 
   await fetch(`${API_PROXY}?table=cr4a1_push_subscriptions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      cr4a1_nome: username,
-      cr4a1_username: username,
+      cr4a1_nome: cleanUser,
+      cr4a1_username: cleanUser,
       cr4a1_endpoint: json.endpoint,
       cr4a1_p256dh: json.keys.p256dh,
       cr4a1_auth: json.keys.auth
