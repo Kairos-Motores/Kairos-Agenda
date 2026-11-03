@@ -1,7 +1,7 @@
 import { notificarEventoProximo, notificarCompartilhamento, notificarMencoes } from './utils/alertas';
 import { NotificationBell } from './components/NotificationBell';
 import { matchesSearch } from './utils/search';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { BI_CONFIG } from './config/biConfig';
 import { Toaster, toast } from 'react-hot-toast';
@@ -210,6 +210,21 @@ function App() {
 
   const notifiedRef = useRef(new Set());
   const [appMode, setAppMode] = useState(() => localStorage.getItem('kairos_app_mode') || 'calendar');
+  const [fichaIdParaAbrir, setFichaIdParaAbrir] = useState(null);
+  const [notaIdParaAbrir, setNotaIdParaAbrir] = useState(null);
+
+  const handleNavegarParaFicha = useCallback((fichaId, wsId) => {
+    if (wsId) {
+      setActiveWorkspaces([wsId]);
+    }
+    setFichaIdParaAbrir(fichaId);
+    setAppMode('trello');
+  }, []);
+
+  const handleNavegarParaNota = useCallback((notaId) => {
+    setNotaIdParaAbrir(notaId);
+    setAppMode('notas');
+  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVisitaModalOpen, setIsVisitaModalOpen] = useState(false);
@@ -1776,11 +1791,30 @@ function App() {
                     activeWorkspaces={activeWorkspaces}
                     isOnline={isOnline}
                     registrarCorRecenteUsuario={registrarCorRecenteUsuario}
+                    notaIdParaAbrir={notaIdParaAbrir}
+                    onLimparNotaIdParaAbrir={() => setNotaIdParaAbrir(null)}
+                    onNavegarParaFicha={handleNavegarParaFicha}
                   />
                 </React.Suspense>
               ) : appMode === 'trello' ? (
                 <React.Suspense fallback={null}>
-                  <TrelloPanel workspaces={workspaces} allUsers={allUsers} user={user} currentUser={currentUser} updateTrelloFundo={updateTrelloFundo} refreshEvents={fetchEvents} isAdmin={hasRole('ADMIN')} hasRole={hasRole} dragEndRef={trelloDragEndRef} />
+                  <TrelloPanel
+                    workspaces={workspaces}
+                    allUsers={allUsers}
+                    user={user}
+                    currentUser={currentUser}
+                    updateTrelloFundo={updateTrelloFundo}
+                    refreshEvents={fetchEvents}
+                    isAdmin={hasRole('ADMIN')}
+                    hasRole={hasRole}
+                    dragEndRef={trelloDragEndRef}
+                    notas={notas || []}
+                    addNota={addNota}
+                    updateNota={updateNota}
+                    fichaIdParaAbrir={fichaIdParaAbrir}
+                    onLimparFichaIdParaAbrir={() => setFichaIdParaAbrir(null)}
+                    onNavegarParaNota={handleNavegarParaNota}
+                  />
                 </React.Suspense>
               ) : appMode === 'passagens' ? (
                 <React.Suspense fallback={null}>

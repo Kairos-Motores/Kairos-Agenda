@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -266,7 +266,23 @@ const intervaloDoEvento = (dia, hora) => {
   };
 };
 
-export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTrelloFundo, refreshEvents, isAdmin, hasRole, dragEndRef }) => {
+export const TrelloPanel = ({
+  workspaces,
+  allUsers,
+  user,
+  currentUser,
+  updateTrelloFundo,
+  refreshEvents,
+  isAdmin,
+  hasRole,
+  dragEndRef,
+  notas = [],
+  addNota,
+  updateNota,
+  fichaIdParaAbrir = null,
+  onLimparFichaIdParaAbrir,
+  onNavegarParaNota
+}) => {
   const [workspaceEscolhido, setWorkspaceIdRaw] = useState(() => {
     try { return localStorage.getItem(TRELLO_WORKSPACE_KEY) || ''; } catch { return ''; }
   });
@@ -1291,7 +1307,8 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
       ehModelo: !!form.ehModelo,
       tempoEstimadoMin: Number(form.tempoEstimadoMin) || 0,
       tempoGastoMin: Number(form.tempoGastoMin) || 0,
-      cronometroInicio: form.cronometroInicio || null
+      cronometroInicio: form.cronometroInicio || null,
+      notasIds: Array.isArray(form.notasIds) ? form.notasIds : []
     };
 
     // Registra no histórico só as mudanças que importam pra quem acompanha a ficha (não cada
@@ -1494,10 +1511,35 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
         cor: ficha.cr4a1_cor || '',
         stickers: parseAssignees(ficha.cr4a1_stickers),
         recorrencia: ficha.cr4a1_recorrencia || '',
-        ...meta
+        ...meta,
+        notasIds: Array.isArray(meta.notasIds) ? meta.notasIds : []
       }
     });
   };
+
+  // Se receber fichaIdParaAbrir externamente (ex.: clicado a partir de uma Nota)
+  useEffect(() => {
+    if (!fichaIdParaAbrir) return;
+    const local = fichas.find(f => f.cr4a1_fichaid === fichaIdParaAbrir);
+    if (local) {
+      abrirFicha(local);
+      onLimparFichaIdParaAbrir?.();
+      return;
+    }
+    fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=cr4a1_fichaid eq '${fichaIdParaAbrir}'`)
+      .then(r => r.json())
+      .then(res => {
+        const encontrada = res.value?.[0];
+        if (encontrada) {
+          if (encontrada.cr4a1_workspace_id && encontrada.cr4a1_workspace_id !== workspaceId) {
+            setWorkspaceId(encontrada.cr4a1_workspace_id);
+          }
+          abrirFicha(encontrada);
+          onLimparFichaIdParaAbrir?.();
+        }
+      })
+      .catch(() => {});
+  }, [fichaIdParaAbrir, fichas, workspaceId, onLimparFichaIdParaAbrir]);
 
   // Abre uma ficha que pertence a outro workspace (vindo de "Minhas fichas") — precisa trocar
   // o quadro ativo antes, já que salvarFicha grava novos eventos vinculados usando o
@@ -2595,6 +2637,7 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                       const qtdAnexos = anexosDaFicha.length;
                       const qtdComentarios = parseComentarios(ficha.cr4a1_comentarios).length;
                       const meta = parseFichaMeta(ficha.cr4a1_atividades);
+                      const qtdNotas = (meta.notasIds || []).length;
                       const imagensAnexadas = anexosDaFicha.filter(a => a.type?.startsWith('image/'));
                       const capaImagem = imagensAnexadas[meta.capaImagemIndex || 0] || primeiraImagem(anexosDaFicha);
                       const stickersDaFicha = parseAssignees(ficha.cr4a1_stickers);
@@ -2748,6 +2791,11 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
                                     {qtdAnexos > 0 && (
                                       <span className="inline-flex items-center gap-0.5" title={`${qtdAnexos} anexo(s)`}>
                                         <Paperclip className="size-3" /> {qtdAnexos}
+                                      </span>
+                                    )}
+                                    {qtdNotas > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 text-primary font-bold" title={`${qtdNotas} nota(s) vinculada(s)`}>
+                                        <FileText className="size-3" /> {qtdNotas}
                                       </span>
                                     )}
                                     {qtdComentarios > 0 && (
@@ -2957,6 +3005,24 @@ export const TrelloPanel = ({ workspaces, allUsers, user, currentUser, updateTre
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
               onDelete={() => excluirFicha(editando.original)}
+              notas={notas}
+              onCriarNota={async (tituloFicha) => {
+                if (!addNota) return null;
+                const novaNotaData = {
+                  titulo: `[Ficha] ${tituloFicha || editando.original?.cr4a1_titulo || 'Nova Nota'}`,
+                  cor: editando.original?.cr4a1_cor || '',
+                  workspaceId: editando.original?.cr4a1_workspace_id || workspaceId,
+                  fichaId: editando.original?.cr4a1_fichaid,
+                  fichaTitulo: editando.original?.cr4a1_titulo || tituloFicha,
+                  conteudo: [
+                    { id: crypto.randomUUID(), type: 'heading', value: 'Anotações da Ficha' },
+                    { id: crypto.randomUUID(), type: 'text', value: '' }
+                  ]
+                };
+                const idCriada = await addNota(novaNotaData);
+                return idCriada;
+              }}
+              onNavegarParaNota={onNavegarParaNota}
             />
           </DialogContent>
         </Dialog>
@@ -3163,12 +3229,62 @@ const FichaForm = ({
   onRemoverComentario,
   onCancel,
   onSave,
-  onDelete
+  onDelete,
+  notas = [],
+  onCriarNota,
+  onNavegarParaNota
 }) => {
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
   const [editorDescricao, setEditorDescricao] = useState(null);
+
+  // Integração com o módulo de Notas
+  const [vincularNotaPopoverAberto, setVincularNotaPopoverAberto] = useState(false);
+  const [buscaNota, setBuscaNota] = useState('');
+  const [notaEmVisualizacao, setNotaEmVisualizacao] = useState(null);
+  const [criandoNotaLocal, setCriandoNotaLocal] = useState(false);
+
+  const notasIds = useMemo(() => Array.isArray(form.notasIds) ? form.notasIds : [], [form.notasIds]);
+
+  const alternarVinculoNota = (notaId) => {
+    const atuais = notasIds;
+    if (atuais.includes(notaId)) {
+      set('notasIds', atuais.filter(id => id !== notaId));
+    } else {
+      set('notasIds', [...atuais, notaId]);
+    }
+  };
+
+  const handleCriarNovaNota = async () => {
+    if (!onCriarNota) return;
+    setCriandoNotaLocal(true);
+    try {
+      const idCriada = await onCriarNota(form.titulo);
+      if (idCriada) {
+        set('notasIds', [...notasIds, idCriada]);
+        toast.success('Nota criada e vinculada a esta ficha!');
+      }
+    } catch {
+      toast.error('Erro ao criar nota para a ficha.');
+    } finally {
+      setCriandoNotaLocal(false);
+    }
+  };
+
+  const notasVinculadasObjetos = useMemo(() => {
+    return notasIds.map(id => {
+      const encontrada = notas.find(n => n.cr4a1_notas_kairosid === id || n.cr4a1_id_da_nota === id);
+      return encontrada || { cr4a1_notas_kairosid: id, cr4a1_titulo: 'Nota vinculada' };
+    });
+  }, [notasIds, notas]);
+
+  const notasCandidatasParaVincular = useMemo(() => {
+    return notas.filter(n => {
+      const matchBusca = !buscaNota.trim() || (n.cr4a1_titulo || '').toLowerCase().includes(buscaNota.toLowerCase());
+      return matchBusca;
+    });
+  }, [notas, buscaNota]);
   const comentarEnviar = () => {
     const texto = novoComentario.trim();
     if (!texto) return;
@@ -3644,6 +3760,218 @@ const FichaForm = ({
       </div>
 
       <AttachmentsField anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
+
+      {/* SEÇÃO: NOTAS VINCULADAS */}
+      <div className="rounded-xl border border-border bg-secondary/40 p-3 flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label className="mb-0 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+            <FileText className="size-3.5 text-primary" /> Notas Vinculadas ({notasVinculadasObjetos.length})
+          </Label>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleCriarNovaNota}
+              disabled={criandoNotaLocal}
+              className="h-7 text-xs gap-1"
+              title="Criar uma nova nota diretamente associada a esta ficha"
+            >
+              {criandoNotaLocal ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+              <span>Criar Nota</span>
+            </Button>
+
+            <Popover open={vincularNotaPopoverAberto} onOpenChange={setVincularNotaPopoverAberto}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  title="Vincular notas já existentes a esta ficha"
+                >
+                  <Link2 className="size-3" />
+                  <span>Vincular</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-2.5">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Vincular Notas</span>
+                    <span className="text-[10px] text-muted-foreground">{notasCandidatasParaVincular.length} disponível(is)</span>
+                  </div>
+                  <Input
+                    placeholder="Pesquisar notas..."
+                    value={buscaNota}
+                    onChange={e => setBuscaNota(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <div className="flex max-h-52 flex-col gap-1 overflow-y-auto">
+                    {notasCandidatasParaVincular.length === 0 ? (
+                      <p className="p-3 text-center text-xs text-muted-foreground">Nenhuma nota encontrada.</p>
+                    ) : (
+                      notasCandidatasParaVincular.map(n => {
+                        const id = n.cr4a1_notas_kairosid || n.cr4a1_id_da_nota;
+                        const vinculada = notasIds.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => alternarVinculoNota(id)}
+                            className={`flex items-center justify-between rounded-lg p-2 text-left text-xs transition-colors ${
+                              vinculada ? 'bg-primary/15 border border-primary/40' : 'hover:bg-secondary'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {n.cr4a1_cor && (
+                                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: n.cr4a1_cor }} />
+                              )}
+                              <span className={`font-semibold truncate ${vinculada ? 'text-primary' : 'text-foreground'}`}>
+                                {n.cr4a1_titulo || 'Nota sem título'}
+                              </span>
+                            </div>
+                            {vinculada ? (
+                              <Check className="size-3.5 text-primary shrink-0 ml-1.5" />
+                            ) : (
+                              <Plus className="size-3 text-muted-foreground shrink-0 ml-1.5" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {notasVinculadasObjetos.length === 0 ? (
+          <p className="text-[11px] italic text-muted-foreground">
+            Nenhuma nota vinculada. Vincule atas de reunião ou especificações técnicas a esta ficha.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {notasVinculadasObjetos.map(n => {
+              const id = n.cr4a1_notas_kairosid || n.cr4a1_id_da_nota;
+              const autor = allUsers.find(u => u.cr4a1_username === n.cr4a1_user_login)?.cr4a1_nome_exibicao || n.cr4a1_user_login || '';
+              return (
+                <div
+                  key={id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2 text-xs transition-colors hover:border-primary/50"
+                  style={n.cr4a1_cor ? { borderLeftWidth: '3px', borderLeftColor: n.cr4a1_cor } : undefined}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <FileText className="size-3.5 text-primary shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-foreground truncate">{n.cr4a1_titulo || 'Sem título'}</span>
+                      {autor && <span className="text-[10px] text-muted-foreground">Por {autor}</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setNotaEmVisualizacao(n)}
+                      className="h-6 px-1.5 text-[11px] font-semibold"
+                      title="Visualizar o conteúdo desta nota"
+                    >
+                      <Eye className="size-3 mr-1" /> Ver
+                    </Button>
+
+                    {onNavegarParaNota && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          onSave?.(form);
+                          onNavegarParaNota(id);
+                        }}
+                        className="h-6 px-1.5 text-[11px] font-semibold text-primary"
+                        title="Abrir no módulo de Notas completo"
+                      >
+                        <ExternalLink className="size-3 mr-1" /> Abrir no Notas
+                      </Button>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => alternarVinculoNota(id)}
+                      className="size-6 text-muted-foreground hover:text-destructive"
+                      title="Desvincular nota"
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL DE PRÉ-VISUALIZAÇÃO DA NOTA DENTRO DA FICHA */}
+      {notaEmVisualizacao && (
+        <Dialog open onOpenChange={(open) => !open && setNotaEmVisualizacao(null)}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="size-5 text-primary" />
+                {notaEmVisualizacao.cr4a1_titulo || 'Nota sem título'}
+              </DialogTitle>
+              <DialogDescription>
+                Nota vinculada à ficha &quot;{form.titulo}&quot;
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto py-2">
+              {(notaEmVisualizacao.cr4a1_conteudo || []).length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">Esta nota está vazia.</p>
+              ) : (
+                (notaEmVisualizacao.cr4a1_conteudo || [])
+                  .filter(b => b && b.type !== '__meta__' && b.id !== '__nota_meta__')
+                  .map((bloco, bIdx) => (
+                    <div key={bloco.id || bIdx} className="text-sm">
+                      {bloco.type === 'heading' ? (
+                        <h4 className="font-bold text-foreground text-base border-b border-border/40 pb-1">{bloco.value}</h4>
+                      ) : bloco.type === 'todo' ? (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className={`size-4 ${bloco.checked ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                          <span className={bloco.checked ? 'line-through text-muted-foreground' : 'text-foreground'}>{bloco.value}</span>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap text-foreground" dangerouslySetInnerHTML={{ __html: bloco.value }} />
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              {onNavegarParaNota && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const targetId = notaEmVisualizacao.cr4a1_notas_kairosid || notaEmVisualizacao.cr4a1_id_da_nota;
+                    setNotaEmVisualizacao(null);
+                    onSave?.(form);
+                    onNavegarParaNota(targetId);
+                  }}
+                  className="gap-1"
+                >
+                  <ExternalLink className="size-3.5" /> Abrir no Módulo de Notas
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setNotaEmVisualizacao(null)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <div>
         <Label className="flex items-center gap-1.5"><MessageCircle className="size-3.5" /> Comentários</Label>

@@ -32,7 +32,8 @@ export const META_PADRAO = () => ({
   ehModelo: false,
   tempoEstimadoMin: 0,
   tempoGastoMin: 0,
-  cronometroInicio: null
+  cronometroInicio: null,
+  notasIds: []
 });
 
 export const parseAtividades = (raw) => {
@@ -55,7 +56,8 @@ export const parseFichaMeta = (raw) => {
         ...base,
         ...parsed.meta,
         coResponsaveis: Array.isArray(parsed.meta.coResponsaveis) ? parsed.meta.coResponsaveis.filter(Boolean) : [],
-        observadores: Array.isArray(parsed.meta.observadores) ? parsed.meta.observadores.filter(Boolean) : []
+        observadores: Array.isArray(parsed.meta.observadores) ? parsed.meta.observadores.filter(Boolean) : [],
+        notasIds: Array.isArray(parsed.meta.notasIds) ? parsed.meta.notasIds.filter(Boolean) : []
       };
     }
     if (Array.isArray(parsed)) {
@@ -65,7 +67,8 @@ export const parseFichaMeta = (raw) => {
           ...base,
           ...metaEntry.meta,
           coResponsaveis: Array.isArray(metaEntry.meta.coResponsaveis) ? metaEntry.meta.coResponsaveis.filter(Boolean) : [],
-          observadores: Array.isArray(metaEntry.meta.observadores) ? metaEntry.meta.observadores.filter(Boolean) : []
+          observadores: Array.isArray(metaEntry.meta.observadores) ? metaEntry.meta.observadores.filter(Boolean) : [],
+          notasIds: Array.isArray(metaEntry.meta.notasIds) ? metaEntry.meta.notasIds.filter(Boolean) : []
         };
       }
     }

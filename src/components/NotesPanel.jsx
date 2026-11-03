@@ -8,10 +8,12 @@ import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
   VolumeX, SearchX, X, FileText, Check, CloudOff, Paperclip,
-  CalendarPlus, Trash2, Users, Share2, Eye, Save, Palette, Ban
+  CalendarPlus, Trash2, Users, Share2, Eye, Save, Palette, Ban,
+  ExternalLink, Kanban, CheckSquare
 } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
@@ -21,10 +23,12 @@ import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { AttachmentsField } from './ui/attachments-field';
 import { RichTextEditor } from './ui/rich-text-editor';
 import { MentionInput } from './ui/mention-autocomplete';
+import { DateField } from './ui/date-field';
 import { themeColors } from '../constants/materialColors';
 import { parseAnexos } from '../utils/anexos';
 import { htmlParaTexto } from '../utils/descricaoTarefas';
 import { canUserViewNota, getNotaPermissions } from '../utils/notasCompartilhamento';
+import { META_PADRAO, serializarAtividadesEMeta, registrarAtividade } from '../utils/atividades';
 
 // ============================================================================
 // ESTILOS LOCAIS: animações e micro-interações MD3 do Bloco de Notas
@@ -413,7 +417,10 @@ export const NotesPanel = ({
   activeWorkspaces = [],
   eventId = null,
   isOnline = true,
-  registrarCorRecenteUsuario
+  registrarCorRecenteUsuario,
+  notaIdParaAbrir = null,
+  onLimparNotaIdParaAbrir,
+  onNavegarParaFicha
 }) => {
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -424,6 +431,32 @@ export const NotesPanel = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
   const [shareFilter, setShareFilter] = useState('all'); // 'all' | 'mine' | 'shared'
+
+  // Integração Notas ↔ Fichas do Trello
+  const [isCriarFichaOpen, setIsCriarFichaOpen] = useState(false);
+  const [fichaFormWs, setFichaFormWs] = useState('');
+  const [fichaFormLista, setFichaFormLista] = useState('');
+  const [fichaFormTitulo, setFichaFormTitulo] = useState('');
+  const [fichaFormResp, setFichaFormResp] = useState('');
+  const [fichaFormPrazo, setFichaFormPrazo] = useState('');
+  const [fichaFormListas, setFichaFormListas] = useState([]);
+  const [carregandoListas, setCarregandoListas] = useState(false);
+  const [criandoFicha, setCriandoFicha] = useState(false);
+  const [vincularFichaPopoverAberto, setVincularFichaPopoverAberto] = useState(false);
+  const [buscaFichaParaVincular, setBuscaFichaParaVincular] = useState('');
+  const [fichasParaVincular, setFichasParaVincular] = useState([]);
+  const [carregandoFichasParaVincular, setCarregandoFichasParaVincular] = useState(false);
+
+  // Se receber notaIdParaAbrir de fora (ex.: clicado dentro de uma ficha do Trello)
+  useEffect(() => {
+    if (!notaIdParaAbrir) return;
+    const encontrada = notas.find(n => n.cr4a1_notas_kairosid === notaIdParaAbrir || n.cr4a1_id_da_nota === notaIdParaAbrir);
+    if (encontrada) {
+      setNotaAberta(encontrada);
+      setIsEditing(false);
+      onLimparNotaIdParaAbrir?.();
+    }
+  }, [notaIdParaAbrir, notas, onLimparNotaIdParaAbrir]);
 
   const currentUserName = (
     currentUser?.cr4a1_username ||
@@ -575,25 +608,233 @@ export const NotesPanel = ({
       titulo: src.cr4a1_titulo,
       privado: src.cr4a1_private,
       private: src.cr4a1_private,
-      cor: src.cr4a1_cor || '',
-      workspaceId: src.cr4a1_workspace_id,
-      conteudo: src.cr4a1_conteudo,
-      eventoId: src.cr4a1_evento_id || null,
-      anexos: src.cr4a1_arquivos || [],
-      user: src.cr4a1_user_login,
-      user_login: src.cr4a1_user_login,
+      cor: src.cor !== undefined ? src.cor : (src.cr4a1_cor || ''),
+      fichaId: src.fichaId !== undefined ? src.fichaId : (src.cr4a1_ficha_id || ''),
+      fichaTitulo: src.fichaTitulo !== undefined ? src.fichaTitulo : (src.cr4a1_ficha_titulo || ''),
+      workspaceId: src.workspaceId ?? src.cr4a1_workspace_id,
+      conteudo: src.conteudo ?? src.cr4a1_conteudo,
+      eventoId: src.eventoId ?? src.cr4a1_evento_id ?? null,
+      anexos: src.anexos ?? src.cr4a1_arquivos ?? [],
+      user: src.user ?? src.cr4a1_user_login,
+      user_login: src.user_login ?? src.cr4a1_user_login,
       compartilhamento: src.compartilhamento || {},
 
       cr4a1_notas_kairosid: src.cr4a1_notas_kairosid,
       cr4a1_titulo: src.cr4a1_titulo,
       cr4a1_private: src.cr4a1_private,
-      cr4a1_cor: src.cr4a1_cor || '',
-      cr4a1_workspace_id: src.cr4a1_workspace_id,
-      cr4a1_conteudo: src.cr4a1_conteudo,
-      cr4a1_evento_id: src.cr4a1_evento_id || null,
-      cr4a1_arquivos: src.cr4a1_arquivos || [],
-      cr4a1_user_login: src.cr4a1_user_login
+      cr4a1_cor: src.cor !== undefined ? src.cor : (src.cr4a1_cor || ''),
+      cr4a1_ficha_id: src.fichaId !== undefined ? src.fichaId : (src.cr4a1_ficha_id || ''),
+      cr4a1_ficha_titulo: src.fichaTitulo !== undefined ? src.fichaTitulo : (src.cr4a1_ficha_titulo || ''),
+      cr4a1_workspace_id: src.workspaceId ?? src.cr4a1_workspace_id,
+      cr4a1_conteudo: src.conteudo ?? src.cr4a1_conteudo,
+      cr4a1_evento_id: src.eventoId ?? src.cr4a1_evento_id ?? null,
+      cr4a1_arquivos: src.anexos ?? src.cr4a1_arquivos ?? [],
+      cr4a1_user_login: src.user_login ?? src.cr4a1_user_login
     };
+  };
+
+  // Converte blocos ricos da nota em descrição com microtarefas e tópicos compatíveis com o Trello
+  const converterBlocosParaDescricaoFicha = (conteudo = []) => {
+    if (!Array.isArray(conteudo)) return '';
+    const linhas = [];
+    conteudo
+      .filter(b => b && b.type !== '__meta__' && b.id !== '__nota_meta__')
+      .forEach(b => {
+        const val = (b.value || '').trim();
+        if (!val) return;
+        if (b.type === 'todo') {
+          linhas.push(`[${b.checked ? 'x' : ' '}] ${val}`);
+        } else if (b.type === 'heading') {
+          linhas.push(`### ${val}`);
+        } else {
+          linhas.push(val);
+        }
+      });
+    return linhas.join('\n\n');
+  };
+
+  // Carrega listas do quadro quando o workspace de destino da ficha é alterado
+  useEffect(() => {
+    if (!isCriarFichaOpen || !fichaFormWs) return;
+    let cancelado = false;
+    setCarregandoListas(true);
+    fetch(`/api/dataverse-proxy?table=cr4a1_listas&$filter=cr4a1_workspace_id eq '${fichaFormWs}'`)
+      .then(r => r.json())
+      .then(res => {
+        if (cancelado) return;
+        const l = (res.value || []).sort((a, b) => (Number(a.cr4a1_ordem) || 0) - (Number(b.cr4a1_ordem) || 0));
+        setFichaFormListas(l);
+        if (l.length > 0) {
+          setFichaFormLista(l[0].cr4a1_listaid);
+        } else {
+          setFichaFormLista('');
+        }
+      })
+      .catch(() => {
+        if (!cancelado) toast.error('Erro ao carregar listas do quadro.');
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoListas(false);
+      });
+    return () => { cancelado = true; };
+  }, [isCriarFichaOpen, fichaFormWs]);
+
+  const abrirModalCriarFicha = () => {
+    if (!notaAberta) return;
+    const wsInicial = notaAberta.cr4a1_workspace_id || workspaces[0]?.cr4a1_calendarios_workspacesid || '';
+    setFichaFormWs(wsInicial);
+    setFichaFormTitulo(notaAberta.cr4a1_titulo || 'Nova Ficha');
+    setFichaFormResp(currentUserName);
+    setFichaFormPrazo('');
+    setIsCriarFichaOpen(true);
+  };
+
+  const handleConfirmarCriarFicha = async () => {
+    if (!fichaFormTitulo.trim()) {
+      toast.error('Informe um título para a ficha.');
+      return;
+    }
+    if (!fichaFormLista) {
+      toast.error('Selecione uma lista de destino.');
+      return;
+    }
+    setCriandoFicha(true);
+    try {
+      const notaId = notaAberta.cr4a1_notas_kairosid || notaAberta.cr4a1_id_da_nota;
+      const meta = {
+        ...META_PADRAO(),
+        notasIds: notaId ? [notaId] : []
+      };
+      const corpo = {
+        cr4a1_titulo: fichaFormTitulo.trim(),
+        cr4a1_descricao: converterBlocosParaDescricaoFicha(notaAberta.cr4a1_conteudo),
+        cr4a1_lista_id: fichaFormLista,
+        cr4a1_workspace_id: fichaFormWs,
+        cr4a1_responsavel_login: fichaFormResp || currentUserName,
+        cr4a1_criador_login: currentUserName,
+        cr4a1_concluida: 'Não',
+        cr4a1_notificado: 'Sim',
+        cr4a1_etiquetas: '',
+        cr4a1_cor: notaAberta.cr4a1_cor || '',
+        cr4a1_fixada: 'Não',
+        cr4a1_data_inicio: fichaFormPrazo ? `${fichaFormPrazo}T09:00:00Z` : null,
+        cr4a1_atividades: serializarAtividadesEMeta([], meta)
+      };
+      const res = await fetch('/api/dataverse-proxy?table=cr4a1_fichas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corpo)
+      });
+      if (!res.ok) throw new Error('Falha ao criar ficha');
+      const criada = await res.json();
+      const fichaId = criada.cr4a1_fichaid;
+      const fichaTitulo = criada.cr4a1_titulo || fichaFormTitulo.trim();
+
+      if (notaId && !notaAberta.isNew) {
+        await updateNota(notaId, buildNotaPayload({ fichaId, fichaTitulo, workspaceId: fichaFormWs }));
+      }
+      setNotaAberta(prev => prev ? ({ ...prev, cr4a1_ficha_id: fichaId, cr4a1_ficha_titulo: fichaTitulo, cr4a1_workspace_id: fichaFormWs }) : prev);
+      setIsCriarFichaOpen(false);
+
+      toast.success(
+        (t) => (
+          <div className="flex items-center gap-2">
+            <span>Ficha criada no Quadro!</span>
+            {onNavegarParaFicha && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  onNavegarParaFicha(fichaId, fichaFormWs);
+                }}
+                className="rounded bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground hover:opacity-90"
+              >
+                Abrir Ficha ↗
+              </button>
+            )}
+          </div>
+        ),
+        { duration: 6000 }
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao criar ficha a partir da nota.');
+    } finally {
+      setCriandoFicha(false);
+    }
+  };
+
+  const carregarFichasParaVincular = async () => {
+    setCarregandoFichasParaVincular(true);
+    try {
+      const ws = notaAberta?.cr4a1_workspace_id || '';
+      const filtro = ws ? `cr4a1_workspace_id eq '${ws}'` : '';
+      const url = `/api/dataverse-proxy?table=cr4a1_fichas${filtro ? `&$filter=${filtro}` : ''}&$top=50&$orderby=modifiedon desc`;
+      const res = await fetch(url).then(r => r.json());
+      setFichasParaVincular(res.value || []);
+    } catch {
+      toast.error('Erro ao buscar fichas.');
+    } finally {
+      setCarregandoFichasParaVincular(false);
+    }
+  };
+
+  const handleVincularFicha = async (ficha) => {
+    if (!notaAberta) return;
+    const notaId = notaAberta.cr4a1_notas_kairosid || notaAberta.cr4a1_id_da_nota;
+    try {
+      await updateNota(notaId, buildNotaPayload({ fichaId: ficha.cr4a1_fichaid, fichaTitulo: ficha.cr4a1_titulo, workspaceId: ficha.cr4a1_workspace_id }));
+      setNotaAberta(prev => ({ ...prev, cr4a1_ficha_id: ficha.cr4a1_fichaid, cr4a1_ficha_titulo: ficha.cr4a1_titulo, cr4a1_workspace_id: ficha.cr4a1_workspace_id }));
+
+      const meta = parseFichaMeta(ficha.cr4a1_atividades);
+      const notasAtuais = Array.isArray(meta.notasIds) ? meta.notasIds : [];
+      if (!notasAtuais.includes(notaId)) {
+        const novasNotasIds = [...notasAtuais, notaId];
+        const novoAtividades = registrarAtividade(ficha.cr4a1_atividades, 'nota_vinculada', currentUserName, `Nota "${notaAberta.cr4a1_titulo || 'Sem título'}" vinculada`, { notasIds: novasNotasIds });
+        await fetch(`/api/dataverse-proxy?table=cr4a1_fichas&id=${ficha.cr4a1_fichaid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cr4a1_atividades: novoAtividades })
+        });
+      }
+      setVincularFichaPopoverAberto(false);
+      toast.success(`Nota vinculada à ficha "${ficha.cr4a1_titulo}"!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao vincular nota à ficha.');
+    }
+  };
+
+  const handleDesvincularFicha = async () => {
+    if (!notaAberta) return;
+    const notaId = notaAberta.cr4a1_notas_kairosid || notaAberta.cr4a1_id_da_nota;
+    const fichaIdAntiga = notaAberta.cr4a1_ficha_id;
+    try {
+      await updateNota(notaId, buildNotaPayload({ fichaId: '', fichaTitulo: '' }));
+      setNotaAberta(prev => ({ ...prev, cr4a1_ficha_id: '', cr4a1_ficha_titulo: '' }));
+
+      if (fichaIdAntiga) {
+        fetch(`/api/dataverse-proxy?table=cr4a1_fichas&$filter=cr4a1_fichaid eq '${fichaIdAntiga}'`)
+          .then(r => r.json())
+          .then(res => {
+            const f = res.value?.[0];
+            if (f) {
+              const meta = parseFichaMeta(f.cr4a1_atividades);
+              const novasNotasIds = (meta.notasIds || []).filter(id => id !== notaId);
+              const novoAtividades = registrarAtividade(f.cr4a1_atividades, 'nota_desvinculada', currentUserName, 'Nota desvinculada', { notasIds: novasNotasIds });
+              fetch(`/api/dataverse-proxy?table=cr4a1_fichas&id=${f.cr4a1_fichaid}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_atividades: novoAtividades })
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+      toast.success('Vínculo com a ficha removido.');
+    } catch {
+      toast.error('Erro ao desvincular ficha.');
+    }
   };
 
   const handleSelectCorNota = async (hex) => {
@@ -823,6 +1064,18 @@ export const NotesPanel = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Botão de Criar Ficha no Trello a partir desta Nota */}
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+              onClick={abrirModalCriarFicha}
+              title="Criar Ficha no Quadro Trello a partir desta nota"
+            >
+              <Kanban className="size-[17px]" />
+              <span>Criar Ficha</span>
+            </Button>
+
             {/* Seletor de Cor do Cartão da Nota (com fila de cores recentes do usuário) */}
             {canEdit && (
               <Popover open={corPopoverAberto} onOpenChange={setCorPopoverAberto}>
@@ -1107,6 +1360,86 @@ export const NotesPanel = ({
                     <Link2 className="size-[14px] text-primary" />
                     {eventoAssociado.cr4a1_titulo}
                   </span>
+                )}
+
+                {/* Vínculo com Ficha do Trello */}
+                {notaAberta.cr4a1_ficha_id ? (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                    <Kanban className="size-3.5 text-primary shrink-0" />
+                    <span className="truncate max-w-[200px]" title={notaAberta.cr4a1_ficha_titulo || 'Ficha Vinculada'}>
+                      {notaAberta.cr4a1_ficha_titulo || 'Ficha do Trello'}
+                    </span>
+                    {onNavegarParaFicha && (
+                      <button
+                        type="button"
+                        onClick={() => onNavegarParaFicha(notaAberta.cr4a1_ficha_id, notaAberta.cr4a1_workspace_id)}
+                        className="ml-1 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-bold hover:opacity-90 transition-opacity"
+                        title="Abrir esta ficha no quadro Trello"
+                      >
+                        <span>Abrir</span>
+                        <ExternalLink className="size-2.5" />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={handleDesvincularFicha}
+                        className="ml-0.5 text-muted-foreground hover:text-destructive"
+                        title="Desvincular ficha desta nota"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <Popover open={vincularFichaPopoverAberto} onOpenChange={(open) => { setVincularFichaPopoverAberto(open); if (open) carregarFichasParaVincular(); }}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                        title="Vincular esta nota a uma ficha existente do Trello"
+                      >
+                        <Link2 className="size-3" /> Vincular Ficha
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 p-2.5">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold text-foreground">Vincular a uma Ficha do Trello</span>
+                        <Input
+                          placeholder="Buscar ficha por título..."
+                          value={buscaFichaParaVincular}
+                          onChange={e => setBuscaFichaParaVincular(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        <div className="flex max-h-52 flex-col gap-1 overflow-y-auto">
+                          {carregandoFichasParaVincular ? (
+                            <div className="flex items-center justify-center p-3 text-xs text-muted-foreground">
+                              <Loader2 className="size-3.5 animate-spin mr-1.5" /> Carregando fichas...
+                            </div>
+                          ) : (
+                            fichasParaVincular
+                              .filter(f => !buscaFichaParaVincular.trim() || (f.cr4a1_titulo || '').toLowerCase().includes(buscaFichaParaVincular.toLowerCase()))
+                              .map(f => (
+                                <button
+                                  key={f.cr4a1_fichaid}
+                                  type="button"
+                                  onClick={() => handleVincularFicha(f)}
+                                  className="flex flex-col items-start rounded-lg p-2 text-left text-xs hover:bg-secondary transition-colors"
+                                >
+                                  <span className="font-semibold text-foreground line-clamp-1">{f.cr4a1_titulo}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {workspaces.find(w => w.cr4a1_calendarios_workspacesid === f.cr4a1_workspace_id)?.cr4a1_nome || 'Quadro'}
+                                  </span>
+                                </button>
+                              ))
+                          )}
+                          {!carregandoFichasParaVincular && fichasParaVincular.length === 0 && (
+                            <p className="p-2 text-center text-[11px] text-muted-foreground">Nenhuma ficha encontrada no setor.</p>
+                          )}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
 
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -1434,7 +1767,18 @@ export const NotesPanel = ({
                       {relative ? ` · ${relative}` : ''}
                     </span>
                   </div>
-                  {nota.cr4a1_evento_id && <Link2 className="size-[14px] shrink-0 text-primary" title="Nota associada a um evento" />}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {nota.cr4a1_ficha_id && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary"
+                        title={`Vinculada à Ficha: ${nota.cr4a1_ficha_titulo || 'Ficha do Trello'}`}
+                      >
+                        <Kanban className="size-3" />
+                        Ficha
+                      </span>
+                    )}
+                    {nota.cr4a1_evento_id && <Link2 className="size-[14px] shrink-0 text-primary" title="Nota associada a um evento" />}
+                  </div>
                 </div>
               </div>
             );
@@ -1442,6 +1786,107 @@ export const NotesPanel = ({
         </div>
       )}
       {ConfirmDialogHost}
+
+      {/* DIALOG: CRIAR FICHA NO QUADRO A PARTIR DA NOTA */}
+      <Dialog open={isCriarFichaOpen} onOpenChange={setIsCriarFichaOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Kanban className="size-5 text-primary" />
+              Criar Ficha no Quadro
+            </DialogTitle>
+            <DialogDescription>
+              Gere um cartão no quadro Trello vinculado diretamente a esta nota.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 py-2">
+            <div>
+              <Label className="text-xs">Título da Ficha</Label>
+              <Input
+                value={fichaFormTitulo}
+                onChange={e => setFichaFormTitulo(e.target.value)}
+                placeholder="Título da ficha..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Workspace</Label>
+                <Select value={fichaFormWs} onValueChange={setFichaFormWs}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Workspace" /></SelectTrigger>
+                  <SelectContent>
+                    {workspaces.map(ws => (
+                      <SelectItem key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>
+                        {ws.cr4a1_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Lista / Coluna</Label>
+                <Select value={fichaFormLista} onValueChange={setFichaFormLista} disabled={carregandoListas || fichaFormListas.length === 0}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder={carregandoListas ? 'Carregando...' : (fichaFormListas.length === 0 ? 'Sem listas' : 'Selecione a lista')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fichaFormListas.map(l => (
+                      <SelectItem key={l.cr4a1_listaid} value={l.cr4a1_listaid}>
+                        {l.cr4a1_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Responsável</Label>
+                <Select value={fichaFormResp} onValueChange={setFichaFormResp}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                  <SelectContent>
+                    {allUsers.map(u => (
+                      <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>
+                        {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Prazo (opcional)</Label>
+                <input
+                  type="date"
+                  value={fichaFormPrazo}
+                  onChange={e => setFichaFormPrazo(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+                />
+              </div>
+            </div>
+
+            {notaAberta?.cr4a1_conteudo?.some(b => b.type === 'todo') && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <CheckSquare className="size-4 text-primary shrink-0" />
+                <span>Os tópicos da checklist desta nota serão convertidos em microtarefas na ficha.</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCriarFichaOpen(false)} disabled={criandoFicha}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmarCriarFicha} disabled={criandoFicha || !fichaFormLista || !fichaFormTitulo.trim()}>
+              {criandoFicha ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Kanban className="size-4 mr-1.5" />}
+              {criandoFicha ? 'Criando ficha...' : 'Criar Ficha no Quadro'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

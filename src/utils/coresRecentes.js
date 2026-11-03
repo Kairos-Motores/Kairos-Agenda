@@ -99,23 +99,35 @@ export function adicionarCorRecenteNaFila(filaAtual = [], novaCorHex) {
  */
 export function extrairMetaConteudoNota(conteudoBruto, corExistente = '') {
   if (!Array.isArray(conteudoBruto)) {
-    return { corNota: normalizarHex(corExistente), blocosLimpos: [] };
+    return { corNota: normalizarHex(corExistente), fichaId: '', fichaTitulo: '', workspaceId: '', blocosLimpos: [] };
   }
   const blocoMeta = conteudoBruto.find(b => b && (b.type === '__meta__' || b.id === '__nota_meta__'));
   const blocosLimpos = conteudoBruto.filter(b => b && b.type !== '__meta__' && b.id !== '__nota_meta__');
   const corNota = normalizarHex(corExistente || blocoMeta?.cor || '');
-  return { corNota, blocosLimpos };
+  const fichaId = blocoMeta?.fichaId || '';
+  const fichaTitulo = blocoMeta?.fichaTitulo || '';
+  const workspaceId = blocoMeta?.workspaceId || '';
+  return { corNota, fichaId, fichaTitulo, workspaceId, blocosLimpos };
 }
 
 /**
  * Empacota a cor da nota junto aos blocos de `cr4a1_conteudo` para persistência no Dataverse
  * sem exigir coluna extra em `cr4a1_notas_kairoses`.
  */
-export function empacotarMetaConteudoNota(blocos = [], corNota = '') {
+export function empacotarMetaConteudoNota(blocos = [], corNota = '', metaExtra = {}) {
   const limpos = (Array.isArray(blocos) ? blocos : []).filter(
     b => b && b.type !== '__meta__' && b.id !== '__nota_meta__'
   );
   const hex = normalizarHex(corNota);
-  if (!hex) return limpos;
-  return [{ id: '__nota_meta__', type: '__meta__', value: '', cor: hex }, ...limpos];
+  const metaObj = {
+    id: '__nota_meta__',
+    type: '__meta__',
+    value: '',
+    ...(hex ? { cor: hex } : {}),
+    ...(metaExtra?.fichaId ? { fichaId: metaExtra.fichaId } : {}),
+    ...(metaExtra?.fichaTitulo ? { fichaTitulo: metaExtra.fichaTitulo } : {}),
+    ...(metaExtra?.workspaceId ? { workspaceId: metaExtra.workspaceId } : {})
+  };
+  if (!hex && !metaExtra?.fichaId && !metaExtra?.fichaTitulo) return limpos;
+  return [metaObj, ...limpos];
 }

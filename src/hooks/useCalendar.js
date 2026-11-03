@@ -66,10 +66,12 @@ export const useCalendar = () => {
         try {
             const cached = JSON.parse(localStorage.getItem('kairos_notas_cache') || '[]');
             return Array.isArray(cached) ? cached.map(n => {
-                const { corNota, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
+                const { corNota, fichaId, fichaTitulo, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
                 return {
                     ...n,
                     cr4a1_cor: corNota || '',
+                    cr4a1_ficha_id: fichaId || n.cr4a1_ficha_id || '',
+                    cr4a1_ficha_titulo: fichaTitulo || n.cr4a1_ficha_titulo || '',
                     cr4a1_conteudo: blocosLimpos,
                     compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
                 };
@@ -678,10 +680,12 @@ export const useCalendar = () => {
                 return !nota.cr4a1_private || isAuthor || isShared;
             }).map(nota => {
                 const parsedConteudo = safeParseJson(nota.cr4a1_conteudo, []);
-                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, nota.cr4a1_cor);
+                const { corNota, fichaId, fichaTitulo, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, nota.cr4a1_cor);
                 return {
                     ...nota,
                     cr4a1_cor: corNota || '',
+                    cr4a1_ficha_id: fichaId || '',
+                    cr4a1_ficha_titulo: fichaTitulo || '',
                     compartilhamento: parseCompartilhamento(nota.cr4a1_privado),
                     cr4a1_conteudo: blocosLimpos,
                     cr4a1_arquivos: safeParseJson(nota.cr4a1_arquivos, [])
@@ -702,10 +706,12 @@ export const useCalendar = () => {
                     const parsed = JSON.parse(cached);
                     if (Array.isArray(parsed) && parsed.length > 0) {
                         setNotas(parsed.map(n => {
-                            const { corNota, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
+                            const { corNota, fichaId, fichaTitulo, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
                             return {
                                 ...n,
                                 cr4a1_cor: corNota || '',
+                                cr4a1_ficha_id: fichaId || n.cr4a1_ficha_id || '',
+                                cr4a1_ficha_titulo: fichaTitulo || n.cr4a1_ficha_titulo || '',
                                 cr4a1_conteudo: blocosLimpos,
                                 compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
                             };
@@ -1899,8 +1905,14 @@ export const useCalendar = () => {
         const targetWorkspace = notaData.workspaceId || (workspaces[0]?.cr4a1_calendarios_workspacesid) || (activeWorkspaces[0]) || '';
         const rawConteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
         const corNotaEscolhida = notaData.cor ?? notaData.cr4a1_cor ?? '';
-        const { corNota, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corNotaEscolhida);
-        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota);
+        const { corNota, fichaId, fichaTitulo, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corNotaEscolhida);
+        const finalFichaId = notaData.fichaId ?? notaData.cr4a1_ficha_id ?? fichaId ?? '';
+        const finalFichaTitulo = notaData.fichaTitulo ?? notaData.cr4a1_ficha_titulo ?? fichaTitulo ?? '';
+        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota, {
+            fichaId: finalFichaId,
+            fichaTitulo: finalFichaTitulo,
+            workspaceId: targetWorkspace
+        });
         const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
                 const compartilhamento = notaData.compartilhamento !== undefined
             ? parseCompartilhamento(notaData.compartilhamento)
@@ -1915,6 +1927,8 @@ export const useCalendar = () => {
             cr4a1_workspace_id: targetWorkspace,
             cr4a1_private: !!(notaData.privado ?? notaData.cr4a1_private),
             cr4a1_cor: corNota || '',
+            cr4a1_ficha_id: finalFichaId,
+            cr4a1_ficha_titulo: finalFichaTitulo,
 
             cr4a1_privado: serializedPrivado,
             compartilhamento: compartilhamento,
@@ -1989,8 +2003,15 @@ export const useCalendar = () => {
         const corEscolhida = notaData.cor !== undefined
             ? notaData.cor
             : (notaData.cr4a1_cor !== undefined ? notaData.cr4a1_cor : (notaExistente?.cr4a1_cor || ''));
-        const { corNota, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corEscolhida);
-        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota);
+        const { corNota, fichaId, fichaTitulo, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corEscolhida);
+        const finalFichaId = notaData.fichaId !== undefined ? notaData.fichaId : (notaData.cr4a1_ficha_id !== undefined ? notaData.cr4a1_ficha_id : (fichaId || notaExistente?.cr4a1_ficha_id || ''));
+        const finalFichaTitulo = notaData.fichaTitulo !== undefined ? notaData.fichaTitulo : (notaData.cr4a1_ficha_titulo !== undefined ? notaData.cr4a1_ficha_titulo : (fichaTitulo || notaExistente?.cr4a1_ficha_titulo || ''));
+        const targetWs = notaData.workspaceId || notaExistente?.cr4a1_workspace_id;
+        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota, {
+            fichaId: finalFichaId,
+            fichaTitulo: finalFichaTitulo,
+            workspaceId: targetWs
+        });
         const compartilhamento = notaData.compartilhamento !== undefined
             ? parseCompartilhamento(notaData.compartilhamento)
             : (notaData.cr4a1_privado ? parseCompartilhamento(notaData.cr4a1_privado) : (notaExistente?.compartilhamento || {}));
@@ -2017,6 +2038,8 @@ export const useCalendar = () => {
                         cr4a1_private: payload.cr4a1_private,
                         cr4a1_privado: payload.cr4a1_privado,
                         cr4a1_cor: corNota || '',
+                        cr4a1_ficha_id: finalFichaId,
+                        cr4a1_ficha_titulo: finalFichaTitulo,
                         compartilhamento: compartilhamento,
                         cr4a1_evento_id: payload.cr4a1_evento_id,
                         ...(payload.cr4a1_workspace_id ? { cr4a1_workspace_id: payload.cr4a1_workspace_id } : {}),
@@ -2126,11 +2149,13 @@ export const useCalendar = () => {
                 const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid || t.id === n.cr4a1_id_da_nota);
                 if (!patch) return n;
                 const parsedConteudo = parseLista(patch.body.cr4a1_conteudo);
-                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, n.cr4a1_cor);
+                const { corNota, fichaId, fichaTitulo, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, n.cr4a1_cor);
                 return {
                     ...n,
                     ...patch.body,
                     cr4a1_cor: corNota || '',
+                    cr4a1_ficha_id: fichaId || n.cr4a1_ficha_id || '',
+                    cr4a1_ficha_titulo: fichaTitulo || n.cr4a1_ficha_titulo || '',
                     compartilhamento: patch.body.cr4a1_privado !== undefined ? parseCompartilhamento(patch.body.cr4a1_privado) : n.compartilhamento,
                     cr4a1_conteudo: blocosLimpos,
                     cr4a1_arquivos: parseLista(patch.body.cr4a1_arquivos),
@@ -2143,11 +2168,13 @@ export const useCalendar = () => {
             .filter(t => !existentesIds.has(t._tempId))
             .map(t => {
                 const parsedConteudo = parseLista(t.body.cr4a1_conteudo);
-                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, '');
+                const { corNota, fichaId, fichaTitulo, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, '');
                 return {
                     ...t.body,
                     cr4a1_notas_kairosid: t._tempId,
                     cr4a1_cor: corNota || '',
+                    cr4a1_ficha_id: fichaId || '',
+                    cr4a1_ficha_titulo: fichaTitulo || '',
                     compartilhamento: parseCompartilhamento(t.body.cr4a1_privado),
                     cr4a1_conteudo: blocosLimpos,
                     cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),

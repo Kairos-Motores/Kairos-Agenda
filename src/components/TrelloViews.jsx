@@ -17,7 +17,8 @@ import {
   Layers,
   Tag,
   Flag,
-  DollarSign
+  DollarSign,
+  FileText
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -119,6 +120,12 @@ export const TrelloTabelaView = ({
                       {meta.statusAprovacao && statusAprov && (
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusAprov.badgeClass}`}>
                           {statusAprov.label}
+                        </span>
+                      )}
+                      {meta.notasIds?.length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          <FileText className="size-2.5" />
+                          {meta.notasIds.length} {meta.notasIds.length === 1 ? 'nota' : 'notas'}
                         </span>
                       )}
                     </div>
