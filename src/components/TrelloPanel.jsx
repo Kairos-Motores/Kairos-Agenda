@@ -2084,38 +2084,6 @@ export const TrelloPanel = ({
               </Select>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:hidden shrink-0">
-            <Button
-              variant={minhasFichasAberto ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setMinhasFichasAberto(v => !v)}
-              aria-label="Minhas fichas"
-              className={`h-8 px-2 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
-              title="Minhas fichas"
-            >
-              <UserCircle2 className="size-3.5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={`h-8 px-2 text-xs ${headerOutlineBtnClass}`} aria-label="Mais ações">
-                  <MoreHorizontal className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
-                {podeGerenciarColaboradores && (
-                  <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
-                <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setArquivadasAberto(true)}>
-                  <Archive className="size-4" /> Arquivadas ({fichasArquivadas.length})
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
           {!minhasFichasAberto && !estouBloqueado && (
             <div className="hidden sm:flex items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 shadow-xs">
               {[
@@ -2175,7 +2143,7 @@ export const TrelloPanel = ({
               })}
             </div>
           )}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             {membrosVisiveis.length > 0 && (
               <button
                 type="button"
@@ -2297,59 +2265,42 @@ export const TrelloPanel = ({
               </div>
             </PopoverContent>
           </Popover>
-          {/* Ações secundárias (menos usadas no dia a dia) — fica como botões soltos a partir
-              de sm, e some pra dentro de um menu "Mais" só no mobile, pra não lotar o
-              cabeçalho de linhas de botão com texto antes mesmo do quadro aparecer. */}
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setFundoAberto(true)}>
-              <Palette className="size-3.5" /> Fundo
-            </Button>
-            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setEtiquetasAberto(true)}>
-              <Tag className="size-3.5" /> Etiquetas
-            </Button>
-            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setCompartilharAberto(true)}>
-              <Users className="size-3.5" /> Compartilhar
-            </Button>
-            {podeGerenciarColaboradores && (
-              <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setMudarWorkspaceAberto(true)} title="Mudar Workspace do Quadro">
-                <FolderSync className="size-3.5" /> Mudar Workspace
-              </Button>
-            )}
-            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={() => setModelosAberto(true)}>
-              <LayoutTemplate className="size-3.5" /> Modelos
-            </Button>
-            <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} onClick={exportarQuadro}>
-              <FileSpreadsheet className="size-3.5" /> Exportar
-            </Button>
-          </div>
-          <Button
-            variant={arquivadasAberto ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setArquivadasAberto(true)}
-            aria-label="Fichas arquivadas"
-            title="Abrir espaço de fichas arquivadas"
-            className={`hidden sm:inline-flex relative h-8 px-2.5 text-xs ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
-          >
-            <Archive className="size-3.5" />
-            <span className="hidden sm:inline">Arquivadas</span>
-            {fichasArquivadas.length > 0 && (
-              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px]">
-                {fichasArquivadas.length}
-              </Badge>
-            )}
-          </Button>
           <Button
             variant={minhasFichasAberto ? 'default' : 'outline'}
             size="sm"
             onClick={() => setMinhasFichasAberto(v => !v)}
             aria-label="Minhas fichas"
-            className={`hidden sm:inline-flex h-8 px-2.5 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
+            className={`h-8 px-2.5 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
           >
             <UserCircle2 className="size-3.5" /> <span className="hidden sm:inline">Minhas fichas</span>
           </Button>
+          {/* Ações secundárias (menos usadas no dia a dia) ficam sempre atrás de um menu —
+              inline elas nunca cabem numa linha só (nem em desktop), então em vez de tentar
+              adivinhar um breakpoint "seguro" pra mostrar tudo solto, o menu garante que o
+              cabeçalho nunca estoura a largura da tela, em qualquer tamanho. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={`h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} aria-label="Mais ações">
+                <MoreHorizontal className="size-3.5" /> <span className="hidden sm:inline">Mais</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
+              {podeGerenciarColaboradores && (
+                <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setArquivadasAberto(true)}>
+                <Archive className="size-4" /> Arquivadas ({fichasArquivadas.length})
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="hidden sm:block">
             <Select value={workspaceId} onValueChange={setWorkspaceId}>
-              <SelectTrigger className="h-8 w-36 text-xs sm:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-36 text-xs lg:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
               <SelectContent>
                 {todasOpcoes.map(w => {
                   const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
