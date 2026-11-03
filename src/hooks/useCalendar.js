@@ -10,6 +10,13 @@ import { ROLE_WORKSPACE_MAP, ALL_KNOWN_ROLES, PROTECTED_ROLES } from '../config/
 import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
 import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
 import { parseCompartilhamento, serializeCompartilhamento } from '../utils/notasCompartilhamento';
+import {
+    parseUserCorField,
+    serializeUserCorField,
+    adicionarCorRecenteNaFila,
+    extrairMetaConteudoNota,
+    empacotarMetaConteudoNota
+} from '../utils/coresRecentes';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -58,10 +65,15 @@ export const useCalendar = () => {
     const [notas, setNotas] = useState(() => {
         try {
             const cached = JSON.parse(localStorage.getItem('kairos_notas_cache') || '[]');
-            return Array.isArray(cached) ? cached.map(n => ({
-                ...n,
-                compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
-            })) : [];
+            return Array.isArray(cached) ? cached.map(n => {
+                const { corNota, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
+                return {
+                    ...n,
+                    cr4a1_cor: corNota || '',
+                    cr4a1_conteudo: blocosLimpos,
+                    compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
+                };
+            }) : [];
         } catch {
             return [];
         }
@@ -460,8 +472,14 @@ export const useCalendar = () => {
                     }).catch(() => {});
                 }
 
+                const parsedCor = parseUserCorField(u.cr4a1_cor);
+
                 return {
                     ...u,
+                    cr4a1_cor: parsedCor.corAvatar || u.cr4a1_cor,
+                    _raw_cr4a1_cor: u.cr4a1_cor || '',
+                    coresRecentesMarcaTexto: parsedCor.recentesMarcaTexto,
+                    coresRecentesNota: parsedCor.recentesNota,
                     cr4a1_nome_exibicao: nomeExibicaoFinal,
                     cr4a1_email: email,
                     email: email,
@@ -658,12 +676,17 @@ export const useCalendar = () => {
                 const isAuthor = nota.cr4a1_user_login === user;
                 const isShared = Boolean(compartilhamento && compartilhamento[user]);
                 return !nota.cr4a1_private || isAuthor || isShared;
-            }).map(nota => ({
-                ...nota,
-                compartilhamento: parseCompartilhamento(nota.cr4a1_privado),
-                cr4a1_conteudo: safeParseJson(nota.cr4a1_conteudo, []),
-                cr4a1_arquivos: safeParseJson(nota.cr4a1_arquivos, [])
-            }));
+            }).map(nota => {
+                const parsedConteudo = safeParseJson(nota.cr4a1_conteudo, []);
+                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, nota.cr4a1_cor);
+                return {
+                    ...nota,
+                    cr4a1_cor: corNota || '',
+                    compartilhamento: parseCompartilhamento(nota.cr4a1_privado),
+                    cr4a1_conteudo: blocosLimpos,
+                    cr4a1_arquivos: safeParseJson(nota.cr4a1_arquivos, [])
+                };
+            });
 
             setNotas(notasFiltradas);
             try {
@@ -678,10 +701,15 @@ export const useCalendar = () => {
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        setNotas(parsed.map(n => ({
-                            ...n,
-                            compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
-                        })));
+                        setNotas(parsed.map(n => {
+                            const { corNota, blocosLimpos } = extrairMetaConteudoNota(n.cr4a1_conteudo, n.cr4a1_cor);
+                            return {
+                                ...n,
+                                cr4a1_cor: corNota || '',
+                                cr4a1_conteudo: blocosLimpos,
+                                compartilhamento: n.compartilhamento || parseCompartilhamento(n.cr4a1_privado)
+                            };
+                        }));
                     }
                 }
             } catch (cacheErr) {
@@ -1197,14 +1225,63 @@ export const useCalendar = () => {
 
     const updateUserColor = async (userId, newColor) => {
         try {
+            const targetUser = allUsers.find(u => u.cr4a1_usuarios_agendaid === userId);
+            const serialized = serializeUserCorField({
+                corAvatar: newColor,
+                recentesMarcaTexto: targetUser?.coresRecentesMarcaTexto || [],
+                recentesNota: targetUser?.coresRecentesNota || []
+            });
             await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cr4a1_cor: newColor })
+                body: JSON.stringify({ cr4a1_cor: serialized })
             });
             fetchUsers();
         } catch (error) { toast.error("Erro ao atualizar cor"); }
     };
+
+    const registrarCorRecenteUsuario = useCallback(async (tipo, hex) => {
+        if (!hex || !user) return;
+        const targetUser = allUsers.find(u => (u.cr4a1_username || '').toLowerCase() === user.toLowerCase());
+        if (!targetUser) return;
+
+        const novaFilaMarcaTexto = tipo === 'marcaTexto'
+            ? adicionarCorRecenteNaFila(targetUser.coresRecentesMarcaTexto, hex)
+            : (targetUser.coresRecentesMarcaTexto || []);
+        const novaFilaNota = tipo === 'nota'
+            ? adicionarCorRecenteNaFila(targetUser.coresRecentesNota, hex)
+            : (targetUser.coresRecentesNota || []);
+
+        const serialized = serializeUserCorField({
+            corAvatar: targetUser.cr4a1_cor || '#1a73e8',
+            recentesMarcaTexto: novaFilaMarcaTexto,
+            recentesNota: novaFilaNota
+        });
+
+        setAllUsers(prev => prev.map(u => {
+            if ((u.cr4a1_username || '').toLowerCase() === user.toLowerCase()) {
+                return {
+                    ...u,
+                    _raw_cr4a1_cor: serialized,
+                    coresRecentesMarcaTexto: novaFilaMarcaTexto,
+                    coresRecentesNota: novaFilaNota
+                };
+            }
+            return u;
+        }));
+
+        if (targetUser.cr4a1_usuarios_agendaid) {
+            try {
+                await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${targetUser.cr4a1_usuarios_agendaid}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cr4a1_cor: serialized })
+                });
+            } catch (err) {
+                console.warn('Falha ao sincronizar cores recentes no Dataverse:', err);
+            }
+        }
+    }, [allUsers, user]);
 
     const getEventsForDay = (day) => {
         const targetDate = format(day, 'yyyy-MM-dd');
@@ -1820,7 +1897,10 @@ export const useCalendar = () => {
     const addNota = async (notaData) => {
         const generatedId = crypto.randomUUID();
         const targetWorkspace = notaData.workspaceId || (workspaces[0]?.cr4a1_calendarios_workspacesid) || (activeWorkspaces[0]) || '';
-        const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
+        const rawConteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
+        const corNotaEscolhida = notaData.cor ?? notaData.cr4a1_cor ?? '';
+        const { corNota, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corNotaEscolhida);
+        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota);
         const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
                 const compartilhamento = notaData.compartilhamento !== undefined
             ? parseCompartilhamento(notaData.compartilhamento)
@@ -1834,6 +1914,7 @@ export const useCalendar = () => {
             cr4a1_user_login: user,
             cr4a1_workspace_id: targetWorkspace,
             cr4a1_private: !!(notaData.privado ?? notaData.cr4a1_private),
+            cr4a1_cor: corNota || '',
 
             cr4a1_privado: serializedPrivado,
             compartilhamento: compartilhamento,
@@ -1854,7 +1935,7 @@ export const useCalendar = () => {
             cr4a1_privado: serializedPrivado || null,
 
             cr4a1_evento_id: novaNota.cr4a1_evento_id,
-            cr4a1_conteudo: JSON.stringify(conteudoArray),
+            cr4a1_conteudo: JSON.stringify(conteudoComMeta),
             cr4a1_arquivos: JSON.stringify(anexosArray)
         };
 
@@ -1902,9 +1983,14 @@ export const useCalendar = () => {
     };
 
     const updateNota = async (notaId, notaData) => {
-        const conteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
+        const rawConteudoArray = Array.isArray(notaData.conteudo) ? notaData.conteudo : (notaData.cr4a1_conteudo || []);
         const anexosArray = Array.isArray(notaData.anexos) ? notaData.anexos : (notaData.cr4a1_arquivos || []);
         const notaExistente = notas.find(n => n.cr4a1_notas_kairosid === notaId || n.cr4a1_id_da_nota === notaId);
+        const corEscolhida = notaData.cor !== undefined
+            ? notaData.cor
+            : (notaData.cr4a1_cor !== undefined ? notaData.cr4a1_cor : (notaExistente?.cr4a1_cor || ''));
+        const { corNota, blocosLimpos: conteudoArray } = extrairMetaConteudoNota(rawConteudoArray, corEscolhida);
+        const conteudoComMeta = empacotarMetaConteudoNota(conteudoArray, corNota);
         const compartilhamento = notaData.compartilhamento !== undefined
             ? parseCompartilhamento(notaData.compartilhamento)
             : (notaData.cr4a1_privado ? parseCompartilhamento(notaData.cr4a1_privado) : (notaExistente?.compartilhamento || {}));
@@ -1917,7 +2003,7 @@ export const useCalendar = () => {
 
             cr4a1_evento_id: notaData.eventoId ?? notaData.cr4a1_evento_id ?? null,
             ...(notaData.workspaceId ? { cr4a1_workspace_id: notaData.workspaceId } : {}),
-            cr4a1_conteudo: JSON.stringify(conteudoArray),
+            cr4a1_conteudo: JSON.stringify(conteudoComMeta),
             cr4a1_arquivos: JSON.stringify(anexosArray)
         };
 
@@ -1930,6 +2016,7 @@ export const useCalendar = () => {
                         cr4a1_titulo: payload.cr4a1_titulo,
                         cr4a1_private: payload.cr4a1_private,
                         cr4a1_privado: payload.cr4a1_privado,
+                        cr4a1_cor: corNota || '',
                         compartilhamento: compartilhamento,
                         cr4a1_evento_id: payload.cr4a1_evento_id,
                         ...(payload.cr4a1_workspace_id ? { cr4a1_workspace_id: payload.cr4a1_workspace_id } : {}),
@@ -2038,11 +2125,14 @@ export const useCalendar = () => {
             .map(n => {
                 const patch = patchesPendentes.find(t => t.id === n.cr4a1_notas_kairosid || t.id === n.cr4a1_id_da_nota);
                 if (!patch) return n;
+                const parsedConteudo = parseLista(patch.body.cr4a1_conteudo);
+                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, n.cr4a1_cor);
                 return {
                     ...n,
                     ...patch.body,
+                    cr4a1_cor: corNota || '',
                     compartilhamento: patch.body.cr4a1_privado !== undefined ? parseCompartilhamento(patch.body.cr4a1_privado) : n.compartilhamento,
-                    cr4a1_conteudo: parseLista(patch.body.cr4a1_conteudo),
+                    cr4a1_conteudo: blocosLimpos,
                     cr4a1_arquivos: parseLista(patch.body.cr4a1_arquivos),
                     _pendenteSync: true
                 };
@@ -2051,14 +2141,19 @@ export const useCalendar = () => {
         // Adiciona pendentes apenas se ainda não existirem na lista
         const novasPendentes = criacoesPendentes
             .filter(t => !existentesIds.has(t._tempId))
-            .map(t => ({
-                ...t.body,
-                cr4a1_notas_kairosid: t._tempId,
-                compartilhamento: parseCompartilhamento(t.body.cr4a1_privado),
-                cr4a1_conteudo: parseLista(t.body.cr4a1_conteudo),
-                cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
-                _pendenteSync: true
-            }));
+            .map(t => {
+                const parsedConteudo = parseLista(t.body.cr4a1_conteudo);
+                const { corNota, blocosLimpos } = extrairMetaConteudoNota(parsedConteudo, '');
+                return {
+                    ...t.body,
+                    cr4a1_notas_kairosid: t._tempId,
+                    cr4a1_cor: corNota || '',
+                    compartilhamento: parseCompartilhamento(t.body.cr4a1_privado),
+                    cr4a1_conteudo: blocosLimpos,
+                    cr4a1_arquivos: parseLista(t.body.cr4a1_arquivos),
+                    _pendenteSync: true
+                };
+            });
 
         return [...existentes, ...novasPendentes];
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2221,7 +2316,7 @@ export const useCalendar = () => {
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, credenciaisPendentes, criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, notification,
-        updateUserColor, login, logout: () => { localStorage.clear(); window.location.reload(); },
+        updateUserColor, registrarCorRecenteUsuario, login, logout: () => { localStorage.clear(); window.location.reload(); },
         loading, isValidatingSession, fetchEvents, holidays, events, addEvent, updateEvent, getEventsForDay, deleteEvent, moveEvent,
         filters, setFilters, filteredEvents,
         isOnline, isSyncing, syncPendingQueue, pendingSyncCount, updateWhatsApp, addWorkspace, updateWorkspace,

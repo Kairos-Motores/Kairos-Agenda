@@ -100,13 +100,27 @@ export const RichTextEditor = ({
   editable = true,
   placeholder = '',
   minHeightClass = 'min-h-[120px]',
-  allUsers = []
+  allUsers = [],
+  coresRecentes = [],
+  onSelectCorRecente
 }) => {
   const [marcadorAberto, setMarcadorAberto] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionCoords, setMentionCoords] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const coresRecentesResolvidas = useMemo(() => {
+    if (Array.isArray(coresRecentes) && coresRecentes.length > 0) return coresRecentes;
+    if (typeof window !== 'undefined' && Array.isArray(allUsers) && allUsers.length > 0) {
+      const logged = (localStorage.getItem('kairos_logged_user') || '').trim().toLowerCase();
+      const found = allUsers.find(u => (u.cr4a1_username || '').toLowerCase() === logged);
+      if (found?.coresRecentesMarcaTexto?.length) return found.coresRecentesMarcaTexto;
+    }
+    return [];
+  }, [coresRecentes, allUsers]);
+
+  const ultimaCorMarcaTexto = coresRecentesResolvidas[0] || null;
 
   const filteredUsers = useMemo(() => {
     return filtrarUsuariosParaMencao(allUsers, mentionQuery);
@@ -229,6 +243,7 @@ export const RichTextEditor = ({
 
   const marcarTexto = (hex) => {
     editor.chain().focus().setHighlight({ color: hex }).run();
+    onSelectCorRecente?.(hex);
     setMarcadorAberto(false);
   };
 
@@ -253,7 +268,15 @@ export const RichTextEditor = ({
           <PopoverTrigger asChild>
             <span>
               <ToolbarButton title="Marcar texto" active={editor.isActive('highlight')} onClick={() => setMarcadorAberto(v => !v)}>
-                <Highlighter className="size-3.5" />
+                <span className="relative flex flex-col items-center justify-center">
+                  <Highlighter className="size-3.5" />
+                  {ultimaCorMarcaTexto && (
+                    <span
+                      className="mt-0.5 h-1 w-3.5 rounded-full"
+                      style={{ backgroundColor: ultimaCorMarcaTexto }}
+                    />
+                  )}
+                </span>
               </ToolbarButton>
             </span>
           </PopoverTrigger>
@@ -266,6 +289,33 @@ export const RichTextEditor = ({
               >
                 <Ban className="size-3.5" /> Remover marcação
               </button>
+              {coresRecentesResolvidas.length > 0 && (
+                <div className="flex flex-col gap-1.5 border-b border-border pb-2">
+                  <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Cores recentes
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5 px-1">
+                    {coresRecentesResolvidas.map((hex, idx) => {
+                      const corInfo = themeColors.find(c => c.hex.toLowerCase() === hex.toLowerCase());
+                      const label = corInfo ? `${corInfo.label}${idx === 0 ? ' (Última usada)' : ''}` : hex;
+                      return (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => marcarTexto(hex)}
+                          title={label}
+                          aria-label={label}
+                          className="size-5 shrink-0 rounded-full transition-transform hover:scale-110 active:scale-90"
+                          style={{
+                            backgroundColor: hex,
+                            boxShadow: idx === 0 ? `0 0 0 2px var(--card), 0 0 0 3.5px ${hex}` : 'none'
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="grid max-h-40 grid-cols-10 gap-1.5 overflow-y-auto p-1">
                 {themeColors.map(c => (
                   <button

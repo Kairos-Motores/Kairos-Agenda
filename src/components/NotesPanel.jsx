@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   ArrowLeft, Loader2, Pencil, Plus, Lock, Globe, Link2,
   VolumeX, SearchX, X, FileText, Check, CloudOff, Paperclip,
-  CalendarPlus, Trash2, Users, Share2, Eye, Save
+  CalendarPlus, Trash2, Users, Share2, Eye, Save, Palette, Ban
 } from 'lucide-react';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from './ui/button';
@@ -17,9 +17,11 @@ import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { AttachmentsField } from './ui/attachments-field';
 import { RichTextEditor } from './ui/rich-text-editor';
 import { MentionInput } from './ui/mention-autocomplete';
+import { themeColors } from '../constants/materialColors';
 import { parseAnexos } from '../utils/anexos';
 import { htmlParaTexto } from '../utils/descricaoTarefas';
 import { canUserViewNota, getNotaPermissions } from '../utils/notasCompartilhamento';
@@ -410,12 +412,14 @@ export const NotesPanel = ({
   workspaces = [],
   activeWorkspaces = [],
   eventId = null,
-  isOnline = true
+  isOnline = true,
+  registrarCorRecenteUsuario
 }) => {
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCompartilharOpen, setIsCompartilharOpen] = useState(false);
+  const [corPopoverAberto, setCorPopoverAberto] = useState(false);
   const { confirm, ConfirmDialogHost } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspaceFilter, setSelectedWorkspaceFilter] = useState(null);
@@ -429,6 +433,14 @@ export const NotesPanel = ({
     (typeof window !== 'undefined' ? localStorage.getItem('kairos_logged_user') : '') ||
     ''
   ).trim();
+
+  const resolvedCurrentUser = currentUser?.cr4a1_username
+    ? currentUser
+    : allUsers.find(u => (u.cr4a1_username || '').toLowerCase() === currentUserName.toLowerCase());
+
+  const coresRecentesMarcaTexto = resolvedCurrentUser?.coresRecentesMarcaTexto || [];
+  const coresRecentesNota = resolvedCurrentUser?.coresRecentesNota || [];
+  const ultimaCorNota = coresRecentesNota[0] || '';
 
   // Chave do rascunho temporário
   const draftStorageKey = notaAberta
@@ -499,6 +511,7 @@ export const NotesPanel = ({
       isNew: true,
       cr4a1_titulo: '',
       cr4a1_private: false,
+      cr4a1_cor: ultimaCorNota || '',
       cr4a1_workspace_id: defaultWorkspace,
       cr4a1_evento_id: eventId || '',
       cr4a1_user_login: currentUserName || 'Usuário Atual',
@@ -512,7 +525,12 @@ export const NotesPanel = ({
       if (savedNewDraft) {
         const parsed = JSON.parse(savedNewDraft);
         if (parsed && (parsed.cr4a1_titulo?.trim() || parsed.cr4a1_conteudo?.some(b => b.value?.trim()))) {
-          initialNota = { ...parsed, isNew: true, compartilhamento: parsed.compartilhamento || {} };
+          initialNota = {
+            ...parsed,
+            isNew: true,
+            cr4a1_cor: parsed.cr4a1_cor ?? ultimaCorNota ?? '',
+            compartilhamento: parsed.compartilhamento || {}
+          };
           toast('Rascunho anterior recuperado.', { icon: '📝' });
         }
       }
@@ -557,6 +575,7 @@ export const NotesPanel = ({
       titulo: src.cr4a1_titulo,
       privado: src.cr4a1_private,
       private: src.cr4a1_private,
+      cor: src.cr4a1_cor || '',
       workspaceId: src.cr4a1_workspace_id,
       conteudo: src.cr4a1_conteudo,
       eventoId: src.cr4a1_evento_id || null,
@@ -568,12 +587,26 @@ export const NotesPanel = ({
       cr4a1_notas_kairosid: src.cr4a1_notas_kairosid,
       cr4a1_titulo: src.cr4a1_titulo,
       cr4a1_private: src.cr4a1_private,
+      cr4a1_cor: src.cr4a1_cor || '',
       cr4a1_workspace_id: src.cr4a1_workspace_id,
       cr4a1_conteudo: src.cr4a1_conteudo,
       cr4a1_evento_id: src.cr4a1_evento_id || null,
       cr4a1_arquivos: src.cr4a1_arquivos || [],
       cr4a1_user_login: src.cr4a1_user_login
     };
+  };
+
+  const handleSelectCorNota = async (hex) => {
+    if (!notaAberta) return;
+    const novaCor = hex || '';
+    setNotaAberta(prev => prev ? ({ ...prev, cr4a1_cor: novaCor }) : prev);
+    setCorPopoverAberto(false);
+    if (novaCor) {
+      registrarCorRecenteUsuario?.('nota', novaCor);
+    }
+    if (!isEditing && notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
+      await updateNota(notaAberta.cr4a1_notas_kairosid, buildNotaPayload({ cr4a1_cor: novaCor }));
+    }
   };
 
   // Alterna o estado de um tópico na checklist
@@ -740,6 +773,7 @@ export const NotesPanel = ({
   if (notaAberta) {
     const currentWorkspace = workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id);
     const wsColor = getWorkspaceColor(notaAberta.cr4a1_workspace_id);
+    const notaColor = notaAberta.cr4a1_cor || wsColor;
     const eventosDisponiveis = eventos.length > 0 ? eventos : [];
     const eventoAssociado = eventos.find(ev => ev.cr4a1_agenda_kairosid === notaAberta.cr4a1_evento_id);
 
@@ -789,6 +823,87 @@ export const NotesPanel = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Seletor de Cor do Cartão da Nota (com fila de cores recentes do usuário) */}
+            {canEdit && (
+              <Popover open={corPopoverAberto} onOpenChange={setCorPopoverAberto}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-1.5"
+                    title="Escolher cor do cartão da nota"
+                  >
+                    <Palette className="size-[17px]" style={{ color: notaColor }} />
+                    <span>Cor</span>
+                    <span
+                      className="size-3.5 rounded-full border border-border"
+                      style={{ backgroundColor: notaColor }}
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64">
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCorNota('')}
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary"
+                    >
+                      <Ban className="size-3.5" /> Usar cor padrão do setor
+                    </button>
+                    {coresRecentesNota.length > 0 && (
+                      <div className="flex flex-col gap-1.5 border-b border-border pb-2">
+                        <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Cores recentes
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 px-1">
+                          {coresRecentesNota.map((hex, idx) => {
+                            const corInfo = themeColors.find(c => c.hex.toLowerCase() === hex.toLowerCase());
+                            const label = corInfo ? `${corInfo.label}${idx === 0 ? ' (Última usada)' : ''}` : hex;
+                            const selecionada = (notaAberta.cr4a1_cor || '').toLowerCase() === hex.toLowerCase();
+                            return (
+                              <button
+                                key={hex}
+                                type="button"
+                                onClick={() => handleSelectCorNota(hex)}
+                                title={label}
+                                aria-label={label}
+                                className="size-5 shrink-0 rounded-full transition-transform hover:scale-110 active:scale-90"
+                                style={{
+                                  backgroundColor: hex,
+                                  boxShadow: selecionada || idx === 0
+                                    ? `0 0 0 2px var(--card), 0 0 0 3.5px ${hex}`
+                                    : 'none'
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid max-h-44 grid-cols-10 gap-1.5 overflow-y-auto p-1">
+                      {themeColors.map(c => {
+                        const selecionada = (notaAberta.cr4a1_cor || '').toLowerCase() === c.hex.toLowerCase();
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => handleSelectCorNota(c.hex)}
+                            title={c.label}
+                            aria-label={c.label}
+                            className="size-5 shrink-0 rounded-full transition-transform active:scale-90"
+                            style={{
+                              backgroundColor: c.hex,
+                              boxShadow: selecionada ? `0 0 0 2px var(--card), 0 0 0 3.5px ${c.hex}` : 'none'
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
             {/* Botão de Compartilhar: exclusivo do autor da nota */}
             {canManagePermissions && (
               <Button
@@ -891,8 +1006,9 @@ export const NotesPanel = ({
         {/* ÁREA DO TÍTULO E METADADOS */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px',
+          borderLeft: `4px solid ${notaColor}`,
           borderRadius: '20px', padding: '20px', marginTop: '-4px',
-          background: `linear-gradient(135deg, ${wsColor}14, transparent 65%)`
+          background: `linear-gradient(135deg, ${notaColor}22, transparent 65%)`
         }}>
 
           {isEditing ? (
@@ -1009,7 +1125,7 @@ export const NotesPanel = ({
         {/* PROGRESSO DA CHECKLIST (quando a nota tem tópicos) */}
         {todoStats.total > 0 && (
           <div style={{ marginBottom: '24px', padding: '0 4px' }}>
-            <TodoProgress done={todoStats.done} total={todoStats.total} color={wsColor} />
+            <TodoProgress done={todoStats.done} total={todoStats.total} color={notaColor} />
           </div>
         )}
 
@@ -1072,6 +1188,8 @@ export const NotesPanel = ({
                         placeholder="Escreva um texto... (use @ para mencionar)"
                         minHeightClass="min-h-[44px]"
                         allUsers={allUsers}
+                        coresRecentes={coresRecentesMarcaTexto}
+                        onSelectCorRecente={(hex) => registrarCorRecenteUsuario?.('marcaTexto', hex)}
                       />
                     </div>
                   )}
@@ -1248,6 +1366,7 @@ export const NotesPanel = ({
           {visibleNotas.map((nota, idx) => {
             const stats = getTodoStats(nota.cr4a1_conteudo);
             const wsColor = getWorkspaceColor(nota.cr4a1_workspace_id);
+            const notaColor = nota.cr4a1_cor || wsColor;
             const relative = formatRelative(nota.modifiedon || nota.createdon);
             const criadaEm = formatarDataCriacao(nota.createdon);
             const blocoPreview = nota.cr4a1_conteudo?.find(b => b.type === 'text' || b.type === 'todo');
@@ -1261,7 +1380,11 @@ export const NotesPanel = ({
                 key={nota.cr4a1_notas_kairosid}
                 onClick={() => openNota(nota)}
                 style={{
-                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderLeft: `4px solid ${wsColor}`,
+                  background: nota.cr4a1_cor
+                    ? `linear-gradient(135deg, ${nota.cr4a1_cor}22, var(--bg-secondary) 75%)`
+                    : 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: `4px solid ${notaColor}`,
                   borderRadius: '16px', padding: '20px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px',
                   animation: 'kairos-card-in 0.4s cubic-bezier(0.2,0.8,0.2,1) both',
                   animationDelay: `${Math.min(idx, 14) * 35}ms`
@@ -1301,7 +1424,7 @@ export const NotesPanel = ({
                   {nota.cr4a1_conteudo && nota.cr4a1_conteudo.length > 0 ? (textoPreview || '...') : 'Vazio...'}
                 </p>
 
-                {stats.total > 0 && <TodoProgress done={stats.done} total={stats.total} color={wsColor} />}
+                {stats.total > 0 && <TodoProgress done={stats.done} total={stats.total} color={notaColor} />}
 
                 <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
                   <div className="flex items-center gap-1.5 overflow-hidden text-[11px] text-muted-foreground" title={criadaEm ? `Criada em ${criadaEm}` : undefined}>

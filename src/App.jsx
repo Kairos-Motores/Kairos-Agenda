@@ -84,7 +84,7 @@ const APPS = [
 function App() {
   const {
     view, setView, currentDate, setCurrentDate, holidays, events, addEvent, updateEvent, deleteEvent, notification,
-    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, credenciaisPendentes = [], criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, filters, setFilters, filteredEvents, moveEvent,
+    getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, credenciaisPendentes = [], criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, registrarCorRecenteUsuario, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
@@ -1775,6 +1775,7 @@ function App() {
                     workspaces={workspaces}
                     activeWorkspaces={activeWorkspaces}
                     isOnline={isOnline}
+                    registrarCorRecenteUsuario={registrarCorRecenteUsuario}
                   />
                 </React.Suspense>
               ) : appMode === 'trello' ? (
