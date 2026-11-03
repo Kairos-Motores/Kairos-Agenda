@@ -3237,8 +3237,12 @@ const FichaForm = ({
     }
   };
 
+  // Altura explícita (não h-full): o Dialog pai só tem max-height (sem height própria), então
+  // um filho com h-full herdava uma altura indefinida e, em fichas com pouco conteúdo (sem
+  // alcançar o teto do max-height do pai), a tela ficava completamente vazia — o overlay
+  // borrado aparecia, mas o cartão da ficha "desaparecia" dentro dele.
   return (
-    <div className="flex flex-col h-full max-h-[92dvh] sm:max-h-[90vh] overflow-hidden">
+    <div className="flex flex-col h-[92dvh] sm:h-[90vh] overflow-hidden">
       <DialogHeader
         className="shrink-0 p-4 sm:p-5 pb-3 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none mb-0"
         style={corCabecalho ? {
