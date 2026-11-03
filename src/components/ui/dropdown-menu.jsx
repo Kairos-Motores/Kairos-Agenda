@@ -9,14 +9,14 @@ export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-export const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 6, collisionPadding = 12, ...props }, ref) => (
+export const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 6, collisionPadding = 16, ...props }, ref) => (
     <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
             ref={ref}
             sideOffset={sideOffset}
             collisionPadding={collisionPadding}
             className={cn(
-                "z-[12100] min-w-[10rem] max-w-[calc(100vw-1.5rem)] max-h-[85dvh] overflow-y-auto rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-xl",
+                "z-[12100] min-w-[11rem] max-w-[calc(100vw-1.5rem)] max-h-[82dvh] overflow-y-auto overscroll-contain rounded-[20px] border border-border/80 bg-card p-2 text-card-foreground shadow-2xl",
                 "data-[state=open]:animate-[popover-in_0.2s_var(--ease-elastic)] data-[state=closed]:animate-[popover-out_0.15s_ease-in]",
                 className
             )}
@@ -30,7 +30,7 @@ export const DropdownMenuItem = React.forwardRef(({ className, inset, destructiv
     <DropdownMenuPrimitive.Item
         ref={ref}
         className={cn(
-            "relative flex cursor-pointer select-none items-center gap-2 rounded-xl px-3 py-2.5 text-sm outline-none transition-colors",
+            "relative flex cursor-pointer select-none items-center gap-2.5 rounded-[14px] px-3.5 py-2.5 min-h-[44px] text-sm outline-none transition-colors",
             "data-[highlighted]:bg-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
             destructive ? "text-destructive data-[highlighted]:bg-destructive/10" : "text-foreground",
             inset && "pl-8",
@@ -46,7 +46,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef(({ className, children,
         ref={ref}
         checked={checked}
         className={cn(
-            "relative flex cursor-pointer select-none items-center rounded-xl py-2.5 pl-8 pr-3 text-sm text-foreground outline-none transition-colors data-[highlighted]:bg-secondary",
+            "relative flex cursor-pointer select-none items-center rounded-[14px] py-2.5 min-h-[44px] pl-8 pr-3.5 text-sm text-foreground outline-none transition-colors data-[highlighted]:bg-secondary",
             className
         )}
         {...props}
@@ -65,7 +65,7 @@ export const DropdownMenuRadioItem = React.forwardRef(({ className, children, ..
     <DropdownMenuPrimitive.RadioItem
         ref={ref}
         className={cn(
-            "relative flex cursor-pointer select-none items-center rounded-xl py-2.5 pl-8 pr-3 text-sm text-foreground outline-none transition-colors data-[highlighted]:bg-secondary",
+            "relative flex cursor-pointer select-none items-center rounded-[14px] py-2.5 min-h-[44px] pl-8 pr-3.5 text-sm text-foreground outline-none transition-colors data-[highlighted]:bg-secondary",
             className
         )}
         {...props}

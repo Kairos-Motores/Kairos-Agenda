@@ -20,19 +20,24 @@ export const AlertDialogOverlay = React.forwardRef(({ className, ...props }, ref
 ));
 AlertDialogOverlay.displayName = 'AlertDialogOverlay';
 
-export const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
+export const AlertDialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
     <AlertDialogPortal>
         <AlertDialogOverlay />
         <AlertDialogPrimitive.Content
             ref={ref}
             className={cn(
-                "fixed left-1/2 top-1/2 z-[12001] w-[95vw] sm:w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2",
-                "max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-3xl border border-border bg-card p-5 sm:p-7 text-center shadow-2xl outline-none",
-                "data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
+                "fixed inset-x-0 bottom-0 z-[12001] w-full max-h-[92dvh] overflow-y-auto overscroll-contain",
+                "rounded-t-[28px] rounded-b-none border-t border-border/80 bg-card px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-2xl outline-none",
+                "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[92vw] sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-h-[90dvh] sm:rounded-[28px] sm:border sm:p-7",
+                "data-[state=open]:animate-[sheet-in_0.3s_cubic-bezier(0.2,0,0,1)] data-[state=closed]:animate-[sheet-out_0.2s_ease-in]",
+                "sm:data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] sm:data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
                 className
             )}
             {...props}
-        />
+        >
+            <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden" />
+            {children}
+        </AlertDialogPrimitive.Content>
     </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = 'AlertDialogContent';

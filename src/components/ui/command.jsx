@@ -28,7 +28,7 @@ export const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
 CommandInput.displayName = 'CommandInput';
 
 export const CommandList = React.forwardRef(({ className, ...props }, ref) => (
-    <CommandPrimitive.List ref={ref} className={cn("max-h-72 overflow-y-auto overflow-x-hidden p-1.5", className)} {...props} />
+    <CommandPrimitive.List ref={ref} className={cn("max-h-[min(18rem,60dvh)] overflow-y-auto overscroll-contain overflow-x-hidden p-1.5", className)} {...props} />
 ));
 CommandList.displayName = 'CommandList';
 
@@ -53,7 +53,7 @@ export const CommandItem = React.forwardRef(({ className, ...props }, ref) => (
     <CommandPrimitive.Item
         ref={ref}
         className={cn(
-            "relative flex cursor-pointer select-none items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors",
+            "relative flex min-h-[44px] cursor-pointer select-none items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors",
             "data-[selected=true]:bg-secondary data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
             className
         )}

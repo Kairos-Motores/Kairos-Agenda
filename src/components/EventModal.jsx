@@ -202,12 +202,12 @@ export const EventModal = ({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-xl" showClose={false}>
-                <div className="mb-5 flex items-center justify-between">
+                <div className="sticky top-0 z-20 -mx-4 -mt-3 mb-4 flex items-center justify-between border-b border-border/50 bg-card/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6 sm:py-3">
                     <button onClick={onClose} aria-label="Fechar" className="flex size-9 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <X className="size-[18px]" />
                     </button>
                     <h2 className="text-[17px] font-bold text-foreground">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</h2>
-                    <Button size="sm" disabled={isSaving} onClick={handleSave}>{isSaving ? 'A guardar...' : 'Salvar'}</Button>
+                    <Button size="sm" disabled={isSaving} onClick={handleSave} className="rounded-full px-4 font-semibold">{isSaving ? 'A guardar...' : 'Salvar'}</Button>
                 </div>
 
                 <div className="flex flex-col gap-[18px]">

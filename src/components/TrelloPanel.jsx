@@ -2058,17 +2058,66 @@ export const TrelloPanel = ({
 
   return (
     <div className="flex w-full flex-col gap-2.5 rounded-2xl p-2.5" style={fundoEstilo}>
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2
-            className="text-lg font-extrabold text-foreground"
-            style={headerTemaFundo?.tituloStyle}
-            title="Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável."
-          >
-            Fichas
-          </h2>
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2
+              className="text-lg font-extrabold text-foreground shrink-0"
+              style={headerTemaFundo?.tituloStyle}
+              title="Listas e fichas do workspace. Fichas com data aparecem na agenda e avisam o responsável."
+            >
+              Fichas
+            </h2>
+            <div className="sm:hidden min-w-0 flex-1 max-w-[170px]">
+              <Select value={workspaceId} onValueChange={setWorkspaceId}>
+                <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Workspace" /></SelectTrigger>
+                <SelectContent>
+                  {todasOpcoes.map(w => {
+                    const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
+                    return (
+                      <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                        {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 sm:hidden shrink-0">
+            <Button
+              variant={minhasFichasAberto ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setMinhasFichasAberto(v => !v)}
+              aria-label="Minhas fichas"
+              className={`h-8 px-2 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
+              title="Minhas fichas"
+            >
+              <UserCircle2 className="size-3.5" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={`h-8 px-2 text-xs ${headerOutlineBtnClass}`} aria-label="Mais ações">
+                  <MoreHorizontal className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
+                {podeGerenciarColaboradores && (
+                  <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setArquivadasAberto(true)}>
+                  <Archive className="size-4" /> Arquivadas ({fichasArquivadas.length})
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {!minhasFichasAberto && !estouBloqueado && (
-            <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 shadow-xs">
+            <div className="hidden sm:flex items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 shadow-xs">
               {[
                 { id: 'kanban', label: 'Quadro', icon: Columns3 },
                 { id: 'tabela', label: 'Tabela', icon: Table2 },
@@ -2096,24 +2145,53 @@ export const TrelloPanel = ({
             </div>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {membrosVisiveis.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setCompartilharAberto(true)}
-              title="Quem tem acesso a este quadro"
-              className="flex items-center -space-x-2"
-            >
-              {membrosVisiveis.slice(0, 6).map(m => (
-                <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={26} className="ring-2 ring-[var(--card)]" />
-              ))}
-              {membrosVisiveis.length > 6 && (
-                <div className="flex size-[26px] items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
-                  +{membrosVisiveis.length - 6}
-                </div>
-              )}
-            </button>
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto">
+          {!minhasFichasAberto && !estouBloqueado && (
+            <div className="flex sm:hidden items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 shadow-xs">
+              {[
+                { id: 'kanban', label: 'Quadro', icon: Columns3 },
+                { id: 'tabela', label: 'Tabela', icon: Table2 },
+                { id: 'cronograma', label: 'Cronograma', icon: GanttChart },
+                { id: 'painel', label: 'Painel', icon: BarChart3 }
+              ].map(visao => {
+                const Icone = visao.icon;
+                const ativo = modoVisao === visao.id;
+                return (
+                  <button
+                    key={visao.id}
+                    type="button"
+                    onClick={() => setModoVisao(visao.id)}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+                      ativo
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    }`}
+                  >
+                    <Icone className="size-3.5" />
+                    <span className="text-[11px]">{visao.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {membrosVisiveis.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCompartilharAberto(true)}
+                title="Quem tem acesso a este quadro"
+                className="flex items-center -space-x-2"
+              >
+                {membrosVisiveis.slice(0, 4).map(m => (
+                  <UserAvatar key={m.cr4a1_username} login={m.cr4a1_username} allUsers={allUsers} size={24} className="ring-2 ring-[var(--card)]" />
+                ))}
+                {membrosVisiveis.length > 4 && (
+                  <div className="flex size-[24px] items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-muted-foreground ring-2 ring-[var(--card)]">
+                    +{membrosVisiveis.length - 4}
+                  </div>
+                )}
+              </button>
+            )}
           <Popover open={filtrosAberto} onOpenChange={setFiltrosAberto}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className={`relative h-8 px-2.5 text-xs ${headerOutlineBtnClass}`} aria-label="Filtros">
@@ -2243,33 +2321,13 @@ export const TrelloPanel = ({
               <FileSpreadsheet className="size-3.5" /> Exportar
             </Button>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={`h-8 px-2 text-xs sm:hidden ${headerOutlineBtnClass}`} aria-label="Mais ações">
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
-              {podeGerenciarColaboradores && (
-                <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportarQuadro}><FileSpreadsheet className="size-4" /> Exportar</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setArquivadasAberto(true)}>
-                <Archive className="size-4" /> Arquivadas ({fichasArquivadas.length})
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <Button
             variant={arquivadasAberto ? 'default' : 'outline'}
             size="sm"
             onClick={() => setArquivadasAberto(true)}
             aria-label="Fichas arquivadas"
             title="Abrir espaço de fichas arquivadas"
-            className={`relative h-8 px-2.5 text-xs ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
+            className={`hidden sm:inline-flex relative h-8 px-2.5 text-xs ${!arquivadasAberto ? headerOutlineBtnClass : ''}`}
           >
             <Archive className="size-3.5" />
             <span className="hidden sm:inline">Arquivadas</span>
@@ -2284,25 +2342,28 @@ export const TrelloPanel = ({
             size="sm"
             onClick={() => setMinhasFichasAberto(v => !v)}
             aria-label="Minhas fichas"
-            className={`h-8 px-2.5 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
+            className={`hidden sm:inline-flex h-8 px-2.5 text-xs ${!minhasFichasAberto ? headerOutlineBtnClass : ''}`}
           >
             <UserCircle2 className="size-3.5" /> <span className="hidden sm:inline">Minhas fichas</span>
           </Button>
-          <Select value={workspaceId} onValueChange={setWorkspaceId}>
-            <SelectTrigger className="h-8 w-36 text-xs sm:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
-            <SelectContent>
-              {todasOpcoes.map(w => {
-                const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
-                return (
-                  <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
-                    {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <div className="hidden sm:block">
+            <Select value={workspaceId} onValueChange={setWorkspaceId}>
+              <SelectTrigger className="h-8 w-36 text-xs sm:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
+              <SelectContent>
+                {todasOpcoes.map(w => {
+                  const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
+                  return (
+                    <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
+                      {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </header>
+      </div>
+    </header>
 
       {minhasFichasAberto ? (
         <div className="flex flex-col gap-4">
@@ -2404,7 +2465,7 @@ export const TrelloPanel = ({
           onAbrirFicha={abrirFicha}
         />
       ) : (
-      <div className="flex items-start gap-3 overflow-x-auto pb-2">
+      <div className="flex items-start gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:snap-none scroll-smooth">
         {listasVisiveis.map(lista => {
           const souCriadorLista = !lista.cr4a1_criador_login || lista.cr4a1_criador_login === user;
           const gerentesDaLista = parseListaGerentes(lista.cr4a1_automacao);
@@ -2424,7 +2485,7 @@ export const TrelloPanel = ({
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-                    className={`flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+                    className={`flex w-11 shrink-0 snap-start flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
                   >
                     <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Expandir lista ${lista.cr4a1_nome}`} title="Expandir lista" className="text-muted-foreground hover:text-primary">
                       <ChevronRight className="size-4" />
@@ -2444,7 +2505,7 @@ export const TrelloPanel = ({
             <section
               key={lista.cr4a1_listaid}
               style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-              className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+              className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
             >
               <div className="flex items-start justify-between gap-1.5 shrink-0">
                 <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
@@ -2970,7 +3031,7 @@ export const TrelloPanel = ({
 
         <form
           onSubmit={e => { e.preventDefault(); criarLista(); }}
-          className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
+          className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
         >
           <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -3340,7 +3401,7 @@ const FichaForm = ({
   return (
     <div className="flex flex-col gap-4">
       <DialogHeader
-        className="rounded-2xl p-4"
+        className="sticky top-0 z-20 -mx-4 -mt-3 sm:-mx-6 sm:-mt-6 p-4 rounded-t-[28px] border-b border-border/50 bg-card/95 backdrop-blur-md"
         style={corCabecalho ? {
           backgroundColor: form.cor,
           '--text-primary': corCabecalho.principal,
@@ -4058,7 +4119,7 @@ const FichaForm = ({
         </div>
       )}
 
-      <DialogFooter className="flex-wrap justify-between gap-2">
+      <DialogFooter className="sticky bottom-0 z-20 -mx-4 -mb-6 sm:-mx-6 sm:-mb-6 bg-card/95 backdrop-blur-md p-3.5 sm:p-4 border-t border-border/60 flex-wrap justify-between gap-2 shadow-lg">
         <div className="flex items-center gap-1.5">
           <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
             <Trash2 className="size-4" /> Excluir

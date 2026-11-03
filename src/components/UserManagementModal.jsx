@@ -395,7 +395,9 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
                 </Tabs>
 
                 {ConfirmDialogHost}
-                <Button onClick={onClose} className="mt-6 w-full" size="lg">Concluído</Button>
+                <div className="sticky bottom-0 z-20 -mx-4 -mb-6 sm:-mx-6 sm:-mb-6 bg-card/95 backdrop-blur-md pt-3 pb-2 px-4 sm:px-6 border-t border-border/50">
+                    <Button onClick={onClose} className="w-full rounded-xl font-semibold" size="lg">Concluído</Button>
+                </div>
             </DialogContent>
         </Dialog>
     );

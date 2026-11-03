@@ -82,16 +82,20 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
 
   const cardStyle = {
     position: 'fixed',
-    top: grown ? finalTop : start.top,
-    left: grown ? finalLeft : start.left,
-    width: grown ? finalWidth : start.width,
-    height: grown ? finalHeight : start.height,
-    borderRadius: grown ? (isMobile ? '20px' : '28px') : '10px',
-    transition: `top ${TRANSITION}, left ${TRANSITION}, width ${TRANSITION}, height ${TRANSITION}, border-radius ${TRANSITION}`,
+    top: grown ? (isMobile ? 'auto' : finalTop) : start.top,
+    bottom: grown ? (isMobile ? 0 : 'auto') : 'auto',
+    left: grown ? (isMobile ? 0 : finalLeft) : start.left,
+    right: grown ? (isMobile ? 0 : 'auto') : 'auto',
+    width: grown ? (isMobile ? '100%' : finalWidth) : start.width,
+    height: grown ? (isMobile ? 'auto' : finalHeight) : start.height,
+    maxHeight: isMobile ? '90dvh' : 'none',
+    borderRadius: grown ? (isMobile ? '28px 28px 0 0' : '28px') : '10px',
+    transition: `top ${TRANSITION}, bottom ${TRANSITION}, left ${TRANSITION}, width ${TRANSITION}, height ${TRANSITION}, border-radius ${TRANSITION}`,
     background: 'var(--bg-primary)',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+    boxShadow: isMobile ? '0 -6px 36px rgba(0,0,0,0.3)' : '0 24px 64px rgba(0,0,0,0.3)',
     border: '1px solid var(--border-color)',
-    borderLeft: `5px solid ${accentColor}`,
+    borderLeft: isMobile ? 'none' : `5px solid ${accentColor}`,
+    borderTop: isMobile ? `4px solid ${accentColor}` : '1px solid var(--border-color)',
     overflow: 'hidden',
     zIndex: 2,
     display: 'flex',
@@ -104,7 +108,8 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(12,12,16,0.55)', opacity: grown ? 1 : 0, transition: 'opacity 0.3s ease', cursor: 'pointer' }} />
 
       <div ref={trapRef} tabIndex={-1} style={cardStyle}>
-        <div style={{ padding: isMobile ? '16px' : '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
+        <div style={{ padding: isMobile ? '14px 16px 24px 16px' : '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
+          {isMobile && <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" />}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>

@@ -1037,7 +1037,7 @@ export const NotesPanel = ({
         <style>{NOTES_PANEL_STYLES}</style>
 
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
-        <div className="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+        <div className="sticky top-0 z-20 -mx-3 -mt-3 sm:-mx-6 sm:-mt-6 mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 bg-card/95 backdrop-blur-md p-3 sm:p-4 rounded-t-2xl sm:rounded-t-3xl border-b border-border/50">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <Button onClick={handleBack} variant="outline" title="Voltar para a lista de notas (salva automaticamente se em edição)">
               <ArrowLeft className="size-[18px]" />

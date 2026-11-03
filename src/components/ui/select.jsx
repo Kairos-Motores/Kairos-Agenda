@@ -26,21 +26,21 @@ export const SelectTrigger = React.forwardRef(({ className, children, ...props }
 ));
 SelectTrigger.displayName = 'SelectTrigger';
 
-export const SelectContent = React.forwardRef(({ className, children, position = 'popper', collisionPadding = 12, ...props }, ref) => (
+export const SelectContent = React.forwardRef(({ className, children, position = 'popper', collisionPadding = 16, ...props }, ref) => (
     <SelectPrimitive.Portal>
         <SelectPrimitive.Content
             ref={ref}
             position={position}
             collisionPadding={collisionPadding}
             className={cn(
-                "relative z-[12100] max-h-72 max-w-[calc(100vw-1.5rem)] min-w-[8rem] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-xl",
+                "relative z-[12100] max-h-72 max-w-[calc(100vw-1.5rem)] min-w-[8rem] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl",
                 "data-[state=open]:animate-[popover-in_0.2s_var(--ease-elastic)] data-[state=closed]:animate-[popover-out_0.15s_ease-in]",
                 position === 'popper' && "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
                 className
             )}
             {...props}
         >
-            <SelectPrimitive.Viewport className={cn("p-1.5 max-h-[70dvh] overflow-y-auto", position === 'popper' && "w-full min-w-[var(--radix-select-trigger-width)]")}>
+            <SelectPrimitive.Viewport className={cn("p-1.5 max-h-[70dvh] overflow-y-auto overscroll-contain", position === 'popper' && "w-full min-w-[var(--radix-select-trigger-width)]")}>
                 {children}
             </SelectPrimitive.Viewport>
         </SelectPrimitive.Content>
@@ -52,7 +52,7 @@ export const SelectItem = React.forwardRef(({ className, children, ...props }, r
     <SelectPrimitive.Item
         ref={ref}
         className={cn(
-            "relative flex w-full cursor-pointer select-none items-center rounded-xl py-2.5 pl-8 pr-3 text-sm text-foreground outline-none transition-colors",
+            "relative flex min-h-[44px] w-full cursor-pointer select-none items-center rounded-xl py-2.5 pl-8 pr-3 text-sm text-foreground outline-none transition-colors",
             "data-[highlighted]:bg-secondary data-[state=checked]:font-semibold data-[state=checked]:text-primary",
             className
         )}
