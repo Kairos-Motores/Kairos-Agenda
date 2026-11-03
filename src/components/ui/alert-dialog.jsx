@@ -26,8 +26,8 @@ export const AlertDialogContent = React.forwardRef(({ className, ...props }, ref
         <AlertDialogPrimitive.Content
             ref={ref}
             className={cn(
-                "fixed left-1/2 top-1/2 z-[12001] w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2",
-                "rounded-3xl border border-border bg-card p-7 text-center shadow-2xl outline-none",
+                "fixed left-1/2 top-1/2 z-[12001] w-[95vw] sm:w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2",
+                "max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-3xl border border-border bg-card p-5 sm:p-7 text-center shadow-2xl outline-none",
                 "data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
                 className
             )}
@@ -42,17 +42,17 @@ export const AlertDialogHeader = ({ className, ...props }) => (
 );
 
 export const AlertDialogTitle = React.forwardRef(({ className, ...props }, ref) => (
-    <AlertDialogPrimitive.Title ref={ref} className={cn("text-xl font-bold text-foreground", className)} {...props} />
+    <AlertDialogPrimitive.Title ref={ref} className={cn("text-lg sm:text-xl font-bold text-foreground", className)} {...props} />
 ));
 AlertDialogTitle.displayName = 'AlertDialogTitle';
 
 export const AlertDialogDescription = React.forwardRef(({ className, ...props }, ref) => (
-    <AlertDialogPrimitive.Description ref={ref} className={cn("text-sm leading-relaxed text-muted-foreground", className)} {...props} />
+    <AlertDialogPrimitive.Description ref={ref} className={cn("text-xs sm:text-sm leading-relaxed text-muted-foreground", className)} {...props} />
 ));
 AlertDialogDescription.displayName = 'AlertDialogDescription';
 
 export const AlertDialogFooter = ({ className, ...props }) => (
-    <div className={cn("mt-7 flex gap-3", className)} {...props} />
+    <div className={cn("mt-5 sm:mt-7 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3", className)} {...props} />
 );
 
 export const AlertDialogAction = React.forwardRef(({ className, variant = 'default', ...props }, ref) => (

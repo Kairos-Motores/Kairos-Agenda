@@ -306,20 +306,22 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
                             <span className={`text-[11px] font-bold uppercase tracking-wide ${editingTypeId ? 'text-primary' : 'text-muted-foreground'}`}>
                                 {editingTypeId ? '✏️ Editando tipo' : 'Novo tipo'}
                             </span>
-                            <div className="flex gap-2">
-                                <EmojiPicker value={newTypeEmoji} onChange={setNewTypeEmoji} />
-                                <Input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="Nome do novo tipo..." className="flex-1" />
-                                <Button
-                                    onClick={() => {
-                                        if (!newTypeName) return;
-                                        if (editingTypeId) updateEventType(editingTypeId, newTypeName, newTypeEmoji, newTypeLayer);
-                                        else addEventType(newTypeName, newTypeEmoji, newTypeLayer);
-                                        cancelEditingType();
-                                    }}
-                                >
-                                    {editingTypeId ? 'Salvar' : 'Add'}
-                                </Button>
-                                {editingTypeId && <Button variant="outline" onClick={cancelEditingType}>Cancelar</Button>}
+                            <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                                <div className="shrink-0"><EmojiPicker value={newTypeEmoji} onChange={setNewTypeEmoji} /></div>
+                                <Input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="Nome do novo tipo..." className="min-w-[120px] flex-1" />
+                                <div className="flex gap-2 shrink-0">
+                                    <Button
+                                        onClick={() => {
+                                            if (!newTypeName) return;
+                                            if (editingTypeId) updateEventType(editingTypeId, newTypeName, newTypeEmoji, newTypeLayer);
+                                            else addEventType(newTypeName, newTypeEmoji, newTypeLayer);
+                                            cancelEditingType();
+                                        }}
+                                    >
+                                        {editingTypeId ? 'Salvar' : 'Add'}
+                                    </Button>
+                                    {editingTypeId && <Button variant="outline" onClick={cancelEditingType}>Cancelar</Button>}
+                                </div>
                             </div>
 
                             <div>
@@ -445,8 +447,8 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
 
     return (
         <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/60 p-4">
-            <div className="flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: user.cr4a1_cor || '#3498db' }} />
                     <span className="flex min-w-0 flex-col">
                         <span className="truncate text-sm font-medium text-foreground">{user.cr4a1_nome_exibicao || user.cr4a1_username}</span>
@@ -870,15 +872,15 @@ const RolesPanel = ({ availableRoles, appRoles, allUsers, biRolesOverrideMap, ad
                 <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     <Plus className="size-3.5" /> Nova role
                 </span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2">
                     <Input
                         value={newRole}
                         onChange={e => setNewRole(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleCreate()}
                         placeholder="Ex: TECNICO SSMA"
-                        className="flex-1 bg-card"
+                        className="min-w-[140px] flex-1 bg-card"
                     />
-                    <Button onClick={handleCreate} size="sm">Criar</Button>
+                    <Button onClick={handleCreate} size="sm" className="shrink-0">Criar</Button>
                 </div>
             </div>
 

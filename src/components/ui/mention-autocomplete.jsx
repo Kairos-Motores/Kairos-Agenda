@@ -84,11 +84,11 @@ export const MentionSuggestionsMenu = ({
 
   const content = (
     <div
-      className={`fixed z-[999999] w-72 rounded-xl border border-border bg-card/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 ${className}`}
+      className={`fixed z-[999999] w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 ${className}`}
       style={{
         ...(coords ? {
-          top: `${Math.min(coords.top, window.innerHeight - 280)}px`,
-          left: `${Math.min(coords.left, Math.max(10, window.innerWidth - 300))}px`
+          top: `${Math.max(8, Math.min(coords.top, window.innerHeight - 280))}px`,
+          left: `${Math.max(8, Math.min(coords.left, window.innerWidth - 300))}px`
         } : {}),
         ...style
       }}

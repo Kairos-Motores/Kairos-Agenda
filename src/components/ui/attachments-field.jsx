@@ -17,17 +17,17 @@ export const AttachmentPreviewDialog = ({ anexo, onClose }) => {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-2 pr-6">
+          <DialogTitle className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 pr-6">
             <span className="truncate">{anexo.name}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => baixarAnexo(anexo)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => baixarAnexo(anexo)} className="shrink-0">
               <Download className="size-4" /> Baixar
             </Button>
           </DialogTitle>
         </DialogHeader>
         {tipoDoAnexo(anexo) === 'imagem' ? (
-          <img src={anexo.base64} alt={anexo.name} className="max-h-[70vh] w-full rounded-xl object-contain" />
+          <img src={anexo.base64} alt={anexo.name} className="max-h-[65dvh] w-full rounded-xl object-contain" />
         ) : (
-          <iframe src={anexo.base64} title={anexo.name} className="h-[70vh] w-full rounded-xl border border-border" />
+          <iframe src={anexo.base64} title={anexo.name} className="h-[65dvh] w-full rounded-xl border border-border" />
         )}
       </DialogContent>
     </Dialog>

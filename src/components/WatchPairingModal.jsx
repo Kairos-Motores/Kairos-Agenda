@@ -91,11 +91,11 @@ export const WatchPairingModal = ({ isOpen, onClose, user, currentUser, userRole
                 <span className="text-xs uppercase tracking-wider text-muted-foreground font-bold block mb-1">
                   Código de Pareamento
                 </span>
-                <div className="flex items-center justify-center gap-2 my-2">
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 my-2">
                   {pin.split('').map((digito, i) => (
                     <span
                       key={i}
-                      className="flex size-11 items-center justify-center rounded-xl border border-border bg-card text-2xl font-black text-foreground shadow-sm"
+                      className="flex size-9 sm:size-11 items-center justify-center rounded-xl border border-border bg-card text-lg sm:text-2xl font-black text-foreground shadow-sm"
                     >
                       {digito}
                     </span>

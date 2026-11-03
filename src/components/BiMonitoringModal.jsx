@@ -146,17 +146,17 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
           {/* Header */}
-          <div className="p-6 border-b border-border bg-card/60 backdrop-blur-sm flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-2xl bg-[#fff3e0] text-[#f57c00] flex items-center justify-center shadow-sm">
-                <Activity className="size-5" />
+          <div className="p-4 sm:p-6 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-9 sm:size-10 rounded-2xl bg-[#fff3e0] text-[#f57c00] flex shrink-0 items-center justify-center shadow-sm">
+                <Activity className="size-4 sm:size-5" />
               </div>
-              <div>
-                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="min-w-0">
+                <DialogTitle className="text-base sm:text-xl font-bold flex flex-wrap items-center gap-2">
                   Central de Monitoramento dos BIs
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1]">
+                  <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1]">
                     Painel do Administrador
                   </span>
                 </DialogTitle>

@@ -2444,7 +2444,7 @@ export const TrelloPanel = ({
             <section
               key={lista.cr4a1_listaid}
               style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-              className={`flex w-72 shrink-0 flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
+              className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
             >
               <div className="flex items-start justify-between gap-1.5 shrink-0">
                 <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
@@ -2970,7 +2970,7 @@ export const TrelloPanel = ({
 
         <form
           onSubmit={e => { e.preventDefault(); criarLista(); }}
-          className="flex w-72 shrink-0 flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
+          className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
         >
           <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -3714,7 +3714,7 @@ const FichaForm = ({
             )}
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
           <div>
             <Label className="text-xs">Tempo Estimado (min)</Label>
             <Input
@@ -4120,7 +4120,7 @@ const ArquivadasDialog = ({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Archive className="size-5 text-primary" /> Espaço de Fichas Arquivadas
@@ -4657,7 +4657,7 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[92dvh] sm:max-h-[92vh] flex flex-col p-3 sm:p-6 overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="size-5 text-primary" />
@@ -4689,22 +4689,25 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
         </div>
 
         {/* Container rolável com a visualização do documento */}
-        <div className="flex-1 overflow-auto bg-muted/40 p-3 sm:p-4 rounded-xl border border-border flex justify-center">
+        <div className="flex-1 overflow-auto bg-muted/40 p-2 sm:p-4 rounded-xl border border-border">
           <div
             ref={relatorioRef}
             style={{
-              width: '680px',
+              width: '100%',
+              maxWidth: '680px',
+              margin: '0 auto',
               backgroundColor: '#ffffff',
               color: '#0f172a',
-              padding: '32px 36px',
+              padding: '24px 20px',
               borderRadius: '8px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              boxSizing: 'border-box'
             }}
           >
             {/* Cabeçalho do relatório */}
             <div style={{ borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                 <div>
                   <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>
                     {lista.cr4a1_nome}
@@ -5268,7 +5271,7 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle><Zap className="size-5" /> Automações da lista</DialogTitle>
           <DialogDescription>Regras aplicadas às fichas da lista &quot;{lista.cr4a1_nome}&quot;.</DialogDescription>

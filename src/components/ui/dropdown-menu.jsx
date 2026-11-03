@@ -9,13 +9,14 @@ export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-export const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 6, ...props }, ref) => (
+export const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 6, collisionPadding = 12, ...props }, ref) => (
     <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
             ref={ref}
             sideOffset={sideOffset}
+            collisionPadding={collisionPadding}
             className={cn(
-                "z-[12100] min-w-[10rem] overflow-hidden rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-xl",
+                "z-[12100] min-w-[10rem] max-w-[calc(100vw-1.5rem)] max-h-[85dvh] overflow-y-auto rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-xl",
                 "data-[state=open]:animate-[popover-in_0.2s_var(--ease-elastic)] data-[state=closed]:animate-[popover-out_0.15s_ease-in]",
                 className
             )}
@@ -109,12 +110,13 @@ export const DropdownMenuSubTrigger = React.forwardRef(({ className, inset, chil
 ));
 DropdownMenuSubTrigger.displayName = 'DropdownMenuSubTrigger';
 
-export const DropdownMenuSubContent = React.forwardRef(({ className, ...props }, ref) => (
+export const DropdownMenuSubContent = React.forwardRef(({ className, collisionPadding = 12, ...props }, ref) => (
     <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.SubContent
             ref={ref}
+            collisionPadding={collisionPadding}
             className={cn(
-                "z-[12110] min-w-[8rem] overflow-hidden rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-xl",
+                "z-[12110] min-w-[8rem] max-w-[calc(100vw-1.5rem)] max-h-[85dvh] overflow-y-auto rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-xl",
                 "data-[state=open]:animate-[popover-in_0.2s_var(--ease-elastic)] data-[state=closed]:animate-[popover-out_0.15s_ease-in]",
                 className
             )}

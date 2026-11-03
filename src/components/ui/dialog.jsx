@@ -27,8 +27,8 @@ export const DialogContent = React.forwardRef(({ className, overlayClassName, ch
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                "fixed left-1/2 top-1/2 z-[12001] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2",
-                "max-h-[85vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl outline-none",
+                "fixed left-1/2 top-1/2 z-[12001] w-[95vw] sm:w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2",
+                "max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-2xl outline-none",
                 "data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
                 className
             )}
@@ -36,7 +36,7 @@ export const DialogContent = React.forwardRef(({ className, overlayClassName, ch
         >
             {children}
             {showClose && (
-                <DialogPrimitive.Close className="absolute right-5 top-5 rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <DialogPrimitive.Close className="absolute right-3 top-3 sm:right-5 sm:top-5 rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="size-4" />
                     <span className="sr-only">Fechar</span>
                 </DialogPrimitive.Close>
@@ -47,19 +47,19 @@ export const DialogContent = React.forwardRef(({ className, overlayClassName, ch
 DialogContent.displayName = 'DialogContent';
 
 export const DialogHeader = ({ className, ...props }) => (
-    <div className={cn("mb-5 flex flex-col gap-1 pr-8", className)} {...props} />
+    <div className={cn("mb-4 sm:mb-5 flex flex-col gap-1 pr-6 sm:pr-8", className)} {...props} />
 );
 
 export const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
-    <DialogPrimitive.Title ref={ref} className={cn("flex items-center gap-2 text-xl font-bold text-foreground", className)} {...props} />
+    <DialogPrimitive.Title ref={ref} className={cn("flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground", className)} {...props} />
 ));
 DialogTitle.displayName = 'DialogTitle';
 
 export const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
-    <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+    <DialogPrimitive.Description ref={ref} className={cn("text-xs sm:text-sm text-muted-foreground", className)} {...props} />
 ));
 DialogDescription.displayName = 'DialogDescription';
 
 export const DialogFooter = ({ className, ...props }) => (
-    <div className={cn("mt-6 flex justify-end gap-2", className)} {...props} />
+    <div className={cn("mt-5 sm:mt-6 flex flex-wrap sm:flex-nowrap items-center justify-end gap-2", className)} {...props} />
 );

@@ -72,10 +72,11 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
 
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
-  const finalWidth = Math.min(MODAL_WIDTH, viewportW - 32);
-  const finalHeight = Math.min(MODAL_HEIGHT, viewportH - 32);
-  const finalTop = (viewportH - finalHeight) / 2;
-  const finalLeft = (viewportW - finalWidth) / 2;
+  const isMobile = viewportW < 640;
+  const finalWidth = Math.min(MODAL_WIDTH, viewportW - (isMobile ? 16 : 32));
+  const finalHeight = Math.min(MODAL_HEIGHT, viewportH - (isMobile ? 24 : 32));
+  const finalTop = Math.max(8, (viewportH - finalHeight) / 2);
+  const finalLeft = Math.max(8, (viewportW - finalWidth) / 2);
   const start = sourceRect || { top: finalTop, left: finalLeft, width: finalWidth, height: finalHeight };
   const grown = isExpanded && !isClosing;
 
@@ -85,7 +86,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
     left: grown ? finalLeft : start.left,
     width: grown ? finalWidth : start.width,
     height: grown ? finalHeight : start.height,
-    borderRadius: grown ? '28px' : '10px',
+    borderRadius: grown ? (isMobile ? '20px' : '28px') : '10px',
     transition: `top ${TRANSITION}, left ${TRANSITION}, width ${TRANSITION}, height ${TRANSITION}, border-radius ${TRANSITION}`,
     background: 'var(--bg-primary)',
     boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
@@ -103,7 +104,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(12,12,16,0.55)', opacity: grown ? 1 : 0, transition: 'opacity 0.3s ease', cursor: 'pointer' }} />
 
       <div ref={trapRef} tabIndex={-1} style={cardStyle}>
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -196,7 +197,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '28px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginTop: isMobile ? '18px' : '28px' }}>
             <Button onClick={handleClose} variant="secondary" className="flex-1">Fechar</Button>
             <Button onClick={() => onEdit(event)} className="flex-1">
               <Pencil className="size-[18px]" /> Editar

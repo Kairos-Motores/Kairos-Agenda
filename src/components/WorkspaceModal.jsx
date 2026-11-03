@@ -155,7 +155,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
                         <div className="flex flex-col gap-3">
                             <div>
                                 <Label>Adicionar por grupo</Label>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {checkAccess(userRole, ['ADMIN', 'RH']) && (
                                         <Button type="button" size="sm" onClick={handleAddAll} className="justify-start">
                                             <Globe className="size-3.5" /> Toda a Kairós

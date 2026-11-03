@@ -1057,7 +1057,7 @@ function App() {
 
         {/* SIDEBAR ESQUERDA (MENU) */}
         <div style={{
-          position: 'fixed', top: 0, left: 0, height: '100vh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
+          position: 'fixed', top: 0, left: 0, height: '100dvh', width: '320px', maxWidth: '85vw', backgroundColor: 'var(--bg-primary)', zIndex: 3100,
           transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
           borderRight: '1px solid var(--border-color)', overflowY: 'auto', display: 'flex', flexDirection: 'column',
           borderTopRightRadius: '24px', borderBottomRightRadius: '24px', boxShadow: isSidebarOpen ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
@@ -2249,7 +2249,7 @@ function App() {
 
                   <WhatsAppInput userId={currentUser.cr4a1_usuarios_agendaid} initialValue={currentUser.cr4a1_whatsapp} onSave={updateWhatsApp} />
                   <hr className="border-border" />
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                     <div>
                       <span className="font-semibold text-sm block">Notificações no Dispositivo</span>
                       <span className="text-xs text-muted-foreground">
@@ -2260,7 +2260,7 @@ function App() {
                       variant={deviceNotificationPermission === 'granted' ? 'outline' : 'default'}
                       size="sm"
                       onClick={requestNotificationPermission}
-                      className="gap-1.5"
+                      className="gap-1.5 shrink-0 self-start sm:self-auto"
                     >
                       <span className="material-symbols-rounded text-sm">
                         {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
@@ -2269,12 +2269,12 @@ function App() {
                     </Button>
                   </div>
                   <hr className="border-border" />
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                     <div>
                       <span className="font-semibold text-sm block">Galaxy Watch</span>
                       <span className="text-xs text-muted-foreground">Parear relógio com a sua conta</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => { setIsProfileModalOpen(false); setIsWatchModalOpen(true); }} className="gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => { setIsProfileModalOpen(false); setIsWatchModalOpen(true); }} className="gap-1.5 shrink-0 self-start sm:self-auto">
                       <span className="material-symbols-rounded text-sm">watch</span>
                       Parear Relógio
                     </Button>

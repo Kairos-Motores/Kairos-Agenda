@@ -1033,12 +1033,12 @@ export const NotesPanel = ({
     const numVinculados = Object.keys(notaAberta.compartilhamento || {}).length;
 
     return (
-      <div style={{ padding: '24px', background: 'var(--bg-primary)', borderRadius: '24px', height: '100%', overflowY: 'auto' }}>
+      <div className="p-3 sm:p-6 bg-card rounded-2xl sm:rounded-3xl h-full overflow-y-auto">
         <style>{NOTES_PANEL_STYLES}</style>
 
         {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <Button onClick={handleBack} variant="outline" title="Voltar para a lista de notas (salva automaticamente se em edição)">
               <ArrowLeft className="size-[18px]" />
               Voltar
@@ -1063,7 +1063,7 @@ export const NotesPanel = ({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Botão de Criar Ficha no Trello a partir desta Nota */}
             <Button
               type="button"
@@ -1257,12 +1257,14 @@ export const NotesPanel = ({
         </div>
 
         {/* ÁREA DO TÍTULO E METADADOS */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px',
-          borderLeft: `4px solid ${notaColor}`,
-          borderRadius: '20px', padding: '20px', marginTop: '-4px',
-          background: `linear-gradient(135deg, ${notaColor}22, transparent 65%)`
-        }}>
+        <div
+          className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-5 border-b border-border pb-5 rounded-2xl p-4 sm:p-5"
+          style={{
+            borderLeft: `4px solid ${notaColor}`,
+            marginTop: '-4px',
+            background: `linear-gradient(135deg, ${notaColor}22, transparent 65%)`
+          }}
+        >
 
           {isEditing ? (
             <MentionInput
@@ -1271,17 +1273,17 @@ export const NotesPanel = ({
               placeholder="Título da Nota..."
               value={notaAberta.cr4a1_titulo}
               onChange={e => setNotaAberta({ ...notaAberta, cr4a1_titulo: e.target.value })}
-              style={{ fontSize: '28px', fontWeight: '800', border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-title)', width: '50%' }}
+              className="w-full sm:w-1/2 text-xl sm:text-2xl font-extrabold border-none bg-transparent outline-none text-foreground"
             />
           ) : (
-            <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: 'var(--text-title)', width: '50%' }}>
+            <h1 className="w-full sm:w-1/2 text-xl sm:text-2xl font-extrabold m-0 text-foreground">
               {notaAberta.cr4a1_titulo || 'Nota sem título'}
             </h1>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', width: '50%' }}>
+          <div className="flex flex-col gap-2.5 items-start sm:items-end w-full sm:w-1/2">
             {isEditing ? (
-              <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2.5 w-full">
                 {/* Switch de Nota Privada: editável exclusivamente pelo autor */}
                 {isAuthor ? (
                   <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
@@ -1300,7 +1302,7 @@ export const NotesPanel = ({
 
                 {workspaces.length > 0 && (
                   <Select value={notaAberta.cr4a1_workspace_id} onValueChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_workspace_id: val })}>
-                    <SelectTrigger className="w-auto min-w-[170px]"><SelectValue placeholder="Selecione o Workspace" /></SelectTrigger>
+                    <SelectTrigger className="w-full sm:w-auto min-w-[150px]"><SelectValue placeholder="Selecione o Workspace" /></SelectTrigger>
                     <SelectContent>
                       {workspaces.map(ws => (
                         <SelectItem key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>{ws.cr4a1_nome}</SelectItem>
@@ -1310,7 +1312,7 @@ export const NotesPanel = ({
                 )}
 
                 <Select value={notaAberta.cr4a1_evento_id || '__none__'} onValueChange={(val) => setNotaAberta({ ...notaAberta, cr4a1_evento_id: val === '__none__' ? '' : val })}>
-                  <SelectTrigger className="w-auto min-w-[220px]"><SelectValue placeholder="Associar a um Evento" /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-auto min-w-[180px]"><SelectValue placeholder="Associar a um Evento" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Desvincular evento</SelectItem>
                     {eventosDisponiveis.map(ev => (
@@ -1320,7 +1322,7 @@ export const NotesPanel = ({
                 </Select>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 w-full">
                 {notaAberta._pendenteSync && (
                   <span className="flex items-center gap-1 text-[12px] font-semibold text-warning">
                     <CloudOff className="size-[14px]" /> Salva offline — aguardando sincronização
