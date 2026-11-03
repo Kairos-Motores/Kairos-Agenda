@@ -22,6 +22,10 @@ import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './ui/popo
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
 import { Checkbox } from './ui/checkbox';
+import {
+    processarArquivoParaAnexo, formatarTamanho,
+    MAX_ANEXO_BYTES, MAX_TOTAL_ANEXOS_BYTES, somaTamanhos
+} from '../utils/anexos';
 
 const commonEmojis = [
     '🤝', '📞', '👥', '💬', '📢', '💻', '🖥️', '📅', '📊', '📝', '💡', '🏢',
@@ -141,15 +145,32 @@ export const EventModal = ({
         return format(parsedDate, pattern, { locale: ptBR });
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const selectedFiles = Array.from(e.target.files);
-        selectedFiles.forEach(file => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-                setFormData(prev => ({ ...prev, files: [...prev.files, { name: file.name, size: file.size, base64: reader.result }] }));
-            };
-        });
+        for (const file of selectedFiles) {
+            try {
+                const processado = await processarArquivoParaAnexo(file);
+                if (processado.size > MAX_ANEXO_BYTES) {
+                    toast.error(`"${file.name}" excede o limite de ${formatarTamanho(MAX_ANEXO_BYTES)}.`);
+                    continue;
+                }
+                setFormData(prev => {
+                    const novos = [...prev.files, { name: processado.name, size: processado.size, base64: processado.base64 }];
+                    if (somaTamanhos(novos) > MAX_TOTAL_ANEXOS_BYTES) {
+                        toast.error(`Limite total de anexos (${formatarTamanho(MAX_TOTAL_ANEXOS_BYTES)}) atingido.`);
+                        return prev;
+                    }
+                    return { ...prev, files: novos };
+                });
+                if (processado.foiComprimido && file.size > 350 * 1024) {
+                    toast.success(`"${file.name}" otimizada! (${formatarTamanho(file.size)} ➔ ${formatarTamanho(processado.size)})`);
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error(`Erro ao processar "${file.name}".`);
+            }
+        }
+        e.target.value = '';
     };
 
     const removeFile = (index) => setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));

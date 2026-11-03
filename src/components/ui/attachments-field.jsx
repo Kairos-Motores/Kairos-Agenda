@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import {
   MAX_ANEXO_BYTES, MAX_TOTAL_ANEXOS_BYTES, formatarTamanho,
-  lerArquivoComoBase64, somaTamanhos, tipoDoAnexo, baixarAnexo
+  somaTamanhos, tipoDoAnexo, baixarAnexo, ehImagem, processarArquivoParaAnexo
 } from '../../utils/anexos';
 
 // Modal de pré-visualização (imagem/PDF renderizam dentro do próprio app, sem abrir outra
@@ -46,19 +46,41 @@ export const AttachmentsField = ({ anexos = [], onChange, label = 'Anexos', read
     setEnviando(true);
     const novosAnexos = [...anexos];
     for (const file of Array.from(files)) {
-      if (file.size > MAX_ANEXO_BYTES) {
-        toast.error(`"${file.name}" tem ${formatarTamanho(file.size)} — o limite é ${formatarTamanho(MAX_ANEXO_BYTES)} por arquivo.`);
+      const isImg = ehImagem(file);
+
+      // Documentos (PDF, DOC...) não podem ser redimensionados via Canvas,
+      // então respeitam estritamente o teto do campo do Dataverse
+      if (!isImg && file.size > MAX_ANEXO_BYTES) {
+        toast.error(`"${file.name}" tem ${formatarTamanho(file.size)} — para documentos (PDF/arquivos), o limite é ${formatarTamanho(MAX_ANEXO_BYTES)}.`);
         continue;
       }
-      if (somaTamanhos(novosAnexos) + file.size > MAX_TOTAL_ANEXOS_BYTES) {
-        toast.error(`Limite total de anexos (${formatarTamanho(MAX_TOTAL_ANEXOS_BYTES)}) atingido — remova algum anexo antes de adicionar "${file.name}".`);
-        continue;
-      }
+
       try {
-        const base64 = await lerArquivoComoBase64(file);
-        novosAnexos.push({ name: file.name, size: file.size, type: file.type, base64 });
-      } catch {
-        toast.error(`Erro ao ler "${file.name}".`);
+        const processado = await processarArquivoParaAnexo(file);
+
+        if (processado.size > MAX_ANEXO_BYTES) {
+          toast.error(`Não foi possível comprimir "${file.name}" abaixo de ${formatarTamanho(MAX_ANEXO_BYTES)}.`);
+          continue;
+        }
+
+        if (somaTamanhos(novosAnexos) + processado.size > MAX_TOTAL_ANEXOS_BYTES) {
+          toast.error(`Limite total de anexos (${formatarTamanho(MAX_TOTAL_ANEXOS_BYTES)}) atingido — remova algum anexo antes de adicionar "${file.name}".`);
+          continue;
+        }
+
+        novosAnexos.push({
+          name: processado.name,
+          size: processado.size,
+          type: processado.type,
+          base64: processado.base64
+        });
+
+        if (processado.foiComprimido && file.size > 350 * 1024) {
+          toast.success(`"${file.name}" otimizada! (${formatarTamanho(file.size)} ➔ ${formatarTamanho(processado.size)})`);
+        }
+      } catch (err) {
+        console.error('Erro ao processar anexo:', err);
+        toast.error(`Erro ao processar "${file.name}".`);
       }
     }
     onChange(novosAnexos);
@@ -74,7 +96,9 @@ export const AttachmentsField = ({ anexos = [], onChange, label = 'Anexos', read
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="text-[11px] font-bold uppercase tracking-wide text-primary">{label}</span>
         {!readOnly && (
-          <span className="text-[10px] text-muted-foreground">Até {formatarTamanho(MAX_ANEXO_BYTES)} por arquivo, {formatarTamanho(MAX_TOTAL_ANEXOS_BYTES)} no total</span>
+          <span className="text-[10px] text-muted-foreground">
+            Fotos comprimidas automaticamente • Máx. {formatarTamanho(MAX_TOTAL_ANEXOS_BYTES)} total
+          </span>
         )}
       </div>
 
@@ -115,7 +139,7 @@ export const AttachmentsField = ({ anexos = [], onChange, label = 'Anexos', read
       {!readOnly && (
         <>
           <Button type="button" variant="outline" size="sm" className="mt-2" disabled={enviando} onClick={() => inputRef.current?.click()}>
-            <Paperclip className="size-4" /> {enviando ? 'Lendo...' : 'Anexar arquivo'}
+            <Paperclip className="size-4" /> {enviando ? 'Otimizando e anexando...' : 'Anexar arquivo'}
           </Button>
           <input
             ref={inputRef}
