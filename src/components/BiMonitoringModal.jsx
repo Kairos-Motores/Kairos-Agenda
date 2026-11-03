@@ -148,7 +148,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
         <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
+          <div className="shrink-0 p-4 sm:p-6 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="size-9 sm:size-10 rounded-2xl bg-[#fff3e0] text-[#f57c00] flex shrink-0 items-center justify-center shadow-sm">
                 <Activity className="size-4 sm:size-5" />
@@ -183,7 +183,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
 
           {/* Cards de Resumo KPI */}
           {data?.summary && (
-            <div className="px-6 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="shrink-0 px-6 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Total */}
               <div
                 onClick={() => setStatusFilter('ALL')}
@@ -268,7 +268,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
           )}
 
           {/* Barra de Ferramentas / Filtros */}
-          <div className="px-6 py-3 border-b border-border/80 flex flex-wrap gap-3 items-center justify-between">
+          <div className="shrink-0 px-6 py-3 border-b border-border/80 flex flex-wrap gap-3 items-center justify-between">
             {/* Campo de Busca */}
             <div className="relative flex-1 min-w-[240px] max-w-md">
               <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -323,7 +323,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
           </div>
 
           {/* Tabela de Relatórios com Scroll */}
-          <div className="flex-1 overflow-y-auto px-6 py-2">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
             {isLoading && !data ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
                 <RefreshCw className="size-7 animate-spin text-[#f57c00]" />
@@ -485,7 +485,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-border bg-muted/20 flex justify-between items-center text-xs text-muted-foreground">
+          <div className="shrink-0 p-4 border-t border-border bg-muted/20 flex justify-between items-center text-xs text-muted-foreground">
             <div>
               Exibindo <strong>{filteredReports.length}</strong> de <strong>{enrichedReports.length}</strong> relatórios monitorados.
               {data?.updatedAt && (

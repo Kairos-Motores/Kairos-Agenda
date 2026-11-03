@@ -2884,7 +2884,7 @@ export const TrelloPanel = ({
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
-          <DialogContent className="max-w-2xl max-h-[92dvh] sm:max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogContent className="max-w-2xl h-[92dvh] sm:h-[90vh] p-0 overflow-hidden flex flex-col">
             <FichaForm
               inicial={editando.form}
               listas={listasVisiveis}
@@ -3237,12 +3237,14 @@ const FichaForm = ({
     }
   };
 
-  // Altura explícita (não h-full): o Dialog pai só tem max-height (sem height própria), então
-  // um filho com h-full herdava uma altura indefinida e, em fichas com pouco conteúdo (sem
-  // alcançar o teto do max-height do pai), a tela ficava completamente vazia — o overlay
-  // borrado aparecia, mas o cartão da ficha "desaparecia" dentro dele.
+  // flex-1 (não h-full nem uma altura própria): o Dialog pai agora tem altura explícita e
+  // ainda renderiza uma "alcinha" de arrastar antes destes filhos no mobile — se este bloco
+  // pedir sua PRÓPRIA altura de viewport (ex.: h-[92dvh]) igual à do pai, a soma com a alcinha
+  // estoura o teto do pai, que corta (não rola) o excesso: exatamente o rodapé com os botões
+  // ação sumindo. Com flex-1 ele só ocupa o espaço que sobra depois da alcinha, sempre do
+  // tamanho certo.
   return (
-    <div className="flex flex-col h-[92dvh] sm:h-[90vh] overflow-hidden">
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       <DialogHeader
         className="shrink-0 p-4 sm:p-5 pb-3 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none mb-0"
         style={corCabecalho ? {
@@ -3291,7 +3293,7 @@ const FichaForm = ({
         </div>
       </DialogHeader>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 flex flex-col gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 flex flex-col gap-4">
         <div>
           <Label>Título</Label>
         <MentionInput allUsers={allUsers} value={form.titulo} onChange={e => set('titulo', e.target.value)} />
@@ -4563,8 +4565,8 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[92dvh] sm:max-h-[92vh] flex flex-col p-3 sm:p-6 overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl h-[92dvh] sm:h-[92vh] flex flex-col p-3 sm:p-6 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="size-5 text-primary" />
             Exportar ou Enviar Lista
@@ -4575,7 +4577,7 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
         </DialogHeader>
 
         {/* Barra de opções de conteúdo */}
-        <div className="flex flex-wrap items-center gap-4 py-2 border-y border-border text-xs">
+        <div className="shrink-0 flex flex-wrap items-center gap-4 py-2 border-y border-border text-xs">
           <label className="flex items-center gap-1.5 cursor-pointer">
             <Switch checked={incluirDescricao} onCheckedChange={setIncluirDescricao} />
             <span>Descrição</span>
@@ -4595,7 +4597,7 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
         </div>
 
         {/* Container rolável com a visualização do documento */}
-        <div className="flex-1 overflow-auto bg-muted/40 p-2 sm:p-4 rounded-xl border border-border">
+        <div className="flex-1 min-h-0 overflow-auto bg-muted/40 p-2 sm:p-4 rounded-xl border border-border">
           <div
             ref={relatorioRef}
             style={{
@@ -4840,7 +4842,7 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
+        <DialogFooter className="shrink-0 flex-col sm:flex-row gap-2 mt-2">
           <Button variant="outline" onClick={onClose} disabled={!!gerando}>
             Fechar
           </Button>
