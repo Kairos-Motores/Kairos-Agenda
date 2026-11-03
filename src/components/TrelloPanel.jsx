@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -26,7 +26,7 @@ import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
 import { RichTextEditor, aplicarAtributoTarefa } from './ui/rich-text-editor';
 import { AttachmentsField, AttachmentPreviewDialog } from './ui/attachments-field';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { MentionInput, MentionTextarea } from './ui/mention-autocomplete';
 import { Sticker } from './ui/sticker';
@@ -2161,6 +2161,7 @@ export const TrelloPanel = ({
                     key={visao.id}
                     type="button"
                     onClick={() => setModoVisao(visao.id)}
+                    title={visao.label}
                     className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
                       ativo
                         ? 'bg-primary text-primary-foreground shadow-xs'
@@ -2168,7 +2169,7 @@ export const TrelloPanel = ({
                     }`}
                   >
                     <Icone className="size-3.5" />
-                    <span className="text-[11px]">{visao.label}</span>
+                    <span className={`text-[11px] ${ativo ? 'inline' : 'hidden'}`}>{visao.label}</span>
                   </button>
                 );
               })}
@@ -2544,140 +2545,27 @@ export const TrelloPanel = ({
                     onChange={(crit) => mudarOrdenacaoLista(lista.cr4a1_listaid, crit)}
                   />
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`Opções da lista ${lista.cr4a1_nome}`}
-                        title="Opções da lista"
-                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60">
-                      {podeGerenciar && (
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger className="cursor-pointer">
-                            <Palette className="size-4 mr-2" />
-                            <span>Cor da Lista</span>
-                            {corDaLista && (
-                              <span
-                                className="ml-auto mr-1 size-3.5 rounded-full border border-border shrink-0"
-                                style={{ backgroundColor: corDaLista }}
-                              />
-                            )}
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-52 p-2.5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                              Escolher cor da lista
-                            </span>
-                            <div className="grid grid-cols-6 gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => definirCorLista(lista, '')}
-                                title="Sem cor"
-                                className="flex size-6 items-center justify-center rounded-full border border-dashed border-border bg-card text-[10px]"
-                              >
-                                {!corDaLista && <Check className="size-3.5 text-muted-foreground" />}
-                              </button>
-                              {themeColors.map(c => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => definirCorLista(lista, c.hex)}
-                                  title={c.label}
-                                  className="size-6 rounded-full transition-transform active:scale-90"
-                                  style={{
-                                    backgroundColor: c.hex,
-                                    boxShadow: corDaLista === c.hex ? `0 0 0 2px var(--card), 0 0 0 3.5px ${c.hex}` : 'none'
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      )}
-
-                      {podeGerenciarAutomacoes && (
-                        <DropdownMenuItem onClick={() => setListaAutomacao(lista)} className="cursor-pointer">
-                          <Zap className={`size-4 mr-2 ${parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : ''}`} />
-                          Automações
-                          {parseAutomacoes(lista.cr4a1_automacao).length > 0 && (
-                            <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
-                              {parseAutomacoes(lista.cr4a1_automacao).length}
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => setListaGerentes(lista)} className="cursor-pointer">
-                          <UserCheck className={`size-4 mr-2 ${gerentesDaLista.length > 0 ? 'text-primary' : ''}`} />
-                          Gerentes da Lista
-                          {gerentesDaLista.length > 0 && (
-                            <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
-                              {gerentesDaLista.length}
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => clonarListaInteira(lista)} className="cursor-pointer">
-                          <Copy className="size-4 mr-2" />
-                          Copiar / Clonar Lista Inteira
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && listasVisiveis.length > 1 && (
-                        <DropdownMenuItem onClick={() => setListaMoverFichas(lista)} className="cursor-pointer">
-                          <ArrowRightLeft className="size-4 mr-2" />
-                          Mover Todas as Fichas para...
-                        </DropdownMenuItem>
-                      )}
-
-                      {souDono && (
-                        <DropdownMenuItem onClick={() => alternarListaPessoal(lista)} className="cursor-pointer">
-                          {pessoal ? <Unlock className="size-4 mr-2" /> : <Lock className="size-4 mr-2" />}
-                          {pessoal ? 'Tornar Visível para Todos' : 'Tornar Lista Pessoal'}
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => setListaMoverWorkspace(lista)} className="cursor-pointer">
-                          <FolderInput className="size-4 mr-2" />
-                          Mover para outro Workspace
-                        </DropdownMenuItem>
-                      )}
-
-                      <DropdownMenuItem onClick={() => setListaExportar(lista)} className="cursor-pointer">
-                        <Share2 className="size-4 mr-2" />
-                        Exportar ou Enviar Lista
-                      </DropdownMenuItem>
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => arquivarConcluidasDaLista(lista)} className="cursor-pointer">
-                          <Archive className="size-4 mr-2" />
-                          Arquivar Concluídas da Lista
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => arquivarTodasDaLista(lista)} className="cursor-pointer">
-                          <Archive className="size-4 mr-2" />
-                          Arquivar Todas as Fichas
-                        </DropdownMenuItem>
-                      )}
-
-                      {podeGerenciar && (
-                        <DropdownMenuItem onClick={() => apagarLista(lista)} className="cursor-pointer text-destructive focus:text-destructive">
-                          <Trash2 className="size-4 mr-2" />
-                          Excluir Lista
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <ListaOpcoesMenu
+                    lista={lista}
+                    corDaLista={corDaLista}
+                    podeGerenciar={podeGerenciar}
+                    podeGerenciarAutomacoes={podeGerenciarAutomacoes}
+                    souDono={souDono}
+                    pessoal={pessoal}
+                    gerentesDaLista={gerentesDaLista}
+                    listasVisiveis={listasVisiveis}
+                    definirCorLista={definirCorLista}
+                    setListaAutomacao={setListaAutomacao}
+                    setListaGerentes={setListaGerentes}
+                    clonarListaInteira={clonarListaInteira}
+                    setListaMoverFichas={setListaMoverFichas}
+                    alternarListaPessoal={alternarListaPessoal}
+                    setListaMoverWorkspace={setListaMoverWorkspace}
+                    setListaExportar={setListaExportar}
+                    arquivarConcluidasDaLista={arquivarConcluidasDaLista}
+                    arquivarTodasDaLista={arquivarTodasDaLista}
+                    apagarLista={apagarLista}
+                  />
                 </div>
               </div>
 
@@ -3045,7 +2933,7 @@ export const TrelloPanel = ({
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[92dvh] sm:max-h-[90vh] p-0 overflow-hidden flex flex-col">
             <FichaForm
               inicial={editando.form}
               listas={listasVisiveis}
@@ -3399,16 +3287,16 @@ const FichaForm = ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col h-full max-h-[92dvh] sm:max-h-[90vh] overflow-hidden">
       <DialogHeader
-        className="sticky top-0 z-20 -mx-4 -mt-3 sm:-mx-6 sm:-mt-6 p-4 rounded-t-[28px] border-b border-border/50 bg-card/95 backdrop-blur-md"
+        className="shrink-0 p-4 sm:p-5 pb-3 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none mb-0"
         style={corCabecalho ? {
           backgroundColor: form.cor,
           '--text-primary': corCabecalho.principal,
           '--text-secondary': corCabecalho.suave
         } : undefined}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pr-10">
           <div>
             <DialogTitle className="flex items-center gap-2">
               Ficha
@@ -3448,8 +3336,9 @@ const FichaForm = ({
         </div>
       </DialogHeader>
 
-      <div>
-        <Label>Título</Label>
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 flex flex-col gap-4">
+        <div>
+          <Label>Título</Label>
         <MentionInput allUsers={allUsers} value={form.titulo} onChange={e => set('titulo', e.target.value)} />
       </div>
 
@@ -4118,8 +4007,9 @@ const FichaForm = ({
           )}
         </div>
       )}
+      </div>
 
-      <DialogFooter className="sticky bottom-0 z-20 -mx-4 -mb-6 sm:-mx-6 sm:-mb-6 bg-card/95 backdrop-blur-md p-3.5 sm:p-4 border-t border-border/60 flex-wrap justify-between gap-2 shadow-lg">
+      <DialogFooter className="shrink-0 p-3.5 sm:p-4 border-t border-border/60 bg-card/95 backdrop-blur-md flex-wrap justify-between gap-2 shadow-lg mt-0">
         <div className="flex items-center gap-1.5">
           <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
             <Trash2 className="size-4" /> Excluir
@@ -5589,6 +5479,181 @@ const ListaOrdenacaoMenu = ({ criterioAtual = 'padrao', onChange }) => {
             {criterioAtual === crit.id && <Check className="size-3.5 text-primary shrink-0" />}
           </DropdownMenuItem>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const ListaOpcoesMenu = ({
+  lista,
+  corDaLista,
+  podeGerenciar,
+  podeGerenciarAutomacoes,
+  souDono,
+  pessoal,
+  gerentesDaLista = [],
+  listasVisiveis = [],
+  definirCorLista,
+  setListaAutomacao,
+  setListaGerentes,
+  clonarListaInteira,
+  setListaMoverFichas,
+  alternarListaPessoal,
+  setListaMoverWorkspace,
+  setListaExportar,
+  arquivarConcluidasDaLista,
+  arquivarTodasDaLista,
+  apagarLista
+}) => {
+  const [corAberta, setCorAberta] = useState(false);
+
+  return (
+    <DropdownMenu onOpenChange={(open) => { if (!open) setCorAberta(false); }}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Opções da lista ${lista.cr4a1_nome}`}
+          title="Opções da lista"
+          className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)] p-2">
+        {podeGerenciar && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setCorAberta(v => !v); }}
+              className="flex w-full items-center justify-between rounded-[14px] px-3.5 py-2.5 min-h-[44px] text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <Palette className="size-4" />
+                <span>Cor da Lista</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {corDaLista && (
+                  <span
+                    className="size-4 rounded-full border border-border shadow-xs"
+                    style={{ backgroundColor: corDaLista }}
+                  />
+                )}
+                <ChevronDown className={`size-4 text-muted-foreground transition-transform duration-200 ${corAberta ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+            {corAberta && (
+              <div className="my-1.5 p-2 rounded-xl bg-secondary/60 border border-border/60 animate-in fade-in-0 duration-150">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2 px-1">
+                  Escolher cor
+                </span>
+                <div className="grid grid-cols-6 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { definirCorLista(lista, ''); setCorAberta(false); }}
+                    title="Sem cor"
+                    className="flex size-7 items-center justify-center rounded-full border border-dashed border-border bg-card text-[10px] hover:scale-105 active:scale-95 transition-transform"
+                  >
+                    {!corDaLista && <Check className="size-3.5 text-muted-foreground" />}
+                  </button>
+                  {themeColors.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { definirCorLista(lista, c.hex); setCorAberta(false); }}
+                      title={c.label}
+                      className="size-7 rounded-full transition-transform hover:scale-105 active:scale-90"
+                      style={{
+                        backgroundColor: c.hex,
+                        boxShadow: corDaLista === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        {podeGerenciarAutomacoes && (
+          <DropdownMenuItem onClick={() => setListaAutomacao(lista)} className="cursor-pointer">
+            <Zap className={`size-4 mr-2 ${parseAutomacoes(lista.cr4a1_automacao).length > 0 ? 'text-primary' : ''}`} />
+            Automações
+            {parseAutomacoes(lista.cr4a1_automacao).length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
+                {parseAutomacoes(lista.cr4a1_automacao).length}
+              </Badge>
+            )}
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => setListaGerentes(lista)} className="cursor-pointer">
+            <UserCheck className={`size-4 mr-2 ${gerentesDaLista.length > 0 ? 'text-primary' : ''}`} />
+            Gerentes da Lista
+            {gerentesDaLista.length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
+                {gerentesDaLista.length}
+              </Badge>
+            )}
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => clonarListaInteira(lista)} className="cursor-pointer">
+            <Copy className="size-4 mr-2" />
+            Copiar / Clonar Lista Inteira
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && listasVisiveis.length > 1 && (
+          <DropdownMenuItem onClick={() => setListaMoverFichas(lista)} className="cursor-pointer">
+            <ArrowRightLeft className="size-4 mr-2" />
+            Mover Todas as Fichas para...
+          </DropdownMenuItem>
+        )}
+
+        {souDono && (
+          <DropdownMenuItem onClick={() => alternarListaPessoal(lista)} className="cursor-pointer">
+            {pessoal ? <Unlock className="size-4 mr-2" /> : <Lock className="size-4 mr-2" />}
+            {pessoal ? 'Tornar Visível para Todos' : 'Tornar Lista Pessoal'}
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => setListaMoverWorkspace(lista)} className="cursor-pointer">
+            <FolderInput className="size-4 mr-2" />
+            Mover para outro Workspace
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuItem onClick={() => setListaExportar(lista)} className="cursor-pointer">
+          <Share2 className="size-4 mr-2" />
+          Exportar ou Enviar Lista
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => arquivarConcluidasDaLista(lista)} className="cursor-pointer">
+            <Archive className="size-4 mr-2" />
+            Arquivar Concluídas da Lista
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => arquivarTodasDaLista(lista)} className="cursor-pointer">
+            <Archive className="size-4 mr-2" />
+            Arquivar Todas as Fichas
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && (
+          <DropdownMenuItem onClick={() => apagarLista(lista)} className="cursor-pointer text-destructive focus:text-destructive">
+            <Trash2 className="size-4 mr-2" />
+            Excluir Lista
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

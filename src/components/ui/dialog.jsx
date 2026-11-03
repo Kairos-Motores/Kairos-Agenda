@@ -39,7 +39,7 @@ export const DialogContent = React.forwardRef(({ className, overlayClassName, ch
             <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden" />
             {children}
             {showClose && (
-                <DialogPrimitive.Close className="absolute right-3.5 top-3.5 sm:right-5 sm:top-5 rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <DialogPrimitive.Close className="absolute right-4 top-3.5 sm:right-6 sm:top-5 z-30 flex size-8 items-center justify-center rounded-full bg-secondary/80 text-muted-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="size-4" />
                     <span className="sr-only">Fechar</span>
                 </DialogPrimitive.Close>
