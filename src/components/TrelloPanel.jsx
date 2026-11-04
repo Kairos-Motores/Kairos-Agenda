@@ -2887,6 +2887,7 @@ export const TrelloPanel = ({
           <DialogContent className="max-w-2xl sm:max-w-4xl lg:max-w-5xl h-[92dvh] sm:h-[90vh] p-0 overflow-hidden flex flex-col">
             <FichaForm
               inicial={editando.form}
+              fichaOriginal={editando.original}
               listas={listasVisiveis}
               membros={membrosVisiveis}
               allUsers={allUsers}
@@ -3112,6 +3113,7 @@ const MAX_STICKERS_POR_FICHA = 8;
 
 const FichaForm = ({
   inicial,
+  fichaOriginal,
   listas,
   membros,
   allUsers,
@@ -3223,6 +3225,32 @@ const FichaForm = ({
   // já reflete a cor escolhida na hora, igual ao Trello faz ao editar o cover do card.
   const corCabecalho = form.cor ? corTextoLegivel(form.cor) : null;
 
+  // Resolução do autor da ficha, lista e data de criação para exibição no topo
+  const criadorLogin = fichaOriginal?.cr4a1_criador_login || atividades?.find(a => a.tipo === 'criada')?.autor || usuarioAtual;
+  const criadorNome = nomeDe(criadorLogin, allUsers);
+  const criadaAtividade = atividades?.find(a => a.tipo === 'criada');
+  const dataCriacaoFormatada = criadaAtividade?.quando
+    ? format(new Date(criadaAtividade.quando), 'dd/MM/yyyy')
+    : (fichaOriginal?.createdon ? format(new Date(fichaOriginal.createdon), 'dd/MM/yyyy') : null);
+  const listaAtual = listas.find(l => l.cr4a1_listaid === form.listaId);
+
+  // Estilos de botões do cabeçalho que garantem contraste absoluto (sem texto branco sobre fundo branco)
+  const getHeaderBtnClass = (ativo = false) => {
+    if (!corCabecalho) return '';
+    const isLightText = corCabecalho.principal === '#ffffff';
+    if (isLightText) {
+      if (ativo) {
+        return '!bg-white !text-slate-900 !border-white font-bold shadow-md hover:!bg-white/90 active:scale-95 transition-all';
+      }
+      return '!bg-black/25 !text-white !border-white/30 backdrop-blur-sm hover:!bg-white hover:!text-slate-900 hover:!border-white hover:shadow-md active:scale-95 transition-all';
+    } else {
+      if (ativo) {
+        return '!bg-slate-900 !text-white !border-slate-900 font-bold shadow-md hover:!bg-slate-800 active:scale-95 transition-all';
+      }
+      return '!bg-white/50 !text-slate-900 !border-black/20 backdrop-blur-sm hover:!bg-slate-900 hover:!text-white hover:!border-slate-900 hover:shadow-md active:scale-95 transition-all';
+    }
+  };
+
   const alternarCronometroLocal = () => {
     if (form.cronometroInicio) {
       const inicioMs = new Date(form.cronometroInicio).getTime();
@@ -3237,105 +3265,165 @@ const FichaForm = ({
     }
   };
 
-  // flex-1 (não h-full nem uma altura própria): o Dialog pai agora tem altura explícita e
-  // ainda renderiza uma "alcinha" de arrastar antes destes filhos no mobile — se este bloco
-  // pedir sua PRÓPRIA altura de viewport (ex.: h-[92dvh]) igual à do pai, a soma com a alcinha
-  // estoura o teto do pai, que corta (não rola) o excesso: exatamente o rodapé com os botões
-  // ação sumindo. Com flex-1 ele só ocupa o espaço que sobra depois da alcinha, sempre do
-  // tamanho certo.
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
-      <DialogHeader
-        className="shrink-0 p-4 sm:p-5 pb-3 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none mb-0"
-        style={corCabecalho ? {
-          backgroundColor: form.cor,
-          '--text-primary': corCabecalho.principal,
-          '--text-secondary': corCabecalho.suave
-        } : undefined}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 pr-10">
-          <div>
-            <DialogTitle className="flex items-center gap-2">
-              Ficha
-              {form.ehModelo && (
-                <Badge variant="secondary" className="text-[10px]">📋 Modelo de Ficha</Badge>
-              )}
-            </DialogTitle>
-            <DialogDescription>{workspaceNome}</DialogDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant={seguindo ? 'default' : 'outline'}
-              onClick={() => alternarObservador(usuarioAtual)}
-              title="Receber alertas sobre movimentações e comentários desta ficha"
-            >
-              {seguindo ? <Bell className="size-3.5 fill-current" /> : <Bell className="size-3.5" />}
-              {seguindo ? 'Seguindo' : 'Seguir'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={form.ehModelo ? 'default' : 'outline'}
-              onClick={() => set('ehModelo', !form.ehModelo)}
-              title="Transformar esta ficha em um Modelo reutilizável"
-            >
-              <LayoutTemplate className="size-3.5" />
-              {form.ehModelo ? 'É Modelo' : 'Tornar Modelo'}
-            </Button>
-            {onDuplicar && (
-              <Button type="button" size="sm" variant="outline" onClick={onDuplicar} title="Criar uma cópia idêntica desta ficha">
-                <Copy className="size-3.5" /> Duplicar
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogHeader>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 flex flex-col gap-4">
-        <div>
-          <Label>Título</Label>
-        <MentionInput allUsers={allUsers} value={form.titulo} onChange={e => set('titulo', e.target.value)} />
-      </div>
-
-      <div>
-        <Label>Descrição</Label>
-        <p className="mb-1 text-[11px] text-muted-foreground">Use o ícone de checklist para criar microtarefas — elas aparecem e podem ser marcadas direto no card.</p>
-        <RichTextEditor value={form.descricao} onChange={v => set('descricao', v)} onEditorReady={setEditorDescricao} allUsers={allUsers} />
-      </div>
-
-      {temTarefas && (
-        <div>
-          <Label>Microtarefas — prazo e responsável</Label>
-          <div className="flex flex-col gap-1.5">
-            {tarefasDaDescricao.map(t => (
-              <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-1.5 text-sm">
-                <span className={`min-w-0 flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
-                <input
-                  type="date"
-                  value={t.dataVencimento || ''}
-                  onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
-                  aria-label={`Prazo de "${t.texto}"`}
-                  className="h-8 shrink-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
-                />
-                <Select
-                  value={t.responsavel || '__nenhum__'}
-                  onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+        {/* Topo / Capa da Ficha com Autor, Ações, Título e Descrição */}
+        <DialogHeader
+          className="p-4 sm:p-6 pb-4 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none flex flex-col gap-3.5 mb-0 shrink-0 transition-colors pr-6 sm:pr-8"
+          style={corCabecalho ? {
+            backgroundColor: form.cor,
+            '--text-primary': corCabecalho.principal,
+            '--text-secondary': corCabecalho.suave
+          } : undefined}
+        >
+          {/* Linha 1: Autor, Workspace/Lista, Badges e Botões de Ação */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pr-8 sm:pr-10">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <UserAvatar login={criadorLogin} allUsers={allUsers} size={28} className="ring-2 ring-background/30 shadow-sm shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className="text-xs sm:text-sm font-semibold truncate"
+                    style={{ color: corCabecalho ? corCabecalho.principal : undefined }}
+                  >
+                    {criadorNome}
+                  </span>
+                  {form.ehModelo && (
+                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0">📋 Modelo</Badge>
+                  )}
+                </div>
+                <span
+                  className="text-[11px] truncate"
+                  style={{ color: corCabecalho ? corCabecalho.suave : undefined }}
                 >
-                  <SelectTrigger className="h-8 w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__nenhum__">Sem responsável</SelectItem>
-                    {opcoesComAtual(membros.length ? membros : allUsers, t.responsavel, allUsers).map(u => (
-                      <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {listaAtual ? `na lista ${listaAtual.cr4a1_nome}` : ''} {workspaceNome ? `• ${workspaceNome}` : ''} {dataCriacaoFormatada ? `• ${dataCriacaoFormatada}` : ''}
+                </span>
               </div>
-            ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                variant={seguindo ? 'default' : 'outline'}
+                className={getHeaderBtnClass(seguindo)}
+                onClick={() => alternarObservador(usuarioAtual)}
+                title="Receber alertas sobre movimentações e comentários desta ficha"
+              >
+                {seguindo ? <Bell className="size-3.5 fill-current" /> : <Bell className="size-3.5" />}
+                {seguindo ? 'Seguindo' : 'Seguir'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={form.ehModelo ? 'default' : 'outline'}
+                className={getHeaderBtnClass(form.ehModelo)}
+                onClick={() => set('ehModelo', !form.ehModelo)}
+                title="Transformar esta ficha em um Modelo reutilizável"
+              >
+                <LayoutTemplate className="size-3.5" />
+                {form.ehModelo ? 'É Modelo' : 'Tornar Modelo'}
+              </Button>
+              {onDuplicar && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={getHeaderBtnClass(false)}
+                  onClick={onDuplicar}
+                  title="Criar uma cópia idêntica desta ficha"
+                >
+                  <Copy className="size-3.5" /> Duplicar
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* Linha 2: Título da Ficha */}
+          <div className="flex flex-col gap-1">
+            <Label
+              className="text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: corCabecalho ? corCabecalho.suave : undefined }}
+            >
+              Título da Ficha
+            </Label>
+            <DialogTitle asChild>
+              <div className="w-full">
+                <MentionInput
+                  allUsers={allUsers}
+                  value={form.titulo}
+                  onChange={e => set('titulo', e.target.value)}
+                  placeholder="Título da ficha..."
+                  className={`w-full text-lg sm:text-2xl font-bold tracking-tight rounded-xl px-3 py-2 transition-all outline-none focus:outline-none focus:ring-2 focus:ring-primary ${
+                    corCabecalho
+                      ? 'bg-black/15 placeholder:text-white/60 text-white border border-white/20'
+                      : 'bg-secondary/60 hover:bg-secondary border border-border placeholder:text-muted-foreground text-foreground'
+                  }`}
+                  style={{
+                    color: corCabecalho ? corCabecalho.principal : undefined
+                  }}
+                />
+              </div>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {workspaceNome || 'Ficha do quadro'}
+            </DialogDescription>
+          </div>
+
+          {/* Linha 3: Descrição da Ficha */}
+          <div className={`flex flex-col gap-1.5 ${corCabecalho ? 'rounded-2xl bg-card p-3 sm:p-4 text-foreground shadow-sm border border-border/50' : ''}`}>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Descrição
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Use o ícone de checklist para criar microtarefas — elas aparecem e podem ser marcadas direto no card.
+            </p>
+            <RichTextEditor
+              value={form.descricao}
+              onChange={v => set('descricao', v)}
+              onEditorReady={setEditorDescricao}
+              allUsers={allUsers}
+            />
+          </div>
+
+          {/* Microtarefas vinculadas à descrição */}
+          {temTarefas && (
+            <div className={`flex flex-col gap-1.5 ${corCabecalho ? 'rounded-2xl bg-card p-3 sm:p-4 text-foreground shadow-sm border border-border/50' : ''}`}>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Microtarefas — prazo e responsável
+              </Label>
+              <div className="flex flex-col gap-1.5">
+                {tarefasDaDescricao.map(t => (
+                  <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-1.5 text-sm">
+                    <span className={`min-w-0 flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
+                    <input
+                      type="date"
+                      value={t.dataVencimento || ''}
+                      onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
+                      aria-label={`Prazo de "${t.texto}"`}
+                      className="h-8 shrink-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
+                    />
+                    <Select
+                      value={t.responsavel || '__nenhum__'}
+                      onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
+                    >
+                      <SelectTrigger className="h-8 w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__nenhum__">Sem responsável</SelectItem>
+                        {opcoesComAtual(membros.length ? membros : allUsers, t.responsavel, allUsers).map(u => (
+                          <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogHeader>
+
+        <div className="p-4 sm:p-6 flex flex-col gap-4">
 
       {etiquetas.length > 0 && (
         <div>
@@ -3583,15 +3671,12 @@ const FichaForm = ({
 
       {/* Datas: Início do Trabalho + Data de Entrega (Prazo) */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div>
-          <Label>Data de Início</Label>
-          <input
-            type="date"
-            value={form.dataInicioTrabalho || ''}
-            onChange={e => set('dataInicioTrabalho', e.target.value)}
-            className="flex h-10 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-          />
-        </div>
+        <DateField
+          label="Data de Início"
+          selectedDate={form.dataInicioTrabalho}
+          onSelect={d => set('dataInicioTrabalho', d)}
+          allowClear
+        />
         <DateField label="Prazo / Entrega" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
         <TimeField label="Hora da Entrega" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
       </div>
@@ -3964,6 +4049,7 @@ const FichaForm = ({
           )}
         </div>
       )}
+        </div>
       </div>
 
       <DialogFooter className="shrink-0 p-3.5 sm:p-4 border-t border-border/60 bg-card/95 backdrop-blur-md flex-wrap justify-between gap-2 shadow-lg mt-0">
