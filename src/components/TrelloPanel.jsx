@@ -3272,9 +3272,7 @@ const FichaForm = ({
         <DialogHeader
           className="p-4 sm:p-6 pb-4 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none flex flex-col gap-3.5 mb-0 shrink-0 transition-colors pr-6 sm:pr-8"
           style={corCabecalho ? {
-            backgroundColor: form.cor,
-            '--text-primary': corCabecalho.principal,
-            '--text-secondary': corCabecalho.suave
+            backgroundColor: form.cor
           } : undefined}
         >
           {/* Linha 1: Autor, Workspace/Lista, Badges e Botões de Ação */}

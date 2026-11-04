@@ -87,7 +87,7 @@ const ToolbarButton = ({ active, onClick, title, children }) => (
     title={title}
     onMouseDown={(e) => e.preventDefault()}
     onClick={onClick}
-    className={`flex size-7 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary'}`}
+    className={`flex size-7 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
   >
     {children}
   </button>
