@@ -146,7 +146,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] sm:!max-h-[92vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
+        <DialogContent className="max-w-[1600px] w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] sm:!max-h-[92vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
           {/* Header */}
           <div className="shrink-0 p-3 sm:p-4 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -331,8 +331,8 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
                 <p className="text-sm font-medium">Nenhum relatório encontrado para os filtros selecionados.</p>
               </div>
             ) : (
-              <div className="border border-border rounded-2xl overflow-hidden bg-card shadow-sm">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="border border-border rounded-2xl bg-card shadow-sm overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
                       <th className="py-3 px-4">Relatório / Workspace</th>
