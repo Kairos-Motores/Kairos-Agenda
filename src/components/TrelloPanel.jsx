@@ -299,6 +299,7 @@ export const TrelloPanel = ({
   const [novaLista, setNovaLista] = useState('');
   const [novaListaPessoal, setNovaListaPessoal] = useState(false);
   const [novaFichaPorLista, setNovaFichaPorLista] = useState({});
+  const [composerAbertoListaId, setComposerAbertoListaId] = useState(null);
   const [editando, setEditando] = useState(null);
   const [compartilharAberto, setCompartilharAberto] = useState(false);
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
@@ -961,6 +962,28 @@ export const TrelloPanel = ({
   const criarFicha = async (lista) => {
     const titulo = (novaFichaPorLista[lista.cr4a1_listaid] || '').trim();
     if (!titulo) return;
+
+    // Limpa o rascunho de imediato para permitir digitação contínua estilo Trello
+    setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
+
+    // Card temporário para aparecer instantaneamente na lista sem delay de rede
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const fichaOtimista = {
+      cr4a1_fichaid: tempId,
+      cr4a1_titulo: titulo,
+      cr4a1_lista_id: lista.cr4a1_listaid,
+      cr4a1_workspace_id: workspaceId,
+      cr4a1_responsavel_login: user,
+      cr4a1_criador_login: user,
+      cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid).length,
+      cr4a1_concluida: 'Não',
+      cr4a1_notificado: 'Sim',
+      cr4a1_etiquetas: '',
+      cr4a1_fixada: 'Não',
+      cr4a1_atividades: registrarAtividade(null, 'criada', user)
+    };
+    setFichas(prev => [...prev, fichaOtimista]);
+
     try {
       const resCriada = await post('cr4a1_fichas', {
         cr4a1_titulo: titulo,
@@ -968,14 +991,15 @@ export const TrelloPanel = ({
         cr4a1_workspace_id: workspaceId,
         cr4a1_responsavel_login: user,
         cr4a1_criador_login: user,
-        cr4a1_ordem: fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid).length,
+        cr4a1_ordem: fichaOtimista.cr4a1_ordem,
         cr4a1_concluida: 'Não',
         cr4a1_notificado: 'Sim',
         cr4a1_etiquetas: '',
         cr4a1_fixada: 'Não',
-        cr4a1_atividades: registrarAtividade(null, 'criada', user)
+        cr4a1_atividades: fichaOtimista.cr4a1_atividades
       });
       const criada = await resCriada.json();
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === tempId ? { ...f, ...criada } : f));
       await notificarMencoes({
         textoNovo: titulo,
         textoAntigo: '',
@@ -987,10 +1011,12 @@ export const TrelloPanel = ({
         workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
         lista: lista.cr4a1_nome
       });
-      setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
       recarregar();
       await executarAutomacoes(criada, lista.cr4a1_listaid, 'criada');
-    } catch { toast.error('Erro ao criar ficha.'); }
+    } catch {
+      setFichas(prev => prev.filter(f => f.cr4a1_fichaid !== tempId));
+      toast.error('Erro ao criar ficha.');
+    }
   };
 
   // Ao concluir uma ficha com recorrência configurada, cria sozinha a próxima ocorrência (nova
@@ -2825,23 +2851,79 @@ export const TrelloPanel = ({
                       );
                     })}
                     {provided.placeholder}
+                    {/* Ficha Rascunho em tempo real (como no Trello) */}
+                    {composerAbertoListaId === lista.cr4a1_listaid && (
+                      <div className="flex flex-col shrink-0 min-h-fit gap-2 rounded-xl border-2 border-primary/50 bg-card p-3 shadow-md transition-all animate-in fade-in-50 duration-150">
+                        <textarea
+                          ref={el => {
+                            if (el) {
+                              el.style.height = 'auto';
+                              el.style.height = `${Math.max(48, el.scrollHeight)}px`;
+                            }
+                          }}
+                          value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: val }));
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${Math.max(48, e.target.scrollHeight)}px`;
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              criarFicha(lista);
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setComposerAbertoListaId(null);
+                              setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
+                            }
+                          }}
+                          placeholder="Insira um título para esta ficha..."
+                          rows={2}
+                          autoFocus
+                          className="w-full resize-none bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none"
+                        />
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => criarFicha(lista)}
+                            disabled={!(novaFichaPorLista[lista.cr4a1_listaid] || '').trim()}
+                            className="h-8 px-3 text-xs font-semibold shadow-xs"
+                          >
+                            Adicionar ficha
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setComposerAbertoListaId(null);
+                              setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }));
+                            }}
+                            className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg"
+                            title="Cancelar (Esc)"
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </Droppable>
 
-              <div className="mt-auto flex flex-col gap-1.5 pt-1 shrink-0">
-                <form
-                  onSubmit={e => { e.preventDefault(); criarFicha(lista); }}
-                  className="flex gap-1.5"
-                >
-                  <Input
-                    value={novaFichaPorLista[lista.cr4a1_listaid] || ''}
-                    onChange={e => setNovaFichaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
-                    placeholder="Nova ficha..."
-                    className="h-9 bg-card"
-                  />
-                  <Button type="submit" size="sm" variant="outline" aria-label="Adicionar ficha"><Plus className="size-4" /></Button>
-                </form>
+              <div className="mt-auto flex flex-col gap-1 pt-1 shrink-0">
+                {composerAbertoListaId !== lista.cr4a1_listaid && (
+                  <button
+                    type="button"
+                    onClick={() => setComposerAbertoListaId(lista.cr4a1_listaid)}
+                    className="flex items-center gap-2 w-full rounded-xl px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground transition-all group text-left"
+                  >
+                    <Plus className="size-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    <span>Adicionar uma ficha</span>
+                  </button>
+                )}
                 {fichasModelos.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
