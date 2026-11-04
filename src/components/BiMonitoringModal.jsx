@@ -146,21 +146,21 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] sm:!max-h-[92vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
           {/* Header */}
-          <div className="shrink-0 p-4 sm:p-6 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
+          <div className="shrink-0 p-3 sm:p-4 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="size-9 sm:size-10 rounded-2xl bg-[#fff3e0] text-[#f57c00] flex shrink-0 items-center justify-center shadow-sm">
+              <div className="size-8 sm:size-9 rounded-2xl bg-[#fff3e0] text-[#f57c00] flex shrink-0 items-center justify-center shadow-sm">
                 <Activity className="size-4 sm:size-5" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-base sm:text-xl font-bold flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-sm sm:text-lg font-bold flex flex-wrap items-center gap-2">
                   Central de Monitoramento dos BIs
                   <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1]">
                     Painel do Administrador
                   </span>
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                <DialogDescription className="hidden sm:block text-xs text-muted-foreground mt-0.5 line-clamp-1">
                   Acompanhamento em tempo real das atualizações agendadas, capacidade diária e diagnósticos de erros de todos os relatórios.
                 </DialogDescription>
               </div>
@@ -183,92 +183,88 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
 
           {/* Cards de Resumo KPI */}
           {data?.summary && (
-            <div className="shrink-0 px-6 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="shrink-0 px-6 pt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Total */}
               <div
                 onClick={() => setStatusFilter('ALL')}
                 className={cn(
-                  "cursor-pointer p-3.5 rounded-2xl border transition-all boing-effect",
+                  "cursor-pointer px-3 py-2 rounded-2xl border transition-all boing-effect flex items-center justify-between gap-2",
                   statusFilter === 'ALL'
                     ? "border-[#f57c00] bg-[#fff8f0] shadow-sm ring-2 ring-[#f57c00]/20"
                     : "border-border bg-card hover:bg-muted/40"
                 )}
               >
-                <div className="flex justify-between items-center text-xs text-muted-foreground font-medium">
-                  <span>Total de BIs</span>
-                  <Clock className="size-4 text-[#f57c00]" />
+                <div className="min-w-0">
+                  <span className="text-xs text-muted-foreground font-medium">Total de BIs</span>
+                  <div className="text-xl font-bold text-foreground leading-tight">
+                    {data.summary.total}
+                  </div>
                 </div>
-                <div className="mt-1 text-2xl font-bold text-foreground">
-                  {data.summary.total}
-                </div>
-                <span className="text-[11px] text-muted-foreground">Monitorados</span>
+                <Clock className="size-4 text-[#f57c00] shrink-0" />
               </div>
 
               {/* Sucesso */}
               <div
                 onClick={() => setStatusFilter('COMPLETED')}
                 className={cn(
-                  "cursor-pointer p-3.5 rounded-2xl border transition-all boing-effect",
+                  "cursor-pointer px-3 py-2 rounded-2xl border transition-all boing-effect flex items-center justify-between gap-2",
                   statusFilter === 'COMPLETED'
                     ? "border-emerald-500 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20"
                     : "border-border bg-card hover:bg-muted/40"
                 )}
               >
-                <div className="flex justify-between items-center text-xs text-emerald-700 font-medium">
-                  <span>Atualizados</span>
-                  <CheckCircle2 className="size-4 text-emerald-600" />
+                <div className="min-w-0">
+                  <span className="text-xs text-emerald-700 font-medium">Atualizados</span>
+                  <div className="text-xl font-bold text-emerald-700 leading-tight">
+                    {data.summary.completed}
+                  </div>
                 </div>
-                <div className="mt-1 text-2xl font-bold text-emerald-700">
-                  {data.summary.completed}
-                </div>
-                <span className="text-[11px] text-emerald-600/80">Concluídos com sucesso</span>
+                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
               </div>
 
               {/* Falhas */}
               <div
                 onClick={() => setStatusFilter('FAILED')}
                 className={cn(
-                  "cursor-pointer p-3.5 rounded-2xl border transition-all boing-effect",
+                  "cursor-pointer px-3 py-2 rounded-2xl border transition-all boing-effect flex items-center justify-between gap-2",
                   statusFilter === 'FAILED'
                     ? "border-red-500 bg-red-50/80 shadow-sm ring-2 ring-red-500/20"
                     : "border-border bg-card hover:bg-muted/40",
                   data.summary.failed > 0 && "border-red-200 bg-red-50/30"
                 )}
               >
-                <div className="flex justify-between items-center text-xs text-red-700 font-medium">
-                  <span>Falhas Recentes</span>
-                  <AlertTriangle className={cn("size-4 text-red-600", data.summary.failed > 0 && "animate-pulse")} />
+                <div className="min-w-0">
+                  <span className="text-xs text-red-700 font-medium">Falhas Recentes</span>
+                  <div className="text-xl font-bold text-red-700 leading-tight">
+                    {data.summary.failed}
+                  </div>
                 </div>
-                <div className="mt-1 text-2xl font-bold text-red-700">
-                  {data.summary.failed}
-                </div>
-                <span className="text-[11px] text-red-600/80">Requerem atenção técnica</span>
+                <AlertTriangle className={cn("size-4 text-red-600 shrink-0", data.summary.failed > 0 && "animate-pulse")} />
               </div>
 
               {/* Em Andamento */}
               <div
                 onClick={() => setStatusFilter('IN_PROGRESS')}
                 className={cn(
-                  "cursor-pointer p-3.5 rounded-2xl border transition-all boing-effect",
+                  "cursor-pointer px-3 py-2 rounded-2xl border transition-all boing-effect flex items-center justify-between gap-2",
                   statusFilter === 'IN_PROGRESS'
                     ? "border-blue-500 bg-blue-50/80 shadow-sm ring-2 ring-blue-500/20"
                     : "border-border bg-card hover:bg-muted/40"
                 )}
               >
-                <div className="flex justify-between items-center text-xs text-blue-700 font-medium">
-                  <span>Em Andamento</span>
-                  <RefreshCw className="size-4 text-blue-600 animate-spin" />
+                <div className="min-w-0">
+                  <span className="text-xs text-blue-700 font-medium">Em Andamento</span>
+                  <div className="text-xl font-bold text-blue-700 leading-tight">
+                    {data.summary.inProgress}
+                  </div>
                 </div>
-                <div className="mt-1 text-2xl font-bold text-blue-700">
-                  {data.summary.inProgress}
-                </div>
-                <span className="text-[11px] text-blue-600/80">Atualizando no Power BI</span>
+                <RefreshCw className="size-4 text-blue-600 shrink-0 animate-spin" />
               </div>
             </div>
           )}
 
           {/* Barra de Ferramentas / Filtros */}
-          <div className="shrink-0 px-6 py-3 border-b border-border/80 flex flex-wrap gap-3 items-center justify-between">
+          <div className="shrink-0 px-6 py-2 border-b border-border/80 flex flex-wrap gap-3 items-center justify-between">
             {/* Campo de Busca */}
             <div className="relative flex-1 min-w-[240px] max-w-md">
               <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
