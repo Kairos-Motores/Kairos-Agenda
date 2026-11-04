@@ -903,7 +903,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
           {/* Modal de Detalhes da Falha na Atualização (Apenas ADMIN) */}
           {errorModalData && (
             <Dialog open={!!errorModalData} onOpenChange={(open) => { if (!open) setErrorModalData(null); }}>
-              <DialogContent className="max-w-2xl !z-[10000005]" overlayClassName="!z-[10000004]">
+              <DialogContent className="max-w-2xl sm:max-w-3xl lg:max-w-4xl !z-[10000005]" overlayClassName="!z-[10000004]">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-red-600">
                     <AlertTriangle className="size-5 text-red-600" />

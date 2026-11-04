@@ -20,7 +20,7 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
 
   return (
     <Dialog open={isReallyOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-xl">
         <DialogHeader>
           <DialogTitle><CalendarClock className="size-5 text-[#f57c00]" /> Visitas do Dia</DialogTitle>
         </DialogHeader>

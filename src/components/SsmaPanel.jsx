@@ -570,7 +570,7 @@ const AtividadeForm = ({ data, isAdmin, tecnicos, allUsers, tiposDisponiveis, on
 
     return (
         <Dialog open onOpenChange={(open) => !open && onCancel()}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl sm:max-w-3xl lg:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>
                         <span className="material-symbols-rounded" style={{ color: ACCENT }}>health_and_safety</span>

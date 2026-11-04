@@ -15,7 +15,7 @@ export const AttachmentPreviewDialog = ({ anexo, onClose }) => {
   if (!anexo) return null;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl sm:max-w-5xl sm:w-[90vw]">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 pr-6">
             <span className="truncate">{anexo.name}</span>

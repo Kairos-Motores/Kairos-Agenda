@@ -501,7 +501,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
       {/* Modal Secundário de Detalhes da Falha Técnica */}
       {selectedError && (
         <Dialog open={!!selectedError} onOpenChange={(open) => { if (!open) setSelectedError(null); }}>
-          <DialogContent className="max-w-2xl !z-[10000010]" overlayClassName="!z-[10000009]">
+          <DialogContent className="max-w-2xl sm:max-w-4xl !z-[10000010]" overlayClassName="!z-[10000009]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="size-5 text-red-600" />

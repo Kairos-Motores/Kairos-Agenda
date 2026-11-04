@@ -135,7 +135,7 @@ export const VisitaModal = ({ isOpen, onClose, onSave, currentUser, organizacoes
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle><MapPin className="size-5" style={{ color: ACCENT }} /> {editingVisita ? 'Editar Visita' : 'Agendar Visita'}</DialogTitle>
         </DialogHeader>

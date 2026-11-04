@@ -2884,7 +2884,7 @@ export const TrelloPanel = ({
 
       {editando && (
         <Dialog open onOpenChange={(open) => !open && setEditando(null)}>
-          <DialogContent className="max-w-2xl h-[92dvh] sm:h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogContent className="max-w-2xl sm:max-w-4xl lg:max-w-5xl h-[92dvh] sm:h-[90vh] p-0 overflow-hidden flex flex-col">
             <FichaForm
               inicial={editando.form}
               listas={listasVisiveis}
@@ -3825,7 +3825,7 @@ const FichaForm = ({
       {/* MODAL DE PRÉ-VISUALIZAÇÃO DA NOTA DENTRO DA FICHA */}
       {notaEmVisualizacao && (
         <Dialog open onOpenChange={(open) => !open && setNotaEmVisualizacao(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-xl sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="size-5 text-primary" />
@@ -4028,7 +4028,7 @@ const ArquivadasDialog = ({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl sm:max-w-4xl lg:max-w-5xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Archive className="size-5 text-primary" /> Espaço de Fichas Arquivadas
@@ -4214,7 +4214,7 @@ const CompartilharDialog = ({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle><Users className="size-5" /> Compartilhar quadro</DialogTitle>
           <DialogDescription>{workspace?.cr4a1_nome}</DialogDescription>
@@ -4565,7 +4565,7 @@ const ExportarListaDialog = ({ lista, fichas, etiquetas, allUsers, workspaceNome
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl h-[92dvh] sm:h-[92vh] flex flex-col p-3 sm:p-6 overflow-hidden">
+      <DialogContent className="max-w-3xl sm:max-w-4xl lg:max-w-5xl h-[92dvh] sm:h-[92vh] flex flex-col p-3 sm:p-6 overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="size-5 text-primary" />
@@ -4982,7 +4982,7 @@ const EtiquetasDialog = ({ etiquetas, onCreate, onEdit, onDelete, onClose }) => 
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle><Tag className="size-5" /> Etiquetas do quadro</DialogTitle>
           <DialogDescription>Crie etiquetas com cor e estilo para organizar as fichas.</DialogDescription>
@@ -5089,7 +5089,7 @@ const ModelosDialog = ({ modelos, podeGerenciar, onSalvarComoModelo, onAplicar, 
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle><LayoutTemplate className="size-5" /> Modelos de quadro</DialogTitle>
           <DialogDescription>Reaproveite a estrutura de listas de um quadro em qualquer workspace.</DialogDescription>
@@ -5179,7 +5179,7 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg sm:max-w-2xl max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle><Zap className="size-5" /> Automações da lista</DialogTitle>
           <DialogDescription>Regras aplicadas às fichas da lista &quot;{lista.cr4a1_nome}&quot;.</DialogDescription>
@@ -5338,7 +5338,7 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle><Palette className="size-5" /> Fundo do seu Trello</DialogTitle>
           <DialogDescription>É só seu — mesmo dividindo o quadro com outras pessoas, cada uma vê o fundo que escolheu.</DialogDescription>

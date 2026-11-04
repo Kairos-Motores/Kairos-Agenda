@@ -201,7 +201,7 @@ export const EventModal = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-xl" showClose={false}>
+            <DialogContent className="max-w-xl sm:max-w-2xl lg:max-w-3xl" showClose={false}>
                 <div className="sticky top-0 z-20 -mx-4 -mt-3 mb-4 flex items-center justify-between border-b border-border/50 bg-card/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6 sm:py-3">
                     <button onClick={onClose} aria-label="Fechar" className="flex size-9 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <X className="size-[18px]" />

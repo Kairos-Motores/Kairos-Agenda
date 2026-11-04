@@ -191,7 +191,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-2xl" showClose={false}>
+            <DialogContent className="max-w-2xl sm:max-w-4xl lg:max-w-5xl" showClose={false}>
                 <DialogHeader className="pr-0">
                     <DialogTitle>
                         <Settings className="size-5 text-primary" /> Configurações

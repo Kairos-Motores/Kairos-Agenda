@@ -109,7 +109,7 @@ export const WorkspaceModal = ({ isOpen, onClose, onSave, allUsers = [], userRol
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg sm:max-w-2xl lg:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle><Rocket className="size-5 text-primary" /> {editingWorkspace ? 'Editar Workspace' : 'Novo Workspace'}</DialogTitle>
                 </DialogHeader>
