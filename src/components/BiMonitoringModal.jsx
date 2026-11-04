@@ -154,13 +154,13 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
                 <Activity className="size-4 sm:size-5" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-sm sm:text-lg font-bold flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-sm lg:text-lg font-bold flex flex-wrap items-center gap-2">
                   Central de Monitoramento dos BIs
                   <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1]">
                     Painel do Administrador
                   </span>
                 </DialogTitle>
-                <DialogDescription className="hidden sm:block text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                <DialogDescription className="hidden lg:block text-xs text-muted-foreground mt-0.5 line-clamp-1">
                   Acompanhamento em tempo real das atualizações agendadas, capacidade diária e diagnósticos de erros de todos os relatórios.
                 </DialogDescription>
               </div>
@@ -183,7 +183,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
 
           {/* Cards de Resumo KPI */}
           {data?.summary && (
-            <div className="shrink-0 px-6 pt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="shrink-0 px-4 sm:px-6 pt-3 grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               {/* Total */}
               <div
                 onClick={() => setStatusFilter('ALL')}
