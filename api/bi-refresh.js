@@ -29,6 +29,8 @@ function checkAccess(userRoleValue, allowedRoles) {
   return rolesArray.some(role => allowedRoles.includes(role));
 }
 
+const BI_MONITOR_ROLES = ['ADMIN', 'GESTOR_BI', 'BI_ADMIN'];
+
 async function getDataverseToken() {
   const now = Date.now();
   if (dataverseToken && now < dataverseTokenExp - 60000) return dataverseToken;
@@ -161,8 +163,8 @@ export default async function handler(req, res) {
 
       // 1.2 Consulta da cota pessoal do usuário logado
       if (myQuota === 'true') {
-        const isAdmin = checkAccess(userRole, ['ADMIN']);
-        if (isAdmin) {
+        const isManager = checkAccess(userRole, BI_MONITOR_ROLES);
+        if (isManager) {
           return res.status(200).json({
             ok: true,
             canRefresh: true,
@@ -199,12 +201,12 @@ export default async function handler(req, res) {
         });
       }
 
-      // 1.3 Central de Monitoramento (Opção 2 - Apenas ADMIN)
+      // 1.3 Central de Monitoramento (Opção 2 - ADMIN ou Gestores de BI)
       if (all === 'true') {
-        if (!checkAccess(userRole, ['ADMIN'])) {
+        if (!checkAccess(userRole, BI_MONITOR_ROLES)) {
           return res.status(403).json({
             ok: false,
-            error: 'Acesso negado. Apenas administradores têm acesso à central de monitoramento de todos os BIs.'
+            error: 'Acesso negado. Apenas administradores e gestores de BI têm acesso à central de monitoramento de todos os BIs.'
           });
         }
 
@@ -441,13 +443,13 @@ export default async function handler(req, res) {
       }
 
       // 2.3 Disparar Atualização sob Demanda
-      const isAdmin = checkAccess(userRole, ['ADMIN']);
+      const isManager = checkAccess(userRole, BI_MONITOR_ROLES);
       let userQuotaCfg = null;
       let recordObj = null;
       const todayStr = getBrazilDateString(new Date());
 
       // Validação de segurança e quota
-      if (!isAdmin) {
+      if (!isManager) {
         if (!username) {
           return res.status(403).json({
             ok: false,
@@ -497,10 +499,10 @@ export default async function handler(req, res) {
         // Limpa cache consolidado para forçar atualização no próximo fetch
         bulkCache.timestamp = 0;
 
-        // Se não for admin, contabiliza o uso no Dataverse
+        // Se não for gestor/admin, contabiliza o uso no Dataverse
         let remaining = null;
         let used = null;
-        if (!isAdmin && recordObj && userQuotaCfg) {
+        if (!isManager && recordObj && userQuotaCfg) {
           const cfg = recordObj.data;
           if (!cfg.usage) cfg.usage = {};
           if (!cfg.usage[todayStr]) cfg.usage[todayStr] = {};

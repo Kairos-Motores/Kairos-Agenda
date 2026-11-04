@@ -6,8 +6,13 @@ export const ROLES = {
   QUALIDADE: 'QUALIDADE',
   COMUM: 'COMUM',
   BI_USER: 'BI_VISUALIZER', // <--- Sua nova role de BI
-  FINANCEIRO: 'FINANCEIRO'
+  FINANCEIRO: 'FINANCEIRO',
+  GESTOR_BI: 'GESTOR_BI',
+  BI_ADMIN: 'BI_ADMIN'
 };
+
+// Roles com acesso à Central de Monitoramento e Atualizações dos BIs
+export const BI_MONITOR_ROLES = [ROLES.ADMIN, ROLES.GESTOR_BI, ROLES.BI_ADMIN];
 
 // Normaliza a role do Dataverse (string única, string separada por vírgula, ou já um array) em array limpo
 export const parseRoles = (userRoleValue) => {
@@ -37,4 +42,9 @@ export const checkAccess = (userRoleValue, allowedRoles) => {
 // que só reconhece a string exata "COORD" e ignora as variantes com sufixo de área.
 export const hasCoordRole = (userRoleValue) => {
   return parseRoles(userRoleValue).some(role => role.startsWith('COORD'));
+};
+
+// Verifica se o usuário tem permissão para acessar a Central de Monitoramento e Atualizações dos BIs
+export const canAccessBiMonitoring = (userRoleValue) => {
+  return checkAccess(userRoleValue, BI_MONITOR_ROLES);
 };

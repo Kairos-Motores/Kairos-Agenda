@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { checkAccess } from '../utils/permissions';
+import { checkAccess, canAccessBiMonitoring } from '../utils/permissions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import ReactDOM from 'react-dom';
 import * as pbi from 'powerbi-client';
@@ -113,6 +113,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
 
   // Estados para atualizações do Power BI
   const isAdmin = checkAccess(userRole, ['ADMIN']);
+  const canAccessMonitoring = canAccessBiMonitoring(userRole);
   const [refreshDataMap, setRefreshDataMap] = useState({});
   const [isTriggeringRefresh, setIsTriggeringRefresh] = useState(false);
   const [errorModalData, setErrorModalData] = useState(null);
@@ -151,8 +152,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
     return () => { isMounted = false; };
   }, [user, userRole]);
 
-  const canTriggerRefresh = isAdmin || Boolean(myQuota?.canRefresh);
-  const isQuotaExceeded = !isAdmin && myQuota && myQuota.remaining <= 0;
+  const canTriggerRefresh = canAccessMonitoring || Boolean(myQuota?.canRefresh);
+  const isQuotaExceeded = !canAccessMonitoring && myQuota && myQuota.remaining <= 0;
 
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -237,7 +238,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
       });
       const result = await res.json();
       if (result.ok) {
-        if (!isAdmin && result.quota) {
+        if (!canAccessMonitoring && result.quota) {
           toast.success(`Atualização do Power BI iniciada! (Restam ${result.quota.remaining} de ${result.quota.dailyLimit} hoje)`);
           setMyQuota(prev => ({
             ...prev,
@@ -439,12 +440,12 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
             <BarChart3 className="size-5 text-[#f57c00]" />
             Painéis e Indicadores
           </h2>
-          {isAdmin && (
+          {canAccessMonitoring && (
             <Button
               onClick={() => setIsMonitoringModalOpen(true)}
               className="font-bold flex items-center gap-2"
               style={{ background: '#f57c00', color: '#fff' }}
-              title="Central de Monitoramento e Atualizações de todos os BIs (Apenas Administrador)"
+              title="Central de Monitoramento e Atualizações de todos os BIs"
             >
               <Activity className="size-4" />
               Monitor de Atualizações
@@ -782,8 +783,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
                             Última atualização: Falhou ({formatRefreshDistance(refInfo.lastRefresh.endTime || refInfo.lastRefresh.startTime)})
                           </span>
 
-                          {/* Botão Ver Motivo do Erro (Apenas ADMIN) */}
-                          {isAdmin && refInfo.lastFailedRefresh && (
+                          {/* Botão Ver Motivo do Erro (ADMIN ou Gestor de BI) */}
+                          {canAccessMonitoring && refInfo.lastFailedRefresh && (
                             <button
                               onClick={() => setErrorModalData({ reportTitle: activeTab.bi.title, ...refInfo.lastFailedRefresh })}
                               className="boing-effect"
@@ -824,7 +825,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
                         ? `Você atingiu seu limite diário de atualizações (${myQuota?.dailyLimit}/${myQuota?.dailyLimit}).`
                         : refreshDataMap[activeTab.bi.id]?.isRefreshing
                           ? 'Atualização já em andamento no Power BI'
-                          : !isAdmin && myQuota
+                          : !canAccessMonitoring && myQuota
                             ? `Atualizar dados da fonte no Power BI (${myQuota.remaining} restante${myQuota.remaining === 1 ? '' : 's'} hoje)`
                             : 'Atualizar dados da fonte no Power BI'
                     }
@@ -848,17 +849,17 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
                       ? 'Atualizando...'
                       : isQuotaExceeded
                         ? `Limite Atingido (${myQuota?.dailyLimit}/${myQuota?.dailyLimit})`
-                        : !isAdmin && myQuota
+                        : !canAccessMonitoring && myQuota
                           ? `Atualizar Dados (${myQuota.usedToday}/${myQuota.dailyLimit})`
                           : 'Atualizar Dados'}
                   </Button>
                 )}
 
-                {/* Botão Central de Monitoramento (Apenas ADMIN) */}
-                {isAdmin && (
+                {/* Botão Central de Monitoramento (ADMIN ou Gestor de BI) */}
+                {canAccessMonitoring && (
                   <Button
                     onClick={() => setIsMonitoringModalOpen(true)}
-                    title="Abrir Central de Monitoramento de todos os BIs (Apenas Administrador)"
+                    title="Abrir Central de Monitoramento de todos os BIs"
                     className="font-bold flex items-center gap-1.5"
                     style={{ background: '#fff3e0', color: '#f57c00' }}
                   >
@@ -966,8 +967,8 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
         document.body
       )}
 
-      {/* Central de Monitoramento dos BIs (Apenas ADMIN) */}
-      {isAdmin && isMonitoringModalOpen && (
+      {/* Central de Monitoramento dos BIs (ADMIN ou Gestor de BI) */}
+      {canAccessMonitoring && isMonitoringModalOpen && (
         <BiMonitoringModal
           isOpen={isMonitoringModalOpen}
           onClose={() => setIsMonitoringModalOpen(false)}

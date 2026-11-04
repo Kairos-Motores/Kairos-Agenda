@@ -157,7 +157,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
                 <DialogTitle className="text-sm lg:text-lg font-bold flex flex-wrap items-center gap-2">
                   Central de Monitoramento dos BIs
                   <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1]">
-                    Painel do Administrador
+                    Gestão de Atualizações
                   </span>
                 </DialogTitle>
                 <DialogDescription className="hidden lg:block text-xs text-muted-foreground mt-0.5 line-clamp-1">
@@ -339,7 +339,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
                       <th className="py-3 px-4">Agendamentos Diários</th>
                       <th className="py-3 px-4 text-center">Execuções Hoje</th>
                       <th className="py-3 px-4">Última Atualização</th>
-                      <th className="py-3 px-4 text-right">Ações (Admin)</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
