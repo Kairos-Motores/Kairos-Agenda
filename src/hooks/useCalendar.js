@@ -2389,7 +2389,7 @@ export const useCalendar = () => {
             if (!response.ok) throw new Error(await response.text());
 
             setGoogleEvents([]);
-            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ? { ...u, cr4a1_google_conectado_em: null } : u));
+            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ? { ...u, cr4a1_googleconectadoem: null, cr4a1_google_conectado_em: null } : u));
             toast.success("Google Calendar desconectado.");
         } catch (error) {
             console.error("Erro ao desconectar o Google Calendar:", error);

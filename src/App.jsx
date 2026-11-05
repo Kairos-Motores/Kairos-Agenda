@@ -342,11 +342,13 @@ function App() {
     }
   }, [isProfileModalOpen, currentUser]);
 
+  const googleConectadoEm = currentUser?.cr4a1_googleconectadoem || currentUser?.cr4a1_google_conectado_em;
+
   useEffect(() => {
-    if (currentUser?.cr4a1_google_conectado_em && currentUser?.cr4a1_usuarios_agendaid) {
+    if (googleConectadoEm && currentUser?.cr4a1_usuarios_agendaid) {
       fetchGoogleEvents(currentUser.cr4a1_usuarios_agendaid);
     }
-  }, [currentUser?.cr4a1_google_conectado_em, currentUser?.cr4a1_usuarios_agendaid, fetchGoogleEvents]);
+  }, [googleConectadoEm, currentUser?.cr4a1_usuarios_agendaid, fetchGoogleEvents]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1374,7 +1376,7 @@ function App() {
                   </div>
                 </div>
 
-                {appMode === 'calendar' && currentUser?.cr4a1_google_conectado_em && (
+                {appMode === 'calendar' && googleConectadoEm && (
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Calendários externos</div>
                     <label style={{
@@ -2492,10 +2494,17 @@ function App() {
                         Mostre os eventos da sua agenda do Google aqui dentro, só leitura.
                       </span>
                     </div>
-                    {currentUser.cr4a1_google_conectado_em ? (
+                    {googleConectadoEm ? (
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <span className="text-xs text-muted-foreground">
-                          Conectado desde {format(new Date(currentUser.cr4a1_google_conectado_em), "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+                          Conectado desde {(() => {
+                            try {
+                              const d = new Date(googleConectadoEm);
+                              return isNaN(d.getTime()) ? 'recente' : format(d, "d 'de' MMM 'de' yyyy", { locale: ptBR });
+                            } catch {
+                              return 'recente';
+                            }
+                          })()}
                         </span>
                         <Button
                           variant="outline"

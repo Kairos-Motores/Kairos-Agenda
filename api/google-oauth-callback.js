@@ -83,8 +83,8 @@ export default async function handler(req, res) {
     await axios.patch(
       `${DATAVERSE_ENV_URL}/api/data/v9.2/cr4a1_usuarios_agendas(${userId})`,
       {
-        cr4a1_google_refresh_token: encrypt(refresh_token),
-        cr4a1_google_conectado_em: new Date().toISOString()
+        cr4a1_googlerefreshtoken: encrypt(refresh_token),
+        cr4a1_googleconectadoem: new Date().toISOString()
       },
       {
         headers: {

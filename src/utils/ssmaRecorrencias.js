@@ -1,7 +1,17 @@
 import { addDays, startOfDay } from 'date-fns';
 import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
 
-const parseDia = (yyyyMMdd) => startOfDay(new Date(`${yyyyMMdd}T12:00:00`));
+const parseDia = (raw) => {
+    if (!raw) return startOfDay(new Date());
+    const str = String(raw).trim();
+    const datePart = str.split('T')[0];
+    const parsed = new Date(`${datePart}T12:00:00`);
+    if (isNaN(parsed.getTime())) {
+        const fallback = new Date(str);
+        return isNaN(fallback.getTime()) ? startOfDay(new Date()) : startOfDay(fallback);
+    }
+    return startOfDay(parsed);
+};
 
 // Acha o ciclo mais recente de uma recorrência que já venceu (data <= hoje) e ainda não
 // foi gerado como atividade — ou null se nenhum ciclo está pendente. Se vários ciclos

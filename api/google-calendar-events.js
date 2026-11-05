@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       await axios.patch(
         `${DATAVERSE_ENV_URL}/api/data/v9.2/cr4a1_usuarios_agendas(${userId})`,
-        { cr4a1_google_refresh_token: null, cr4a1_google_conectado_em: null },
+        { cr4a1_googlerefreshtoken: null, cr4a1_googleconectadoem: null },
         { headers: dataverseHeaders(dataverseAccessToken) }
       );
       return res.status(200).json({ success: true });
@@ -69,9 +69,9 @@ export default async function handler(req, res) {
 
     const userRes = await axios.get(`${DATAVERSE_ENV_URL}/api/data/v9.2/cr4a1_usuarios_agendas(${userId})`, {
       headers: dataverseHeaders(dataverseAccessToken),
-      params: { '$select': 'cr4a1_google_refresh_token' }
+      params: { '$select': 'cr4a1_googlerefreshtoken' }
     });
-    const encryptedToken = userRes.data.cr4a1_google_refresh_token;
+    const encryptedToken = userRes.data.cr4a1_googlerefreshtoken || userRes.data.cr4a1_google_refresh_token;
     if (!encryptedToken) return res.status(404).json({ error: 'Google Calendar não conectado.' });
 
     const refreshToken = decrypt(encryptedToken);
