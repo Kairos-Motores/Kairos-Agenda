@@ -11,6 +11,7 @@ import { MonthView } from './components/MonthView';
 import { AgendaView } from './components/AgendaView';
 import { CommandPalette } from './components/CommandPalette';
 import { GoogleEventImportModal } from './components/GoogleEventImportModal';
+import { KairosIcon } from './components/KairosIcon';
 import { MiniMonth } from './components/MiniMonth';
 import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
@@ -1668,9 +1669,13 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: appMode === 'trello' ? '20px' : '24px' }}>menu</span>
             </Button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} title="Voltar para a Agenda">
-              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)'), fontSize: appMode === 'trello' ? '22px' : '26px' }}>
-                {appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : (appMode === 'bi' ? 'bar_chart' : 'calendar_month'))}
-              </span>
+              {['visitas', 'notas', 'bi'].includes(appMode) ? (
+                <span className="material-symbols-rounded" style={{ color: '#f57c00', fontSize: appMode === 'trello' ? '22px' : '26px' }}>
+                  {appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : 'bar_chart')}
+                </span>
+              ) : (
+                <KairosIcon size={appMode === 'trello' ? 22 : 26} dark={theme === 'dark'} />
+              )}
               <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : (appMode === 'bi' ? 'Painéis BI' : 'Kairós'))}</span>
             </h1>
 
