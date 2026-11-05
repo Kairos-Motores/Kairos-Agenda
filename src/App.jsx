@@ -7,6 +7,7 @@ import { BI_CONFIG } from './config/biConfig';
 import { Toaster, toast } from 'react-hot-toast';
 import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
+import { MonthView } from './components/MonthView';
 import { AgendaView } from './components/AgendaView';
 import { CommandPalette } from './components/CommandPalette';
 import { GoogleEventImportModal } from './components/GoogleEventImportModal';
@@ -39,6 +40,14 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Checkbox } from './components/ui/checkbox';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+} from './components/ui/dropdown-menu';
 
 const DashboardPanel = React.lazy(() => import('./components/DashboardPanel').then(m => ({ default: m.DashboardPanel })));
 const NotesPanel = React.lazy(() => import('./components/NotesPanel').then(m => ({ default: m.NotesPanel })));
@@ -112,6 +121,16 @@ function App() {
     { id: '3days', label: `${customDaysCount} Dias`, icon: 'view_timeline' },
     { id: 'day', label: 'Dia', icon: 'view_day' }
   ], [customDaysCount]);
+
+  const viewLabels = useMemo(() => ({
+    day: 'Dia',
+    week: 'Semana',
+    month: 'Mês',
+    year: 'Ano',
+    agenda: 'Programação',
+    '3days': `${customDaysCount} dias`,
+    list: 'Fichas'
+  }), [customDaysCount]);
 
   // --- NOVOS ESTADOS DE BUSCA NO MENU SANDUÍCHE ---
   const [workspaceSearchTerm, setWorkspaceSearchTerm] = useState('');
@@ -260,6 +279,30 @@ function App() {
   const [showGoogleEvents, setShowGoogleEvents] = useState(() => {
     try {
       const saved = localStorage.getItem('kairos_show_google_events');
+      return saved === null ? true : JSON.parse(saved);
+    } catch {
+      return true;
+    }
+  });
+  const [showWeekends, setShowWeekends] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kairos_show_weekends');
+      return saved === null ? true : JSON.parse(saved);
+    } catch {
+      return true;
+    }
+  });
+  const [showDeclinedEvents, setShowDeclinedEvents] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kairos_show_declined_events');
+      return saved === null ? true : JSON.parse(saved);
+    } catch {
+      return true;
+    }
+  });
+  const [showCompletedTasks, setShowCompletedTasks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kairos_show_completed_tasks');
       return saved === null ? true : JSON.parse(saved);
     } catch {
       return true;
@@ -473,7 +516,26 @@ function App() {
     const base = activeWorkspaces.length > 0
       ? filteredEvents
       : (defaultWorkspaceId ? filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId) : filteredEvents);
-    return appMode === 'calendar' ? [...base, ...(showGoogleEvents ? googleEvents : [])] : base;
+    let events = appMode === 'calendar' ? [...base, ...(showGoogleEvents ? googleEvents : [])] : base;
+
+    if (!showDeclinedEvents) {
+      events = events.filter(e => e.cr4a1_status !== 'recusado' && e.responseStatus !== 'declined');
+    }
+
+    if (!showCompletedTasks) {
+      events = events.filter(e => {
+        if (e.cr4a1_status === 'concluido') return false;
+        if (e.cr4a1_subtasks) {
+          try {
+            const sub = typeof e.cr4a1_subtasks === 'string' ? JSON.parse(e.cr4a1_subtasks) : e.cr4a1_subtasks;
+            if (Array.isArray(sub) && sub.length > 0 && sub.every(s => s.completed)) return false;
+          } catch {}
+        }
+        return true;
+      });
+    }
+
+    return events;
   };
 
   useEffect(() => {
@@ -687,13 +749,48 @@ function App() {
           setEditingEvent(null);
           setIsModalOpen(true);
           break;
-        case '1': setView('year'); break;
-        case '2': setView('month'); break;
-        case '3': setView('week'); break;
-        case '4': setView('3days'); break;
-        case '5': setView('day'); break;
-        case '6': setView('list'); break;
-        case '7': setView('agenda'); break;
+        case '1':
+        case 'y':
+        case 'Y':
+          setView('year');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '2':
+        case 'm':
+        case 'M':
+          setView('month');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '3':
+        case 'w':
+        case 'W':
+          setView('week');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '4':
+        case 'x':
+        case 'X':
+          setView('3days');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '5':
+        case 'd':
+        case 'D':
+          setView('day');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '6':
+        case 'l':
+        case 'L':
+          setView('list');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
+        case '7':
+        case 'a':
+        case 'A':
+          setView('agenda');
+          if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar');
+          break;
         default: break;
       }
     };
@@ -1560,18 +1657,18 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER FLEXÍVEL E INTELIGENTE */}
+        {/* HEADER UNIFICADO E COMPACTO (PADRÃO GOOGLE CALENDAR) */}
         <header
           className="app-header is-compact"
           style={appMode === 'trello' ? { padding: '4px 16px', gap: '8px', minHeight: '44px' } : undefined}
         >
-
+          {/* LADO ESQUERDO: Menu, Logo, Navegação (Hoje, <, >), Título do Período */}
           <div className="header-left" style={appMode === 'trello' ? { gap: '8px' } : undefined}>
             <Button variant="ghost" size="icon" className={appMode === 'trello' ? 'size-8' : ''} onClick={() => setIsSidebarOpen(true)} data-tutorial="menu-toggle" aria-label="Abrir menu">
               <span className="material-symbols-rounded" style={{ fontSize: appMode === 'trello' ? '20px' : '24px' }}>menu</span>
             </Button>
             <h1 className="logo boing-effect" onClick={() => { setView('month'); setCurrentDate(new Date()); setAppMode('calendar'); }} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} title="Voltar para a Agenda">
-              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)'), fontSize: appMode === 'trello' ? '22px' : '28px' }}>
+              <span className="material-symbols-rounded" style={{ color: appMode === 'visitas' ? '#f57c00' : (appMode === 'notas' || appMode === 'bi' ? '#f57c00' : 'var(--text-accent)'), fontSize: appMode === 'trello' ? '22px' : '26px' }}>
                 {appMode === 'visitas' ? 'location_on' : (appMode === 'notas' ? 'description' : (appMode === 'bi' ? 'bar_chart' : 'calendar_month'))}
               </span>
               <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : (appMode === 'bi' ? 'Painéis BI' : 'Kairós'))}</span>
@@ -1592,96 +1689,209 @@ function App() {
                 <span>Agenda</span>
               </button>
             ) : (
-              <>
-                <div className="segmented-views" style={{
-                  display: 'inline-flex', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                  borderRadius: '100px', padding: '4px', alignItems: 'center', gap: '2px', boxSizing: 'border-box'
-                }}>
-                  {viewsConfig.map(v => {
-                    const isActive = view === v.id && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode);
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => { setView(v.id); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
-                        className={`boing-effect ${isActive ? 'active' : ''}`}
-                        title={`${v.label} (${viewsConfig.indexOf(v) + 1})`}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '100px', border: 'none',
-                          background: isActive ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent',
-                          color: isActive ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '13px', fontWeight: isActive ? '700' : '500', cursor: 'pointer', whiteSpace: 'nowrap'
-                        }}
-                      >
-                        <span className="material-symbols-rounded" style={{ fontSize: '18px', color: isActive ? '#ffffff' : 'inherit' }}>{v.icon}</span>
-                        <span className="nav-label-collapse">{v.label}</span>
-                      </button>
-                    );
-                  })}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+                <Button variant="secondary" size="sm" onClick={() => setCurrentDate(new Date())} title="Ir para hoje (T)" style={{ borderRadius: '100px', height: '32px', padding: '0 12px', fontWeight: '600', fontSize: '13px' }}>
+                  Hoje
+                </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('prev')} aria-label="Período anterior" title="Período anterior (←)">
+                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_left</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('next')} aria-label="Próximo período" title="Próximo período (→)">
+                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_right</span>
+                  </Button>
                 </div>
 
-                <button
-                  onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
-                  className={`boing-effect ${view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'active' : ''}`}
-                  title="Fichas (6)"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                    border: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
-                    background: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                    color: (view === 'list' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
-                    fontSize: '13px', fontWeight: '600', cursor: 'pointer'
-                  }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
-                  <span className="nav-label-collapse">Fichas</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                  <span style={{ fontSize: '18px', color: 'var(--text-title)', fontWeight: '500', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                    {view === 'day' && format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+                    {view === '3days' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, customDaysCount - 1), 'd MMM', { locale: ptBR })}`}
+                    {view === 'agenda' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, AGENDA_DAYS_WINDOW - 1), 'd MMM', { locale: ptBR })}`}
+                    {!['day', '3days', 'agenda'].includes(view) && format(currentDate, 'MMMM', { locale: ptBR })}
+                  </span>
+                  <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '18px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: '500' }}>
+                    {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
+                  </span>
 
-                <button
-                  onClick={() => { setView('agenda'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
-                  className={`boing-effect ${view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'active' : ''}`}
-                  title="Agenda (7)"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
-                    border: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
-                    background: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-                    color: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
-                    fontSize: '13px', fontWeight: '600', cursor: 'pointer'
-                  }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>event_note</span>
-                  <span className="nav-label-collapse">Agenda</span>
-                </button>
-              </>
+                  {isYearSelectorOpen && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                      {Array.from({ length: 16 }, (_, i) => {
+                        const year = currentDate.getFullYear() - 7 + i;
+                        return (
+                          <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '8px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer', fontWeight: '600' }}>
+                            {year}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
-
           </div>
 
-          <div className="header-profile" data-tutorial="profile" style={appMode === 'trello' ? { gap: '4px' } : undefined}>
-            {appMode === 'trello' && (
+          {/* LADO DIREITO: Ações, Filtros, Dropdown Pill de Visualização, Perfil */}
+          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+            {appMode !== 'trello' && (
               <>
+                {/* Controles contextuais de modo */}
+                {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'day' && (
+                  <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)', marginRight: '4px' }}>
+                    <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Linhas</button>
+                    <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Cartões</button>
+                  </div>
+                )}
+
+                {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === '3days' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px 4px', border: '1px solid var(--border-color)', marginRight: '4px' }}>
+                    <button onClick={() => setCustomDaysCount(c => Math.max(2, c - 1))} disabled={customDaysCount <= 2} title="Diminuir dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount <= 2 ? 'default' : 'pointer', opacity: customDaysCount <= 2 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>remove</span>
+                    </button>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', minWidth: '40px', textAlign: 'center' }}>{customDaysCount}d</span>
+                    <button onClick={() => setCustomDaysCount(c => Math.min(7, c + 1))} disabled={customDaysCount >= 7} title="Aumentar dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount >= 7 ? 'default' : 'pointer', opacity: customDaysCount >= 7 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>add</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Ícones de ação */}
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsCommandPaletteOpen(true)} title="Busca rápida (Ctrl+K)">
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>search</span>
+                </Button>
+                <Button variant="ghost" size="icon" className="size-8" onClick={requestNotificationPermission} title={deviceNotificationPermission === 'granted' ? 'Notificações ativadas' : 'Ativar notificações'}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: deviceNotificationPermission === 'granted' ? 'var(--text-accent)' : undefined }}>
+                    {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
+                  </span>
+                </Button>
                 <NotificationBell user={user} />
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}>
                   <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+                </Button>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsTutorialOpen(true)} title="Tutorial guiado">
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
                 </Button>
                 {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
                   <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
                     <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group</span>
                   </Button>
                 )}
+
+                {/* DROPDOWN PILL DE VISUALIZAÇÕES (GOOGLE CALENDAR STYLE) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="boing-effect"
+                      title="Alterar modo de visualização"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 12px',
+                        borderRadius: '100px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        height: '32px',
+                      }}
+                    >
+                      <span>{viewLabels[view] || 'Mês'}</span>
+                      <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-secondary)' }}>arrow_drop_down</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => { setView('day'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Dia</span>
+                      <span className="text-xs text-muted-foreground font-mono">D</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('week'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Semana</span>
+                      <span className="text-xs text-muted-foreground font-mono">W</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('month'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Mês</span>
+                      <span className="text-xs text-muted-foreground font-mono">M</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('year'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Ano</span>
+                      <span className="text-xs text-muted-foreground font-mono">Y</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('agenda'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Programação</span>
+                      <span className="text-xs text-muted-foreground font-mono">A</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('3days'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">{customDaysCount} dias</span>
+                      <span className="text-xs text-muted-foreground font-mono">X</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                      <span className="flex-1">Fichas</span>
+                      <span className="text-xs text-muted-foreground font-mono">L</span>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuCheckboxItem
+                      checked={showWeekends}
+                      onCheckedChange={(checked) => {
+                        setShowWeekends(checked);
+                        try { localStorage.setItem('kairos_show_weekends', JSON.stringify(checked)); } catch {}
+                      }}
+                    >
+                      Mostrar fins de semana
+                    </DropdownMenuCheckboxItem>
+
+                    <DropdownMenuCheckboxItem
+                      checked={showGoogleEvents}
+                      onCheckedChange={(checked) => {
+                        setShowGoogleEvents(checked);
+                        try { localStorage.setItem('kairos_show_google_events', JSON.stringify(checked)); } catch {}
+                      }}
+                    >
+                      Mostrar Google Agenda
+                    </DropdownMenuCheckboxItem>
+
+                    <DropdownMenuCheckboxItem
+                      checked={showDeclinedEvents}
+                      onCheckedChange={(checked) => {
+                        setShowDeclinedEvents(checked);
+                        try { localStorage.setItem('kairos_show_declined_events', JSON.stringify(checked)); } catch {}
+                      }}
+                    >
+                      Mostrar eventos recusados
+                    </DropdownMenuCheckboxItem>
+
+                    <DropdownMenuCheckboxItem
+                      checked={showCompletedTasks}
+                      onCheckedChange={(checked) => {
+                        setShowCompletedTasks(checked);
+                        try { localStorage.setItem('kairos_show_completed_tasks', JSON.stringify(checked)); } catch {}
+                      }}
+                    >
+                      Mostrar tarefas concluídas
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
+
+            {/* Perfil do usuário */}
             <div
               onClick={() => setIsProfileModalOpen(true)}
               className="boing-effect"
               style={{
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)',
-                borderRadius: '32px', padding: appMode === 'trello' ? '2px 10px 2px 2px' : '4px 12px 4px 4px',
-                border: '1px solid var(--border-color)', fontSize: appMode === 'trello' ? '12px' : '13px', fontWeight: '500'
+                borderRadius: '32px', padding: '2px 8px 2px 2px',
+                border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '500'
               }}
             >
               {currentUser?.cr4a1_foto ? (
-                <img src={currentUser.cr4a1_foto} style={{ width: appMode === 'trello' ? '26px' : '32px', height: appMode === 'trello' ? '26px' : '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                <img src={currentUser.cr4a1_foto} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
-                <span style={{ width: appMode === 'trello' ? '26px' : '32px', height: appMode === 'trello' ? '26px' : '32px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: appMode === 'trello' ? '11px' : '13px' }}>
+                <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '11px' }}>
                   {user?.[0]?.toUpperCase()}
                 </span>
               )}
@@ -1689,153 +1899,37 @@ function App() {
                 {currentUser?.cr4a1_nome_exibicao || user}
               </span>
             </div>
+
             {pendingSyncCount > 0 && (
               <Button
                 variant="ghost"
                 size="icon"
-                className={appMode === 'trello' ? 'relative size-8 text-warning hover:text-warning' : 'relative text-warning hover:text-warning'}
+                className="relative size-8 text-warning hover:text-warning"
                 onClick={syncPendingQueue}
                 disabled={isSyncing || !isOnline}
-                title={isOnline ? `Sincronizar ${pendingSyncCount} alteração(ões) salva(s) offline` : 'Sem internet — sincroniza assim que voltar a conexão'}
+                title={isOnline ? `Sincronizar ${pendingSyncCount} alteração(ões) offline` : 'Sem internet'}
               >
-                <span className={`material-symbols-rounded ${isSyncing ? 'animate-spin' : ''}`}>{isSyncing ? 'progress_activity' : 'cloud_sync'}</span>
+                <span className={`material-symbols-rounded ${isSyncing ? 'animate-spin' : ''}`} style={{ fontSize: '18px' }}>{isSyncing ? 'progress_activity' : 'cloud_sync'}</span>
                 <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-warning-foreground">{pendingSyncCount}</span>
               </Button>
             )}
+
             {appMode !== 'trello' && (
               <Button
                 variant="ghost"
                 size="icon"
+                className="size-8 text-primary hover:text-primary"
                 onClick={() => setIsWatchModalOpen(true)}
                 title="Conectar Galaxy Watch"
-                className="text-primary hover:text-primary"
               >
-                <span className="material-symbols-rounded">watch</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>watch</span>
               </Button>
             )}
-            <Button variant="ghost" size="icon" className={appMode === 'trello' ? 'size-8 text-destructive hover:text-destructive' : 'text-destructive hover:text-destructive'} onClick={logout} title="Sair do sistema">
-              <span className="material-symbols-rounded" style={appMode === 'trello' ? { fontSize: '18px' } : undefined}>logout</span>
+
+            <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={logout} title="Sair do sistema">
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>logout</span>
             </Button>
           </div>
-
-          {appMode !== 'trello' && (
-          <div className="header-bottom">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Button variant="ghost" size="icon" onClick={() => handleNavigate('prev')} aria-label="Período anterior" title="Período anterior (←)">
-                <span className="material-symbols-rounded">chevron_left</span>
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => setCurrentDate(new Date())} title="Ir para hoje (T)">Hoje</Button>
-              <Button variant="ghost" size="icon" onClick={() => handleNavigate('next')} aria-label="Próximo período" title="Próximo período (→)">
-                <span className="material-symbols-rounded">chevron_right</span>
-              </Button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                {view === 'day' && format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-                {view === '3days' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, customDaysCount - 1), 'd MMM', { locale: ptBR })}`}
-                {view === 'agenda' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, AGENDA_DAYS_WINDOW - 1), 'd MMM', { locale: ptBR })}`}
-                {!['day', '3days', 'agenda'].includes(view) && format(currentDate, 'MMMM', { locale: ptBR })}
-              </span>
-              <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                onClick={() => setCurrentDate(new Date())}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentDate(new Date()); } }}
-                role="button"
-                tabIndex={0}
-                className="today-badge boing-effect"
-                title="Ir para hoje (T)"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', height: '36px', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap', cursor: 'pointer' }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '15px', color: 'var(--text-accent)' }}>today</span>
-                <span style={{ textTransform: 'capitalize' }}>{format(now, "EEE, d 'de' MMM", { locale: ptBR })}</span>
-                <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
-                <span>{format(now, 'HH:mm')}</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsCommandPaletteOpen(true)}
-                aria-label="Busca rápida"
-                title="Busca rápida (Ctrl+K)"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <span className="material-symbols-rounded">search</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={requestNotificationPermission}
-                aria-label={deviceNotificationPermission === 'granted' ? 'Notificações no dispositivo ativadas' : 'Ativar notificações neste dispositivo'}
-                title={deviceNotificationPermission === 'granted' ? 'Notificações no dispositivo ativadas (Clique para testar)' : 'Ativar Notificações neste Dispositivo'}
-                className={deviceNotificationPermission === 'granted' ? 'text-primary hover:text-primary' : 'text-muted-foreground hover:text-foreground'}
-              >
-                <span className="material-symbols-rounded">
-                  {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
-                </span>
-              </Button>
-              <NotificationBell user={user} />
-              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'} title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
-                <span className="material-symbols-rounded">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setIsTutorialOpen(true)} data-tutorial="tutorial-trigger" title="Tutorial guiado">
-                <span className="material-symbols-rounded">help</span>
-              </Button>
-              {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
-                <Button variant="ghost" size="icon" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
-                  <span className="material-symbols-rounded">group</span>
-                </Button>
-              )}
-            </div>
-
-            {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'day' && (
-              <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
-                <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
-                <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
-              </div>
-            )}
-
-            {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === '3days' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
-                <button
-                  onClick={() => setCustomDaysCount(c => Math.max(2, c - 1))}
-                  disabled={customDaysCount <= 2}
-                  aria-label="Diminuir número de dias"
-                  title="Diminuir número de dias"
-                  className="boing-effect"
-                  style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount <= 2 ? 'default' : 'pointer', opacity: customDaysCount <= 2 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>remove</span>
-                </button>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', minWidth: '46px', textAlign: 'center' }}>{customDaysCount} dias</span>
-                <button
-                  onClick={() => setCustomDaysCount(c => Math.min(7, c + 1))}
-                  disabled={customDaysCount >= 7}
-                  aria-label="Aumentar número de dias"
-                  title="Aumentar número de dias"
-                  className="boing-effect"
-                  style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount >= 7 ? 'default' : 'pointer', opacity: customDaysCount >= 7 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>add</span>
-                </button>
-              </div>
-            )}
-
-            {isYearSelectorOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {Array.from({ length: 16 }, (_, i) => {
-                  const year = currentDate.getFullYear() - 7 + i;
-                  return <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '10px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer' }}>{year}</button>;
-                })}
-              </div>
-            )}
-          </div>
-          )}
         </header>
 
         <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'visible', justifyContent: 'center' }}>
@@ -1962,15 +2056,19 @@ function App() {
           <main className="main-container" style={{
             flex: 1,
             minWidth: 0,
-            maxWidth: appMode === 'trello' ? '100%' : undefined,
-            // Só força padding zero nas visões de calendário sem respiro (dia/3dias/semana) —
-            // nos outros casos deixa o padding vir da classe .main-container, que já reduz
-            // sozinha em telas estreitas (senão esse valor fixo "vencia" o media query dela).
-            padding: (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['day', '3days', 'week'].includes(view)) ? '0' : undefined,
+            maxWidth: '100%',
+            height: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
+            maxHeight: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
+            overflow: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'hidden' : 'visible',
+            padding: (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['day', '3days', 'week'].includes(view))
+              ? '0'
+              : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '6px 16px 8px 16px' : undefined),
             paddingTop: appMode === 'trello' ? '4px' : undefined,
-            paddingBottom: appMode === 'trello' ? '4px' : '80px',
-            overflow: 'visible',
-            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : 0
+            paddingBottom: appMode === 'trello' ? '4px' : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '8px' : '40px'),
+            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : 0,
+            display: 'flex',
+            flexDirection: 'column',
+            boxSizing: 'border-box'
           }}>
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
@@ -2188,101 +2286,27 @@ function App() {
                   )}
 
                   {view === 'month' && (
-                    <div className="responsive-grid-container" style={{ overflow: 'visible', opacity: 1 }}>
-                      <div style={{
-                        ...(appMode !== 'visitas' && activeWorkspaces.length > 1 ? { background: `linear-gradient(135deg, ${workspaces.filter(w => activeWorkspaces.includes(w.cr4a1_calendarios_workspacesid)).map(w => w.cr4a1_cor_hex || '#3498db').join(', ')})`, padding: '1.5px', borderRadius: '24px' } : {}),
-                        overflow: 'visible',
-                        opacity: 1
-                      }}>
-                        <div
-                          className="calendar-month-grid"
-                          style={{
-                            ...(appMode !== 'visitas' && activeWorkspaces.length <= 1 ? wsBorderStyle : { border: 'none' }),
-                            background: 'var(--bg-primary)',
-                            borderRadius: '22px',
-                            overflow: 'visible',
-                            opacity: 1,
-                            gridTemplateRows: appMode === 'visitas' ? 'repeat(auto-fill, minmax(120px, 1fr))' : undefined,
-                          }}
-                        >
-                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => <b key={i} style={{ textAlign: 'center', color: (i === 0 || i === 6) ? '#e74c3c' : 'var(--text-secondary)', fontWeight: '600', padding: '10px 0', fontSize: '12px' }}>{d}</b>)}
-                          {generateMonthDays(currentDate).map((day) => {
-                            const dateStr = format(day, 'yyyy-MM-dd');
-                            const isToday = format(new Date(), 'yyyy-MM-dd') === dateStr;
-                            const dayEvents = handleGetEventsForDay(day);
-                            return (
-                              <DroppableDay
-                                key={day.toString()}
-                                dateStr={dateStr}
-                                isToday={isToday}
-                                onClick={() => {
-                                  if (appMode === 'visitas') {
-                                    const visitasDoDia = dayEvents.filter(e => e.isVisitaPrincipal);
-                                    if (visitasDoDia.length > 0) {
-                                      handleDayClick(dateStr, visitasDoDia);
-                                    }
-                                  } else {
-                                    setCurrentDate(day);
-                                    setView('day');
-                                  }
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (dayEvents.length > 0 && appMode !== 'visitas') {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    handleDayMouseEnter(dateStr, dayEvents, rect);
-                                  }
-                                }}
-                                onMouseLeave={handleDayMouseLeave}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: isToday ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'transparent', color: isToday ? 'white' : 'var(--text-primary)', fontWeight: isToday ? '700' : '500', fontSize: '12px', marginBottom: '4px', flexShrink: 0 }}>{format(day, 'd')}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, overflow: 'hidden', padding: '0 2px', minWidth: 0, width: '100%' }}>
-                                  {dayEvents.filter(e => !e.isIntervalo).map((e, idx) => {
-                                    const eventAssignees = parseAssignees(e.cr4a1_user_login);
-                                    const eventColor = e.cr4a1_cor || getEventColor(e);
-                                    const typeLayer = getEventTypeLayer(e.cr4a1_tipo, eventTypes);
-                                    let badgeStyle = {
-                                      borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', overflow: 'hidden',
-                                      width: '100%', boxSizing: 'border-box', fontSize: '11px', fontWeight: '600', padding: '2px 4px',
-                                      color: '#fff', background: eventColor, opacity: 1, border: '1px solid rgba(255,255,255,0.2)',
-                                      ...(typeLayer.layer === 'borda' ? typeLayerBorderStyle(typeLayer.color) : {}),
-                                      ...(typeLayer.layer === 'padrao' ? typeLayerPatternStyle(typeLayer.color) : {}),
-                                    };
-                                    if (appMode === 'visitas' && e.isVisitaPrincipal) {
-                                      badgeStyle.fontWeight = 'bold';
-                                      badgeStyle.padding = '3px 5px';
-                                    } else if (appMode !== 'visitas') {
-                                      badgeStyle.opacity = e.cr4a1_privado ? 0.7 : 1;
-                                    }
-                                    return (
-                                      <DraggableEvent key={e.cr4a1_agenda_kairosid} event={e} index={idx}>
-                                        <div
-                                          className="event-badge boing-effect"
-                                          onClick={(ev) => { ev.stopPropagation(); handleViewEvent(e, ev.currentTarget.getBoundingClientRect()); }}
-                                          style={badgeStyle}
-                                        >
-                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                                            {typeLayer.layer === 'icone' && typeLayer.emoji && <span style={{ marginRight: '3px' }}>{typeLayer.emoji}</span>}
-                                            {!e.cr4a1_dia_inteiro && <span style={{ fontWeight: '700', marginRight: '3px' }}>{e.cr4a1_hora_inicio}</span>}
-                                            {e.cr4a1_privado ? '🔒 ' : ''}{e.cr4a1_titulo}
-                                          </span>
-                                          {eventAssignees.length > 1 && (
-                                            <span style={{ display: 'flex', gap: '2px', flexShrink: 0 }} title={eventAssignees.join(', ')}>
-                                              {eventAssignees.slice(0, 3).map((u, i) => (
-                                                <span key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: allUsers.find(au => au.cr4a1_username === u)?.cr4a1_cor || 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.8)' }} />
-                                              ))}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </DraggableEvent>
-                                    );
-                                  })}
-                                </div>
-                              </DroppableDay>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                    <MonthView
+                      currentDate={currentDate}
+                      getEventsForDay={handleGetEventsForDay}
+                      getDisplayEvents={getDisplayEvents}
+                      allUsers={allUsers}
+                      eventTypes={eventTypes}
+                      workspaces={workspaces}
+                      activeWorkspaces={activeWorkspaces}
+                      wsBorderStyle={wsBorderStyle}
+                      appMode={appMode}
+                      showWeekends={showWeekends}
+                      onViewEvent={handleViewEvent}
+                      onDayClick={handleDayClick}
+                      onNavigateToDay={(day) => {
+                        setCurrentDate(day);
+                        setView('day');
+                      }}
+                      onDayMouseEnter={handleDayMouseEnter}
+                      onDayMouseLeave={handleDayMouseLeave}
+                      getEventColor={getEventColor}
+                    />
                   )}
 
                   {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
@@ -2699,24 +2723,27 @@ function App() {
 
         .app-header {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
-            gap: 16px;
-            padding: 16px 24px;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 6px 16px;
+            min-height: 48px;
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 2000;
-            transition: padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1), gap 0.4s;
+            box-sizing: border-box;
+            transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
         }
         
         .app-header.is-compact {
-            padding: 8px 20px;
-            gap: 10px 12px;
+            padding: 6px 16px;
+            min-height: 48px;
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            border-bottom-right-radius: 24px;
+            border-bottom-right-radius: 16px;
         }
 
         @media (min-width: 1025px) {
@@ -2728,8 +2755,17 @@ function App() {
         .header-left {
             display: flex;
             align-items: center;
-            gap: 12px;
-            order: 1;
+            gap: 10px;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            flex-shrink: 0;
             flex-wrap: nowrap;
         }
 
@@ -2737,31 +2773,6 @@ function App() {
             display: flex;
             align-items: center;
             gap: 8px;
-            order: 2;
-            margin-left: auto;
-            transition: all 0.4s ease;
-        }
-
-        .header-bottom {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            order: 3;
-            flex-basis: 100%; 
-            flex-wrap: wrap;
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .app-header.is-compact .header-bottom {
-            order: 3;
-            flex-basis: 100%;
-            margin: 0;
-            justify-content: center;
-        }
-        .app-header.is-compact .header-profile {
-            order: 2;
-            margin-left: auto;
         }
 
         .nav-label-collapse {

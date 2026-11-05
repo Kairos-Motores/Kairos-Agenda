@@ -26,7 +26,7 @@ export const DraggableEvent = ({ event, index, children }) => {
   );
 };
 
-export const DroppableDay = ({ dateStr, children, isToday, onClick, onMouseEnter, onMouseLeave }) => {
+export const DroppableDay = ({ dateStr, children, isToday, onClick, onMouseEnter, onMouseLeave, style, className }) => {
   return (
     <Droppable droppableId={dateStr}>
       {(provided, snapshot) => (
@@ -36,13 +36,14 @@ export const DroppableDay = ({ dateStr, children, isToday, onClick, onMouseEnter
           onClick={onClick}
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
-          className={`calendar-day-card ${snapshot.isDraggingOver ? 'drop-over' : ''} ${isToday ? 'today' : ''}`}
+          className={`calendar-day-card ${snapshot.isDraggingOver ? 'drop-over' : ''} ${isToday ? 'today' : ''} ${className || ''}`}
           style={{
             overflow: 'hidden',
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             opacity: 1,
+            ...style,
           }}
         >
           {children}
