@@ -5,7 +5,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 export const CommandPalette = ({ open, onOpenChange, groups }) => {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent showClose={false} className="max-w-lg p-0 overflow-hidden" overlayClassName="z-[13000]">
+            <DialogContent showClose={false} className="max-w-lg p-0 overflow-hidden">
                 <Command>
                     <CommandInput placeholder="Digite um comando ou busque uma ação..." autoFocus />
                     <CommandList>
