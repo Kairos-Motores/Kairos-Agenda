@@ -210,6 +210,11 @@ function App() {
       return;
     }
 
+    if (draggedEvent?.isExternal || String(draggableId).startsWith('google_')) {
+      toast('Eventos do Google Calendar são somente leitura.', { icon: 'ℹ️' });
+      return;
+    }
+
     if (!draggedEvent.isVisitaPrincipal && !draggedEvent.isIntervalo) {
       moveEvent(draggableId, newDateStr);
       return;
