@@ -4,14 +4,14 @@ import { ptBR } from 'date-fns/locale';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer, typeLayerBorderStyle, typeLayerPatternStyle } from '../utils/eventTypeLayer';
 
-export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, allUsers = [], eventTypes = [], onEdit, dayViewMode = 'timeline' }) => {
-    
+export const DayView = ({ selectedDate, viewType, getEventsForDay, holidays, allUsers = [], eventTypes = [], onEdit, dayViewMode = 'timeline', customDaysCount = 3 }) => {
+
     // Define quantos dias serão renderizados
     let daysToRender = [];
     if (viewType === 'day') {
         daysToRender = [selectedDate];
     } else if (viewType === '3days') {
-        daysToRender = [selectedDate, addDays(selectedDate, 1), addDays(selectedDate, 2)];
+        daysToRender = Array.from({ length: customDaysCount }, (_, i) => addDays(selectedDate, i));
     } else if (viewType === 'week') {
         const start = startOfWeek(selectedDate, { weekStartsOn: 0 }); // Inicia no Domingo
         daysToRender = Array.from({ length: 7 }, (_, i) => addDays(start, i));

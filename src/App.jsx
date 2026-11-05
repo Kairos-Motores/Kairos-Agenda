@@ -7,6 +7,7 @@ import { BI_CONFIG } from './config/biConfig';
 import { Toaster, toast } from 'react-hot-toast';
 import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
+import { AgendaView } from './components/AgendaView';
 import { MiniMonth } from './components/MiniMonth';
 import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
@@ -97,13 +98,16 @@ function App() {
   const roles = useMemo(() => parseRoles(userRole), [userRole]);
   const hasRole = (role) => roles.includes('ADMIN') || roles.includes(role);
 
+  const [customDaysCount, setCustomDaysCount] = useState(3);
+  const AGENDA_DAYS_WINDOW = 14;
+
   const viewsConfig = useMemo(() => [
     { id: 'year', label: 'Ano', icon: 'calendar_view_month' },
     { id: 'month', label: 'Mês', icon: 'calendar_month' },
     { id: 'week', label: 'Semana', icon: 'view_week' },
-    { id: '3days', label: '3 Dias', icon: 'view_timeline' },
+    { id: '3days', label: `${customDaysCount} Dias`, icon: 'view_timeline' },
     { id: 'day', label: 'Dia', icon: 'view_day' }
-  ], []);
+  ], [customDaysCount]);
 
   // --- NOVOS ESTADOS DE BUSCA NO MENU SANDUÍCHE ---
   const [workspaceSearchTerm, setWorkspaceSearchTerm] = useState('');
@@ -607,8 +611,9 @@ function App() {
           setCurrentDate(prev => {
             if (view === 'year') return subYears(prev, 1);
             if (view === 'week') return subDays(prev, 7);
-            if (view === '3days') return subDays(prev, 3);
+            if (view === '3days') return subDays(prev, customDaysCount);
             if (view === 'day') return subDays(prev, 1);
+            if (view === 'agenda') return subDays(prev, AGENDA_DAYS_WINDOW);
             return subMonths(prev, 1);
           });
           break;
@@ -617,8 +622,9 @@ function App() {
           setCurrentDate(prev => {
             if (view === 'year') return addYears(prev, 1);
             if (view === 'week') return addDays(prev, 7);
-            if (view === '3days') return addDays(prev, 3);
+            if (view === '3days') return addDays(prev, customDaysCount);
             if (view === 'day') return addDays(prev, 1);
+            if (view === 'agenda') return addDays(prev, AGENDA_DAYS_WINDOW);
             return addMonths(prev, 1);
           });
           break;
@@ -638,13 +644,14 @@ function App() {
         case '4': setView('3days'); break;
         case '5': setView('day'); break;
         case '6': setView('list'); break;
+        case '7': setView('agenda'); break;
         default: break;
       }
     };
 
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [view, setCurrentDate, setView, setEditingEvent]);
+  }, [view, setCurrentDate, setView, setEditingEvent, customDaysCount]);
 
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
@@ -915,8 +922,9 @@ function App() {
     const isNext = direction === 'next';
     if (view === 'year') setCurrentDate(isNext ? addYears(currentDate, 1) : subYears(currentDate, 1));
     else if (view === 'week') setCurrentDate(isNext ? addDays(currentDate, 7) : subDays(currentDate, 7));
-    else if (view === '3days') setCurrentDate(isNext ? addDays(currentDate, 3) : subDays(currentDate, 3));
+    else if (view === '3days') setCurrentDate(isNext ? addDays(currentDate, customDaysCount) : subDays(currentDate, customDaysCount));
     else if (view === 'day') setCurrentDate(isNext ? addDays(currentDate, 1) : subDays(currentDate, 1));
+    else if (view === 'agenda') setCurrentDate(isNext ? addDays(currentDate, AGENDA_DAYS_WINDOW) : subDays(currentDate, AGENDA_DAYS_WINDOW));
     else setCurrentDate(isNext ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
   };
 
@@ -1482,6 +1490,22 @@ function App() {
                   <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>view_agenda</span>
                   <span className="nav-label-collapse">Fichas</span>
                 </button>
+
+                <button
+                  onClick={() => { setView('agenda'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}
+                  className={`boing-effect ${view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'active' : ''}`}
+                  title="Agenda (7)"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '100px',
+                    border: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? `1px solid ${appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)'}` : '1px solid var(--border-color)',
+                    background: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+                    color: (view === 'agenda' && !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? (appMode === 'visitas' ? '#f57c00' : 'var(--text-accent)') : 'var(--text-primary)',
+                    fontSize: '13px', fontWeight: '600', cursor: 'pointer'
+                  }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>event_note</span>
+                  <span className="nav-label-collapse">Agenda</span>
+                </button>
               </>
             )}
 
@@ -1564,7 +1588,10 @@ function App() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '20px', color: 'var(--text-title)', fontWeight: '400', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                {format(currentDate, view === 'day' ? "EEEE, d 'de' MMMM" : 'MMMM', { locale: ptBR })}
+                {view === 'day' && format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+                {view === '3days' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, customDaysCount - 1), 'd MMM', { locale: ptBR })}`}
+                {view === 'agenda' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, AGENDA_DAYS_WINDOW - 1), 'd MMM', { locale: ptBR })}`}
+                {!['day', '3days', 'agenda'].includes(view) && format(currentDate, 'MMMM', { locale: ptBR })}
               </span>
               <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '20px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
@@ -1616,6 +1643,32 @@ function App() {
               <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
                 <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Linhas</button>
                 <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '18px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }}>Cartões</button>
+              </div>
+            )}
+
+            {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === '3days' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)' }}>
+                <button
+                  onClick={() => setCustomDaysCount(c => Math.max(2, c - 1))}
+                  disabled={customDaysCount <= 2}
+                  aria-label="Diminuir número de dias"
+                  title="Diminuir número de dias"
+                  className="boing-effect"
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount <= 2 ? 'default' : 'pointer', opacity: customDaysCount <= 2 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>remove</span>
+                </button>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', minWidth: '46px', textAlign: 'center' }}>{customDaysCount} dias</span>
+                <button
+                  onClick={() => setCustomDaysCount(c => Math.min(7, c + 1))}
+                  disabled={customDaysCount >= 7}
+                  aria-label="Aumentar número de dias"
+                  title="Aumentar número de dias"
+                  className="boing-effect"
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount >= 7 ? 'default' : 'pointer', opacity: customDaysCount >= 7 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>add</span>
+                </button>
               </div>
             )}
 
@@ -2080,8 +2133,12 @@ function App() {
 
                   {view === 'list' && <ListView events={getDisplayEvents()} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} onDelete={(e) => { setEventToDelete(e); setIsDeleteModalOpen(true); }} workspaces={appMode === 'visitas' ? [] : workspaces} viewMode={listViewMode} onViewModeChange={setListViewMode} />}
 
+                  {view === 'agenda' && (
+                    <AgendaView startDate={currentDate} daysCount={AGENDA_DAYS_WINDOW} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} />
+                  )}
+
                   {['day', '3days', 'week'].includes(view) && (
-                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} dayViewMode={dayViewMode} />
+                    <DayView selectedDate={currentDate} viewType={view} getEventsForDay={handleGetEventsForDay} holidays={holidays} allUsers={allUsers} eventTypes={eventTypes} onEdit={handleViewEvent} dayViewMode={dayViewMode} customDaysCount={customDaysCount} />
                   )}
                 </>
               )}
