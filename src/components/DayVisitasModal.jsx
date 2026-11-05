@@ -1,8 +1,9 @@
-import { CalendarClock, Clock, User } from 'lucide-react';
+import { CalendarClock, Clock, User, Phone, Check, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
-export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [] }) => {
+export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUsers = [], onConfirmarVisita, onRecusarVisita }) => {
   const isReallyOpen = !!(isOpen && visitas && visitas.length > 0);
 
   const getUserName = (login) => {
@@ -26,7 +27,9 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
         </DialogHeader>
 
         <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
-          {visitas?.map((v, idx) => (
+          {visitas?.map((v, idx) => {
+            const isPendente = v.originalData?.cr4a1_status_agendamento === 'Pendente';
+            return (
             <div
               key={v.cr4a1_agenda_kairosid || idx}
               onClick={() => {
@@ -34,6 +37,7 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
                 onClose();
               }}
               className="boing-effect flex flex-col gap-2 rounded-2xl border border-border bg-secondary p-4 cursor-pointer transition-transform"
+              style={isPendente ? { borderColor: '#f57c00', borderStyle: 'dashed' } : undefined}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="text-[15px] font-bold" style={{ color: 'var(--text-title)' }}>
@@ -50,7 +54,13 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
                 {getUserName(v.cr4a1_user_login)}
               </div>
 
-              {(v.originalData?.cr4a1_motivo || v.originalData?.cr4a1_filial) && (
+              {isPendente && (
+                <Badge className="w-fit" style={{ background: '#fff3e0', color: '#f57c00', border: '1px dashed #f57c00' }}>
+                  Solicitado pelo link público — aguardando confirmação
+                </Badge>
+              )}
+
+              {(v.originalData?.cr4a1_motivo || v.originalData?.cr4a1_filial || v.originalData?.cr4a1_contato_publico) && (
                 <div className="mt-1 border-t border-border pt-2 text-xs text-muted-foreground">
                   {v.originalData?.cr4a1_motivo && (
                     <div className="mb-1"><strong>Motivo:</strong> {v.originalData.cr4a1_motivo}</div>
@@ -58,10 +68,28 @@ export const DayVisitasModal = ({ isOpen, onClose, visitas, onEditVisita, allUse
                   {v.originalData?.cr4a1_filial && (
                     <div><strong>Unidade:</strong> {v.originalData.cr4a1_filial}</div>
                   )}
+                  {v.originalData?.cr4a1_contato_publico && (
+                    <div className="mt-1 flex items-center gap-1"><Phone className="size-3" /> {v.originalData.cr4a1_contato_publico}</div>
+                  )}
+                </div>
+              )}
+
+              {isPendente && (onConfirmarVisita || onRecusarVisita) && (
+                <div className="mt-1 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  {onConfirmarVisita && (
+                    <Button size="sm" className="flex-1 gap-1.5" onClick={() => onConfirmarVisita(v.originalData.cr4a1_visita_id)}>
+                      <Check className="size-4" /> Confirmar
+                    </Button>
+                  )}
+                  {onRecusarVisita && (
+                    <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-destructive" onClick={() => onRecusarVisita(v.originalData.cr4a1_visita_id)}>
+                      <X className="size-4" /> Recusar
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
-          ))}
+          );})}
         </div>
       </DialogContent>
     </Dialog>

@@ -89,6 +89,7 @@ function App() {
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
+    gerarLinkAgendamento, confirmarVisita, recusarVisita,
     appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
     notas = [], addNota, updateNota, deleteNota,
     biPermissoes = [], upsertBiPermission, resetBiPermission,
@@ -253,6 +254,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [aniversarioEdit, setAniversarioEdit] = useState('');
   const [emailEdit, setEmailEdit] = useState('');
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [deviceNotificationPermission, setDeviceNotificationPermission] = useState(() => (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default');
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
   const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
@@ -2336,6 +2338,62 @@ function App() {
                       Parear Relógio
                     </Button>
                   </div>
+
+                  {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
+                    <>
+                      <hr className="border-border" />
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <span className="font-semibold text-sm block">Link de Agendamento</span>
+                          <span className="text-xs text-muted-foreground">
+                            Compartilhe com clientes para eles marcarem uma visita direto na sua agenda. Fica pendente até você confirmar.
+                          </span>
+                        </div>
+                        {currentUser.cr4a1_link_agendamento ? (
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Input readOnly value={`${window.location.origin}/agendar/${currentUser.cr4a1_link_agendamento}`} className="flex-1 text-xs" onFocus={(e) => e.target.select()} />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/agendar/${currentUser.cr4a1_link_agendamento}`);
+                                toast.success('Link copiado!');
+                              }}
+                            >
+                              Copiar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0"
+                              disabled={isGeneratingLink}
+                              onClick={async () => {
+                                setIsGeneratingLink(true);
+                                await gerarLinkAgendamento(currentUser.cr4a1_usuarios_agendaid);
+                                setIsGeneratingLink(false);
+                                toast.success('Novo link gerado! O link antigo deixou de funcionar.');
+                              }}
+                            >
+                              Gerar novo
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            disabled={isGeneratingLink}
+                            onClick={async () => {
+                              setIsGeneratingLink(true);
+                              await gerarLinkAgendamento(currentUser.cr4a1_usuarios_agendaid);
+                              setIsGeneratingLink(false);
+                            }}
+                          >
+                            {isGeneratingLink ? 'Gerando...' : 'Gerar meu link de agendamento'}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </DialogContent>
@@ -2355,6 +2413,8 @@ function App() {
                   handleEditClick(v);
                 }
               }}
+              onConfirmarVisita={confirmarVisita}
+              onRecusarVisita={recusarVisita}
             />
           )}
 

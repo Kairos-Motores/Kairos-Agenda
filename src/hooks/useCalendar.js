@@ -2317,6 +2317,55 @@ export const useCalendar = () => {
         }
     };
 
+    const gerarLinkAgendamento = async (userId) => {
+        try {
+            const novoToken = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).replace(/-/g, '');
+            const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_link_agendamento: novoToken })
+            });
+            if (!response.ok) throw new Error(await response.text());
+
+            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ? { ...u, cr4a1_link_agendamento: novoToken } : u));
+            return novoToken;
+        } catch (error) {
+            console.error("Erro ao gerar link de agendamento:", error);
+            toast.error("Não foi possível gerar o link de agendamento.");
+            return null;
+        }
+    };
+
+    const confirmarVisita = async (visitaId) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_status_agendamento: '' })
+            });
+            if (!response.ok) throw new Error(await response.text());
+
+            setVisitas(prev => prev.map(v => v.cr4a1_visita_id === visitaId ? { ...v, cr4a1_status_agendamento: '' } : v));
+            toast.success("Visita confirmada!");
+        } catch (error) {
+            console.error("Erro ao confirmar visita:", error);
+            toast.error("Não foi possível confirmar a visita.");
+        }
+    };
+
+    const recusarVisita = async (visitaId) => {
+        try {
+            const response = await fetch(`${API_PROXY}?table=cr4a1_echoe_visitases&id=${visitaId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(await response.text());
+
+            setVisitas(prev => prev.filter(v => v.cr4a1_visita_id !== visitaId));
+            toast.success("Solicitação recusada.");
+        } catch (error) {
+            console.error("Erro ao recusar visita:", error);
+            toast.error("Não foi possível recusar a visita.");
+        }
+    };
+
     const atualizarFilialTemporaria = async (userId, dadosFilial) => {
         try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
@@ -2350,6 +2399,7 @@ export const useCalendar = () => {
         updateUnit, updateProfile, updateUserEmail, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
+        gerarLinkAgendamento, confirmarVisita, recusarVisita,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,
