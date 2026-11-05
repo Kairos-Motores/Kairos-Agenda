@@ -8,6 +8,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
 import { AgendaView } from './components/AgendaView';
+import { CommandPalette } from './components/CommandPalette';
 import { MiniMonth } from './components/MiniMonth';
 import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
@@ -247,6 +248,7 @@ function App() {
   const [isYearSelectorOpen, setIsYearSelectorOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
@@ -655,6 +657,17 @@ function App() {
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
   }, [view, setCurrentDate, setView, setEditingEvent, customDaysCount]);
 
+  useEffect(() => {
+    const handleCommandPaletteShortcut = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(open => !open);
+      }
+    };
+    document.addEventListener('keydown', handleCommandPaletteShortcut);
+    return () => document.removeEventListener('keydown', handleCommandPaletteShortcut);
+  }, []);
+
   if (isValidatingSession) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
       <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>A verificar sessão...</p>
@@ -1030,6 +1043,53 @@ function App() {
       getTarget: () => document.querySelector('[data-tutorial="tutorial-trigger"]')
     }
   ];
+
+  // Nao usa useMemo: essa funcao ja roda depois do early-return de isValidatingSession
+  // mais abaixo, e um hook ali violaria a ordem de hooks entre renders.
+  const commandGroups = (() => {
+    const irPara = (viewId) => () => { setView(viewId); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); };
+
+    const navegacao = [
+      { id: 'cmd-mes', label: 'Ver em Mês', icon: 'calendar_month', shortcut: '2', onSelect: irPara('month') },
+      { id: 'cmd-semana', label: 'Ver em Semana', icon: 'view_week', shortcut: '3', onSelect: irPara('week') },
+      { id: 'cmd-dias', label: `Ver em ${customDaysCount} Dias`, icon: 'view_timeline', shortcut: '4', onSelect: irPara('3days') },
+      { id: 'cmd-dia', label: 'Ver em Dia', icon: 'view_day', shortcut: '5', onSelect: irPara('day') },
+      { id: 'cmd-agenda', label: 'Ver em Agenda', icon: 'event_note', shortcut: '7', onSelect: irPara('agenda') },
+      { id: 'cmd-fichas-view', label: 'Ver Fichas (lista)', icon: 'view_agenda', shortcut: '6', onSelect: irPara('list') },
+      { id: 'cmd-hoje', label: 'Ir para hoje', icon: 'today', shortcut: 'T', onSelect: () => setCurrentDate(new Date()) },
+    ];
+
+    const areas = [
+      { id: 'cmd-area-calendario', label: 'Abrir Agenda', icon: 'calendar_month', onSelect: () => setAppMode('calendar') },
+      { id: 'cmd-area-notas', label: 'Abrir Notas', icon: 'description', onSelect: () => setAppMode('notas') },
+      { id: 'cmd-area-bi', label: 'Abrir Painéis BI', icon: 'bar_chart', onSelect: () => setAppMode('bi') },
+      { id: 'cmd-area-trello', label: 'Abrir Fichas (Trello)', icon: 'view_kanban', onSelect: () => setAppMode('trello') },
+      ...((hasRole('DIRETORIA') || hasRole('ADMIN') || hasRole('COORD') || hasRole('SECRETARIA') || hasRole('RH'))
+        ? [{ id: 'cmd-area-tarefas', label: 'Abrir Tarefas', icon: 'assignment', onSelect: () => setAppMode('tasks') }] : []),
+      ...((hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN'))
+        ? [{ id: 'cmd-area-visitas', label: 'Abrir Visitas', icon: 'location_on', onSelect: () => setAppMode('visitas') }] : []),
+      ...((hasRole('ADMIN') || hasRole('SECRETARIA'))
+        ? [{ id: 'cmd-area-passagens', label: 'Abrir Passagens', icon: 'flight', onSelect: () => setAppMode('passagens') }] : []),
+    ];
+
+    const acoes = [
+      { id: 'cmd-novo-evento', label: 'Novo evento', icon: 'calendar_add_on', shortcut: 'N', onSelect: () => { setEditingEvent(null); setIsModalOpen(true); } },
+      ...((hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN'))
+        ? [{ id: 'cmd-nova-visita', label: 'Nova visita', icon: 'location_on', onSelect: () => { setEditingVisita(null); setIsVisitaModalOpen(true); } }] : []),
+      { id: 'cmd-tema', label: theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro', icon: theme === 'light' ? 'dark_mode' : 'light_mode', onSelect: () => setTheme(theme === 'light' ? 'dark' : 'light') },
+      { id: 'cmd-perfil', label: 'Abrir meu perfil', icon: 'account_circle', onSelect: () => setIsProfileModalOpen(true) },
+      { id: 'cmd-notificacoes', label: 'Ativar notificações no dispositivo', icon: 'notifications', onSelect: requestNotificationPermission },
+      { id: 'cmd-tutorial', label: 'Reabrir tutorial guiado', icon: 'help', onSelect: () => setIsTutorialOpen(true) },
+      ...((hasRole('ADMIN') || hasRole('SECRETARIA'))
+        ? [{ id: 'cmd-usuarios', label: 'Gerir utilizadores', icon: 'group', onSelect: () => setIsUserManagementModalOpen(true) }] : []),
+    ];
+
+    return [
+      { label: 'Navegação', items: navegacao },
+      { label: 'Áreas', items: areas },
+      { label: 'Ações', items: acoes },
+    ];
+  })();
 
   return (
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -1615,6 +1675,16 @@ function App() {
                 <span style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
                 <span>{format(now, 'HH:mm')}</span>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                aria-label="Busca rápida"
+                title="Busca rápida (Ctrl+K)"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <span className="material-symbols-rounded">search</span>
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -2398,6 +2468,8 @@ function App() {
               )}
             </DialogContent>
           </Dialog>
+
+          <CommandPalette open={isCommandPaletteOpen} onOpenChange={setIsCommandPaletteOpen} groups={commandGroups} />
 
           {dayVisitasModalOpen && (
             <DayVisitasModal
