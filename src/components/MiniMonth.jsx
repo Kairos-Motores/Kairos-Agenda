@@ -227,9 +227,15 @@ export const MiniMonth = ({
           // Eventos que podem ser arrastados (exclui intervalos)
           const activeEvents = dayEvents.filter(e => !e.isIntervalo);
 
-          // Cores dos usuários que têm eventos nesse dia (um evento pode ter vários responsáveis)
-          const uniqueUsersOnDay = [...new Set(activeEvents.flatMap(e => parseAssignees(e.cr4a1_user_login)))];
-          const colorsForDay = uniqueUsersOnDay.map(username => userColorMap[username]).filter(Boolean);
+          // Cores dos eventos no dia (usuários responsáveis ou cor do calendário externo Google)
+          const colorsForDay = [
+            ...new Set(
+              activeEvents.flatMap(e => {
+                if (e.isExternal) return [e.cr4a1_cor || '#4285F4'];
+                return parseAssignees(e.cr4a1_user_login).map(u => userColorMap[u] || e.cr4a1_cor || '#ccc');
+              })
+            )
+          ].filter(Boolean);
 
           // Fundo colorido sutil
           const backgroundLayer = (
@@ -334,7 +340,9 @@ export const MiniMonth = ({
                         </div>
                       ) : (
                         activeEvents.map((event, idx) => {
-                          const eventColor = userColorMap[parseAssignees(event.cr4a1_user_login)[0]] || '#ccc';
+                          const eventColor = event.isExternal
+                            ? (event.cr4a1_cor || '#4285F4')
+                            : (userColorMap[parseAssignees(event.cr4a1_user_login)[0]] || event.cr4a1_cor || '#ccc');
                           return (
                             <Draggable
                               key={event.cr4a1_agenda_kairosid}
@@ -376,9 +384,7 @@ export const MiniMonth = ({
                        MODO CALENDÁRIO COMUM: bolinhas coloridas
                        ============================================================ */
                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '3px', marginTop: '4px' }}>
-                      {activeEvents
-                        .flatMap(e => parseAssignees(e.cr4a1_user_login).map(u => userColorMap[u] || '#ccc'))
-                        .filter((color, idx, arr) => arr.indexOf(color) === idx)
+                      {colorsForDay
                         .slice(0, 3)
                         .map((color, idx) => (
                           <div 
@@ -434,10 +440,15 @@ export const MiniMonth = ({
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {getEventsForDay(new Date(hoveredDay + 'T12:00:00'))
-                .filter(e => e.cr4a1_user_login)
+                .filter(e => !e.isIntervalo)
                 .map((ev, idx) => {
+                  const isGoogle = ev.isExternal || ev.externalSource === 'google';
                   const assignees = parseAssignees(ev.cr4a1_user_login);
                   const typeLayer = getEventTypeLayer(ev.cr4a1_tipo, eventTypes);
+                  const eventColor = isGoogle
+                    ? (ev.cr4a1_cor || '#4285F4')
+                    : (userColorMap[assignees[0]] || ev.cr4a1_cor || '#ccc');
+
                   return (
                     <div
                       key={idx}
@@ -446,6 +457,10 @@ export const MiniMonth = ({
                         setIsTooltipHovered(false);
                         setHoveredDay(null);
                         setHoveredRect(null);
+                        if (isGoogle) {
+                          onEditEvent?.(ev);
+                          return;
+                        }
                         setDetailSourceRect(rect);
                         setDetailEvent(ev);
                       }}
@@ -461,12 +476,34 @@ export const MiniMonth = ({
                       }}
                     >
                       <div style={{ display: 'flex', gap: '2px', marginTop: '5px', flexShrink: 0 }}>
-                        {assignees.slice(0, 3).map((u, i) => (
-                          <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[u] || '#ccc' }} />
-                        ))}
+                        {isGoogle ? (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: eventColor }} />
+                        ) : (
+                          assignees.slice(0, 3).map((u, i) => (
+                            <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: userColorMap[u] || '#ccc' }} />
+                          ))
+                        )}
                       </div>
                       <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-                        <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>{assignees.join(', ')}:</span> {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}{ev.cr4a1_titulo}
+                        {isGoogle ? (
+                          <>
+                            <span style={{ fontWeight: '700', color: eventColor }}>
+                              📅 Google ({ev.calendarName || 'Agenda'}):
+                            </span>{' '}
+                            {!ev.cr4a1_dia_inteiro && ev.cr4a1_hora_inicio && (
+                              <span style={{ fontWeight: '600' }}>{ev.cr4a1_hora_inicio} - </span>
+                            )}
+                            {ev.cr4a1_titulo}
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: '700', color: userColorMap[assignees[0]] || '#7f8c8d' }}>
+                              {assignees.length > 0 ? `${assignees.join(', ')}:` : ''}
+                            </span>{' '}
+                            {typeLayer.layer === 'icone' && typeLayer.emoji ? typeLayer.emoji + ' ' : ''}
+                            {ev.cr4a1_titulo}
+                          </>
+                        )}
                       </div>
                     </div>
                   );
