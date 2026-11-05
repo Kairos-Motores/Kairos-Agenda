@@ -607,12 +607,18 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
               onMouseLeave={() => {
                 hideButtonAfterDelay(2000);
               }}
+              onTouchStart={() => {
+                showButton();
+              }}
+              onClick={() => {
+                setIsHeaderVisible(true);
+              }}
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: '14px',
+                height: '20px',
                 zIndex: 10,
               }}
             />

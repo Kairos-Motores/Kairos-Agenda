@@ -1620,11 +1620,11 @@ export const NotesPanel = ({
 
       {activeNotas.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar notas..." className="max-w-[360px]" inputClassName="rounded-full" />
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Pesquisar notas..." className="w-full sm:max-w-[360px]" inputClassName="rounded-full" />
 
             {/* Filtro rápido: Todas / Minhas / Compartilhadas */}
-            <div className="flex rounded-full border border-border bg-secondary p-0.5 text-xs">
+            <div className="flex max-w-full overflow-x-auto rounded-full border border-border bg-secondary p-0.5 text-xs scrollbar-none">
               <button
                 type="button"
                 onClick={() => setShareFilter('all')}

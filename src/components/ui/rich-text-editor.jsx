@@ -87,7 +87,7 @@ const ToolbarButton = ({ active, onClick, title, children }) => (
     title={title}
     onMouseDown={(e) => e.preventDefault()}
     onClick={onClick}
-    className={`flex size-7 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+    className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
   >
     {children}
   </button>
@@ -249,7 +249,7 @@ export const RichTextEditor = ({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-secondary">
-      <div className="flex flex-wrap items-center gap-1 border-b border-border bg-card p-1.5">
+      <div className="flex items-center gap-1 border-b border-border bg-card p-1.5 overflow-x-auto whitespace-nowrap scrollbar-none sm:flex-wrap">
         <Select onValueChange={aplicarFonte}>
           <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Fonte" /></SelectTrigger>
           <SelectContent>

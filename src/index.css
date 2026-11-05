@@ -205,9 +205,17 @@ body {
 
 @media (max-width: 768px) {
   .main-container {
-    padding: 16px 16px 90px 16px;
+    padding: 12px 10px 90px 10px;
   }
-  
+}
+
+@media (max-width: 480px) {
+  .main-container {
+    padding: 6px 6px calc(80px + env(safe-area-inset-bottom, 0px)) 6px !important;
+  }
+}
+
+@media (max-width: 768px) {
   .app-header .nav-container {
     flex-direction: column !important;
     align-items: center;
@@ -477,16 +485,18 @@ body {
   opacity: 0.5;
 }
 
-/* --- HOVER CARD: Visualização Mensal --- */
-.calendar-day-card:hover {
-  z-index: 50 !important;
-  background-color: var(--bg-primary) !important;
-  box-shadow:
-    0 0 0 2px var(--text-accent),
-    0 20px 60px rgba(0,0,0,0.18),
-    0 8px 20px rgba(0,0,0,0.1);
-  transform: scale(1.04) translateY(-4px);
-  border-radius: 12px;
+/* --- HOVER CARD: Visualização Mensal (apenas em ponteiros finos/mouse para não travar no touch mobile) --- */
+@media (hover: hover) and (pointer: fine) {
+  .calendar-day-card:hover {
+    z-index: 50 !important;
+    background-color: var(--bg-primary) !important;
+    box-shadow:
+      0 0 0 2px var(--text-accent),
+      0 20px 60px rgba(0,0,0,0.18),
+      0 8px 20px rgba(0,0,0,0.1);
+    transform: scale(1.04) translateY(-4px);
+    border-radius: 12px;
+  }
 }
 
 .calendar-day-card.drop-over {
@@ -519,6 +529,25 @@ body {
 .event-badge.timed {
   background: transparent;
   color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .calendar-month-grid .calendar-day-card {
+    min-height: 52px !important;
+    padding: 2px !important;
+  }
+  .calendar-month-grid .event-badge {
+    font-size: 9px !important;
+    padding: 1px 3px !important;
+    height: 16px !important;
+    line-height: 14px !important;
+    margin-bottom: 2px !important;
+    border-radius: 4px !important;
+  }
+  .calendar-month-grid .event-badge .event-dot {
+    width: 4px !important;
+    height: 4px !important;
+  }
 }
 
 .event-badge:hover {

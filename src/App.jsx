@@ -1658,13 +1658,13 @@ function App() {
           </div>
         </div>
 
-        {/* HEADER UNIFICADO E COMPACTO (PADRÃO GOOGLE CALENDAR) */}
+        {/* HEADER UNIFICADO E COMPACTO (PADRÃO GOOGLE CALENDAR / GALAXY S23 RESPONSIVO) */}
         <header
           className="app-header is-compact"
           style={appMode === 'trello' ? { padding: '4px 16px', gap: '8px', minHeight: '44px' } : undefined}
         >
-          {/* LADO ESQUERDO: Menu, Logo, Navegação (Hoje, <, >), Título do Período */}
-          <div className="header-left" style={appMode === 'trello' ? { gap: '8px' } : undefined}>
+          {/* GRUPO 1: MARCA & MENU (LINHA 1 ESQUERDA NO MOBILE) */}
+          <div className="header-brand">
             <Button variant="ghost" size="icon" className={appMode === 'trello' ? 'size-8' : ''} onClick={() => setIsSidebarOpen(true)} data-tutorial="menu-toggle" aria-label="Abrir menu">
               <span className="material-symbols-rounded" style={{ fontSize: appMode === 'trello' ? '20px' : '24px' }}>menu</span>
             </Button>
@@ -1679,7 +1679,7 @@ function App() {
               <span className="nav-label-collapse">{appMode === 'visitas' ? 'Visitas' : (appMode === 'notas' ? 'Notas' : (appMode === 'bi' ? 'Painéis BI' : 'Kairós'))}</span>
             </h1>
 
-            {appMode === 'trello' ? (
+            {appMode === 'trello' && (
               <button
                 onClick={() => setAppMode('calendar')}
                 className="boing-effect"
@@ -1693,216 +1693,216 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '16px', color: 'var(--text-accent)' }}>calendar_month</span>
                 <span>Agenda</span>
               </button>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-                <Button variant="secondary" size="sm" onClick={() => setCurrentDate(new Date())} title="Ir para hoje (T)" style={{ borderRadius: '100px', height: '32px', padding: '0 12px', fontWeight: '600', fontSize: '13px' }}>
-                  Hoje
-                </Button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('prev')} aria-label="Período anterior" title="Período anterior (←)">
-                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_left</span>
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('next')} aria-label="Próximo período" title="Próximo período (→)">
-                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_right</span>
-                  </Button>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
-                  <span style={{ fontSize: '18px', color: 'var(--text-title)', fontWeight: '500', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                    {view === 'day' && format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-                    {view === '3days' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, customDaysCount - 1), 'd MMM', { locale: ptBR })}`}
-                    {view === 'agenda' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, AGENDA_DAYS_WINDOW - 1), 'd MMM', { locale: ptBR })}`}
-                    {!['day', '3days', 'agenda'].includes(view) && format(currentDate, 'MMMM', { locale: ptBR })}
-                  </span>
-                  <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '18px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: '500' }}>
-                    {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
-                  </span>
-
-                  {isYearSelectorOpen && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                      {Array.from({ length: 16 }, (_, i) => {
-                        const year = currentDate.getFullYear() - 7 + i;
-                        return (
-                          <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '8px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer', fontWeight: '600' }}>
-                            {year}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
             )}
           </div>
 
-          {/* LADO DIREITO: Ações, Filtros, Dropdown Pill de Visualização, Perfil */}
-          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-            {appMode !== 'trello' && (
-              <>
-                {/* Controles contextuais de modo */}
-                {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'day' && (
-                  <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)', marginRight: '4px' }}>
-                    <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Linhas</button>
-                    <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Cartões</button>
-                  </div>
-                )}
-
-                {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === '3days' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px 4px', border: '1px solid var(--border-color)', marginRight: '4px' }}>
-                    <button onClick={() => setCustomDaysCount(c => Math.max(2, c - 1))} disabled={customDaysCount <= 2} title="Diminuir dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount <= 2 ? 'default' : 'pointer', opacity: customDaysCount <= 2 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>remove</span>
-                    </button>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', minWidth: '40px', textAlign: 'center' }}>{customDaysCount}d</span>
-                    <button onClick={() => setCustomDaysCount(c => Math.min(7, c + 1))} disabled={customDaysCount >= 7} title="Aumentar dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount >= 7 ? 'default' : 'pointer', opacity: customDaysCount >= 7 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>add</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Ícones de ação */}
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsCommandPaletteOpen(true)} title="Busca rápida (Ctrl+K)">
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>search</span>
+          {/* GRUPO 2: NAVEGAÇÃO TEMPORAL (LINHA 2 ESQUERDA NO MOBILE) */}
+          {appMode !== 'trello' && (
+            <div className="header-period-nav">
+              <Button variant="secondary" size="sm" onClick={() => setCurrentDate(new Date())} title="Ir para hoje (T)" style={{ borderRadius: '100px', height: '30px', padding: '0 10px', fontWeight: '600', fontSize: '12px' }}>
+                Hoje
+              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('prev')} aria-label="Período anterior" title="Período anterior (←)">
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_left</span>
                 </Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={requestNotificationPermission} title={deviceNotificationPermission === 'granted' ? 'Notificações ativadas' : 'Ativar notificações'}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px', color: deviceNotificationPermission === 'granted' ? 'var(--text-accent)' : undefined }}>
-                    {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
-                  </span>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => handleNavigate('next')} aria-label="Próximo período" title="Próximo período (→)">
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>chevron_right</span>
                 </Button>
-                <NotificationBell user={user} />
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsTutorialOpen(true)} title="Tutorial guiado">
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
-                </Button>
-                {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
-                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group</span>
-                  </Button>
-                )}
+              </div>
 
-                {/* DROPDOWN PILL DE VISUALIZAÇÕES (GOOGLE CALENDAR STYLE) */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="boing-effect"
-                      title="Alterar modo de visualização"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '4px 12px',
-                        borderRadius: '100px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        height: '32px',
-                      }}
-                    >
-                      <span>{viewLabels[view] || 'Mês'}</span>
-                      <span className="material-symbols-rounded" style={{ fontSize: '18px', color: 'var(--text-secondary)' }}>arrow_drop_down</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => { setView('day'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Dia</span>
-                      <span className="text-xs text-muted-foreground font-mono">D</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('week'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Semana</span>
-                      <span className="text-xs text-muted-foreground font-mono">W</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('month'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Mês</span>
-                      <span className="text-xs text-muted-foreground font-mono">M</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('year'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Ano</span>
-                      <span className="text-xs text-muted-foreground font-mono">Y</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('agenda'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Programação</span>
-                      <span className="text-xs text-muted-foreground font-mono">A</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('3days'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">{customDaysCount} dias</span>
-                      <span className="text-xs text-muted-foreground font-mono">X</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
-                      <span className="flex-1">Fichas</span>
-                      <span className="text-xs text-muted-foreground font-mono">L</span>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuCheckboxItem
-                      checked={showWeekends}
-                      onCheckedChange={(checked) => {
-                        setShowWeekends(checked);
-                        try { localStorage.setItem('kairos_show_weekends', JSON.stringify(checked)); } catch {}
-                      }}
-                    >
-                      Mostrar fins de semana
-                    </DropdownMenuCheckboxItem>
-
-                    <DropdownMenuCheckboxItem
-                      checked={showGoogleEvents}
-                      onCheckedChange={(checked) => {
-                        setShowGoogleEvents(checked);
-                        try { localStorage.setItem('kairos_show_google_events', JSON.stringify(checked)); } catch {}
-                      }}
-                    >
-                      Mostrar Google Agenda
-                    </DropdownMenuCheckboxItem>
-
-                    <DropdownMenuCheckboxItem
-                      checked={showDeclinedEvents}
-                      onCheckedChange={(checked) => {
-                        setShowDeclinedEvents(checked);
-                        try { localStorage.setItem('kairos_show_declined_events', JSON.stringify(checked)); } catch {}
-                      }}
-                    >
-                      Mostrar eventos recusados
-                    </DropdownMenuCheckboxItem>
-
-                    <DropdownMenuCheckboxItem
-                      checked={showCompletedTasks}
-                      onCheckedChange={(checked) => {
-                        setShowCompletedTasks(checked);
-                        try { localStorage.setItem('kairos_show_completed_tasks', JSON.stringify(checked)); } catch {}
-                      }}
-                    >
-                      Mostrar tarefas concluídas
-                    </DropdownMenuCheckboxItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
-
-            {/* Perfil do usuário */}
-            <div
-              onClick={() => setIsProfileModalOpen(true)}
-              className="boing-effect"
-              style={{
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)',
-                borderRadius: '32px', padding: '2px 8px 2px 2px',
-                border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '500'
-              }}
-            >
-              {currentUser?.cr4a1_foto ? (
-                <img src={currentUser.cr4a1_foto} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '11px' }}>
-                  {user?.[0]?.toUpperCase()}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative', minWidth: 0 }}>
+                <span className="period-title-text" style={{ color: 'var(--text-title)', fontWeight: '500', textTransform: 'capitalize' }}>
+                  {view === 'day' && format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  {view === '3days' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, customDaysCount - 1), 'd MMM', { locale: ptBR })}`}
+                  {view === 'agenda' && `${format(currentDate, 'd MMM', { locale: ptBR })} – ${format(addDays(currentDate, AGENDA_DAYS_WINDOW - 1), 'd MMM', { locale: ptBR })}`}
+                  {!['day', '3days', 'agenda'].includes(view) && format(currentDate, 'MMMM', { locale: ptBR })}
                 </span>
+                <span onClick={() => setIsYearSelectorOpen(!isYearSelectorOpen)} style={{ cursor: 'pointer', fontSize: '16px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: '500' }}>
+                  {format(currentDate, 'yyyy')} <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_drop_down</span>
+                </span>
+
+                {isYearSelectorOpen && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {Array.from({ length: 16 }, (_, i) => {
+                      const year = currentDate.getFullYear() - 7 + i;
+                      return (
+                        <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '8px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer', fontWeight: '600' }}>
+                          {year}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* GRUPO 3: CONTROLES DE VISUALIZAÇÃO (LINHA 2 DIREITA NO MOBILE) */}
+          {appMode !== 'trello' && (
+            <div className="header-view-controls">
+              {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'day' && (
+                <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px', border: '1px solid var(--border-color)', marginRight: '2px' }}>
+                  <button onClick={() => setDayViewMode('timeline')} className="boing-effect" style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'timeline' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'timeline' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Linhas</button>
+                  <button onClick={() => setDayViewMode('cards')} className="boing-effect" style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '16px', border: 'none', background: dayViewMode === 'cards' ? 'var(--text-accent)' : 'transparent', color: dayViewMode === 'cards' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '600' }}>Cards</button>
+                </div>
               )}
-              <span className="profile-name" style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                {currentUser?.cr4a1_nome_exibicao || user}
-              </span>
+
+              {!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === '3days' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--bg-secondary)', borderRadius: '20px', padding: '2px 4px', border: '1px solid var(--border-color)', marginRight: '2px' }}>
+                  <button onClick={() => setCustomDaysCount(c => Math.max(2, c - 1))} disabled={customDaysCount <= 2} title="Diminuir dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount <= 2 ? 'default' : 'pointer', opacity: customDaysCount <= 2 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>remove</span>
+                  </button>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', minWidth: '32px', textAlign: 'center' }}>{customDaysCount}d</span>
+                  <button onClick={() => setCustomDaysCount(c => Math.min(7, c + 1))} disabled={customDaysCount >= 7} title="Aumentar dias" style={{ width: '20px', height: '20px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: customDaysCount >= 7 ? 'default' : 'pointer', opacity: customDaysCount >= 7 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>add</span>
+                  </button>
+                </div>
+              )}
+
+              {/* DROPDOWN PILL DE VISUALIZAÇÕES (GOOGLE CALENDAR STYLE) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="boing-effect"
+                    title="Alterar modo de visualização"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '100px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      height: '30px',
+                    }}
+                  >
+                    <span>{viewLabels[view] || 'Mês'}</span>
+                    <span className="material-symbols-rounded" style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>arrow_drop_down</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => { setView('day'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Dia</span>
+                    <span className="text-xs text-muted-foreground font-mono">D</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('week'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Semana</span>
+                    <span className="text-xs text-muted-foreground font-mono">W</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('month'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Mês</span>
+                    <span className="text-xs text-muted-foreground font-mono">M</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('year'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Ano</span>
+                    <span className="text-xs text-muted-foreground font-mono">Y</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('agenda'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Programação</span>
+                    <span className="text-xs text-muted-foreground font-mono">A</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('3days'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">{customDaysCount} dias</span>
+                    <span className="text-xs text-muted-foreground font-mono">X</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setView('list'); if (['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) setAppMode('calendar'); }}>
+                    <span className="flex-1">Fichas</span>
+                    <span className="text-xs text-muted-foreground font-mono">L</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuCheckboxItem
+                    checked={showWeekends}
+                    onCheckedChange={(checked) => {
+                      setShowWeekends(checked);
+                      try { localStorage.setItem('kairos_show_weekends', JSON.stringify(checked)); } catch {}
+                    }}
+                  >
+                    Mostrar fins de semana
+                  </DropdownMenuCheckboxItem>
+
+                  <DropdownMenuCheckboxItem
+                    checked={showGoogleEvents}
+                    onCheckedChange={(checked) => {
+                      setShowGoogleEvents(checked);
+                      try { localStorage.setItem('kairos_show_google_events', JSON.stringify(checked)); } catch {}
+                    }}
+                  >
+                    Mostrar Google Agenda
+                  </DropdownMenuCheckboxItem>
+
+                  <DropdownMenuCheckboxItem
+                    checked={showDeclinedEvents}
+                    onCheckedChange={(checked) => {
+                      setShowDeclinedEvents(checked);
+                      try { localStorage.setItem('kairos_show_declined_events', JSON.stringify(checked)); } catch {}
+                    }}
+                  >
+                    Mostrar eventos recusados
+                  </DropdownMenuCheckboxItem>
+
+                  <DropdownMenuCheckboxItem
+                    checked={showCompletedTasks}
+                    onCheckedChange={(checked) => {
+                      setShowCompletedTasks(checked);
+                      try { localStorage.setItem('kairos_show_completed_tasks', JSON.stringify(checked)); } catch {}
+                    }}
+                  >
+                    Mostrar tarefas concluídas
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          {/* GRUPO 4: AÇÕES & PERFIL (LINHA 1 DIREITA NO MOBILE) */}
+          <div className="header-actions">
+            {/* Ícones de ação primários */}
+            <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsCommandPaletteOpen(true)} title="Busca rápida (Ctrl+K)">
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>search</span>
+            </Button>
+
+            <NotificationBell user={user} />
+
+            {/* Ícones de ação secundários (visíveis diretamente no desktop) */}
+            <div className="header-desktop-actions" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Button variant="ghost" size="icon" className="size-8" onClick={requestNotificationPermission} title={deviceNotificationPermission === 'granted' ? 'Notificações ativadas' : 'Ativar notificações'}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: deviceNotificationPermission === 'granted' ? 'var(--text-accent)' : undefined }}>
+                  {deviceNotificationPermission === 'granted' ? 'notifications_active' : 'notifications'}
+                </span>
+              </Button>
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+              </Button>
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsTutorialOpen(true)} title="Tutorial guiado">
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
+              </Button>
+              {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group</span>
+                </Button>
+              )}
+              {appMode !== 'trello' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-primary hover:text-primary"
+                  onClick={() => setIsWatchModalOpen(true)}
+                  title="Conectar Galaxy Watch"
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>watch</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={logout} title="Sair do sistema">
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>logout</span>
+              </Button>
             </div>
 
             {pendingSyncCount > 0 && (
@@ -1919,21 +1919,72 @@ function App() {
               </Button>
             )}
 
-            {appMode !== 'trello' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-primary hover:text-primary"
-                onClick={() => setIsWatchModalOpen(true)}
-                title="Conectar Galaxy Watch"
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>watch</span>
-              </Button>
-            )}
+            {/* Perfil do usuário com DropdownMenu (Acesso a perfil + ações secundárias no mobile) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div
+                  className="boing-effect"
+                  style={{
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)',
+                    borderRadius: '32px', padding: '2px 8px 2px 2px',
+                    border: '1px solid var(--border-color)', fontSize: '12px', fontWeight: '500', height: '32px'
+                  }}
+                  title="Perfil e preferências"
+                >
+                  {currentUser?.cr4a1_foto ? (
+                    <img src={currentUser.cr4a1_foto} alt="Foto" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--text-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '11px' }}>
+                      {user?.[0]?.toUpperCase()}
+                    </span>
+                  )}
+                  <span className="profile-name" style={{ color: 'var(--text-primary)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                    {currentUser?.cr4a1_nome_exibicao || user}
+                  </span>
+                  <span className="material-symbols-rounded" style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>arrow_drop_down</span>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                  {currentUser?.cr4a1_nome_exibicao || user}
+                </div>
+                <DropdownMenuItem onClick={() => setIsProfileModalOpen(true)}>
+                  <span className="material-symbols-rounded mr-2 text-base">person</span>
+                  <span>Meu Perfil</span>
+                </DropdownMenuItem>
 
-            <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={logout} title="Sair do sistema">
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>logout</span>
-            </Button>
+                <DropdownMenuSeparator />
+
+                {/* Itens comutadores de fácil acesso no mobile */}
+                <DropdownMenuItem onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+                  <span className="material-symbols-rounded mr-2 text-base">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+                  <span>{theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsTutorialOpen(true)}>
+                  <span className="material-symbols-rounded mr-2 text-base">help</span>
+                  <span>Tutorial Guiado</span>
+                </DropdownMenuItem>
+                {appMode !== 'trello' && (
+                  <DropdownMenuItem onClick={() => setIsWatchModalOpen(true)}>
+                    <span className="material-symbols-rounded mr-2 text-base">watch</span>
+                    <span>Conectar Galaxy Watch</span>
+                  </DropdownMenuItem>
+                )}
+                {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
+                  <DropdownMenuItem onClick={() => setIsUserManagementModalOpen(true)}>
+                    <span className="material-symbols-rounded mr-2 text-base">group</span>
+                    <span>Gerir Utilizadores</span>
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+                  <span className="material-symbols-rounded mr-2 text-base">logout</span>
+                  <span>Sair do Sistema</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -2905,271 +2956,150 @@ function App() {
             }
         }
 
+                /* HEADER MOBILE REFACTOR (Padrão Galaxy S23 & Google Calendar) */
         @media (max-width: 900px) {
-            .app-header {
-                display: flex !important;
-                flex-direction: column !important;
-                padding: 12px 16px !important;
-                gap: 12px !important;
+            .app-header.is-compact {
+                display: grid !important;
+                grid-template-columns: 1fr auto !important;
+                grid-template-rows: auto auto !important;
+                row-gap: 8px !important;
+                column-gap: 8px !important;
+                padding: 8px 10px !important;
                 background: var(--bg-primary) !important;
                 border-bottom: 1px solid var(--border-color) !important;
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
                 backdrop-filter: blur(12px) !important;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
                 position: sticky !important;
                 top: 0 !important;
+                z-index: 100 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
             }
-            .app-header.is-compact {
-                padding: 8px 12px !important;
-                gap: 8px !important;
-                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+            [data-theme='dark'] .app-header.is-compact {
+                background: rgba(24, 24, 27, 0.95) !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
             }
-            [data-theme='dark'] .app-header {
-                background: rgba(30, 30, 30, 0.8) !important;
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15) !important;
+
+            .header-brand {
+                grid-row: 1 !important;
+                grid-column: 1 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                min-width: 0 !important;
+            }
+            .header-brand .logo {
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+            }
+            .header-brand .logo .nav-label-collapse {
+                display: inline-block !important;
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: var(--text-primary) !important;
+            }
+
+            .header-actions {
+                grid-row: 1 !important;
+                grid-column: 2 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                justify-self: end !important;
+            }
+            .header-actions .header-desktop-actions {
+                display: none !important;
+            }
+            .header-actions .profile-name {
+                display: none !important;
+            }
+
+            .header-period-nav {
+                grid-row: 2 !important;
+                grid-column: 1 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            .header-period-nav .period-title-text {
+                font-size: 15px !important;
+                font-weight: 600 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 130px !important;
+            }
+
+            .header-view-controls {
+                grid-row: 2 !important;
+                grid-column: 2 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                justify-self: end !important;
+            }
+            .header-view-controls button {
+                height: 30px !important;
+                font-size: 12px !important;
+                padding: 0 10px !important;
+            }
+            .header-view-controls .segmented-views {
+                display: none !important;
             }
 
             .mini-month-grid {
                 grid-template-columns: 1fr !important;
             }
+        }
 
-            .header-profile {
-                order: 0 !important;
+        /* HEADER DESKTOP EXPANDED (Linha única Google Calendar flex) */
+        @media (min-width: 901px) {
+            .app-header.is-compact {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                padding: 6px 16px !important;
+                gap: 12px !important;
                 width: 100% !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: flex-end !important;
-                gap: 8px !important;
-                position: static !important;   
-                margin: 0 0 4px 0 !important;  
-            }
-            .header-profile .profile-name {
-                display: none !important;
-            }
-            .header-profile > div {
-                padding: 2px !important;
-                border-radius: 50% !important;
-                background: var(--bg-secondary) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border: 1px solid var(--border-color) !important;
-                height: 36px !important;
-                width: 36px !important;
-                box-sizing: border-box !important;
-                cursor: pointer !important;
-            }
-            .header-profile > div img {
-                width: 30px !important;
-                height: 30px !important;
-            }
-            .header-profile .icon-btn {
-                height: 36px !important;
-                width: 36px !important;
-            }
-
-            .filial-temp-btn {
-                position: absolute !important;
-                top: 12px !important;
-                right: 120px !important;
-                z-index: 15 !important;
-                white-space: nowrap !important;
-                padding: 8px 12px !important;
-                font-size: 13px !important;
-            }
-            .filial-temp-btn .filial-temp-icon,
-            .filial-temp-btn .filial-temp-text {
-                display: none !important;
-            }
-            .filial-temp-btn::before {
-                content: "🔄";
-                font-size: 18px;
-            }
-
-            .header-left {
-                order: 1 !important;
-                display: flex !important;
-                flex-wrap: nowrap !important;
-                align-items: center !important;
-                width: 100% !important;
-                gap: 8px !important;
-                justify-content: flex-start !important;
-            }
-
-            .header-left > button:first-of-type {
-                order: 1 !important;
-                flex: 0 0 auto !important;
-            }
-
-            .header-left .logo {
-                order: 2 !important;
-                gap: 4px !important;
-                flex: 0 0 auto !important;
-            }
-            .header-left .logo .nav-label-collapse {
-                display: none !important;
-            }
-
-            .segmented-views {
-                order: 3 !important;
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-                display: flex !important;
-                justify-content: space-between !important;
-                background: var(--bg-secondary) !important;
-                border-radius: 16px !important;
-                padding: 4px !important;
-                border: 1px solid var(--border-color) !important;
-                box-sizing: border-box !important;
-                overflow: hidden !important;
-            }
-            .segmented-views button {
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-                justify-content: center !important;
-                padding: 6px 2px !important;
-                height: 30px !important;
-                border-radius: 12px !important;
-                font-size: 11px !important;
-                border: none !important;
-                background: transparent !important;
-                color: var(--text-secondary) !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-            }
-            .segmented-views button.active {
-                background: var(--text-accent) !important;
-                color: white !important;
-                font-weight: 700 !important;
-                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.25) !important;
-            }
-            .segmented-views .nav-label-collapse {
-                display: none !important;
-            }
-
-            .header-left > button:last-of-type {
-                order: 4 !important;
-                flex: 0 0 auto !important;
-                height: 38px !important;
-                width: 38px !important;
-                padding: 0 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 12px !important;
-                border: 1px solid var(--border-color) !important;
-                background: var(--bg-secondary) !important;
-                color: var(--text-primary) !important;
-                margin-left: 8px !important;
                 box-sizing: border-box !important;
             }
-            .header-left > button:last-of-type.active {
-                border-color: var(--text-accent) !important;
-                background: var(--bg-tertiary) !important;
-                color: var(--text-accent) !important;
-                box-shadow: 0 2px 8px rgba(var(--text-accent-rgb), 0.15) !important;
-            }
-            .header-left > button:last-of-type .nav-label-collapse {
-                display: none !important;
-            }
-
-            .header-bottom {
-                order: 2 !important;
-                display: grid !important;
-                grid-template-columns: 1fr auto !important;
-                grid-template-rows: auto auto !important;
-                gap: 10px 8px !important;
-                align-items: center !important;
-                width: 100% !important;
-                margin-top: 4px !important;
-                position: relative !important;
-                flex-basis: auto !important;
-            }
-            .app-header.is-compact .header-bottom {
-                order: 2 !important;
-                flex-basis: auto !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-
-            .header-bottom > div:nth-child(2) {
-                grid-row: 1 !important;
-                grid-column: 1 !important;
-                justify-self: start !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 4px !important;
-            }
-            .header-bottom > div:nth-child(2) span {
-                font-size: 16px !important;
-                font-weight: 700 !important;
-                color: var(--text-title) !important;
-                text-transform: capitalize !important;
-            }
-            .header-bottom > div:nth-child(2) span:first-of-type {
-                max-width: 120px !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                white-space: nowrap !important;
-            }
-
-            .header-bottom > div:nth-child(1) {
-                grid-row: 1 !important;
-                grid-column: 2 !important;
-                justify-self: end !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 4px !important;
-            }
-            .header-bottom > div:nth-child(1) .icon-btn {
-                height: 36px !important;
-                width: 36px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: var(--bg-secondary) !important;
-                border: 1px solid var(--border-color) !important;
-            }
-            .header-bottom > div:nth-child(1) .nav-pill {
-                height: 36px !important;
-                padding: 0 12px !important;
-                font-size: 12px !important;
-                font-weight: 600 !important;
-                background: var(--bg-secondary) !important;
-                color: var(--text-primary) !important;
-                border: 1px solid var(--border-color) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
-
-            .header-bottom > div:nth-child(3) {
-                grid-row: 2 !important;
-                grid-column: 1 / span 2 !important;
-                justify-self: end !important;
+            .header-brand {
                 display: flex !important;
                 align-items: center !important;
                 gap: 8px !important;
+                flex-shrink: 0 !important;
             }
-            .header-bottom > div:nth-child(3) .icon-btn {
-                height: 36px !important;
-                width: 36px !important;
+            .header-period-nav {
                 display: flex !important;
                 align-items: center !important;
-                justify-content: center !important;
-                background: var(--bg-secondary) !important;
-                border: 1px solid var(--border-color) !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
             }
-
-            .header-bottom > div:nth-child(4) {
-                grid-row: 2 !important;
-                grid-column: 1 !important;
-                justify-self: start !important;
+            .header-period-nav .period-title-text {
+                font-size: 18px !important;
+                font-weight: 500 !important;
+                white-space: nowrap !important;
             }
-
-            .header-bottom:has(> div:nth-child(4)) > div:nth-child(3) {
-                grid-column: 2 !important;
+            .header-view-controls {
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                margin-left: auto !important;
+                flex-shrink: 0 !important;
+            }
+            .header-actions {
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                flex-shrink: 0 !important;
+            }
+            .header-actions .header-desktop-actions {
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
             }
         }
 
