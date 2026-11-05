@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { AgendamentoPublico } from './components/AgendamentoPublico.jsx'
 import { PrivacyPolicy } from './components/PrivacyPolicy.jsx'
+import { startDynamicFavicon } from './utils/dynamicFavicon.js'
 import './index.css'
+
+startDynamicFavicon();
 
 // Rota publica de agendamento (/agendar/<token>) nao passa pelo login nem pelo
 // resto da app — e a unica tela que uma pessoa de fora da Kairos ve.
