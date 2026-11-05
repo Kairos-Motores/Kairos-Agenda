@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { CalendarDays, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { KairosIcon } from './KairosIcon';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -31,8 +32,8 @@ export const LoginScreen = ({ onLogin }) => {
     <div className="flex h-screen items-center justify-center p-4" style={{ background: 'var(--bg-page)' }}>
       <Card className="w-full max-w-[380px] shadow-2xl">
         <CardHeader className="items-center pb-2 pt-8 text-center">
-          <div className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-            <CalendarDays className="size-7 text-primary" />
+          <div className="mb-3 flex items-center justify-center">
+            <KairosIcon size={56} />
           </div>
           <h2 className="text-xl font-extrabold" style={{ color: 'var(--text-title)' }}>Portal Kairós</h2>
           <p className="text-[13px] text-muted-foreground">Entre com suas credenciais para continuar</p>

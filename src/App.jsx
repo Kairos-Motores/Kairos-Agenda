@@ -1295,7 +1295,7 @@ function App() {
           <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
               <h1 className="logo" style={{ margin: 0, fontSize: '22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="material-symbols-rounded" style={{ color: 'var(--text-accent)' }}>calendar_month</span> Kairós
+                <KairosIcon size={26} /> Kairós
               </h1>
               <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} aria-label="Fechar menu">
                 <span className="material-symbols-rounded">close</span>

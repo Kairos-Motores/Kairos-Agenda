@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- CARTÃO POSTERIOR INCLINADO COM BORDA STICKER BRANCA -->
+  <g transform="rotate(-10 210 270)">
+    <!-- Contorno externo branco tipo sticker -->
+    <rect x="68" y="98" width="314" height="324" rx="48" ry="48"
+          fill="#ffffff" stroke="#ffffff" stroke-width="24" stroke-linejoin="round" />
+    <!-- Corpo preto do cartão traseiro -->
+    <rect x="75" y="105" width="300" height="310" rx="42" ry="42"
+          fill="#111215" stroke="#111215" stroke-width="6" />
+    <!-- Cabeçalho do cartão posterior -->
+    <path d="M 80 148 A 38 38 0 0 1 118 110 L 332 110 A 38 38 0 0 1 370 148 L 370 185 L 80 185 Z"
+          fill="#1c1e24" />
+    <!-- Grid interno estilo calendário do cartão posterior -->
+    <line x1="80" y1="230" x2="370" y2="230" stroke="#ffffff" stroke-width="5" stroke-opacity="0.85" />
+    <line x1="80" y1="280" x2="370" y2="280" stroke="#ffffff" stroke-width="5" stroke-opacity="0.85" />
+    <line x1="80" y1="330" x2="370" y2="330" stroke="#ffffff" stroke-width="5" stroke-opacity="0.85" />
+    <line x1="175" y1="185" x2="175" y2="410" stroke="#ffffff" stroke-width="5" stroke-opacity="0.85" />
+    <line x1="275" y1="185" x2="275" y2="410" stroke="#ffffff" stroke-width="5" stroke-opacity="0.85" />
+    <!-- Argola posterior esquerda -->
+    <rect x="142" y="72" width="28" height="66" rx="14" fill="#ffffff" stroke="#111215" stroke-width="8" />
+    <!-- Argola posterior direita -->
+    <rect x="278" y="72" width="28" height="66" rx="14" fill="#ffffff" stroke="#111215" stroke-width="8" />
+  </g>
+
+  <!-- CARTÃO PRINCIPAL FRONTAL (COM O 18/09) -->
+  <g transform="translate(48, 28)">
+    <!-- Borda externa branca do sticker -->
+    <rect x="80" y="90" width="330" height="340" rx="52" ry="52"
+          fill="#ffffff" stroke="#ffffff" stroke-width="26" stroke-linejoin="round" />
+    
+    <!-- Corpo preto externo do cartão frontal -->
+    <rect x="88" y="98" width="314" height="324" rx="46" ry="46"
+          fill="#111215" stroke="#111215" stroke-width="12" stroke-linejoin="round" />
+
+    <!-- Barra do cabeçalho superior do cartão frontal -->
+    <path d="M 94 144 A 42 42 0 0 1 136 102 L 354 102 A 42 42 0 0 1 396 144 L 396 182 L 94 182 Z"
+          fill="#111215" />
+
+    <!-- Área branca interior onde fica o número -->
+    <rect x="106" y="194" width="278" height="216" rx="28" ry="28"
+          fill="#ffffff" stroke="#111215" stroke-width="6" />
+
+    <!-- Argolas superiores da folha frontal -->
+    <!-- Argola Esquerda -->
+    <rect x="156" y="66" width="32" height="74" rx="16"
+          fill="#ffffff" stroke="#111215" stroke-width="12" stroke-linejoin="round" />
+    <!-- Argola Direita -->
+    <rect x="302" y="66" width="32" height="74" rx="16"
+          fill="#ffffff" stroke="#111215" stroke-width="12" stroke-linejoin="round" />
+
+    <!-- TEXTO "18/09" CARTOON, OUSADO E PERFEITAMENTE LEGÍVEL -->
+    <text x="245" y="348"
+          font-family="'Poppins', 'Fredoka', 'Quicksand', 'Nunito', 'Segoe UI', system-ui, sans-serif"
+          font-size="104"
+          font-weight="900"
+          fill="#111215"
+          text-anchor="middle"
+          letter-spacing="-3"
+          style="user-select: none;">18/09</text>
+  </g>
+</svg>
