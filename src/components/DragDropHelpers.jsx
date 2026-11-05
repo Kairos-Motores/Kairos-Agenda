@@ -2,7 +2,7 @@ import { Draggable, Droppable } from '@hello-pangea/dnd';
 
 export const DraggableEvent = ({ event, index, children }) => {
   return (
-    <Draggable draggableId={event.cr4a1_agenda_kairosid} index={index}>
+    <Draggable draggableId={event.cr4a1_agenda_kairosid} index={index} isDragDisabled={!!event.isExternal}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}

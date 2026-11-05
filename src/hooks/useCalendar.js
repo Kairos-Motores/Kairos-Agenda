@@ -55,6 +55,7 @@ export const useCalendar = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [organizacoes, setOrganizacoes] = useState([]);
     const [visitas, setVisitas] = useState([]);
+    const [googleEvents, setGoogleEvents] = useState([]);
     const [ssmaAtividades, setSsmaAtividades] = useState([]);
     const [ssmaGastos, setSsmaGastos] = useState([]);
     const [ssmaIndicadores, setSsmaIndicadores] = useState([]);
@@ -2366,6 +2367,36 @@ export const useCalendar = () => {
         }
     };
 
+    const fetchGoogleEvents = useCallback(async (userId) => {
+        if (!userId) return;
+        try {
+            const response = await fetch(`/api/google-calendar-events?userId=${userId}`);
+            if (!response.ok) {
+                setGoogleEvents([]);
+                return;
+            }
+            const data = await response.json();
+            setGoogleEvents(data.events || []);
+        } catch (error) {
+            console.error("Erro ao buscar eventos do Google Calendar:", error);
+            setGoogleEvents([]);
+        }
+    }, []);
+
+    const disconnectGoogleCalendar = async (userId) => {
+        try {
+            const response = await fetch(`/api/google-calendar-events?userId=${userId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(await response.text());
+
+            setGoogleEvents([]);
+            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ? { ...u, cr4a1_google_conectado_em: null } : u));
+            toast.success("Google Calendar desconectado.");
+        } catch (error) {
+            console.error("Erro ao desconectar o Google Calendar:", error);
+            toast.error("Não foi possível desconectar o Google Calendar.");
+        }
+    };
+
     const atualizarFilialTemporaria = async (userId, dadosFilial) => {
         try {
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
@@ -2400,6 +2431,7 @@ export const useCalendar = () => {
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
         organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
         gerarLinkAgendamento, confirmarVisita, recusarVisita,
+        googleEvents, fetchGoogleEvents, disconnectGoogleCalendar,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,
         addSsmaIndicador, updateSsmaIndicador, deleteSsmaIndicador,
         ssmaRecorrencias, addSsmaRecorrencia, updateSsmaRecorrencia, deleteSsmaRecorrencia,

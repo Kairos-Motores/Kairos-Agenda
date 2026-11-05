@@ -91,6 +91,7 @@ function App() {
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
     organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
     gerarLinkAgendamento, confirmarVisita, recusarVisita,
+    googleEvents = [], fetchGoogleEvents, disconnectGoogleCalendar,
     appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
     notas = [], addNota, updateNota, deleteNota,
     biPermissoes = [], upsertBiPermission, resetBiPermission,
@@ -331,6 +332,32 @@ function App() {
     }
   }, [isProfileModalOpen, currentUser]);
 
+  useEffect(() => {
+    if (currentUser?.cr4a1_google_conectado_em && currentUser?.cr4a1_usuarios_agendaid) {
+      fetchGoogleEvents(currentUser.cr4a1_usuarios_agendaid);
+    }
+  }, [currentUser?.cr4a1_google_conectado_em, currentUser?.cr4a1_usuarios_agendaid, fetchGoogleEvents]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('google_calendar');
+    if (!status) return;
+
+    const mensagens = {
+      conectado: { fn: toast.success, texto: 'Google Calendar conectado!' },
+      negado: { fn: toast.error, texto: 'Conexão com o Google cancelada.' },
+      invalido: { fn: toast.error, texto: 'Link de conexão inválido ou expirado.' },
+      sem_refresh_token: { fn: toast.error, texto: 'Não recebemos permissão de acesso contínuo. Tente novamente.' },
+      erro: { fn: toast.error, texto: 'Erro ao conectar com o Google Calendar.' },
+    };
+    const msg = mensagens[status];
+    if (msg) msg.fn(msg.texto);
+
+    params.delete('google_calendar');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''));
+  }, []);
+
   const taskEvents = useMemo(() => {
     const devWorkspace = workspaces.find(ws => ws.cr4a1_nome === "Desenvolvimento e Inovação");
     if (!devWorkspace) return [];
@@ -424,11 +451,10 @@ function App() {
 
   const getDisplayEvents = () => {
     if (appMode === 'visitas') return mappedVisitas;
-    if (activeWorkspaces.length > 0) return filteredEvents;
-    if (defaultWorkspaceId) {
-      return filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId);
-    }
-    return filteredEvents;
+    const base = activeWorkspaces.length > 0
+      ? filteredEvents
+      : (defaultWorkspaceId ? filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId) : filteredEvents);
+    return appMode === 'calendar' ? [...base, ...googleEvents] : base;
   };
 
   useEffect(() => {
@@ -900,6 +926,7 @@ function App() {
   };
 
   const handleViewEvent = (event, rect) => {
+    if (event.isExternal) { toast('Evento do Google Calendar — somente leitura.', { icon: '🗓️' }); return; }
     if (event.isVisitaPrincipal || event.isIntervalo) { handleEditClick(event); return; }
     setDetailSourceRect(rect);
     setDetailEvent(event);
@@ -2407,6 +2434,38 @@ function App() {
                       <span className="material-symbols-rounded text-sm">watch</span>
                       Parear Relógio
                     </Button>
+                  </div>
+
+                  <hr className="border-border" />
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <span className="font-semibold text-sm block">Google Calendar</span>
+                      <span className="text-xs text-muted-foreground">
+                        Mostre os eventos da sua agenda do Google aqui dentro, só leitura.
+                      </span>
+                    </div>
+                    {currentUser.cr4a1_google_conectado_em ? (
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          Conectado desde {format(new Date(currentUser.cr4a1_google_conectado_em), "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 text-destructive"
+                          onClick={() => disconnectGoogleCalendar(currentUser.cr4a1_usuarios_agendaid)}
+                        >
+                          Desconectar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => { window.location.href = `/api/google-oauth-start?userId=${currentUser.cr4a1_usuarios_agendaid}`; }}
+                      >
+                        Conectar com Google
+                      </Button>
+                    )}
                   </div>
 
                   {(hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('ADMIN')) && (
