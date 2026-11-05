@@ -2,15 +2,23 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { AgendamentoPublico } from './components/AgendamentoPublico.jsx'
+import { PrivacyPolicy } from './components/PrivacyPolicy.jsx'
 import './index.css'
 
 // Rota publica de agendamento (/agendar/<token>) nao passa pelo login nem pelo
 // resto da app — e a unica tela que uma pessoa de fora da Kairos ve.
 const agendamentoMatch = window.location.pathname.match(/^\/agendar\/([^/]+)\/?$/);
+const isPrivacyPage = window.location.pathname.replace(/\/$/, '') === '/privacidade';
+
+const renderRoot = () => {
+  if (isPrivacyPage) return <PrivacyPolicy />;
+  if (agendamentoMatch) return <AgendamentoPublico token={agendamentoMatch[1]} />;
+  return <App />;
+};
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {agendamentoMatch ? <AgendamentoPublico token={agendamentoMatch[1]} /> : <App />}
+    {renderRoot()}
   </StrictMode>,
 )
 
