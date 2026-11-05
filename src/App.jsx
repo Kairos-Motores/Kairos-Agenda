@@ -351,6 +351,7 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('google_calendar');
+    const detalhe = params.get('msg');
     if (!status) return;
 
     const mensagens = {
@@ -358,12 +359,13 @@ function App() {
       negado: { fn: toast.error, texto: 'Conexão com o Google cancelada.' },
       invalido: { fn: toast.error, texto: 'Link de conexão inválido ou expirado.' },
       sem_refresh_token: { fn: toast.error, texto: 'Não recebemos permissão de acesso contínuo. Tente novamente.' },
-      erro: { fn: toast.error, texto: 'Erro ao conectar com o Google Calendar.' },
+      erro: { fn: toast.error, texto: detalhe ? `Erro ao conectar: ${detalhe}` : 'Erro ao conectar com o Google Calendar.' },
     };
     const msg = mensagens[status];
     if (msg) msg.fn(msg.texto);
 
     params.delete('google_calendar');
+    params.delete('msg');
     const newSearch = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''));
   }, []);

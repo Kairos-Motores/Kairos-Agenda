@@ -46,8 +46,9 @@ export default async function handler(req, res) {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATAVERSE_TENANT_ID, DATAVERSE_CLIENT_ID, DATAVERSE_CLIENT_SECRET, DATAVERSE_ENV_URL } = process.env;
   const { code, state, error: oauthError } = req.query;
 
-  const redirectWithStatus = (status) => {
-    res.writeHead(302, { Location: `${APP_URL}/?google_calendar=${status}` });
+  const redirectWithStatus = (status, detalhe = '') => {
+    const extra = detalhe ? `&msg=${encodeURIComponent(detalhe)}` : '';
+    res.writeHead(302, { Location: `${APP_URL}/?google_calendar=${status}${extra}` });
     res.end();
   };
 
@@ -97,7 +98,8 @@ export default async function handler(req, res) {
 
     return redirectWithStatus('conectado');
   } catch (error) {
+    const errorDetails = error.response?.data?.error?.message || error.response?.data?.error_description || error.response?.data?.error || error.message;
     console.error('Erro no callback OAuth do Google:', error.response?.data || error.message);
-    return redirectWithStatus('erro');
+    return redirectWithStatus('erro', String(errorDetails).substring(0, 120));
   }
 }
