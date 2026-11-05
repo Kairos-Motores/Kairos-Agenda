@@ -9,6 +9,7 @@ import { useCalendar } from './hooks/useCalendar';
 import { DayView } from './components/DayView';
 import { AgendaView } from './components/AgendaView';
 import { CommandPalette } from './components/CommandPalette';
+import { GoogleEventImportModal } from './components/GoogleEventImportModal';
 import { MiniMonth } from './components/MiniMonth';
 import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
@@ -250,6 +251,15 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [googleImportEvent, setGoogleImportEvent] = useState(null);
+  const [showGoogleEvents, setShowGoogleEvents] = useState(() => {
+    try {
+      const saved = localStorage.getItem('kairos_show_google_events');
+      return saved === null ? true : JSON.parse(saved);
+    } catch {
+      return true;
+    }
+  });
   const [now, setNow] = useState(new Date());
   const [dayViewMode, setDayViewMode] = useState('timeline');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
@@ -454,7 +464,7 @@ function App() {
     const base = activeWorkspaces.length > 0
       ? filteredEvents
       : (defaultWorkspaceId ? filteredEvents.filter(e => e.cr4a1_workspace_id === defaultWorkspaceId) : filteredEvents);
-    return appMode === 'calendar' ? [...base, ...googleEvents] : base;
+    return appMode === 'calendar' ? [...base, ...(showGoogleEvents ? googleEvents : [])] : base;
   };
 
   useEffect(() => {
@@ -926,10 +936,26 @@ function App() {
   };
 
   const handleViewEvent = (event, rect) => {
-    if (event.isExternal) { toast('Evento do Google Calendar — somente leitura.', { icon: '🗓️' }); return; }
+    if (event.isExternal) { setGoogleImportEvent(event); return; }
     if (event.isVisitaPrincipal || event.isIntervalo) { handleEditClick(event); return; }
     setDetailSourceRect(rect);
     setDetailEvent(event);
+  };
+
+  const handleImportGoogleEvent = async (workspaceId) => {
+    if (!googleImportEvent) return;
+    await addEvent({
+      cr4a1_titulo: googleImportEvent.cr4a1_titulo,
+      startDate: googleImportEvent.cr4a1_data_inicio,
+      endDate: googleImportEvent.cr4a1_data_fim,
+      startHour: googleImportEvent.cr4a1_hora_inicio || '00:00',
+      endHour: googleImportEvent.cr4a1_hora_fim || '23:59',
+      allDay: !!googleImportEvent.cr4a1_dia_inteiro,
+      details: 'Importado do Google Calendar.',
+      workspaceId
+    });
+    toast.success('Evento importado para a Kairós!');
+    setGoogleImportEvent(null);
   };
 
   const handleEditClick = (event) => {
@@ -1345,6 +1371,26 @@ function App() {
                     ))}
                   </div>
                 </div>
+
+                {appMode === 'calendar' && currentUser?.cr4a1_google_conectado_em && (
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Calendários externos</div>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: '8px 10px', borderRadius: '12px',
+                      backgroundColor: showGoogleEvents ? 'var(--bg-tertiary)' : 'transparent',
+                    }}>
+                      <Checkbox
+                        checked={showGoogleEvents}
+                        onCheckedChange={(checked) => {
+                          setShowGoogleEvents(checked);
+                          try { localStorage.setItem('kairos_show_google_events', JSON.stringify(checked)); } catch { /* ignora */ }
+                        }}
+                      />
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#4285F4' }}></div>
+                      <span style={{ color: 'var(--text-primary)' }}>Meu Google Calendar</span>
+                    </label>
+                  </div>
+                )}
 
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px' }}>Funcionários</div>
@@ -2529,6 +2575,13 @@ function App() {
           </Dialog>
 
           <CommandPalette open={isCommandPaletteOpen} onOpenChange={setIsCommandPaletteOpen} groups={commandGroups} />
+
+          <GoogleEventImportModal
+            event={googleImportEvent}
+            workspaces={workspaces}
+            onClose={() => setGoogleImportEvent(null)}
+            onConfirm={handleImportGoogleEvent}
+          />
 
           {dayVisitasModalOpen && (
             <DayVisitasModal
