@@ -2761,7 +2761,7 @@ function App() {
                 }}
               />
             )}
-          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : 'calc(24px + env(safe-area-inset-bottom, 0px))', right: 'calc(20px + env(safe-area-inset-right, 0px))', zIndex: isFabMenuOpen ? 2100 : 500 }}>
+          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : 'calc(24px + env(safe-area-inset-bottom, 0px))', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
@@ -2988,12 +2988,12 @@ function App() {
         }
 
         .fab-anchor {
-            right: 24px;
+            right: calc(20px + env(safe-area-inset-right, 0px)) !important;
         }
 
         @media (min-width: 1025px) {
             .fab-anchor {
-                right: 92px;
+                right: calc(96px + env(safe-area-inset-right, 0px)) !important;
             }
 
             .main-container {
@@ -3124,9 +3124,24 @@ function App() {
                 align-items: center !important;
                 padding: 6px 16px !important;
                 gap: 12px !important;
-                width: 100% !important;
                 box-sizing: border-box !important;
             }
+        }
+
+        @media (min-width: 901px) and (max-width: 1024px) {
+            .app-header.is-compact {
+                width: 100% !important;
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .app-header.is-compact {
+                width: calc(100% - 76px) !important;
+                margin-right: 76px !important;
+            }
+        }
+
+        @media (min-width: 901px) {
             .header-brand {
                 display: flex !important;
                 align-items: center !important;
