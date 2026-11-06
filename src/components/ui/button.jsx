@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 // (active:scale-90) que o resto do app já usa em .btn-primary/.icon-btn — o objetivo
 // é o shadcn imitar a identidade visual existente, não trazer uma nova.
 const buttonVariants = cva(
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold cursor-pointer select-none transition-[transform,box-shadow,filter,background-color,color,border-color] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90 disabled:pointer-events-none disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:shrink-0",
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold cursor-pointer select-none transition-[transform,box-shadow,filter,background-color,color,border-color] duration-150 ease-out active:scale-[0.97] touch-manipulation disabled:pointer-events-none disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:shrink-0",
     {
         variants: {
             variant: {

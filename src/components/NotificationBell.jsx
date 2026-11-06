@@ -116,7 +116,7 @@ export const NotificationBell = ({ user }) => {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-80 sm:w-96 p-0 shadow-2xl border-border bg-card">
+      <PopoverContent align="end" className="w-80 sm:w-96 max-w-[calc(100vw-24px)] p-0 shadow-2xl border-border bg-card">
         <div className="flex items-center justify-between border-b border-border p-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-foreground">Notificações</h3>

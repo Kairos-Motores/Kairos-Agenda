@@ -633,46 +633,63 @@ function App() {
         const responsaveis = (event.cr4a1_user_login || '').split(',').map(s => s.trim().toLowerCase());
         const souResponsavel = responsaveis.includes((user || '').toLowerCase());
 
-        // 1. Alerta por E-mail e Sininho no App (15 minutos antes de começar)
-        if (souResponsavel && diffMin >= 0 && diffMin <= 15) {
+        // 1. Alerta por E-mail e Sininho no App (15 minutos antes de começar ou se já estiver na janela de início)
+        if (souResponsavel && diffMin >= -2 && diffMin <= 15) {
           const mailKey = `mail_event_${event.cr4a1_agenda_kairosid}_${event.cr4a1_data_inicio}`;
           if (!sessionStorage.getItem(mailKey)) {
             sessionStorage.setItem(mailKey, 'true');
-            notificarEventoProximo({ event, diffMin, allUsers });
+            notificarEventoProximo({ event, diffMin: Math.max(0, diffMin), allUsers });
           }
         }
 
-        // 2. Notificação Desktop do Navegador (se permissão concedida)
+        // 2. Notificação no Dispositivo (Service Worker / Notification API com janela de tolerância para evitar perda de tick)
         const milestones = [30, 15, 5, 0];
-        if (souResponsavel && milestones.includes(diffMin) && Notification.permission === 'granted') {
-          const notificationKey = `${event.cr4a1_agenda_kairosid}_${diffMin}`;
-          if (!notifiedRef.current.has(notificationKey)) {
-            const title = `📌 ${event.cr4a1_titulo}`;
-            const options = {
-              body: diffMin === 0 ? "A começar agora!" : `Em ${diffMin} minutos.`,
-              icon: '/icon-512.jpg',
-              tag: event.cr4a1_agenda_kairosid,
-              badge: '/icon-512.jpg',
-              vibrate: [200, 100, 200],
-              requireInteraction: diffMin <= 5
-            };
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-              navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(title, options);
-              });
-            } else {
-              new Notification(title, options);
+        if (souResponsavel && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          milestones.forEach(m => {
+            if (diffMin <= m && diffMin >= (m - 2)) {
+              const notificationKey = `${event.cr4a1_agenda_kairosid}_m${m}`;
+              if (!notifiedRef.current.has(notificationKey)) {
+                notifiedRef.current.add(notificationKey);
+                const title = `📌 ${event.cr4a1_titulo}`;
+                const options = {
+                  body: m === 0 ? "Começando agora!" : `Em aproximadamente ${m} minuto(s).`,
+                  icon: '/icon-512.jpg',
+                  tag: `${event.cr4a1_agenda_kairosid}-${m}`,
+                  badge: '/icon-512.jpg',
+                  vibrate: [200, 100, 200],
+                  requireInteraction: m <= 5
+                };
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification(title, options);
+                  });
+                } else {
+                  new Notification(title, options);
+                }
+              }
             }
-            notifiedRef.current.add(notificationKey);
-          }
+          });
         }
       });
-      if (notifiedRef.current.size > 50) notifiedRef.current.clear();
+      if (notifiedRef.current.size > 100) notifiedRef.current.clear();
     };
 
     checkNotifications();
-    const timer = setInterval(checkNotifications, 30000);
-    return () => clearInterval(timer);
+    const timer = setInterval(checkNotifications, 12000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', checkNotifications);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', checkNotifications);
+    };
   }, [events, allUsers, user]);
 
   useEffect(() => {
@@ -1261,17 +1278,22 @@ function App() {
       >
         <Toaster
           position="bottom-center"
-          containerStyle={{ zIndex: 10000002 }}
+          containerStyle={{
+            zIndex: 10000002,
+            bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))'
+          }}
           toastOptions={{
+            duration: 3500,
             style: {
               background: 'var(--bg-primary)',
               color: 'var(--text-primary)',
               border: '1px solid var(--border-color)',
               borderRadius: '16px',
-              padding: '12px 16px',
-              fontSize: '14px',
+              padding: '10px 16px',
+              fontSize: '13px',
               fontWeight: '500',
               boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+              transition: 'all 0.15s ease-out',
             },
             success: { iconTheme: { primary: '#34a853', secondary: 'var(--bg-primary)' } },
             error: { iconTheme: { primary: '#e74c3c', secondary: 'var(--bg-primary)' } },
@@ -1723,16 +1745,22 @@ function App() {
                 </span>
 
                 {isYearSelectorOpen && (
-                  <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                    {Array.from({ length: 16 }, (_, i) => {
-                      const year = currentDate.getFullYear() - 7 + i;
-                      return (
-                        <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '8px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer', fontWeight: '600' }}>
-                          {year}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div
+                      onClick={() => setIsYearSelectorOpen(false)}
+                      style={{ position: 'fixed', inset: 0, zIndex: 1999 }}
+                    />
+                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 2000, backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.15)', width: '280px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                      {Array.from({ length: 16 }, (_, i) => {
+                        const year = currentDate.getFullYear() - 7 + i;
+                        return (
+                          <button key={year} onClick={() => { setCurrentDate(new Date(year, currentDate.getMonth(), 1)); setIsYearSelectorOpen(false); }} className="nav-pill boing-effect" style={{ padding: '8px 0', borderRadius: '8px', border: 'none', backgroundColor: year === currentDate.getFullYear() ? 'var(--text-accent)' : 'transparent', color: year === currentDate.getFullYear() ? 'white' : 'var(--text-primary)', cursor: 'pointer', fontWeight: '600' }}>
+                            {year}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2717,7 +2745,21 @@ function App() {
 
         {/* FAB */}
         {(hasRole('ADMIN') || hasRole('SECRETARIA') || hasRole('DIRETORIA') || hasRole('COORD') || hasRole('COMUM') || hasRole('COMERCIAL') || hasRole('COORD COMERCIAL') || hasRole('RH')) && (
-          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? '80px' : '24px', zIndex: isFabMenuOpen ? 2100 : 500 }}>
+          <>
+            {isFabMenuOpen && (
+              <div
+                onClick={() => setIsFabMenuOpen(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 2050,
+                  backgroundColor: 'rgba(0,0,0,0.25)',
+                  backdropFilter: 'blur(2px)',
+                  transition: 'opacity 0.15s ease'
+                }}
+              />
+            )}
+          <div className="fab-anchor" data-tutorial="fab-add" style={{ position: 'fixed', bottom: ['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : 'calc(24px + env(safe-area-inset-bottom, 0px))', right: 'calc(20px + env(safe-area-inset-right, 0px))', zIndex: isFabMenuOpen ? 2100 : 500 }}>
             {isFabMenuOpen && (
               <div style={{ position: 'absolute', bottom: '80px', right: '0', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'flex-end', minWidth: '180px' }}>
 
@@ -2753,14 +2795,15 @@ function App() {
               <span className="material-symbols-rounded" style={{ fontSize: '32px', transform: isFabMenuOpen ? 'rotate(45deg)' : 'none', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>{isFabMenuOpen ? 'close' : 'add'}</span>
             </button>
           </div>
-        )}
+        </>
+      )}
 
       </div>
 
       {/* BLOCO DE ESTILOS CSS INJETADO */}
       <style>{`
-        @keyframes viewSlideIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
-        .view-enter { animation: viewSlideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes viewSlideIn { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+        .view-enter { animation: viewSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; will-change: opacity, transform; }
         
         .dropdown-item-select:hover {
             background-color: var(--bg-secondary) !important;
@@ -2770,11 +2813,12 @@ function App() {
         @media (min-width: 1025px) { .mobile-only { display: none !important; } .desktop-only { display: flex !important; } }
         
         .boing-effect {
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            touch-action: manipulation;
         }
         .boing-effect:active {
-            transform: scale(0.85) !important;
-            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform: scale(0.96) !important;
+            transition: transform 0.08s ease-out !important;
         }
 
         .app-header {
@@ -2791,7 +2835,7 @@ function App() {
             top: 0;
             z-index: 2000;
             box-sizing: border-box;
-            transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+            transition: padding 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
         }
         
         .app-header.is-compact {
@@ -2799,7 +2843,6 @@ function App() {
             min-height: 48px;
             background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            border-bottom-right-radius: 16px;
         }
 
         @media (min-width: 1025px) {

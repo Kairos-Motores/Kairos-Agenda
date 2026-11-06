@@ -101,7 +101,7 @@ const TodoCheckbox = ({ checked, onChange, disabled = false }) => (
       transition: 'background 0.2s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s'
     }}
   >
-    {checked && <Check className="size-[14px] text-white" strokeWidth={3} style={{ animation: 'elasticPulse 0.3s cubic-bezier(0.34,1.56,0.64,1)' }} />}
+    {checked && <Check className="size-[14px] text-white" strokeWidth={3} style={{ animation: 'elasticPulse 0.18s ease-out' }} />}
   </span>
 );
 
@@ -1612,7 +1612,7 @@ export const NotesPanel = ({
           <FileText className="size-5 text-[#f57c00]" />
           Notas / Hub
         </h2>
-        <Button onClick={createNewNota} style={{ background: '#f57c00', animation: 'fabEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards' }}>
+        <Button onClick={createNewNota} style={{ background: '#f57c00', animation: 'fabEntrance 0.2s ease-out backwards' }}>
           <Plus className="size-[18px]" />
           Nova Nota
         </Button>
