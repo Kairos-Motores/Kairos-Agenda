@@ -2137,23 +2137,25 @@ function App() {
             </aside>
           )}
 
-          <main className="main-container" style={{
-            flex: 1,
-            minWidth: 0,
-            maxWidth: '100%',
-            height: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
-            maxHeight: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
-            overflow: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'hidden' : 'visible',
-            padding: (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['day', '3days', 'week'].includes(view))
-              ? '0'
-              : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '6px 16px 8px 16px' : undefined),
-            paddingTop: appMode === 'trello' ? '4px' : undefined,
-            paddingBottom: appMode === 'trello' ? '4px' : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '8px' : '40px'),
-            marginLeft: (isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? '24px' : 0,
-            display: 'flex',
-            flexDirection: 'column',
-            boxSizing: 'border-box'
-          }}>
+          <main
+            className={`main-container ${(isDevWorkspaceActive && !['visitas', 'notas', 'bi', 'trello', 'passagens'].includes(appMode)) ? 'has-left-sidebar' : ''}`}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: '100%',
+              height: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
+              maxHeight: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'calc(100vh - 50px)' : undefined,
+              overflow: !['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['month', 'day', '3days', 'week'].includes(view) ? 'hidden' : 'visible',
+              padding: (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && ['day', '3days', 'week'].includes(view))
+                ? '0'
+                : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '6px 8px 8px 8px' : undefined),
+              paddingTop: appMode === 'trello' ? '4px' : undefined,
+              paddingBottom: appMode === 'trello' ? '4px' : (!['tasks', 'notas', 'bi', 'trello', 'passagens'].includes(appMode) && view === 'month' ? '8px' : '40px'),
+              display: 'flex',
+              flexDirection: 'column',
+              boxSizing: 'border-box'
+            }}
+          >
 
             <div key={appMode} className="view-enter" style={{ width: '100%', height: '100%' }}>
               {appMode === 'bi' ? (
@@ -2996,6 +2998,22 @@ function App() {
 
             .main-container {
                 margin-right: 76px;
+            }
+
+            .main-container.has-left-sidebar {
+                margin-left: 24px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .main-container,
+            .main-container.has-left-sidebar {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+                width: 100% !important;
+                max-width: 100% !important;
             }
         }
 

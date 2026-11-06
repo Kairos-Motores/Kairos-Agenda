@@ -202,7 +202,7 @@ export const EventModal = ({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-xl sm:max-w-2xl lg:max-w-3xl" showClose={false}>
-                <div className="sticky top-0 z-20 -mx-4 -mt-3 mb-4 flex items-center justify-between border-b border-border/50 bg-card/95 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6 sm:py-3">
+                <div className="sticky top-0 z-20 -mx-3 -mt-3 mb-4 flex items-center justify-between border-b border-border/50 bg-card/95 px-3 py-2.5 backdrop-blur-md sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6 sm:py-3">
                     <button onClick={onClose} aria-label="Fechar" className="flex size-9 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <X className="size-[18px]" />
                     </button>
@@ -217,7 +217,7 @@ export const EventModal = ({
                             placeholder="Nome do Evento ou Tarefa..."
                             value={formData.title}
                             onChange={e => setFormData({ ...formData, title: e.target.value })}
-                            className="flex-1 border-none bg-transparent py-2 text-[17px] font-semibold text-foreground outline-none placeholder:text-muted-foreground placeholder:font-normal"
+                            className="min-w-0 flex-1 border-none bg-transparent py-2 text-[17px] font-semibold text-foreground outline-none placeholder:text-muted-foreground placeholder:font-normal"
                         />
                         <Popover>
                             <PopoverTrigger asChild>
@@ -434,9 +434,9 @@ export const EventModal = ({
 };
 
 const SwitchRow = ({ label, icon: Icon, checked, onChange }) => (
-    <div className="flex items-center justify-between py-1.5">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">{Icon && <Icon className="size-3.5 text-muted-foreground" />} {label}</span>
-        <Switch checked={checked} onCheckedChange={onChange} />
+    <div className="flex items-center justify-between py-1.5 gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground min-w-0 flex-1 leading-snug">{Icon && <Icon className="size-3.5 text-muted-foreground shrink-0" />} <span className="truncate">{label}</span></span>
+        <Switch checked={checked} onCheckedChange={onChange} className="shrink-0" />
     </div>
 );
 

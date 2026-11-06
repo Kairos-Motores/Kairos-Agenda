@@ -3352,14 +3352,14 @@ const FichaForm = ({
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
         {/* Topo / Capa da Ficha com Autor, Ações, Título e Descrição */}
         <DialogHeader
-          className="p-4 sm:p-6 pb-4 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none flex flex-col gap-3.5 mb-0 shrink-0 transition-colors pr-6 sm:pr-8"
+          className="p-3 sm:p-6 pb-3.5 sm:pb-4 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none flex flex-col gap-3 mb-0 shrink-0 transition-colors pr-3 sm:pr-8"
           style={corCabecalho ? {
             backgroundColor: form.cor
           } : undefined}
         >
           {/* Linha 1: Autor, Workspace/Lista, Badges e Botões de Ação */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pr-8 sm:pr-10">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 pr-8 sm:pr-0">
               <UserAvatar login={criadorLogin} allUsers={allUsers} size={28} className="ring-2 ring-background/30 shadow-sm shrink-0" />
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -3382,12 +3382,12 @@ const FichaForm = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 shrink-0 sm:pr-8">
               <Button
                 type="button"
                 size="sm"
                 variant={seguindo ? 'default' : 'outline'}
-                className={getHeaderBtnClass(seguindo)}
+                className={`${getHeaderBtnClass(seguindo)} max-sm:px-2.5 max-sm:text-xs max-sm:h-8`}
                 onClick={() => alternarObservador(usuarioAtual)}
                 title="Receber alertas sobre movimentações e comentários desta ficha"
               >
@@ -3398,7 +3398,7 @@ const FichaForm = ({
                 type="button"
                 size="sm"
                 variant={form.ehModelo ? 'default' : 'outline'}
-                className={getHeaderBtnClass(form.ehModelo)}
+                className={`${getHeaderBtnClass(form.ehModelo)} max-sm:px-2.5 max-sm:text-xs max-sm:h-8`}
                 onClick={() => set('ehModelo', !form.ehModelo)}
                 title="Transformar esta ficha em um Modelo reutilizável"
               >
@@ -3410,7 +3410,7 @@ const FichaForm = ({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className={getHeaderBtnClass(false)}
+                  className={`${getHeaderBtnClass(false)} max-sm:px-2.5 max-sm:text-xs max-sm:h-8`}
                   onClick={onDuplicar}
                   title="Criar uma cópia idêntica desta ficha"
                 >
@@ -3475,27 +3475,29 @@ const FichaForm = ({
               </Label>
               <div className="flex flex-col gap-1.5">
                 {tarefasDaDescricao.map(t => (
-                  <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-1.5 text-sm">
-                    <span className={`min-w-0 flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
-                    <input
-                      type="date"
-                      value={t.dataVencimento || ''}
-                      onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
-                      aria-label={`Prazo de "${t.texto}"`}
-                      className="h-8 shrink-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
-                    />
-                    <Select
-                      value={t.responsavel || '__nenhum__'}
-                      onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
-                    >
-                      <SelectTrigger className="h-8 w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__nenhum__">Sem responsável</SelectItem>
-                        {opcoesComAtual(membros.length ? membros : allUsers, t.responsavel, allUsers).map(u => (
-                          <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-2.5 sm:px-3 py-1.5 text-sm">
+                    <span className={`min-w-[140px] flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                      <input
+                        type="date"
+                        value={t.dataVencimento || ''}
+                        onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
+                        aria-label={`Prazo de "${t.texto}"`}
+                        className="h-8 flex-1 sm:flex-initial min-w-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
+                      />
+                      <Select
+                        value={t.responsavel || '__nenhum__'}
+                        onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
+                      >
+                        <SelectTrigger className="h-8 w-32 sm:w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__nenhum__">Sem responsável</SelectItem>
+                          {opcoesComAtual(membros.length ? membros : allUsers, t.responsavel, allUsers).map(u => (
+                            <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3866,7 +3868,7 @@ const FichaForm = ({
                   <span>Vincular</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-2.5">
+              <PopoverContent align="end" className="w-80 max-w-[calc(100vw-24px)] p-2.5">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">Vincular Notas</span>
@@ -4132,28 +4134,28 @@ const FichaForm = ({
         </div>
       </div>
 
-      <DialogFooter className="shrink-0 p-3.5 sm:p-4 border-t border-border/60 bg-card/95 backdrop-blur-md flex-wrap justify-between gap-2 shadow-lg mt-0">
-        <div className="flex items-center gap-1.5">
-          <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
-            <Trash2 className="size-4" /> Excluir
+      <DialogFooter className="shrink-0 p-2.5 sm:p-4 border-t border-border/60 bg-card/95 backdrop-blur-md flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shadow-lg mt-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+          <Button type="button" variant="ghost" size="sm" className="text-destructive h-9 px-2 sm:px-3 text-xs sm:text-sm" onClick={onDelete}>
+            <Trash2 className="size-3.5 sm:size-4" /> Excluir
           </Button>
           {onToggleArquivo && (
-            <Button type="button" variant="outline" size="sm" onClick={onToggleArquivo}>
+            <Button type="button" variant="outline" size="sm" className="h-9 px-2.5 sm:px-3 text-xs sm:text-sm" onClick={onToggleArquivo}>
               {arquivada ? (
                 <>
-                  <ArchiveRestore className="size-4" /> Restaurar ao quadro
+                  <ArchiveRestore className="size-3.5 sm:size-4" /> <span className="truncate">Restaurar</span>
                 </>
               ) : (
                 <>
-                  <Archive className="size-4" /> Arquivar
+                  <Archive className="size-3.5 sm:size-4" /> Arquivar
                 </>
               )}
             </Button>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={() => onSave(form)} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <Button variant="outline" size="sm" className="h-9 px-2.5 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={onCancel}>Cancelar</Button>
+          <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => onSave(form)} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
         </div>
       </DialogFooter>
     </div>

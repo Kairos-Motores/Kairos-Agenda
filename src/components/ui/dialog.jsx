@@ -21,14 +21,30 @@ export const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => 
 ));
 DialogOverlay.displayName = 'DialogOverlay';
 
-export const DialogContent = React.forwardRef(({ className, overlayClassName, children, showClose = true, ...props }, ref) => (
+export const DialogContent = React.forwardRef(({ className, overlayClassName, children, showClose = true, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
     <DialogPortal>
         <DialogOverlay className={overlayClassName} />
         <DialogPrimitive.Content
             ref={ref}
+            onPointerDownOutside={(e) => {
+                const target = e.detail?.originalEvent?.target || e.target;
+                if (target?.closest?.('[data-mention-menu]')) {
+                    e.preventDefault();
+                    return;
+                }
+                onPointerDownOutside?.(e);
+            }}
+            onInteractOutside={(e) => {
+                const target = e.detail?.originalEvent?.target || e.target;
+                if (target?.closest?.('[data-mention-menu]')) {
+                    e.preventDefault();
+                    return;
+                }
+                onInteractOutside?.(e);
+            }}
             className={cn(
                 "fixed inset-x-0 bottom-0 z-[12001] w-full max-h-[92dvh] overflow-y-auto overscroll-contain",
-                "rounded-t-[28px] rounded-b-none border-t border-border/80 bg-card px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl outline-none",
+                "rounded-t-[28px] rounded-b-none border-t border-border/80 bg-card px-3 sm:px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none",
                 "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-h-[88vh] sm:rounded-[28px] sm:border sm:p-6 w-full max-w-lg sm:w-[92vw]",
                 "data-[state=open]:animate-[sheet-in_0.3s_cubic-bezier(0.2,0,0,1)] data-[state=closed]:animate-[sheet-out_0.2s_ease-in]",
                 "sm:data-[state=open]:animate-[dialog-in_0.35s_var(--ease-elastic)] sm:data-[state=closed]:animate-[dialog-out_0.15s_ease-in]",
@@ -36,10 +52,10 @@ export const DialogContent = React.forwardRef(({ className, overlayClassName, ch
             )}
             {...props}
         >
-            <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden" />
+            <div className="mx-auto mb-2.5 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden" />
             {children}
             {showClose && (
-                <DialogPrimitive.Close className="absolute right-4 top-3.5 sm:right-6 sm:top-5 z-30 flex size-8 items-center justify-center rounded-full bg-secondary/80 text-muted-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <DialogPrimitive.Close className="absolute right-3 top-3 sm:right-6 sm:top-5 z-30 flex size-8 items-center justify-center rounded-full bg-secondary/80 text-muted-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="size-4" />
                     <span className="sr-only">Fechar</span>
                 </DialogPrimitive.Close>

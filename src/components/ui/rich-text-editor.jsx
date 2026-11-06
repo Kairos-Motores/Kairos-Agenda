@@ -133,6 +133,7 @@ export const RichTextEditor = ({
   const selectedIndexRef = useRef(0);
   selectedIndexRef.current = selectedIndex;
   const selectUserRef = useRef(null);
+  const mentionRangeRef = useRef(null);
 
   const editor = useEditor({
     extensions: [
@@ -192,6 +193,12 @@ export const RichTextEditor = ({
     if (match) {
       const matchStart = from - match[0].length;
       editor.chain().focus().deleteRange({ from: matchStart, to: from }).insertContent(`@${user.cr4a1_username} `).run();
+      mentionRangeRef.current = null;
+      setMentionOpen(false);
+    } else if (mentionRangeRef.current) {
+      const { from: savedFrom, to: savedTo } = mentionRangeRef.current;
+      editor.chain().focus().deleteRange({ from: savedFrom, to: savedTo }).insertContent(`@${user.cr4a1_username} `).run();
+      mentionRangeRef.current = null;
       setMentionOpen(false);
     }
   }, [editor]);
@@ -204,6 +211,7 @@ export const RichTextEditor = ({
     const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
 
     if (match) {
+      mentionRangeRef.current = { from: from - match[0].length, to: from };
       setMentionQuery(match[1]);
       setSelectedIndex(0);
       try {
@@ -218,6 +226,7 @@ export const RichTextEditor = ({
         setMentionOpen(false);
       }
     } else {
+      mentionRangeRef.current = null;
       setMentionOpen(false);
     }
   }, [editor]);

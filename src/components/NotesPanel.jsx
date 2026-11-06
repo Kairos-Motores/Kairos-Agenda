@@ -285,7 +285,7 @@ const CompartilharNotaDialog = ({
                         value={perm}
                         onValueChange={(novaPerm) => handleChangePermissao(login, novaPerm)}
                       >
-                        <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectTrigger className="h-8 w-[108px] sm:w-[130px] text-xs px-2 sm:px-3">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

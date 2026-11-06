@@ -146,7 +146,7 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="max-w-[1600px] w-[96vw] sm:w-[95vw] h-[92dvh] sm:h-[90vh] sm:!max-h-[92vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
+        <DialogContent className="max-w-[1600px] w-full sm:w-[95vw] h-[92dvh] sm:h-[90vh] sm:!max-h-[92vh] flex flex-col p-0 overflow-hidden !z-[10000005]" overlayClassName="!z-[10000004]">
           {/* Header */}
           <div className="shrink-0 p-3 sm:p-4 border-b border-border bg-card/60 backdrop-blur-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -264,9 +264,9 @@ export const BiMonitoringModal = ({ isOpen, onClose, userRole, biConfig = [] }) 
           )}
 
           {/* Barra de Ferramentas / Filtros */}
-          <div className="shrink-0 px-6 py-2 border-b border-border/80 flex flex-wrap gap-3 items-center justify-between">
+          <div className="shrink-0 px-3 sm:px-6 py-2 border-b border-border/80 flex flex-wrap gap-2 sm:gap-3 items-center justify-between">
             {/* Campo de Busca */}
-            <div className="relative flex-1 min-w-[240px] max-w-md">
+            <div className="relative flex-1 min-w-[180px] sm:min-w-[240px] max-w-md">
               <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchTerm}

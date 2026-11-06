@@ -206,12 +206,12 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
                 </DialogHeader>
 
                 <Tabs defaultValue="users">
-                    <TabsList>
-                        <TabsTrigger value="users">Membros</TabsTrigger>
-                        <TabsTrigger value="credenciais">Credenciais {credenciaisPendentes.length > 0 ? `(${credenciaisPendentes.length})` : ''}</TabsTrigger>
-                        <TabsTrigger value="types">Tipos de Evento</TabsTrigger>
-                        {isAdmin && <TabsTrigger value="roles">Roles</TabsTrigger>}
-                        {isAdmin && <TabsTrigger value="bi">Painéis BI</TabsTrigger>}
+                    <TabsList className="w-full flex-wrap sm:flex-nowrap justify-start h-auto p-1 gap-1">
+                        <TabsTrigger value="users" className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">Membros</TabsTrigger>
+                        <TabsTrigger value="credenciais" className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">Credenciais {credenciaisPendentes.length > 0 ? `(${credenciaisPendentes.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="types" className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">Tipos de Evento</TabsTrigger>
+                        {isAdmin && <TabsTrigger value="roles" className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">Roles</TabsTrigger>}
+                        {isAdmin && <TabsTrigger value="bi" className="px-2.5 py-1.5 text-xs sm:px-3 sm:py-2">Painéis BI</TabsTrigger>}
                     </TabsList>
 
                     <TabsContent value="users" className="flex flex-col gap-3">
@@ -395,7 +395,7 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
                 </Tabs>
 
                 {ConfirmDialogHost}
-                <div className="sticky bottom-0 z-20 -mx-4 -mb-6 sm:-mx-6 sm:-mb-6 bg-card/95 backdrop-blur-md pt-3 pb-2 px-4 sm:px-6 border-t border-border/50">
+                <div className="sticky bottom-0 z-20 -mx-3 -mb-6 sm:-mx-6 sm:-mb-6 bg-card/95 backdrop-blur-md pt-3 pb-2 px-3 sm:px-6 border-t border-border/50">
                     <Button onClick={onClose} className="w-full rounded-xl font-semibold" size="lg">Concluído</Button>
                 </div>
             </DialogContent>
@@ -479,7 +479,7 @@ const UserRow = ({ user, isAdmin, isSelf, updateUserColor, updateUserRoles, onDe
                                     <RefreshCw className="size-4" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent align="end" className="w-80 p-4">
+                            <PopoverContent align="end" className="w-80 max-w-[calc(100vw-24px)] p-4">
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center gap-2 border-b border-border pb-2.5">
                                         <div className="flex size-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400">

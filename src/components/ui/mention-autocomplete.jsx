@@ -82,24 +82,40 @@ export const MentionSuggestionsMenu = ({
 
   if (!users || users.length === 0) return null;
 
+  const menuWidth = typeof window !== 'undefined' ? Math.min(288, window.innerWidth - 16) : 288;
+  const clampedTop = coords && typeof window !== 'undefined'
+    ? Math.max(8, Math.min(coords.top, window.innerHeight - 260))
+    : undefined;
+  const clampedLeft = coords && typeof window !== 'undefined'
+    ? Math.max(8, Math.min(coords.left, window.innerWidth - menuWidth - 8))
+    : undefined;
+
   const content = (
     <div
-      className={`fixed z-[999999] w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 ${className}`}
+      data-mention-menu="true"
+      className={`fixed z-[10000010] w-72 max-w-[calc(100vw-1rem)] pointer-events-auto rounded-xl border border-border bg-card/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 ${className}`}
       style={{
+        pointerEvents: 'auto',
         ...(coords ? {
-          top: `${Math.max(8, Math.min(coords.top, window.innerHeight - 280))}px`,
-          left: `${Math.max(8, Math.min(coords.left, window.innerWidth - 300))}px`
+          top: `${clampedTop}px`,
+          left: `${clampedLeft}px`
         } : {}),
         ...style
       }}
-      onMouseDown={(e) => e.preventDefault()} // evita perder foco do editor/input
+      onPointerDown={(e) => {
+        e.stopPropagation();
+      }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold tracking-wider text-muted-foreground uppercase border-b border-border/60 mb-1">
         <AtSign className="size-3 text-primary" />
         <span>Mencionar usuário</span>
       </div>
 
-      <div ref={listRef} className="max-h-60 overflow-y-auto flex flex-col gap-0.5">
+      <div ref={listRef} className="max-h-56 overflow-y-auto overscroll-contain flex flex-col gap-0.5 touch-pan-y">
         {users.map((u, idx) => {
           const isSelected = idx === selectedIndex;
           const displayNome = u.cr4a1_nome_exibicao || u.cr4a1_username;
@@ -110,12 +126,20 @@ export const MentionSuggestionsMenu = ({
             <button
               key={u.cr4a1_usuarios_agendaid || handle}
               type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
               onMouseDown={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 onSelect(u);
               }}
-              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 text-left transition-colors cursor-pointer select-none ${
-                isSelected ? 'bg-primary text-primary-foreground font-semibold shadow-xs' : 'hover:bg-secondary text-foreground'
+              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-2 sm:py-1.5 text-left transition-colors cursor-pointer select-none pointer-events-auto ${
+                isSelected ? 'bg-primary text-primary-foreground font-semibold shadow-xs' : 'hover:bg-secondary active:bg-secondary text-foreground'
               }`}
             >
               <UserMentionAvatar user={u} size={28} />
@@ -131,9 +155,9 @@ export const MentionSuggestionsMenu = ({
         })}
       </div>
 
-      <div className="mt-1 border-t border-border/60 px-2 pt-1 text-[10px] text-muted-foreground/80 flex items-center justify-between">
+      <div className="mt-1 border-t border-border/60 px-2 pt-1 text-[10px] text-muted-foreground/80 hidden sm:flex items-center justify-between">
         <span>↑↓ navegar</span>
-        <span>Enter selecionar</span>
+        <span>Enter ou clique</span>
         <span>Esc fechar</span>
       </div>
     </div>
@@ -160,6 +184,7 @@ export const MentionTextarea = React.forwardRef(({
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [coords, setCoords] = useState(null);
+  const lastMatchRef = useRef(null);
 
   const filteredUsers = useMemo(() => {
     return filtrarUsuariosParaMencao(allUsers, mentionQuery);
@@ -174,6 +199,7 @@ export const MentionTextarea = React.forwardRef(({
     const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
 
     if (match) {
+      lastMatchRef.current = { start: cursor - match[0].length, end: cursor };
       setMentionQuery(match[1]);
       setSelectedIndex(0);
 
@@ -186,6 +212,7 @@ export const MentionTextarea = React.forwardRef(({
       });
       setMentionOpen(true);
     } else {
+      lastMatchRef.current = null;
       setMentionOpen(false);
     }
   }, [textareaRef]);
@@ -194,21 +221,29 @@ export const MentionTextarea = React.forwardRef(({
     const el = textareaRef.current;
     if (!el || !user) return;
 
-    const cursor = el.selectionStart;
     const text = el.value || '';
+    const cursor = typeof el.selectionStart === 'number' ? el.selectionStart : text.length;
     const textBefore = text.slice(0, cursor);
-    const textAfter = text.slice(cursor);
     const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
 
+    let matchStart = -1;
+    let matchEnd = cursor;
     if (match) {
-      const matchStart = cursor - match[0].length;
+      matchStart = cursor - match[0].length;
+    } else if (lastMatchRef.current) {
+      matchStart = lastMatchRef.current.start;
+      matchEnd = lastMatchRef.current.end;
+    }
+
+    if (matchStart >= 0) {
       const insertion = `@${user.cr4a1_username} `;
-      const newText = text.slice(0, matchStart) + insertion + textAfter;
+      const newText = text.slice(0, matchStart) + insertion + text.slice(matchEnd);
 
       if (onChange) {
         onChange({ target: { value: newText } });
       }
 
+      lastMatchRef.current = null;
       setMentionOpen(false);
 
       setTimeout(() => {
@@ -295,6 +330,7 @@ export const MentionInput = React.forwardRef(({
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [coords, setCoords] = useState(null);
+  const lastMatchRef = useRef(null);
 
   const filteredUsers = useMemo(() => {
     return filtrarUsuariosParaMencao(allUsers, mentionQuery);
@@ -309,6 +345,7 @@ export const MentionInput = React.forwardRef(({
     const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
 
     if (match) {
+      lastMatchRef.current = { start: cursor - match[0].length, end: cursor };
       setMentionQuery(match[1]);
       setSelectedIndex(0);
 
@@ -320,6 +357,7 @@ export const MentionInput = React.forwardRef(({
       });
       setMentionOpen(true);
     } else {
+      lastMatchRef.current = null;
       setMentionOpen(false);
     }
   }, [inputRef]);
@@ -328,21 +366,29 @@ export const MentionInput = React.forwardRef(({
     const el = inputRef.current;
     if (!el || !user) return;
 
-    const cursor = el.selectionStart;
     const text = el.value || '';
+    const cursor = typeof el.selectionStart === 'number' ? el.selectionStart : text.length;
     const textBefore = text.slice(0, cursor);
-    const textAfter = text.slice(cursor);
     const match = textBefore.match(/@([a-zA-Z0-9._-]*)$/);
 
+    let matchStart = -1;
+    let matchEnd = cursor;
     if (match) {
-      const matchStart = cursor - match[0].length;
+      matchStart = cursor - match[0].length;
+    } else if (lastMatchRef.current) {
+      matchStart = lastMatchRef.current.start;
+      matchEnd = lastMatchRef.current.end;
+    }
+
+    if (matchStart >= 0) {
       const insertion = `@${user.cr4a1_username} `;
-      const newText = text.slice(0, matchStart) + insertion + textAfter;
+      const newText = text.slice(0, matchStart) + insertion + text.slice(matchEnd);
 
       if (onChange) {
         onChange({ target: { value: newText } });
       }
 
+      lastMatchRef.current = null;
       setMentionOpen(false);
 
       setTimeout(() => {
