@@ -2194,6 +2194,7 @@ function App() {
                     allUsers={allUsers}
                     user={user}
                     currentUser={currentUser}
+                    registrarCorRecenteUsuario={registrarCorRecenteUsuario}
                     updateTrelloFundo={updateTrelloFundo}
                     refreshEvents={fetchEvents}
                     isAdmin={hasRole('ADMIN')}

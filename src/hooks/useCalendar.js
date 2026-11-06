@@ -1255,7 +1255,7 @@ export const useCalendar = () => {
         const novaFilaMarcaTexto = tipo === 'marcaTexto'
             ? adicionarCorRecenteNaFila(targetUser.coresRecentesMarcaTexto, hex)
             : (targetUser.coresRecentesMarcaTexto || []);
-        const novaFilaNota = tipo === 'nota'
+        const novaFilaNota = (tipo === 'nota' || tipo === 'ficha')
             ? adicionarCorRecenteNaFila(targetUser.coresRecentesNota, hex)
             : (targetUser.coresRecentesNota || []);
 

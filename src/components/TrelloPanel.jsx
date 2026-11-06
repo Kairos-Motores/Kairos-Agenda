@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, Ban, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -271,6 +271,7 @@ export const TrelloPanel = ({
   allUsers,
   user,
   currentUser,
+  registrarCorRecenteUsuario,
   updateTrelloFundo,
   refreshEvents,
   isAdmin,
@@ -283,6 +284,43 @@ export const TrelloPanel = ({
   onLimparFichaIdParaAbrir,
   onNavegarParaNota
 }) => {
+  const currentUserName = (
+    (typeof user === 'string' ? user : '') ||
+    (typeof currentUser === 'string' ? currentUser : '') ||
+    (typeof window !== 'undefined' ? localStorage.getItem('kairos_logged_user') : '') ||
+    ''
+  ).trim();
+
+  const resolvedCurrentUser = currentUser?.cr4a1_username
+    ? currentUser
+    : (allUsers || []).find(u => (u.cr4a1_username || '').toLowerCase() === currentUserName.toLowerCase());
+
+  const coresRecentesMarcaTexto = resolvedCurrentUser?.coresRecentesMarcaTexto || [];
+
+  const coresRecentesFicha = useMemo(() => {
+    if (Array.isArray(resolvedCurrentUser?.coresRecentesNota) && resolvedCurrentUser.coresRecentesNota.length > 0) {
+      return resolvedCurrentUser.coresRecentesNota;
+    }
+    try {
+      const local = JSON.parse(localStorage.getItem('kairos_cores_recentes_fichas') || '[]');
+      if (Array.isArray(local) && local.length > 0) return local;
+    } catch {}
+    return [];
+  }, [resolvedCurrentUser?.coresRecentesNota]);
+
+  const handleRegistrarCorRecente = useCallback((tipo, hex) => {
+    if (tipo === 'ficha' || tipo === 'nota') {
+      try {
+        const local = JSON.parse(localStorage.getItem('kairos_cores_recentes_fichas') || '[]');
+        const semDup = [hex, ...local.filter(c => c && c.toLowerCase() !== hex.toLowerCase())].slice(0, 6);
+        localStorage.setItem('kairos_cores_recentes_fichas', JSON.stringify(semDup));
+      } catch {}
+      registrarCorRecenteUsuario?.('nota', hex);
+    } else {
+      registrarCorRecenteUsuario?.(tipo, hex);
+    }
+  }, [registrarCorRecenteUsuario]);
+
   const [workspaceEscolhido, setWorkspaceIdRaw] = useState(() => {
     try { return localStorage.getItem(TRELLO_WORKSPACE_KEY) || ''; } catch { return ''; }
   });
@@ -2969,6 +3007,9 @@ export const TrelloPanel = ({
           <DialogContent className="max-w-2xl sm:max-w-4xl lg:max-w-5xl h-[92dvh] sm:h-[90vh] p-0 overflow-hidden flex flex-col">
             <FichaForm
               inicial={editando.form}
+              coresRecentes={coresRecentesFicha}
+              coresRecentesMarcaTexto={coresRecentesMarcaTexto}
+              onRegistrarCorRecente={handleRegistrarCorRecente}
               fichaOriginal={editando.original}
               listas={listasVisiveis}
               membros={membrosVisiveis}
@@ -3216,12 +3257,22 @@ const FichaForm = ({
   onDelete,
   notas = [],
   onCriarNota,
-  onNavegarParaNota
+  onNavegarParaNota,
+  coresRecentes = [],
+  coresRecentesMarcaTexto = [],
+  onRegistrarCorRecente
 }) => {
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
   const [editorDescricao, setEditorDescricao] = useState(null);
+
+  const handleSelectCor = (novaCor) => {
+    set('cor', novaCor);
+    if (novaCor) {
+      onRegistrarCorRecente?.('ficha', novaCor);
+    }
+  };
 
   // Integração com o módulo de Notas
   const [vincularNotaPopoverAberto, setVincularNotaPopoverAberto] = useState(false);
@@ -3464,6 +3515,8 @@ const FichaForm = ({
               onChange={v => set('descricao', v)}
               onEditorReady={setEditorDescricao}
               allUsers={allUsers}
+              coresRecentes={coresRecentesMarcaTexto}
+              onSelectCorRecente={(hex) => onRegistrarCorRecente?.('marcaTexto', hex)}
             />
           </div>
 
@@ -3522,21 +3575,51 @@ const FichaForm = ({
         <div>
           <Label>Cor e Capa da Ficha</Label>
           <div className="flex flex-col gap-2 rounded-xl border border-border bg-secondary p-2.5">
+            {coresRecentes.length > 0 && (
+              <div className="flex flex-col gap-1.5 border-b border-border/70 pb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Cores recentes
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {coresRecentes.map((hex, idx) => {
+                    const corInfo = themeColors.find(c => c.hex.toLowerCase() === hex.toLowerCase());
+                    const label = corInfo ? `${corInfo.label}${idx === 0 ? ' (Última usada)' : ''}` : hex;
+                    const selecionada = (form.cor || '').toLowerCase() === hex.toLowerCase();
+                    return (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => handleSelectCor(hex)}
+                        title={label}
+                        aria-label={label}
+                        className="size-6 shrink-0 rounded-full transition-transform hover:scale-110 active:scale-90"
+                        style={{
+                          backgroundColor: hex,
+                          boxShadow: selecionada || idx === 0
+                            ? `0 0 0 2px var(--card), 0 0 0 4px ${hex}`
+                            : 'none'
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => set('cor', '')}
-                title="Sem cor"
-                aria-label="Sem cor"
-                className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-card"
+                onClick={() => handleSelectCor('')}
+                title="Sem cor (Padrão)"
+                aria-label="Sem cor (Padrão)"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-card transition-transform active:scale-90"
               >
-                {!form.cor && <Check className="size-3.5 text-muted-foreground" />}
+                {!form.cor ? <Check className="size-3.5 text-muted-foreground" /> : <Ban className="size-3 text-muted-foreground/60" />}
               </button>
               {themeColors.map(c => (
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => set('cor', c.hex)}
+                  onClick={() => handleSelectCor(c.hex)}
                   title={c.label}
                   aria-label={c.label}
                   className="size-6 shrink-0 rounded-full transition-transform active:scale-90"
