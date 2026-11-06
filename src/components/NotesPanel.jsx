@@ -1093,11 +1093,12 @@ export const NotesPanel = ({
 
             <div>
               <Label className="text-xs">Prazo (opcional)</Label>
-              <input
-                type="date"
-                value={fichaFormPrazo}
-                onChange={e => setFichaFormPrazo(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+              <DateField
+                compact
+                selectedDate={fichaFormPrazo}
+                onSelect={setFichaFormPrazo}
+                placeholder="Selecionar prazo"
+                allowClear
               />
             </div>
           </div>

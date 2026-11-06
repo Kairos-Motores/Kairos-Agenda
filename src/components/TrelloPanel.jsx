@@ -3531,13 +3531,16 @@ const FichaForm = ({
                   <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-2.5 sm:px-3 py-1.5 text-sm">
                     <span className={`min-w-[140px] flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
                     <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                      <input
-                        type="date"
-                        value={t.dataVencimento || ''}
-                        onChange={e => aplicarAtributoTarefa(editorDescricao, t.index, { due: e.target.value || null })}
-                        aria-label={`Prazo de "${t.texto}"`}
-                        className="h-8 flex-1 sm:flex-initial min-w-0 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none"
-                      />
+                      <div className="w-28 sm:w-32">
+                        <DateField
+                          compact
+                          selectedDate={t.dataVencimento || ''}
+                          onSelect={d => aplicarAtributoTarefa(editorDescricao, t.index, { due: d || null })}
+                          placeholder="Sem prazo"
+                          allowClear
+                          className="h-8 text-[11px]"
+                        />
+                      </div>
                       <Select
                         value={t.responsavel || '__nenhum__'}
                         onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { assignee: v === '__nenhum__' ? null : v })}
