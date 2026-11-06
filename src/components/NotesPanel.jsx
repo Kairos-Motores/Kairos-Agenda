@@ -700,14 +700,25 @@ export const NotesPanel = ({
     }
     setCriandoFicha(true);
     try {
-      const notaId = notaAberta.cr4a1_notas_kairosid || notaAberta.cr4a1_id_da_nota;
+      let notaId = notaAberta?.cr4a1_notas_kairosid || notaAberta?.cr4a1_id_da_nota;
+
+      // Se for uma nota nova ainda não salva no Dataverse, salva para obter seu ID
+      if (notaAberta && (notaAberta.isNew || !notaId)) {
+        const payload = buildNotaPayload();
+        const idGerado = await addNota(payload);
+        if (idGerado) {
+          notaId = idGerado;
+          setNotaAberta(prev => prev ? ({ ...prev, cr4a1_notas_kairosid: idGerado, isNew: false }) : prev);
+        }
+      }
+
       const meta = {
         ...META_PADRAO(),
         notasIds: notaId ? [notaId] : []
       };
       const corpo = {
         cr4a1_titulo: fichaFormTitulo.trim(),
-        cr4a1_descricao: converterBlocosParaDescricaoFicha(notaAberta.cr4a1_conteudo),
+        cr4a1_descricao: converterBlocosParaDescricaoFicha(notaAberta?.cr4a1_conteudo || []),
         cr4a1_lista_id: fichaFormLista,
         cr4a1_workspace_id: fichaFormWs,
         cr4a1_responsavel_login: fichaFormResp || currentUserName,
@@ -715,7 +726,7 @@ export const NotesPanel = ({
         cr4a1_concluida: 'Não',
         cr4a1_notificado: 'Sim',
         cr4a1_etiquetas: '',
-        cr4a1_cor: notaAberta.cr4a1_cor || '',
+        cr4a1_cor: notaAberta?.cr4a1_cor || '',
         cr4a1_fixada: 'Não',
         cr4a1_data_inicio: fichaFormPrazo ? `${fichaFormPrazo}T09:00:00Z` : null,
         cr4a1_atividades: serializarAtividadesEMeta([], meta)
@@ -730,10 +741,10 @@ export const NotesPanel = ({
       const fichaId = criada.cr4a1_fichaid;
       const fichaTitulo = criada.cr4a1_titulo || fichaFormTitulo.trim();
 
-      if (notaId && !notaAberta.isNew) {
+      if (notaId) {
         await updateNota(notaId, buildNotaPayload({ fichaId, fichaTitulo, workspaceId: fichaFormWs }));
       }
-      setNotaAberta(prev => prev ? ({ ...prev, cr4a1_ficha_id: fichaId, cr4a1_ficha_titulo: fichaTitulo, cr4a1_workspace_id: fichaFormWs }) : prev);
+      setNotaAberta(prev => prev ? ({ ...prev, cr4a1_ficha_id: fichaId, cr4a1_ficha_titulo: fichaTitulo, cr4a1_workspace_id: fichaFormWs, isNew: false, cr4a1_notas_kairosid: notaId || prev.cr4a1_notas_kairosid }) : prev);
       setIsCriarFichaOpen(false);
 
       toast.success(
@@ -1009,6 +1020,108 @@ export const NotesPanel = ({
       toast.error('Erro ao excluir nota. Tente novamente.');
     }
   };
+
+  const dialogCriarFicha = (
+    <Dialog open={isCriarFichaOpen} onOpenChange={setIsCriarFichaOpen}>
+      <DialogContent className="max-w-md w-[95vw] sm:w-full max-h-[90dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Kanban className="size-5 text-primary" />
+            Criar Ficha no Quadro
+          </DialogTitle>
+          <DialogDescription>
+            Gere um cartão no quadro Trello vinculado diretamente a esta nota.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-2">
+          <div>
+            <Label className="text-xs">Título da Ficha</Label>
+            <Input
+              value={fichaFormTitulo}
+              onChange={e => setFichaFormTitulo(e.target.value)}
+              placeholder="Título da ficha..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Workspace</Label>
+              <Select value={fichaFormWs} onValueChange={setFichaFormWs}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Workspace" /></SelectTrigger>
+                <SelectContent>
+                  {workspaces.map(ws => (
+                    <SelectItem key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>
+                      {ws.cr4a1_nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Lista / Coluna</Label>
+              <Select value={fichaFormLista} onValueChange={setFichaFormLista} disabled={carregandoListas || fichaFormListas.length === 0}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder={carregandoListas ? 'Carregando...' : (fichaFormListas.length === 0 ? 'Sem listas' : 'Selecione a lista')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {fichaFormListas.map(l => (
+                    <SelectItem key={l.cr4a1_listaid} value={l.cr4a1_listaid}>
+                      {l.cr4a1_nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Responsável</Label>
+              <Select value={fichaFormResp} onValueChange={setFichaFormResp}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+                <SelectContent>
+                  {allUsers.map(u => (
+                    <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>
+                      {u.cr4a1_nome_exibicao || u.cr4a1_username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Prazo (opcional)</Label>
+              <input
+                type="date"
+                value={fichaFormPrazo}
+                onChange={e => setFichaFormPrazo(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+              />
+            </div>
+          </div>
+
+          {notaAberta?.cr4a1_conteudo?.some(b => b.type === 'todo') && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <CheckSquare className="size-4 text-primary shrink-0" />
+              <span>Os tópicos da checklist desta nota serão convertidos em microtarefas na ficha.</span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setIsCriarFichaOpen(false)} disabled={criandoFicha}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirmarCriarFicha} disabled={criandoFicha || !fichaFormLista || !fichaFormTitulo.trim()}>
+            {criandoFicha ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Kanban className="size-4 mr-1.5" />}
+            {criandoFicha ? 'Criando ficha...' : 'Criar Ficha no Quadro'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   // TELA DE DETALHE DA NOTA (LEITURA OU EDIÇÃO)
   if (notaAberta) {
@@ -1598,6 +1711,7 @@ export const NotesPanel = ({
 
         {/* Diálogo de Confirmação (Exclusão e Descarte na tela de detalhe/edição) */}
         {ConfirmDialogHost}
+        {dialogCriarFicha}
       </div>
     );
   }
@@ -1790,105 +1904,7 @@ export const NotesPanel = ({
       {ConfirmDialogHost}
 
       {/* DIALOG: CRIAR FICHA NO QUADRO A PARTIR DA NOTA */}
-      <Dialog open={isCriarFichaOpen} onOpenChange={setIsCriarFichaOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Kanban className="size-5 text-primary" />
-              Criar Ficha no Quadro
-            </DialogTitle>
-            <DialogDescription>
-              Gere um cartão no quadro Trello vinculado diretamente a esta nota.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-3 py-2">
-            <div>
-              <Label className="text-xs">Título da Ficha</Label>
-              <Input
-                value={fichaFormTitulo}
-                onChange={e => setFichaFormTitulo(e.target.value)}
-                placeholder="Título da ficha..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Workspace</Label>
-                <Select value={fichaFormWs} onValueChange={setFichaFormWs}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Workspace" /></SelectTrigger>
-                  <SelectContent>
-                    {workspaces.map(ws => (
-                      <SelectItem key={ws.cr4a1_calendarios_workspacesid} value={ws.cr4a1_calendarios_workspacesid}>
-                        {ws.cr4a1_nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs">Lista / Coluna</Label>
-                <Select value={fichaFormLista} onValueChange={setFichaFormLista} disabled={carregandoListas || fichaFormListas.length === 0}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder={carregandoListas ? 'Carregando...' : (fichaFormListas.length === 0 ? 'Sem listas' : 'Selecione a lista')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fichaFormListas.map(l => (
-                      <SelectItem key={l.cr4a1_listaid} value={l.cr4a1_listaid}>
-                        {l.cr4a1_nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Responsável</Label>
-                <Select value={fichaFormResp} onValueChange={setFichaFormResp}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
-                  <SelectContent>
-                    {allUsers.map(u => (
-                      <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>
-                        {u.cr4a1_nome_exibicao || u.cr4a1_username}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs">Prazo (opcional)</Label>
-                <input
-                  type="date"
-                  value={fichaFormPrazo}
-                  onChange={e => setFichaFormPrazo(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
-                />
-              </div>
-            </div>
-
-            {notaAberta?.cr4a1_conteudo?.some(b => b.type === 'todo') && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <CheckSquare className="size-4 text-primary shrink-0" />
-                <span>Os tópicos da checklist desta nota serão convertidos em microtarefas na ficha.</span>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCriarFichaOpen(false)} disabled={criandoFicha}>
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmarCriarFicha} disabled={criandoFicha || !fichaFormLista || !fichaFormTitulo.trim()}>
-              {criandoFicha ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Kanban className="size-4 mr-1.5" />}
-              {criandoFicha ? 'Criando ficha...' : 'Criar Ficha no Quadro'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {dialogCriarFicha}
     </div>
   );
 };
