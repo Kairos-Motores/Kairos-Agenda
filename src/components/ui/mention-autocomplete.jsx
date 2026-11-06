@@ -175,6 +175,7 @@ export const MentionTextarea = React.forwardRef(({
   onChange,
   onKeyDown,
   className = '',
+  autoResize = false,
   ...props
 }, ref) => {
   const innerRef = useRef(null);
@@ -189,6 +190,18 @@ export const MentionTextarea = React.forwardRef(({
   const filteredUsers = useMemo(() => {
     return filtrarUsuariosParaMencao(allUsers, mentionQuery);
   }, [allUsers, mentionQuery]);
+
+  const adjustHeight = useCallback(() => {
+    if (!autoResize) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [autoResize, textareaRef]);
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value, adjustHeight]);
 
   const checkMention = useCallback(() => {
     const el = textareaRef.current;
@@ -291,6 +304,10 @@ export const MentionTextarea = React.forwardRef(({
         onChange={(e) => {
           if (onChange) onChange(e);
           checkMention();
+          if (autoResize) adjustHeight();
+        }}
+        onInput={() => {
+          if (autoResize) adjustHeight();
         }}
         onKeyUp={checkMention}
         onClick={checkMention}

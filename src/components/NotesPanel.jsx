@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { AttachmentsField } from './ui/attachments-field';
 import { RichTextEditor } from './ui/rich-text-editor';
-import { MentionInput } from './ui/mention-autocomplete';
+import { MentionInput, MentionTextarea } from './ui/mention-autocomplete';
 import { DateField } from './ui/date-field';
 import { themeColors } from '../constants/materialColors';
 import { parseAnexos } from '../utils/anexos';
@@ -1380,22 +1380,35 @@ export const NotesPanel = ({
           }}
         >
 
-          {isEditing ? (
-            <MentionInput
-              allUsers={allUsers}
-              type="text"
-              placeholder="Título da Nota..."
-              value={notaAberta.cr4a1_titulo}
-              onChange={e => setNotaAberta({ ...notaAberta, cr4a1_titulo: e.target.value })}
-              className="w-full sm:w-1/2 text-xl sm:text-2xl font-extrabold border-none bg-transparent outline-none text-foreground"
-            />
-          ) : (
-            <h1 className="w-full sm:w-1/2 text-xl sm:text-2xl font-extrabold m-0 text-foreground">
-              {notaAberta.cr4a1_titulo || 'Nota sem título'}
-            </h1>
-          )}
+          {/* Título da Nota: padrão visual idêntico às Fichas do Trello, sem corte e com quebra de linha */}
+          <div className="flex flex-col gap-1 w-full">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Título da Nota
+            </Label>
+            {isEditing ? (
+              <MentionTextarea
+                allUsers={allUsers}
+                value={notaAberta.cr4a1_titulo}
+                onChange={e => setNotaAberta({ ...notaAberta, cr4a1_titulo: e.target.value })}
+                placeholder="Título da nota..."
+                rows={1}
+                autoResize
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="w-full text-lg sm:text-2xl font-bold tracking-tight rounded-xl px-3 py-2 transition-all outline-none focus:outline-none focus:ring-2 focus:ring-primary bg-secondary/60 hover:bg-secondary border border-border placeholder:text-muted-foreground text-foreground resize-none overflow-hidden leading-snug break-words"
+              />
+            ) : (
+              <h1 className="w-full text-lg sm:text-2xl font-bold tracking-tight text-foreground m-0 leading-snug break-words">
+                {notaAberta.cr4a1_titulo || 'Nota sem título'}
+              </h1>
+            )}
+          </div>
 
-          <div className="flex flex-col gap-2.5 items-start sm:items-end w-full sm:w-1/2">
+          <div className="flex flex-col gap-2.5 items-start sm:items-end w-full pt-1">
             {isEditing ? (
               <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2.5 w-full">
                 {/* Switch de Nota Privada: editável exclusivamente pelo autor */}

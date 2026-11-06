@@ -11,7 +11,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, Ban, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, Ban, GripVertical, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -1977,11 +1977,32 @@ export const TrelloPanel = ({
     }
   };
 
-  // Arrasta a ficha entre listas (ou reordena na mesma lista), recalculando cr4a1_ordem.
+  // Arrasta a ficha entre listas (ou reordena a lista inteira), recalculando cr4a1_ordem.
   const handleDragEnd = (result) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    // Reordenar listas inteiras arrastando horizontalmente
+    if (type === 'LIST' || source.droppableId === 'trello-board-columns') {
+      const reordenadas = Array.from(listasVisiveis);
+      const [removida] = reordenadas.splice(source.index, 1);
+      if (!removida) return;
+      reordenadas.splice(destination.index, 0, removida);
+
+      const listasComOrdem = reordenadas.map((l, idx) => ({ ...l, cr4a1_ordem: idx }));
+
+      setListas(prev => {
+        const mapa = new Map(listasComOrdem.map(l => [l.cr4a1_listaid, l]));
+        return prev.map(l => mapa.get(l.cr4a1_listaid) || l).sort((a, b) => (Number(a.cr4a1_ordem) || 0) - (Number(b.cr4a1_ordem) || 0));
+      });
+
+      listasComOrdem.forEach(l => {
+        patch('cr4a1_listas', l.cr4a1_listaid, { cr4a1_ordem: l.cr4a1_ordem })
+          .catch(() => toast.error('Erro ao salvar nova ordem das listas.'));
+      });
+      return;
+    }
 
     const origemId = source.droppableId;
     const destinoId = destination.droppableId;
@@ -2481,52 +2502,85 @@ export const TrelloPanel = ({
           onAbrirFicha={abrirFicha}
         />
       ) : (
-      <div className="flex items-start gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:snap-none scroll-smooth">
-        {listasVisiveis.map(lista => {
-          const souCriadorLista = !lista.cr4a1_criador_login || lista.cr4a1_criador_login === user;
-          const gerentesDaLista = parseListaGerentes(lista.cr4a1_automacao);
-          const souGerente = gerentesDaLista.includes(user);
-          const souDono = souCriadorLista || isAdmin;
-          const podeGerenciar = souDono || souGerente || workspace?.cr4a1_criador_login === user;
-          const podeGerenciarAutomacoes = podeGerenciar;
-          const pessoal = lista.cr4a1_pessoal === 'Sim';
-          const colapsada = colapsadas.includes(lista.cr4a1_listaid);
-          const corDaLista = parseListaCor(lista.cr4a1_automacao);
+      <Droppable droppableId="trello-board-columns" direction="horizontal" type="LIST">
+        {(providedBoard) => (
+          <div
+            ref={providedBoard.innerRef}
+            {...providedBoard.droppableProps}
+            className="flex items-start gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:snap-none scroll-smooth"
+          >
+            {listasVisiveis.map((lista, index) => {
+              const souCriadorLista = !lista.cr4a1_criador_login || lista.cr4a1_criador_login === user;
+              const gerentesDaLista = parseListaGerentes(lista.cr4a1_automacao);
+              const souGerente = gerentesDaLista.includes(user);
+              const souDono = souCriadorLista || isAdmin;
+              const podeGerenciar = souDono || souGerente || workspace?.cr4a1_criador_login === user;
+              const podeGerenciarAutomacoes = podeGerenciar;
+              const pessoal = lista.cr4a1_pessoal === 'Sim';
+              const colapsada = colapsadas.includes(lista.cr4a1_listaid);
+              const corDaLista = parseListaCor(lista.cr4a1_automacao);
 
-          if (colapsada) {
-            return (
-              <Droppable key={lista.cr4a1_listaid} droppableId={lista.cr4a1_listaid}>
-                {(provided) => (
-                  <section
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-                    className={`flex w-11 shrink-0 snap-start flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
-                  >
-                    <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Expandir lista ${lista.cr4a1_nome}`} title="Expandir lista" className="text-muted-foreground hover:text-primary">
-                      <ChevronRight className="size-4" />
-                    </button>
-                    <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
-                    <span className="mt-1 flex-1 rotate-180 whitespace-nowrap text-xs font-bold text-foreground [writing-mode:vertical-rl]">
-                      {lista.cr4a1_nome}
-                    </span>
-                    <div className="hidden">{provided.placeholder}</div>
-                  </section>
-                )}
-              </Droppable>
-            );
-          }
+              if (colapsada) {
+                return (
+                  <Draggable key={lista.cr4a1_listaid} draggableId={lista.cr4a1_listaid} index={index}>
+                    {(providedList, snapshotList) => (
+                      <Droppable droppableId={lista.cr4a1_listaid}>
+                        {(provided) => (
+                          <section
+                            ref={providedList.innerRef}
+                            {...providedList.draggableProps}
+                            style={{
+                              ...providedList.draggableProps.style,
+                              ...(corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : {})
+                            }}
+                            className={`flex w-11 shrink-0 snap-start flex-col items-center gap-2 rounded-2xl border p-2 ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'} ${snapshotList.isDragging ? 'shadow-2xl ring-2 ring-primary/40 rotate-1 z-50' : ''}`}
+                          >
+                            <div
+                              {...providedList.dragHandleProps}
+                              className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/60 hover:text-foreground transition-colors"
+                              title="Segure e arraste para reordenar esta lista"
+                            >
+                              <GripVertical className="size-4" />
+                            </div>
+                            <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Expandir lista ${lista.cr4a1_nome}`} title="Expandir lista" className="text-muted-foreground hover:text-primary">
+                              <ChevronRight className="size-4" />
+                            </button>
+                            <Badge variant="secondary">{fichasDaLista(lista).length}</Badge>
+                            <span className="mt-1 flex-1 rotate-180 whitespace-nowrap text-xs font-bold text-foreground [writing-mode:vertical-rl]">
+                              {lista.cr4a1_nome}
+                            </span>
+                            <div ref={provided.innerRef} {...provided.droppableProps} className="hidden">{provided.placeholder}</div>
+                          </section>
+                        )}
+                      </Droppable>
+                    )}
+                  </Draggable>
+                );
+              }
 
-          return (
-            <section
-              key={lista.cr4a1_listaid}
-              style={corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : undefined}
-              className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'}`}
-            >
-              <div className="flex items-start justify-between gap-1.5 shrink-0">
-                <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
-                  <ChevronLeft className="size-4" />
-                </button>
+              return (
+                <Draggable key={lista.cr4a1_listaid} draggableId={lista.cr4a1_listaid} index={index}>
+                  {(providedList, snapshotList) => (
+                    <section
+                      ref={providedList.innerRef}
+                      {...providedList.draggableProps}
+                      style={{
+                        ...providedList.draggableProps.style,
+                        ...(corDaLista ? { borderTopColor: corDaLista, borderTopWidth: '4px' } : {})
+                      }}
+                      className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'} ${snapshotList.isDragging ? 'shadow-2xl ring-2 ring-primary/40 rotate-1 z-50' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-1 shrink-0">
+                        <div
+                          {...providedList.dragHandleProps}
+                          className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground/60 hover:text-foreground transition-colors shrink-0 mt-0.5"
+                          title="Segure e arraste para reordenar esta lista"
+                        >
+                          <GripVertical className="size-4" />
+                        </div>
+                        <button type="button" onClick={() => alternarColapso(lista.cr4a1_listaid)} aria-label={`Encolher lista ${lista.cr4a1_nome}`} title="Encolher lista" className="shrink-0 mt-1 text-muted-foreground hover:text-primary">
+                          <ChevronLeft className="size-4" />
+                        </button>
                 <textarea
                   key={lista.cr4a1_nome}
                   defaultValue={lista.cr4a1_nome}
@@ -2985,21 +3039,27 @@ export const TrelloPanel = ({
                 )}
               </div>
             </section>
-          );
-        })}
+                  )}
+                </Draggable>
+              );
+            })}
 
-        <form
-          onSubmit={e => { e.preventDefault(); criarLista(); }}
-          className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
-        >
-          <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
-            Lista pessoal (só eu vejo)
-          </label>
-          <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
-        </form>
-      </div>
+            {providedBoard.placeholder}
+
+            <form
+              onSubmit={e => { e.preventDefault(); criarLista(); }}
+              className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
+            >
+              <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
+                Lista pessoal (só eu vejo)
+              </label>
+              <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
+            </form>
+          </div>
+        )}
+      </Droppable>
       )}
 
       {editando && (
@@ -3481,12 +3541,20 @@ const FichaForm = ({
             </Label>
             <DialogTitle asChild>
               <div className="w-full">
-                <MentionInput
+                <MentionTextarea
                   allUsers={allUsers}
                   value={form.titulo}
                   onChange={e => set('titulo', e.target.value)}
                   placeholder="Título da ficha..."
-                  className={`w-full text-lg sm:text-2xl font-bold tracking-tight rounded-xl px-3 py-2 transition-all outline-none focus:outline-none focus:ring-2 focus:ring-primary ${
+                  rows={1}
+                  autoResize
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className={`w-full text-lg sm:text-2xl font-bold tracking-tight rounded-xl px-3 py-2 transition-all outline-none focus:outline-none focus:ring-2 focus:ring-primary resize-none overflow-hidden leading-snug break-words ${
                     corCabecalho
                       ? 'bg-black/15 placeholder:text-white/60 text-white border border-white/20'
                       : 'bg-secondary/60 hover:bg-secondary border border-border placeholder:text-muted-foreground text-foreground'
