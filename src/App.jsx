@@ -12,6 +12,7 @@ import { AgendaView } from './components/AgendaView';
 import { CommandPalette } from './components/CommandPalette';
 import { GoogleEventImportModal } from './components/GoogleEventImportModal';
 import { KairosIcon } from './components/KairosIcon';
+import { CalendarLoader } from './components/CalendarLoader';
 import { MiniMonth } from './components/MiniMonth';
 import { EventModal } from './components/EventModal';
 import { ListView } from './components/ListView';
@@ -828,11 +829,7 @@ function App() {
     return () => document.removeEventListener('keydown', handleCommandPaletteShortcut);
   }, []);
 
-  if (isValidatingSession) return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-page)', gap: '16px' }}>
-      <span style={{ fontSize: '48px' }}>📅</span><p style={{ color: 'var(--text-secondary)' }}>A verificar sessão...</p>
-    </div>
-  );
+  if (isValidatingSession) return <CalendarLoader label="A verificar sessão..." />;
 
   if (!user) return <LoginScreen onLogin={login} />;
 

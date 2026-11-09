@@ -897,6 +897,9 @@ button:active {
 @keyframes fadeInDown { from { transform: translate(-50%, -14px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes shimmer { 0% { background-position: -468px 0; } 100% { background-position: 468px 0; } }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes calendarLoaderFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes calendarLoaderDot { 0%, 100% { opacity: 0.22; transform: scale(0.75); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes calendarLoaderRing { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.72); } }
 
 .android-notification-container {
   position: fixed;
