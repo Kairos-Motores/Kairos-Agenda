@@ -425,6 +425,7 @@ export const NotesPanel = ({
   const [notaAberta, setNotaAberta] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState(null); // 'saving' | 'saved' | null
   const [isCompartilharOpen, setIsCompartilharOpen] = useState(false);
   const [corPopoverAberto, setCorPopoverAberto] = useState(false);
   const { confirm, ConfirmDialogHost } = useConfirm();
@@ -480,16 +481,34 @@ export const NotesPanel = ({
     ? `kairos_draft_note_${notaAberta.cr4a1_notas_kairosid || 'new'}`
     : null;
 
-  // Autosalvamento do rascunho a cada alteração enquanto em edição
+  // Autosalvamento automático com debounce de 1500ms enquanto em edição (nuvem + rascunho local)
   useEffect(() => {
-    if (!isEditing || !notaAberta || !draftStorageKey) return;
-    const timer = setTimeout(() => {
+    if (!isEditing || !notaAberta) return;
+    if (draftStorageKey) {
       try {
         localStorage.setItem(draftStorageKey, JSON.stringify(notaAberta));
       } catch (e) { void e; }
-    }, 700);
+    }
+    const temConteudo = Boolean(
+      notaAberta.cr4a1_titulo?.trim() ||
+      notaAberta.cr4a1_conteudo?.some(b => b.value?.trim())
+    );
+    // Se for uma nota recém-criada vazia, aguarda o usuário digitar algo para salvar na nuvem
+    if (notaAberta.isNew && !temConteudo) return;
+
+    const timer = setTimeout(() => {
+      handleSave(true, { isAutosave: true });
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [isEditing, notaAberta, draftStorageKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isEditing,
+    notaAberta?.cr4a1_titulo,
+    JSON.stringify(notaAberta?.cr4a1_conteudo),
+    notaAberta?.cr4a1_cor,
+    notaAberta?.cr4a1_workspace_id,
+    notaAberta?.cr4a1_private
+  ]);
 
   const getWorkspaceColor = (wsId) => workspaces.find(w => w.cr4a1_calendarios_workspacesid === wsId)?.cr4a1_cor_hex || '#f57c00';
 
@@ -913,50 +932,68 @@ export const NotesPanel = ({
     }
   };
 
-  const handleSave = async (stayInEditing = false) => {
+  const handleSave = async (stayInEditing = false, { isAutosave = false } = {}) => {
     const permissions = getNotaPermissions(notaAberta, currentUserName);
     if (!permissions.canEdit) {
-      toast.error('Você não tem permissão para editar esta nota.');
+      if (!isAutosave) toast.error('Você não tem permissão para editar esta nota.');
       return;
     }
 
-    setIsSaving(true);
+    if (isAutosave) {
+      setAutosaveStatus('saving');
+    } else {
+      setIsSaving(true);
+    }
     const data = buildNotaPayload();
 
-    // Notifica mencões com @usuario adicionadas nesta nota
-    const textoCompletoNovo = `${notaAberta.cr4a1_titulo || ''}\n${(notaAberta.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}`;
-    const notaOriginal = notas.find(n => n.cr4a1_notas_kairosid === notaAberta.cr4a1_notas_kairosid || n.cr4a1_id_da_nota === notaAberta.cr4a1_notas_kairosid);
-    const textoCompletoAntigo = (notaOriginal && !notaAberta.isNew) ? `${notaOriginal.cr4a1_titulo || ''}\n${(notaOriginal.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}` : '';
+    // Notifica mencões com @usuario adicionadas nesta nota apenas em salvamento manual ou conclusão
+    if (!isAutosave) {
+      const textoCompletoNovo = `${notaAberta.cr4a1_titulo || ''}\n${(notaAberta.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}`;
+      const notaOriginal = notas.find(n => n.cr4a1_notas_kairosid === notaAberta.cr4a1_notas_kairosid || n.cr4a1_id_da_nota === notaAberta.cr4a1_notas_kairosid);
+      const textoCompletoAntigo = (notaOriginal && !notaAberta.isNew) ? `${notaOriginal.cr4a1_titulo || ''}\n${(notaOriginal.cr4a1_conteudo || []).map(b => b.value || '').join('\n')}` : '';
 
-    await notificarMencoes({
-      textoNovo: textoCompletoNovo,
-      textoAntigo: textoCompletoAntigo,
-      origem: 'Nota',
-      itemTitulo: notaAberta.cr4a1_titulo || 'Nota sem título',
-      autor: currentUserName,
-      currentUser: currentUserName,
-      allUsers,
-      workspace: workspaces?.find(w => w.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id)?.cr4a1_nome || ''
-    });
+      await notificarMencoes({
+        textoNovo: textoCompletoNovo,
+        textoAntigo: textoCompletoAntigo,
+        origem: 'Nota',
+        itemTitulo: notaAberta.cr4a1_titulo || 'Nota sem título',
+        autor: currentUserName,
+        currentUser: currentUserName,
+        allUsers,
+        workspace: workspaces?.find(w => w.cr4a1_calendarios_workspacesid === notaAberta.cr4a1_workspace_id)?.cr4a1_nome || ''
+      });
+    }
 
     let idGerado = null;
-    if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
-      await updateNota(notaAberta.cr4a1_notas_kairosid, data);
-    } else {
-      idGerado = await addNota(data);
-    }
+    try {
+      if (notaAberta.cr4a1_notas_kairosid && !notaAberta.isNew) {
+        await updateNota(notaAberta.cr4a1_notas_kairosid, data);
+      } else {
+        idGerado = await addNota(data);
+      }
 
-    if (draftStorageKey) {
-      try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
-    }
+      if (draftStorageKey) {
+        try { localStorage.removeItem(draftStorageKey); } catch (e) { void e; }
+      }
 
-    setIsSaving(false);
-    setNotaAberta(prev => prev ? ({ ...prev, isNew: false, ...(idGerado ? { cr4a1_notas_kairosid: idGerado } : {}) }) : prev);
+      setNotaAberta(prev => prev ? ({ ...prev, isNew: false, ...(idGerado ? { cr4a1_notas_kairosid: idGerado } : {}) }) : prev);
 
-    if (stayInEditing) {
-      toast.success('Nota salva!', { icon: '💾' });
-    } else {
-      setIsEditing(false);
+      if (isAutosave) {
+        setAutosaveStatus('saved');
+        setTimeout(() => setAutosaveStatus(null), 3500);
+      } else {
+        if (stayInEditing) {
+          toast.success('Nota salva!', { icon: '💾' });
+        } else {
+          setIsEditing(false);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      if (!isAutosave) toast.error('Erro ao salvar nota.');
+      setAutosaveStatus(null);
+    } finally {
+      if (!isAutosave) setIsSaving(false);
     }
   };
 
@@ -1291,6 +1328,21 @@ export const NotesPanel = ({
 
             {isEditing ? (
               <>
+                {/* Indicador de Salvamento Automático na Nuvem */}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-1">
+                  {autosaveStatus === 'saving' || isSaving ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin text-[#f57c00]" />
+                      <span className="hidden sm:inline text-xs text-[#f57c00] font-medium">Salvando na nuvem...</span>
+                    </>
+                  ) : autosaveStatus === 'saved' ? (
+                    <>
+                      <Check className="size-3.5 text-emerald-500" />
+                      <span className="hidden sm:inline text-xs text-emerald-600 dark:text-emerald-400 font-medium">Salvo na nuvem</span>
+                    </>
+                  ) : null}
+                </div>
+
                 {canDelete && (
                   <Button
                     onClick={handleDeleteClick}

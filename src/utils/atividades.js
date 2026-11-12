@@ -1,6 +1,8 @@
 // Histórico de atividades e metadados avançados da ficha: guardados como JSON na coluna memo
 // cr4a1_atividades ({ atividades: [...], meta: {...} }), 100% compatível com fichas antigas
 // que tinham apenas o array de atividades.
+import { extrairTarefas } from './descricaoTarefas';
+
 const LIMITE_ATIVIDADES = 200;
 
 export const PRIORIDADES_FICHA = {
@@ -33,7 +35,8 @@ export const META_PADRAO = () => ({
   tempoEstimadoMin: 0,
   tempoGastoMin: 0,
   cronometroInicio: null,
-  notasIds: []
+  notasIds: [],
+  dependenciasFichasIds: []
 });
 
 export const parseAtividades = (raw) => {
@@ -57,7 +60,8 @@ export const parseFichaMeta = (raw) => {
         ...parsed.meta,
         coResponsaveis: Array.isArray(parsed.meta.coResponsaveis) ? parsed.meta.coResponsaveis.filter(Boolean) : [],
         observadores: Array.isArray(parsed.meta.observadores) ? parsed.meta.observadores.filter(Boolean) : [],
-        notasIds: Array.isArray(parsed.meta.notasIds) ? parsed.meta.notasIds.filter(Boolean) : []
+        notasIds: Array.isArray(parsed.meta.notasIds) ? parsed.meta.notasIds.filter(Boolean) : [],
+        dependenciasFichasIds: Array.isArray(parsed.meta.dependenciasFichasIds) ? parsed.meta.dependenciasFichasIds.filter(Boolean) : []
       };
     }
     if (Array.isArray(parsed)) {
@@ -68,7 +72,8 @@ export const parseFichaMeta = (raw) => {
           ...metaEntry.meta,
           coResponsaveis: Array.isArray(metaEntry.meta.coResponsaveis) ? metaEntry.meta.coResponsaveis.filter(Boolean) : [],
           observadores: Array.isArray(metaEntry.meta.observadores) ? metaEntry.meta.observadores.filter(Boolean) : [],
-          notasIds: Array.isArray(metaEntry.meta.notasIds) ? metaEntry.meta.notasIds.filter(Boolean) : []
+          notasIds: Array.isArray(metaEntry.meta.notasIds) ? metaEntry.meta.notasIds.filter(Boolean) : [],
+          dependenciasFichasIds: Array.isArray(metaEntry.meta.dependenciasFichasIds) ? metaEntry.meta.dependenciasFichasIds.filter(Boolean) : []
         };
       }
     }
@@ -131,4 +136,155 @@ export const descricaoAtividade = (atividade, nomeDe) => {
     case 'duplicada': return `${nome} duplicou a ficha`;
     default: return `${nome} atualizou a ficha`;
   }
+};
+
+/**
+ * Calcula o progresso e porcentagem de uma ficha, considerando suas próprias microtarefas
+ * e as fichas das quais ela depende (mesmo de outros usuários e listas).
+ *
+ * Regras:
+ * - Se não tem dependências: porcentagem das microtarefas próprias (ou 100% se concluída, 0% se pendente).
+ * - Se depende exclusivamente de outras fichas (sem microtarefas próprias):
+ *   a porcentagem reflete a média das dependências e atinge 100% quando todas estiverem 100%.
+ * - Se tem microtarefas próprias E dependências:
+ *   a porcentagem só chega a 100% se TODAS as microtarefas estiverem feitas E TODAS as dependências estiverem 100%.
+ */
+export const calcularProgressoFicha = (ficha, todasFichas = [], visitados = new Set()) => {
+  if (!ficha) {
+    return {
+      porcentagem: 0,
+      concluida: false,
+      podeConcluir: true,
+      temDependencias: false,
+      temTarefasProprias: false,
+      tarefasTotal: 0,
+      tarefasFeitas: 0,
+      depsTotal: 0,
+      depsConcluidas: 0,
+      fichasDep: [],
+      depsInfo: []
+    };
+  }
+
+  const fichaId = ficha.cr4a1_fichaid;
+  if (fichaId && visitados.has(fichaId)) {
+    return {
+      porcentagem: 0,
+      concluida: false,
+      podeConcluir: false,
+      temDependencias: true,
+      temTarefasProprias: false,
+      tarefasTotal: 0,
+      tarefasFeitas: 0,
+      depsTotal: 0,
+      depsConcluidas: 0,
+      fichasDep: [],
+      depsInfo: []
+    };
+  }
+
+  const novosVisitados = new Set(visitados);
+  if (fichaId) novosVisitados.add(fichaId);
+
+  const meta = parseFichaMeta(ficha.cr4a1_atividades);
+  const depIds = (meta.dependenciasFichasIds || []).filter(id => id && id !== fichaId);
+  const fichasDep = depIds.map(id => todasFichas.find(f => f.cr4a1_fichaid === id)).filter(Boolean);
+  const depsTotal = fichasDep.length;
+  const temDependencias = depsTotal > 0;
+
+  const tarefasProprias = extrairTarefas(ficha.cr4a1_descricao);
+  const tarefasTotal = tarefasProprias.length;
+  const tarefasFeitas = tarefasProprias.filter(t => t.concluida).length;
+  const temTarefasProprias = tarefasTotal > 0;
+
+  const depsInfo = fichasDep.map(dep => {
+    const info = calcularProgressoFicha(dep, todasFichas, novosVisitados);
+    const estaConcluida = dep.cr4a1_concluida === 'Sim' || info.porcentagem === 100 || info.concluida;
+    return {
+      ficha: dep,
+      porcentagem: estaConcluida ? 100 : info.porcentagem,
+      concluida: estaConcluida
+    };
+  });
+
+  const depsConcluidas = depsInfo.filter(d => d.concluida).length;
+  const todasDeps100 = temDependencias ? (depsConcluidas === depsTotal) : true;
+
+  let porcentagem = 0;
+  let podeConcluir = true;
+  let concluida = false;
+
+  if (!temDependencias) {
+    if (temTarefasProprias) {
+      porcentagem = Math.round((tarefasFeitas / tarefasTotal) * 100);
+      concluida = tarefasFeitas === tarefasTotal || ficha.cr4a1_concluida === 'Sim';
+    } else {
+      concluida = ficha.cr4a1_concluida === 'Sim';
+      porcentagem = concluida ? 100 : 0;
+    }
+    podeConcluir = true;
+  } else if (!temTarefasProprias) {
+    // Depende exclusivamente de outras fichas: a conclusão delas é a sua própria
+    const somaPorcentagens = depsInfo.reduce((acc, d) => acc + d.porcentagem, 0);
+    porcentagem = Math.round(somaPorcentagens / depsTotal);
+    podeConcluir = todasDeps100;
+    concluida = todasDeps100;
+  } else {
+    // Tem microtarefas próprias E dependências
+    const totalItens = tarefasTotal + depsTotal;
+    const somaProgressoDeps = depsInfo.reduce((acc, d) => acc + (d.porcentagem / 100), 0);
+    const itensCompletados = tarefasFeitas + somaProgressoDeps;
+    porcentagem = Math.min(100, Math.round((itensCompletados / totalItens) * 100));
+
+    // Trava em no máximo 99% se faltar qualquer dependência ou microtarefa própria
+    if (!todasDeps100 || tarefasFeitas < tarefasTotal) {
+      if (porcentagem >= 100) porcentagem = 99;
+    }
+
+    podeConcluir = todasDeps100 && tarefasFeitas === tarefasTotal;
+    concluida = podeConcluir && (ficha.cr4a1_concluida === 'Sim' || (todasDeps100 && tarefasFeitas === tarefasTotal));
+  }
+
+  return {
+    porcentagem,
+    concluida,
+    podeConcluir,
+    temDependencias,
+    temTarefasProprias,
+    tarefasTotal,
+    tarefasFeitas,
+    depsTotal,
+    depsConcluidas,
+    fichasDep,
+    depsInfo
+  };
+};
+
+/**
+ * Detecta se adicionar fichaAlvoId como dependência de fichaOrigemId causaria um ciclo de dependências.
+ */
+export const detectarCicloDependencia = (fichaOrigemId, fichaAlvoId, todasFichas = []) => {
+  if (!fichaOrigemId || !fichaAlvoId) return false;
+  if (fichaOrigemId === fichaAlvoId) return true;
+
+  const fila = [fichaAlvoId];
+  const visitados = new Set();
+
+  while (fila.length > 0) {
+    const atualId = fila.shift();
+    if (atualId === fichaOrigemId) return true;
+    if (visitados.has(atualId)) continue;
+    visitados.add(atualId);
+
+    const fichaAtual = todasFichas.find(f => f.cr4a1_fichaid === atualId);
+    if (!fichaAtual) continue;
+    const metaAtual = parseFichaMeta(fichaAtual.cr4a1_atividades);
+    const depIds = metaAtual.dependenciasFichasIds || [];
+    for (const dId of depIds) {
+      if (dId === fichaOrigemId) return true;
+      if (!visitados.has(dId)) fila.push(dId);
+    }
+  }
+
+  return false;
 };

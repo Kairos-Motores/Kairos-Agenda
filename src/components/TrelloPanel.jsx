@@ -48,7 +48,9 @@ import {
   PRIORIDADES_FICHA,
   STATUS_APROVACAO_FICHA,
   calcularTempoTotalMin,
-  formatarDuracaoMin
+  formatarDuracaoMin,
+  calcularProgressoFicha,
+  detectarCicloDependencia
 } from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
 import {
@@ -1343,19 +1345,15 @@ export const TrelloPanel = ({
   };
 
   // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
-  const salvarFicha = async (form, original) => {
-    // Havendo microtarefas, elas mandam no "concluída" (ex.: adicionar uma tarefa nova
-    // nova e pendente reabre o cartão mesmo que o interruptor tenha ficado em "concluída").
+  const salvarFicha = async (form, original, options = {}) => {
+    const isAutosave = Boolean(options.autosave);
     const tarefasDaDescricao = extrairTarefas(form.descricao);
-    const concluidaFinal = tarefasDaDescricao.length > 0
-      ? tarefasDaDescricao.every(t => t.concluida)
-      : form.concluida;
 
     const dataDefinida = !!form.dia;
     const dataIso = dataDefinida ? new Date(`${form.dia}T${form.hora || '08:00'}:00`).toISOString() : null;
     const responsavelMudou = form.responsavel !== original.cr4a1_responsavel_login;
     const dataMudou = (dataIso || '') !== (original.cr4a1_data_inicio || '');
-    const avisar = dataDefinida && (!comData(original) || responsavelMudou || dataMudou);
+    const avisar = !isAutosave && dataDefinida && (!comData(original) || responsavelMudou || dataMudou);
 
     const novoMeta = {
       coResponsaveis: form.coResponsaveis || [],
@@ -1372,8 +1370,33 @@ export const TrelloPanel = ({
       tempoEstimadoMin: Number(form.tempoEstimadoMin) || 0,
       tempoGastoMin: Number(form.tempoGastoMin) || 0,
       cronometroInicio: form.cronometroInicio || null,
-      notasIds: Array.isArray(form.notasIds) ? form.notasIds : []
+      notasIds: Array.isArray(form.notasIds) ? form.notasIds : [],
+      dependenciasFichasIds: Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : []
     };
+
+    // Avalia progresso combinado e dependências
+    const fichaSimulada = {
+      ...original,
+      cr4a1_descricao: form.descricao || '',
+      cr4a1_atividades: atualizarFichaMeta(original.cr4a1_atividades, novoMeta),
+      cr4a1_concluida: form.concluida ? 'Sim' : 'Não'
+    };
+    const infoProgresso = calcularProgressoFicha(fichaSimulada, fichas);
+
+    let concluidaFinal = form.concluida;
+    if (tarefasDaDescricao.length > 0) {
+      concluidaFinal = tarefasDaDescricao.every(t => t.concluida);
+    }
+    if (infoProgresso.temDependencias) {
+      if (!infoProgresso.podeConcluir) {
+        concluidaFinal = false;
+        if (!isAutosave && form.concluida) {
+          toast.error(`Esta ficha depende de ${infoProgresso.depsTotal - infoProgresso.depsConcluidas} outra(s) ficha(s) pendente(s). Conclua as dependências primeiro!`);
+        }
+      } else if (!infoProgresso.temTarefasProprias && infoProgresso.podeConcluir) {
+        concluidaFinal = true;
+      }
+    }
 
     // Registra no histórico só as mudanças que importam pra quem acompanha a ficha (não cada
     // tecla digitada no título/descrição).
@@ -1423,8 +1446,9 @@ export const TrelloPanel = ({
         eventoId = criado.cr4a1_agenda_kairosid;
       }
 
-      // Notifica mencões no título e na descrição da ficha
-      const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
+      if (!isAutosave) {
+        // Notifica mencões no título e na descrição da ficha
+        const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
       const textoAntigo = original ? `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}` : '';
       await notificarMencoes({
         textoNovo,
@@ -1461,6 +1485,7 @@ export const TrelloPanel = ({
           }
         });
       }
+      } // fim do if (!isAutosave)
 
       await patch('cr4a1_fichas', original.cr4a1_fichaid, {
         cr4a1_titulo: form.titulo,
@@ -1536,6 +1561,12 @@ export const TrelloPanel = ({
         await executarAutomacoes(fichaPosSave, form.listaId, 'etiqueta', etiquetaId);
       }
 
+      if (isAutosave) {
+        setEditando(prev => (prev && prev.original.cr4a1_fichaid === original.cr4a1_fichaid ? { ...prev, original: fichaPosSave } : prev));
+        setFichas(prev => prev.map(f => f.cr4a1_fichaid === original.cr4a1_fichaid ? fichaPosSave : f));
+        return fichaPosSave;
+      }
+
       setEditando(null);
       recarregar();
       refreshEvents?.();
@@ -1576,7 +1607,8 @@ export const TrelloPanel = ({
         stickers: parseAssignees(ficha.cr4a1_stickers),
         recorrencia: ficha.cr4a1_recorrencia || '',
         ...meta,
-        notasIds: Array.isArray(meta.notasIds) ? meta.notasIds : []
+        notasIds: Array.isArray(meta.notasIds) ? meta.notasIds : [],
+        dependenciasFichasIds: Array.isArray(meta.dependenciasFichasIds) ? meta.dependenciasFichasIds : []
       }
     });
   };
@@ -1867,6 +1899,15 @@ export const TrelloPanel = ({
   // Marca a ficha como concluída/pendente direto no card, sem abrir o formulário.
   // Concluir o cartão também marca todas as microtarefas (o card reflete o estado delas).
   const toggleConcluida = async (ficha) => {
+    const infoProgresso = calcularProgressoFicha(ficha, fichas);
+    if (ficha.cr4a1_concluida !== 'Sim' && !infoProgresso.podeConcluir) {
+      if (infoProgresso.temDependencias) {
+        toast.error(`Esta ficha depende de ${infoProgresso.depsTotal - infoProgresso.depsConcluidas} outra(s) ficha(s) pendente(s). Conclua as dependências primeiro!`);
+      } else {
+        toast.error('Esta ficha possui microtarefas pendentes.');
+      }
+      return;
+    }
     const novoValor = ficha.cr4a1_concluida === 'Sim' ? 'Não' : 'Sim';
     const novaDescricao = novoValor === 'Sim' ? marcarTodasTarefas(ficha.cr4a1_descricao, true) : ficha.cr4a1_descricao;
     const atividades = registrarAtividade(ficha.cr4a1_atividades, novoValor === 'Sim' ? 'concluida' : 'reaberta', user);
@@ -1904,8 +1945,9 @@ export const TrelloPanel = ({
   const toggleMicrotarefa = async (ficha, indiceTarefa) => {
     const concluidaAntes = ficha.cr4a1_concluida === 'Sim';
     const novaDescricao = alternarTarefaNaDescricao(ficha.cr4a1_descricao, indiceTarefa);
-    const tarefas = extrairTarefas(novaDescricao);
-    const novoConcluida = tarefas.length > 0 && tarefas.every(t => t.concluida) ? 'Sim' : 'Não';
+    const fichaSimulada = { ...ficha, cr4a1_descricao: novaDescricao };
+    const infoProgresso = calcularProgressoFicha(fichaSimulada, fichas);
+    const novoConcluida = infoProgresso.podeConcluir ? 'Sim' : 'Não';
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida } : f));
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_descricao: novaDescricao, cr4a1_concluida: novoConcluida });
@@ -2648,7 +2690,9 @@ export const TrelloPanel = ({
                   >
                     {fichasDaLista(lista).map((ficha, index) => {
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
-                      const concluida = ficha.cr4a1_concluida === 'Sim';
+                      const infoProgresso = calcularProgressoFicha(ficha, fichas);
+                      const concluida = infoProgresso.concluida;
+                      const temDependencias = infoProgresso.temDependencias;
                       const microtarefas = extrairTarefas(ficha.cr4a1_descricao);
                       const microtarefasFeitas = microtarefas.filter(t => t.concluida).length;
                       const anexosDaFicha = parseAnexos(ficha.cr4a1_arquivos);
@@ -2907,13 +2951,28 @@ export const TrelloPanel = ({
                                   </DropdownMenu>
                                 </div>
                               </div>
-                              {microtarefas.length > 0 && (
+                              {(microtarefas.length > 0 || temDependencias) && (
                                 <div className="flex flex-col gap-1.5 pl-[26px]">
                                   <div className="flex items-center gap-2">
                                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-                                      <div className="h-full rounded-full bg-success transition-all" style={{ width: `${(microtarefasFeitas / microtarefas.length) * 100}%` }} />
+                                      <div
+                                        className={`h-full rounded-full transition-all ${infoProgresso.porcentagem === 100 ? 'bg-success' : 'bg-primary'}`}
+                                        style={{ width: `${infoProgresso.porcentagem}%` }}
+                                      />
                                     </div>
-                                    <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{microtarefasFeitas}/{microtarefas.length}</span>
+                                    <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-semibold text-muted-foreground">
+                                      {temDependencias && (
+                                        <span className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 border ${
+                                          infoProgresso.depsConcluidas === infoProgresso.depsTotal
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                            : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                        }`} title={`Dependências: ${infoProgresso.depsConcluidas} de ${infoProgresso.depsTotal} concluídas`}>
+                                          <Link2 className="size-2.5" />
+                                          {infoProgresso.depsConcluidas}/{infoProgresso.depsTotal}
+                                        </span>
+                                      )}
+                                      <span>{infoProgresso.porcentagem}%</span>
+                                    </div>
                                   </div>
                                   {microtarefas.map(tarefa => {
                                     const vencimentoIso = tarefa.dataVencimento ? `${tarefa.dataVencimento}T12:00:00` : null;
@@ -3088,8 +3147,10 @@ export const TrelloPanel = ({
               onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
+              onAutosave={(form) => salvarFicha(form, editando.original, { autosave: true })}
               onDelete={() => excluirFicha(editando.original)}
               notas={notas}
+              fichas={fichas}
               onCriarNota={async (tituloFicha) => {
                 if (!addNota) return null;
                 const novaNotaData = {
@@ -3314,8 +3375,10 @@ const FichaForm = ({
   onRemoverComentario,
   onCancel,
   onSave,
+  onAutosave,
   onDelete,
   notas = [],
+  fichas = [],
   onCriarNota,
   onNavegarParaNota,
   coresRecentes = [],
@@ -3326,6 +3389,119 @@ const FichaForm = ({
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
   const [editorDescricao, setEditorDescricao] = useState(null);
+
+  // Status do Salvamento Automático na Nuvem
+  const [autosaveStatus, setAutosaveStatus] = useState(null); // 'saving' | 'saved' | null
+  const isPrimeiraRenderRef = useRef(true);
+
+  // Autosave com debounce de 1500ms quando qualquer campo for alterado
+  useEffect(() => {
+    if (isPrimeiraRenderRef.current) {
+      isPrimeiraRenderRef.current = false;
+      return;
+    }
+    if (!form.titulo?.trim() || !form.listaId) return;
+
+    setAutosaveStatus('saving');
+    const timer = setTimeout(async () => {
+      try {
+        if (onAutosave) {
+          await onAutosave(form);
+          setAutosaveStatus('saved');
+          setTimeout(() => setAutosaveStatus(null), 3000);
+        }
+      } catch {
+        setAutosaveStatus(null);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    form.titulo,
+    form.descricao,
+    form.cor,
+    form.responsavel,
+    form.dia,
+    form.hora,
+    form.listaId,
+    form.concluida,
+    form.prioridade,
+    form.ehModelo,
+    form.statusAprovacao,
+    form.custo,
+    form.linkUrl,
+    form.campoTexto,
+    form.dataInicioTrabalho,
+    form.tempoEstimadoMin,
+    form.tempoGastoMin,
+    JSON.stringify(form.etiquetas),
+    JSON.stringify(form.stickers),
+    JSON.stringify(form.coResponsaveis),
+    JSON.stringify(form.observadores),
+    JSON.stringify(form.notasIds),
+    JSON.stringify(form.dependenciasFichasIds),
+    JSON.stringify(form.anexos)
+  ]);
+
+  // Integração com Dependências de outras Fichas
+  const [vincularDepPopoverAberto, setVincularDepPopoverAberto] = useState(false);
+  const [buscaDep, setBuscaDep] = useState('');
+
+  const dependenciasFichasIds = useMemo(() => Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : [], [form.dependenciasFichasIds]);
+
+  const progressoFichaAtual = useMemo(() => {
+    const metaAtual = {
+      ...META_PADRAO(),
+      ...form,
+      dependenciasFichasIds
+    };
+    const fichaSimulada = {
+      ...(fichaOriginal || {}),
+      cr4a1_descricao: form.descricao || '',
+      cr4a1_atividades: JSON.stringify({ atividades: [], meta: metaAtual }),
+      cr4a1_concluida: form.concluida ? 'Sim' : 'Não'
+    };
+    return calcularProgressoFicha(fichaSimulada, fichas);
+  }, [form, dependenciasFichasIds, fichaOriginal, fichas]);
+
+  const alternarDependencia = (depId) => {
+    const atuais = dependenciasFichasIds;
+    if (atuais.includes(depId)) {
+      set('dependenciasFichasIds', atuais.filter(id => id !== depId));
+    } else {
+      set('dependenciasFichasIds', [...atuais, depId]);
+    }
+  };
+
+  const fichasDependentesObjetos = useMemo(() => {
+    return dependenciasFichasIds.map(id => {
+      const encontrada = fichas.find(f => f.cr4a1_fichaid === id);
+      if (!encontrada) return { cr4a1_fichaid: id, cr4a1_titulo: 'Ficha não encontrada ou externa' };
+      const prog = calcularProgressoFicha(encontrada, fichas);
+      return {
+        ...encontrada,
+        progresso: prog
+      };
+    });
+  }, [dependenciasFichasIds, fichas]);
+
+  const fichasCandidatasParaDependencia = useMemo(() => {
+    const idAtual = fichaOriginal?.cr4a1_fichaid;
+    return fichas.filter(f => {
+      if (!f || !f.cr4a1_fichaid) return false;
+      if (idAtual && f.cr4a1_fichaid === idAtual) return false;
+      if (idAtual && detectarCicloDependencia(idAtual, f.cr4a1_fichaid, fichas)) return false;
+      if (buscaDep.trim()) {
+        const termo = buscaDep.toLowerCase();
+        const tituloMatch = (f.cr4a1_titulo || '').toLowerCase().includes(termo);
+        const respMatch = (f.cr4a1_responsavel_login || '').toLowerCase().includes(termo);
+        const listaNome = listas.find(l => l.cr4a1_listaid === f.cr4a1_lista_id)?.cr4a1_nome || '';
+        const listaMatch = listaNome.toLowerCase().includes(termo);
+        return tituloMatch || respMatch || listaMatch;
+      }
+      return true;
+    });
+  }, [fichas, fichaOriginal, buscaDep, listas]);
 
   const handleSelectCor = (novaCor) => {
     set('cor', novaCor);
@@ -3494,6 +3670,28 @@ const FichaForm = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 shrink-0 sm:pr-8">
+              {/* Indicador de Salvamento Automático */}
+              {autosaveStatus === 'saving' && (
+                <div className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${
+                  corCabecalho
+                    ? 'bg-black/25 text-white border-white/20'
+                    : 'bg-secondary text-muted-foreground border-border'
+                }`}>
+                  <Loader2 className="size-3 animate-spin" />
+                  <span className="hidden sm:inline">Salvando...</span>
+                </div>
+              )}
+              {autosaveStatus === 'saved' && (
+                <div className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${
+                  corCabecalho
+                    ? 'bg-black/25 text-white border-white/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                }`}>
+                  <Check className="size-3" />
+                  <span className="hidden sm:inline">Salvo</span>
+                </div>
+              )}
+
               <Button
                 type="button"
                 size="sm"
@@ -3979,12 +4177,63 @@ const FichaForm = ({
         </Select>
       </div>
 
+      {/* BARRA DE PROGRESSO GERAL DA FICHA */}
+      {(temTarefas || dependenciasFichasIds.length > 0) && (
+        <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+              Progresso Geral
+              {dependenciasFichasIds.length > 0 && (
+                <span className="text-[10px] font-normal normal-case">
+                  ({dependenciasFichasIds.length} dependência{dependenciasFichasIds.length > 1 ? 's' : ''})
+                </span>
+              )}
+            </span>
+            <span className={progressoFichaAtual.porcentagem === 100 ? 'text-emerald-500 font-bold' : 'text-primary font-bold'}>
+              {progressoFichaAtual.porcentagem}% {progressoFichaAtual.porcentagem === 100 ? '✓ Concluída' : ''}
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary border border-border/40">
+            <div
+              className={`h-full transition-all duration-300 ${progressoFichaAtual.porcentagem === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+              style={{ width: `${progressoFichaAtual.porcentagem}%` }}
+            />
+          </div>
+          {!progressoFichaAtual.podeConcluir && dependenciasFichasIds.length > 0 && (
+            <p className="text-[11px] text-amber-500 flex items-center gap-1 font-medium">
+              <Lock className="size-3 shrink-0" />
+              Esta ficha só atingirá 100% e conclusão quando todas as dependências forem concluídas.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
         <div>
           <Label className="mb-0">Concluída</Label>
           {temTarefas && <p className="text-[11px] text-muted-foreground">Definida automaticamente pelas microtarefas da descrição.</p>}
+          {dependenciasFichasIds.length > 0 && !temTarefas && (
+            <p className="text-[11px] text-muted-foreground">Definida automaticamente pelo cumprimento das dependências.</p>
+          )}
+          {dependenciasFichasIds.length > 0 && temTarefas && (
+            <p className="text-[11px] text-muted-foreground">Requer que todas as microtarefas e dependências estejam 100%.</p>
+          )}
         </div>
-        <Switch checked={temTarefas ? concluidaDerivada : form.concluida} onCheckedChange={v => set('concluida', v)} disabled={temTarefas} />
+        <Switch
+          checked={progressoFichaAtual.concluida}
+          onCheckedChange={v => {
+            if (v && !progressoFichaAtual.podeConcluir) {
+              if (progressoFichaAtual.temDependencias) {
+                toast.error(`Esta ficha depende de ${progressoFichaAtual.depsTotal - progressoFichaAtual.depsConcluidas} outra(s) ficha(s) pendente(s).`);
+              } else {
+                toast.error('Esta ficha possui microtarefas pendentes.');
+              }
+              return;
+            }
+            set('concluida', v);
+          }}
+          disabled={temTarefas || (dependenciasFichasIds.length > 0 && !progressoFichaAtual.podeConcluir)}
+        />
       </div>
 
       <AttachmentsField anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
@@ -4132,6 +4381,173 @@ const FichaForm = ({
                       onClick={() => alternarVinculoNota(id)}
                       className="size-6 text-muted-foreground hover:text-destructive"
                       title="Desvincular nota"
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* SEÇÃO: DEPENDÊNCIAS DE OUTRAS FICHAS */}
+      <div className="rounded-xl border border-border bg-secondary/40 p-3 flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Label className="mb-0 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground font-bold">
+              <Link2 className="size-3.5 text-primary" /> Fichas das quais esta depende ({fichasDependentesObjetos.length})
+            </Label>
+            {fichasDependentesObjetos.length > 0 && (
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                progressoFichaAtual.depsConcluidas === progressoFichaAtual.depsTotal
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+              }`}>
+                {progressoFichaAtual.depsConcluidas}/{progressoFichaAtual.depsTotal} concluídas
+              </span>
+            )}
+          </div>
+
+          <Popover open={vincularDepPopoverAberto} onOpenChange={setVincularDepPopoverAberto}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1"
+                title="Vincular fichas necessárias para a conclusão desta"
+              >
+                <Plus className="size-3" />
+                <span>Adicionar Dependência</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 sm:w-96 p-3" align="end">
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">Selecionar ficha como dependência</span>
+                  <span className="text-[10px] text-muted-foreground">Bloqueia conclusão até 100%</span>
+                </div>
+                <Input
+                  value={buscaDep}
+                  onChange={e => setBuscaDep(e.target.value)}
+                  placeholder="Pesquisar ficha, responsável ou lista..."
+                  className="h-8 text-xs"
+                />
+                <div className="flex max-h-52 flex-col gap-1 overflow-y-auto pr-1">
+                  {fichasCandidatasParaDependencia.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma ficha disponível.</p>
+                  ) : (
+                    fichasCandidatasParaDependencia.map(f => {
+                      const id = f.cr4a1_fichaid;
+                      const vinculada = dependenciasFichasIds.includes(id);
+                      const nomeLista = listas.find(l => l.cr4a1_listaid === f.cr4a1_lista_id)?.cr4a1_nome || 'Lista';
+                      const respNome = nomeDe(f.cr4a1_responsavel_login, allUsers);
+                      const prog = calcularProgressoFicha(f, fichas);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => alternarDependencia(id)}
+                          className={`flex items-center justify-between gap-2 rounded-lg p-2 text-left text-xs transition-colors ${
+                            vinculada ? 'bg-primary/15 border border-primary/40' : 'hover:bg-secondary border border-transparent'
+                          }`}
+                        >
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-semibold text-foreground truncate">{f.cr4a1_titulo || 'Sem título'}</span>
+                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                              <span className="truncate">{nomeLista}</span>
+                              <span>•</span>
+                              <span className="truncate">{respNome}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`text-[10px] font-bold px-1 py-0.5 rounded ${
+                              prog.porcentagem === 100
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-secondary text-muted-foreground'
+                            }`}>
+                              {prog.porcentagem}%
+                            </span>
+                            {vinculada ? (
+                              <Check className="size-3.5 text-primary" />
+                            ) : (
+                              <Plus className="size-3.5 text-muted-foreground opacity-60" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {fichasDependentesObjetos.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground italic">
+            Nenhuma dependência configurada. Se esta ficha depender de atividades ou fichas de outros membros para ser finalizada, adicione-as acima.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              {temTarefas
+                ? 'Esta ficha possui microtarefas próprias e depende das fichas abaixo. Sua porcentagem só atingirá 100% quando tudo estiver concluído.'
+                : 'Esta ficha depende exclusivamente das fichas abaixo. O progresso reflete a média das dependências e será 100% quando todas finalizarem.'}
+            </p>
+            {fichasDependentesObjetos.map(dep => {
+              const id = dep.cr4a1_fichaid;
+              const nomeLista = listas.find(l => l.cr4a1_listaid === dep.cr4a1_lista_id)?.cr4a1_nome || '';
+              const respNome = nomeDe(dep.cr4a1_responsavel_login, allUsers);
+              const prog = dep.progresso || calcularProgressoFicha(dep, fichas);
+              const estaConcluida = prog.porcentagem === 100 || prog.concluida;
+
+              return (
+                <div
+                  key={id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2 text-xs transition-colors hover:border-primary/50"
+                  style={dep.cr4a1_cor ? { borderLeftWidth: '3px', borderLeftColor: dep.cr4a1_cor } : undefined}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="shrink-0">
+                      {estaConcluida ? (
+                        <CheckCircle2 className="size-4 text-emerald-500" />
+                      ) : (
+                        <Circle className="size-4 text-amber-500" />
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-foreground truncate">{dep.cr4a1_titulo || 'Ficha vinculada'}</span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        {nomeLista && <span>{nomeLista}</span>}
+                        {nomeLista && respNome && <span>•</span>}
+                        {respNome && (
+                          <span className="flex items-center gap-1">
+                            <UserAvatar login={dep.cr4a1_responsavel_login} allUsers={allUsers} size={12} />
+                            {respNome}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      estaConcluida
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {prog.porcentagem}% {estaConcluida ? '✓' : ''}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => alternarDependencia(id)}
+                      className="size-6 text-muted-foreground hover:text-destructive"
+                      title="Remover dependência"
                     >
                       <X className="size-3" />
                     </Button>
@@ -4308,6 +4724,16 @@ const FichaForm = ({
           )}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {autosaveStatus === 'saving' && (
+            <span className="text-[11px] text-muted-foreground hidden sm:flex items-center gap-1">
+              <Loader2 className="size-3 animate-spin text-primary" /> Salvando...
+            </span>
+          )}
+          {autosaveStatus === 'saved' && (
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium hidden sm:flex items-center gap-1">
+              <Check className="size-3" /> Salvo
+            </span>
+          )}
           <Button variant="outline" size="sm" className="h-9 px-2.5 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={onCancel}>Cancelar</Button>
           <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => onSave(form)} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
         </div>
