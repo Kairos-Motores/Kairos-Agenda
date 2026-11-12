@@ -50,7 +50,8 @@ import {
   calcularTempoTotalMin,
   formatarDuracaoMin,
   calcularProgressoFicha,
-  detectarCicloDependencia
+  detectarCicloDependencia,
+  META_PADRAO
 } from '../utils/atividades';
 import { exportarQuadroXlsx } from '../utils/exportarQuadroXlsx';
 import {
