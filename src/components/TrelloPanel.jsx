@@ -1937,7 +1937,7 @@ export const TrelloPanel = ({
         setFichas(prev => prev.map(f => f.cr4a1_fichaid === original.cr4a1_fichaid ? fichaComEvento : f));
         if (manterAberto) {
           refreshEvents?.();
-          toast.success('Prazo atualizado.');
+          toast.success(options.toastMensagem || 'Ficha atualizada.');
         }
         return fichaComEvento;
       }
@@ -3548,7 +3548,7 @@ export const TrelloPanel = ({
               onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
-              onSaveRapido={(form) => salvarFicha(form, editando.original, { manterAberto: true })}
+              onSaveRapido={(form, toastMensagem) => salvarFicha(form, editando.original, { manterAberto: true, toastMensagem })}
               onAutosave={(form) => salvarFicha(form, editando.original, { autosave: true })}
               onDelete={() => excluirFicha(editando.original)}
               membrosBaseLoginsSet={membrosBaseLoginsSet}
@@ -3808,6 +3808,7 @@ const FichaForm = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [prazoPopoverAberto, setPrazoPopoverAberto] = useState(false);
+  const [prioridadePopoverAberto, setPrioridadePopoverAberto] = useState(false);
   const [convidarPopoverAberto, setConvidarPopoverAberto] = useState(false);
   const [buscaConvidado, setBuscaConvidado] = useState('');
   const [escopoConvite, setEscopoConvite] = useState('ficha'); // 'ficha' | 'lista'
@@ -4412,7 +4413,7 @@ const FichaForm = ({
                         onClick={() => {
                           const atualizado = { ...form, dia: '', sincronizarAgenda: false };
                           setForm(atualizado);
-                          onSaveRapido?.(atualizado);
+                          onSaveRapido?.(atualizado, 'Prazo removido.');
                           setPrazoPopoverAberto(false);
                         }}
                         className="text-[11px] text-destructive hover:underline font-medium"
@@ -4462,7 +4463,7 @@ const FichaForm = ({
                       size="sm"
                       className="h-8 text-xs font-semibold"
                       onClick={() => {
-                        onSaveRapido?.(form);
+                        onSaveRapido?.(form, 'Prazo atualizado.');
                         setPrazoPopoverAberto(false);
                       }}
                     >
@@ -4472,23 +4473,70 @@ const FichaForm = ({
                 </PopoverContent>
               </Popover>
 
-              {/* Prioridade */}
-              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Flag className="size-3 text-primary" /> Prioridade
-                </span>
-                {form.prioridade && PRIORIDADES_FICHA[form.prioridade] ? (
-                  <span
-                    className="text-xs font-bold mt-0.5 flex items-center gap-1.5"
-                    style={{ color: PRIORIDADES_FICHA[form.prioridade].cor }}
+              {/* Prioridade — editável diretamente no modo de visualização estilo Trello */}
+              <Popover open={prioridadePopoverAberto} onOpenChange={setPrioridadePopoverAberto}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 hover:bg-secondary/75 hover:border-primary/50 p-2.5 text-left transition-all cursor-pointer group"
+                    title="Clique para alterar a prioridade diretamente"
                   >
-                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: PRIORIDADES_FICHA[form.prioridade].cor }} />
-                    {PRIORIDADES_FICHA[form.prioridade].label}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground italic mt-0.5">Sem prioridade</span>
-                )}
-              </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between w-full gap-1">
+                      <span className="flex items-center gap-1">
+                        <Flag className="size-3 text-primary" /> Prioridade
+                      </span>
+                      <Pencil className="size-2.5 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+                    </span>
+                    {form.prioridade && PRIORIDADES_FICHA[form.prioridade] ? (
+                      <span
+                        className="text-xs font-bold mt-0.5 flex items-center gap-1.5"
+                        style={{ color: PRIORIDADES_FICHA[form.prioridade].cor }}
+                      >
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: PRIORIDADES_FICHA[form.prioridade].cor }} />
+                        {PRIORIDADES_FICHA[form.prioridade].label}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic mt-0.5">Definir prioridade...</span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-56 p-2 flex flex-col gap-1">
+                  <div className="px-2 py-1.5 text-xs font-bold text-foreground border-b border-border flex items-center gap-1.5">
+                    <Flag className="size-3.5 text-primary" /> Alterar Prioridade
+                  </div>
+                  <div className="flex flex-col gap-0.5 pt-1">
+                    {['critica', 'alta', 'media', 'baixa', ''].map(chave => {
+                      const info = PRIORIDADES_FICHA[chave];
+                      if (!info) return null;
+                      const selecionada = (form.prioridade || '') === chave;
+                      return (
+                        <button
+                          key={chave || '__sem__'}
+                          type="button"
+                          onClick={() => {
+                            const atualizado = { ...form, prioridade: chave };
+                            setForm(atualizado);
+                            onSaveRapido?.(atualizado, 'Prioridade atualizada.');
+                            setPrioridadePopoverAberto(false);
+                          }}
+                          className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
+                            selecionada ? 'bg-primary/10 font-bold text-primary' : 'hover:bg-secondary text-foreground'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="size-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: chave ? info.cor : '#94a3b8' }}
+                            />
+                            <span style={chave ? { color: info.cor } : undefined}>{info.label}</span>
+                          </span>
+                          {selecionada && <Check className="size-3.5 text-primary shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Status de Conclusão / Progresso */}
               <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
