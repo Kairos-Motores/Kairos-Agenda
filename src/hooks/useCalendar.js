@@ -10,6 +10,8 @@ import { ROLE_WORKSPACE_MAP, ALL_KNOWN_ROLES, PROTECTED_ROLES } from '../config/
 import { SSMA_FREQUENCIA_DIAS } from '../config/ssmaConfig';
 import { proximoCicloPendente } from '../utils/ssmaRecorrencias';
 import { parseCompartilhamento, serializeCompartilhamento } from '../utils/notasCompartilhamento';
+import { parseFichaMeta, atualizarFichaMeta } from '../utils/atividades';
+import { parseListaConvidados, serializarConfigLista } from '../utils/automacoes';
 import {
     parseUserCorField,
     serializeUserCorField,
@@ -1778,6 +1780,52 @@ export const useCalendar = () => {
             if (response.ok) {
                 toast.success("Workspace atualizado com sucesso!");
                 if (typeof fetchWorkspaces === 'function') await fetchWorkspaces();
+
+                // Promoção automática: qualquer pessoa que agora é membro do workspace deixa de ser
+                // "convidado externo" nas listas e fichas deste workspace, preservando 100% do que ela tem nas fichas.
+                const membrosAtuais = new Set(
+                    parseAssignees(wsData.cr4a1_membros_logins).map(m => m.toLowerCase())
+                );
+                if (membrosAtuais.size > 0) {
+                    (async () => {
+                        try {
+                            const wsFilter = encodeURIComponent(`cr4a1_workspace_id eq '${wsId}'`);
+                            const [resListas, resFichas] = await Promise.all([
+                                fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${wsFilter}`).then(r => r.ok ? r.json() : { value: [] }),
+                                fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${wsFilter}`).then(r => r.ok ? r.json() : { value: [] })
+                            ]);
+
+                            for (const lista of (resListas.value || [])) {
+                                const convs = parseListaConvidados(lista.cr4a1_automacao);
+                                const restantes = convs.filter(c => !membrosAtuais.has(String(c).toLowerCase()));
+                                if (restantes.length !== convs.length) {
+                                    const novoJson = serializarConfigLista(lista.cr4a1_automacao, { convidados: restantes });
+                                    await fetch(`${API_PROXY}?table=cr4a1_listas&id=${lista.cr4a1_listaid}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ cr4a1_automacao: novoJson })
+                                    }).catch(() => {});
+                                }
+                            }
+
+                            for (const ficha of (resFichas.value || [])) {
+                                const meta = parseFichaMeta(ficha.cr4a1_atividades);
+                                const convs = meta.convidados || [];
+                                const restantes = convs.filter(c => !membrosAtuais.has(String(c).toLowerCase()));
+                                if (restantes.length !== convs.length) {
+                                    const novasAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, { convidados: restantes });
+                                    await fetch(`${API_PROXY}?table=cr4a1_fichas&id=${ficha.cr4a1_fichaid}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ cr4a1_atividades: novasAtividades })
+                                    }).catch(() => {});
+                                }
+                            }
+                        } catch (promoErr) {
+                            console.warn('[updateWorkspace] Falha ao promover convidados:', promoErr);
+                        }
+                    })();
+                }
             } else {
                 const errorText = await response.text();
                 console.error("Erro do servidor:", errorText);

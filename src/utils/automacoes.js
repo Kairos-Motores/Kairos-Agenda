@@ -34,12 +34,36 @@ export const parseListaCor = (raw) => {
   } catch { return ''; }
 };
 
-// Serializa { automacoes, gerentes, cor } preservando os campos existentes
+// Convidados externos com acesso a toda a lista (guardados em cr4a1_automacao)
+export const parseListaConvidados = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.convidados)) return parsed.convidados.filter(Boolean);
+    return [];
+  } catch { return []; }
+};
+
+// Notificações inbox de convites de lista (guardadas em cr4a1_automacao)
+export const parseListaNotificacoes = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.notificacoesInbox)) return parsed.notificacoesInbox.filter(Boolean).slice(-30);
+    return [];
+  } catch { return []; }
+};
+
+// Serializa { automacoes, gerentes, cor, convidados, notificacoesInbox } preservando os campos existentes
 export const serializarConfigLista = (rawAtual, mudancas = {}) => {
   const automacoes = mudancas.automacoes !== undefined ? mudancas.automacoes : parseAutomacoes(rawAtual);
   const gerentes = mudancas.gerentes !== undefined ? mudancas.gerentes : parseListaGerentes(rawAtual);
   const cor = mudancas.cor !== undefined ? mudancas.cor : parseListaCor(rawAtual);
-  return JSON.stringify({ automacoes, gerentes, cor });
+  const convidados = mudancas.convidados !== undefined ? mudancas.convidados : parseListaConvidados(rawAtual);
+  const notificacoesInbox = mudancas.notificacoesInbox !== undefined
+    ? mudancas.notificacoesInbox.slice(-30)
+    : parseListaNotificacoes(rawAtual);
+  return JSON.stringify({ automacoes, gerentes, cor, convidados, notificacoesInbox });
 };
 
 // Verifica se uma ficha está no espaço de arquivadas

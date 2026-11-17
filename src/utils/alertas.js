@@ -624,3 +624,266 @@ export const notificarCoGerencia = async ({
     toast.success(`Co-gerência notificada para ${info.nomeExibicao} (${emailEnviado})`, { duration: 3500 });
   }
 };
+
+/**
+ * LÓGICA 5: Notificar quando uma subtarefa (checklist) for atribuída a alguém ao salvar a ficha.
+ * Envia no sininho (Agenda), Web Push (Sistema) e E-mail, e retorna o objeto de inbox para persistência cross-device.
+ */
+export const notificarSubtaskAtribuida = async ({
+  destinatario = '',
+  subtaskTexto = '',
+  fichaTitulo = '',
+  dataVencimento = '',
+  lembreteHoras = '',
+  autor = '',
+  currentUser = '',
+  workspaceNome = '',
+  listaNome = '',
+  allUsers = []
+}) => {
+  if (!destinatario) return null;
+  const info = await resolverInfoDestinatarioCredenciais(destinatario, allUsers);
+  if (!info.username) return null;
+  if (info.username.toLowerCase() === String(currentUser || '').trim().toLowerCase()) return null;
+
+  const autorInfo = resolverInfoDestinatario(currentUser || autor, allUsers);
+  const autorNome = autorInfo.nomeExibicao || autor || currentUser;
+
+  const prazoFmt = dataVencimento
+    ? (() => {
+        try {
+          const d = new Date(dataVencimento.includes('T') ? dataVencimento : `${dataVencimento}T08:00:00`);
+          return d.toLocaleDateString('pt-BR');
+        } catch { return dataVencimento; }
+      })()
+    : '';
+
+  const lembreteTxt = lembreteHoras ? ` (lembrete configurado para ${lembreteHoras}h antes do prazo)` : '';
+  const titulo = `Nova tarefa atribuída a você em "${fichaTitulo}"`;
+  const mensagemHtml = `<strong>${autorNome}</strong> atribuiu uma tarefa da checklist para você concluir na ficha <strong>"${fichaTitulo}"</strong>:<br/><br/>• <strong>${subtaskTexto}</strong>${prazoFmt ? `<br/>Prazo: <strong>${prazoFmt}</strong>` : ''}${lembreteTxt}.`;
+  const pushTitle = `✅ Nova tarefa para você`;
+  const pushBody = `${autorNome} atribuiu "${subtaskTexto}" na ficha "${fichaTitulo}"${prazoFmt ? ` (Prazo: ${prazoFmt})` : ''}.`;
+  const pushTag = `subtask-${info.username}-${fichaTitulo}-${subtaskTexto.slice(0, 20)}`;
+
+  const inboxItem = {
+    id: crypto.randomUUID(),
+    para: info.username.toLowerCase(),
+    destinatario: info.username,
+    tipo: 'subtask',
+    titulo: `Tarefa atribuída: ${fichaTitulo}`,
+    mensagem: pushBody,
+    itemTitulo: fichaTitulo,
+    origem: 'Checklist do Trello',
+    timestamp: new Date().toISOString()
+  };
+
+  // 1. Sininho local (caso mesmo dispositivo)
+  salvarNotificacaoNoApp(inboxItem);
+
+  // 2. Web Push remoto (chega no sistema/dispositivo mesmo com o app fechado)
+  enviarAlertaPush({
+    usuarios: [info.username],
+    title: pushTitle,
+    body: pushBody,
+    url: '/',
+    tag: pushTag
+  });
+  dispararNotificacaoDispositivo({
+    title: pushTitle,
+    body: pushBody,
+    tag: pushTag,
+    destinatario: info.username
+  });
+
+  // 3. E-mail
+  if (info.email) {
+    await enviarAlertaEmail({
+      usuarios: [info.username],
+      destinatarios: [info.email],
+      tipo: 'subtask',
+      titulo,
+      mensagem: mensagemHtml,
+      autor: autorNome,
+      detalhes: {
+        origem: 'Checklist (Fichas)',
+        itemTitulo: fichaTitulo,
+        workspace: workspaceNome,
+        lista: listaNome,
+        dataHora: prazoFmt || 'Sem prazo definido',
+        trecho: subtaskTexto
+      }
+    });
+  }
+
+  return inboxItem;
+};
+
+/**
+ * LÓGICA 6: Notificar lembrete de prazo de subtarefa (48h, 24h ou 12h antes do vencimento).
+ */
+export const notificarLembreteSubtask = async ({
+  destinatario = '',
+  subtaskTexto = '',
+  fichaTitulo = '',
+  dataVencimento = '',
+  lembreteHoras = '',
+  workspaceNome = '',
+  listaNome = '',
+  allUsers = []
+}) => {
+  if (!destinatario) return null;
+  const info = await resolverInfoDestinatarioCredenciais(destinatario, allUsers);
+  if (!info.username) return null;
+
+  const prazoFmt = dataVencimento
+    ? (() => {
+        try {
+          const d = new Date(dataVencimento.includes('T') ? dataVencimento : `${dataVencimento}T08:00:00`);
+          return d.toLocaleDateString('pt-BR');
+        } catch { return dataVencimento; }
+      })()
+    : '';
+
+  const titulo = `Lembrete (${lembreteHoras}h): concluir "${subtaskTexto}"`;
+  const mensagemHtml = `Atenção! Falta menos de <strong>${lembreteHoras} horas</strong> para o prazo da sua tarefa na ficha <strong>"${fichaTitulo}"</strong>:<br/><br/>• <strong>${subtaskTexto}</strong>${prazoFmt ? `<br/>Prazo: <strong>${prazoFmt}</strong>` : ''}`;
+  const pushTitle = `⏰ Prazo em ${lembreteHoras}h: ${fichaTitulo}`;
+  const pushBody = `Lembrete: conclua "${subtaskTexto}"${prazoFmt ? ` até ${prazoFmt}` : ''}.`;
+  const pushTag = `lembrete-subtask-${info.username}-${fichaTitulo}-${lembreteHoras}h`;
+
+  const inboxItem = {
+    id: crypto.randomUUID(),
+    para: info.username.toLowerCase(),
+    destinatario: info.username,
+    tipo: 'evento_proximo',
+    titulo: `Lembrete (${lembreteHoras}h): ${fichaTitulo}`,
+    mensagem: pushBody,
+    itemTitulo: fichaTitulo,
+    origem: 'Prazo de Checklist',
+    timestamp: new Date().toISOString()
+  };
+
+  salvarNotificacaoNoApp(inboxItem);
+
+  enviarAlertaPush({
+    usuarios: [info.username],
+    title: pushTitle,
+    body: pushBody,
+    url: '/',
+    tag: pushTag
+  });
+  dispararNotificacaoDispositivo({
+    title: pushTitle,
+    body: pushBody,
+    tag: pushTag,
+    destinatario: info.username
+  });
+
+  if (info.email) {
+    await enviarAlertaEmail({
+      usuarios: [info.username],
+      destinatarios: [info.email],
+      tipo: 'evento_proximo',
+      titulo,
+      mensagem: mensagemHtml,
+      autor: 'Kairós Agenda',
+      detalhes: {
+        origem: `Lembrete automático (${lembreteHoras}h antes)`,
+        itemTitulo: fichaTitulo,
+        workspace: workspaceNome,
+        lista: listaNome,
+        dataHora: prazoFmt,
+        trecho: subtaskTexto
+      }
+    });
+  }
+
+  return inboxItem;
+};
+
+/**
+ * LÓGICA 7: Notificar convidado externo ao ser convidado para ver uma ficha ou uma lista inteira.
+ */
+export const notificarConviteTrello = async ({
+  destinatario = '',
+  escopo = 'ficha', // 'ficha' | 'lista'
+  fichaTitulo = '',
+  listaNome = '',
+  workspaceNome = '',
+  autor = '',
+  currentUser = '',
+  allUsers = []
+}) => {
+  if (!destinatario) return null;
+  const info = await resolverInfoDestinatarioCredenciais(destinatario, allUsers);
+  if (!info.username) return null;
+
+  const autorInfo = resolverInfoDestinatario(currentUser || autor, allUsers);
+  const autorNome = autorInfo.nomeExibicao || autor || currentUser;
+
+  const ehLista = escopo === 'lista';
+  const titulo = ehLista
+    ? `Convite: você pode visualizar a lista "${listaNome}"`
+    : `Convite: você foi convidado para a ficha "${fichaTitulo}"`;
+
+  const mensagemHtml = ehLista
+    ? `<strong>${autorNome}</strong> convidou você como convidado externo para visualizar a lista inteira <strong>"${listaNome}"</strong> no workspace <strong>"${workspaceNome}"</strong>.`
+    : `<strong>${autorNome}</strong> convidou você como convidado externo para visualizar a ficha <strong>"${fichaTitulo}"</strong> (lista "${listaNome}") no workspace <strong>"${workspaceNome}"</strong>.`;
+
+  const pushTitle = ehLista ? `🎟️ Convite para Lista no Trello` : `🎟️ Convite para Ficha no Trello`;
+  const pushBody = ehLista
+    ? `${autorNome} convidou você para ver a lista "${listaNome}" (${workspaceNome}).`
+    : `${autorNome} convidou você para ver a ficha "${fichaTitulo}" (${workspaceNome}).`;
+  const pushTag = `convite-trello-${info.username}-${ehLista ? listaNome : fichaTitulo}`;
+
+  const inboxItem = {
+    id: crypto.randomUUID(),
+    para: info.username.toLowerCase(),
+    destinatario: info.username,
+    tipo: 'convite',
+    titulo: ehLista ? `Convite: Lista "${listaNome}"` : `Convite: Ficha "${fichaTitulo}"`,
+    mensagem: pushBody,
+    itemTitulo: ehLista ? listaNome : fichaTitulo,
+    origem: ehLista ? 'Lista Compartilhada' : 'Ficha Compartilhada',
+    timestamp: new Date().toISOString()
+  };
+
+  salvarNotificacaoNoApp(inboxItem);
+
+  enviarAlertaPush({
+    usuarios: [info.username],
+    title: pushTitle,
+    body: pushBody,
+    url: '/',
+    tag: pushTag
+  });
+  dispararNotificacaoDispositivo({
+    title: pushTitle,
+    body: pushBody,
+    tag: pushTag,
+    destinatario: info.username
+  });
+
+  if (info.email) {
+    const resEmail = await enviarAlertaEmail({
+      usuarios: [info.username],
+      destinatarios: [info.email],
+      tipo: 'convite',
+      titulo,
+      mensagem: mensagemHtml,
+      autor: autorNome,
+      detalhes: {
+        origem: ehLista ? 'Convite para Lista Inteira' : 'Convite para Ficha',
+        itemTitulo: ehLista ? listaNome : fichaTitulo,
+        workspace: workspaceNome,
+        lista: listaNome
+      }
+    });
+    if (resEmail && !resEmail.error) {
+      toast.success(`Convite enviado para ${info.nomeExibicao} (${resEmail?.destinatarios?.[0] || info.email})`, { duration: 3500 });
+    }
+  } else {
+    toast.success(`Convite enviado no sistema para ${info.nomeExibicao}`, { duration: 3500 });
+  }
+
+  return inboxItem;
+};

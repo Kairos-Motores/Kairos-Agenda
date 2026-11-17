@@ -66,7 +66,9 @@ export const EventModal = ({
             .then(r => r.json())
             .then(data => {
                 if (cancelado) return;
-                const ordenadas = (data.value || []).sort((a, b) => (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0));
+                const ordenadas = (data.value || [])
+                    .filter(l => (l.cr4a1_nome || '').trim().toLowerCase() !== 'a fazer')
+                    .sort((a, b) => (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0));
                 setTrelloListas(ordenadas);
                 setTrelloListId(prev => {
                     if (prev && ordenadas.some(l => l.cr4a1_listaid === prev)) return prev;

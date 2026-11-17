@@ -56,6 +56,11 @@ const TaskItemComDados = TaskItem.extend({
         default: null,
         parseHTML: element => element.getAttribute('data-assignee') || null,
         renderHTML: attributes => (attributes.assignee ? { 'data-assignee': attributes.assignee } : {})
+      },
+      reminder: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-reminder') || null,
+        renderHTML: attributes => (attributes.reminder ? { 'data-reminder': String(attributes.reminder) } : {})
       }
     };
   }

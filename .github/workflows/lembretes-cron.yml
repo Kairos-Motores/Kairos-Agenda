@@ -1,0 +1,15 @@
+name: Lembretes Automáticos de Fichas (Subtasks)
+
+on:
+  schedule:
+    # Executa a cada 1 hora para disparar lembretes de 48h, 24h e 12h antes do prazo
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  disparar-lembretes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar endpoint de lembretes na Vercel
+        run: |
+          curl -fsSL -X GET "https://kairosagenda.vercel.app/api/cron-lembretes"

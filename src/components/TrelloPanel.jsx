@@ -2,6 +2,9 @@ import {
   notificarMencoes,
   notificarCompartilhamento,
   notificarCoGerencia,
+  notificarSubtaskAtribuida,
+  notificarLembreteSubtask,
+  notificarConviteTrello,
   enviarAlertaEmail,
   enviarAlertaPush,
   salvarNotificacaoNoApp,
@@ -11,7 +14,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, Ban, GripVertical, CalendarDays, X, Users, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, Ban, GripVertical, CalendarDays, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -58,6 +61,8 @@ import {
   parseAutomacoes,
   parseListaGerentes,
   parseListaCor,
+  parseListaConvidados,
+  parseListaNotificacoes,
   serializarConfigLista,
   aplicarAutomacoes,
   regrasPara,
@@ -75,6 +80,8 @@ import { useConfirm } from '../hooks/useConfirm';
 const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
+// A lista padrão "A Fazer" deve ser ocultada do módulo de Fichas (sem apagar eventos da Agenda)
+const ehListaAFazer = (lista) => (lista?.cr4a1_nome || '').trim().toLowerCase() === 'a fazer';
 // Opções de recorrência da ficha: ao concluir, cria sozinha a próxima ocorrência nessa
 // distância da data original (só funciona em fichas com data, já que a repetição é sobre ela).
 const RECORRENCIAS = { Diaria: (d) => addDays(d, 1), Semanal: (d) => addDays(d, 7), Mensal: (d) => addMonths(d, 1) };
@@ -378,6 +385,7 @@ export const TrelloPanel = ({
   const [modelos, setModelos] = useState([]);
   const [listaAutomacao, setListaAutomacao] = useState(null);
   const [listaGerentes, setListaGerentes] = useState(null);
+  const [listaConvidados, setListaConvidados] = useState(null);
   const [listaMoverWorkspace, setListaMoverWorkspace] = useState(null);
   const [listaExportar, setListaExportar] = useState(null);
   const [mudarWorkspaceAberto, setMudarWorkspaceAberto] = useState(false);
@@ -415,21 +423,53 @@ export const TrelloPanel = ({
 
   const recarregar = useCallback(() => setVersao(v => v + 1), []);
 
-  // Workspaces onde o usuário não é membro do calendário, mas foi convidado só pro quadro.
+  // Workspaces onde o usuário não é membro do calendário, mas foi convidado pro quadro,
+  // para uma lista inteira ou para uma ficha específica.
   useEffect(() => {
     let cancelado = false;
     (async () => {
+      const userLower = String(user || '').trim().toLowerCase();
       const condicoes = [`contains(cr4a1_colaboradores, '${user}')`];
       workspaces.forEach(w => {
         if (w.cr4a1_calendarios_workspacesid) {
           condicoes.push(`contains(cr4a1_colaboradores, 'ws:${w.cr4a1_calendarios_workspacesid}')`);
         }
       });
-      const filtro = q(condicoes.join(' or '));
-      const res = await fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtro}`).then(r => r.json());
+      const filtroQuadros = q(condicoes.join(' or '));
+      const filtroConvidadoFicha = q(`contains(cr4a1_atividades, '${user}')`);
+      const filtroConvidadoLista = q(`contains(cr4a1_automacao, '${user}')`);
+
+      const [resQuadros, resFichasConv, resListasConv] = await Promise.all([
+        fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtroQuadros}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
+        fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_workspace_id,cr4a1_atividades,cr4a1_fixada&$filter=${filtroConvidadoFicha}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
+        fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_workspace_id,cr4a1_automacao,cr4a1_nome&$filter=${filtroConvidadoLista}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
+      ]);
       if (cancelado) return;
+
+      const wsIdsConvidadosFichas = (resFichasConv.value || [])
+        .filter(f => {
+          if (ehFichaArquivada(f)) return false;
+          const meta = parseFichaMeta(f.cr4a1_atividades);
+          return (meta.convidados || []).some(c => String(c).toLowerCase() === userLower);
+        })
+        .map(f => f.cr4a1_workspace_id);
+
+      const wsIdsConvidadosListas = (resListasConv.value || [])
+        .filter(l => {
+          if (ehListaAFazer(l)) return false;
+          return parseListaConvidados(l.cr4a1_automacao).some(c => String(c).toLowerCase() === userLower);
+        })
+        .map(l => l.cr4a1_workspace_id);
+
       const conhecidos = new Set(workspaces.map(w => w.cr4a1_calendarios_workspacesid));
-      const idsExtras = [...new Set((res.value || []).map(qd => qd.cr4a1_workspace_id))].filter(id => id && !conhecidos.has(id));
+      const idsExtras = [
+        ...new Set([
+          ...(resQuadros.value || []).map(qd => qd.cr4a1_workspace_id),
+          ...wsIdsConvidadosFichas,
+          ...wsIdsConvidadosListas
+        ])
+      ].filter(id => id && !conhecidos.has(id));
+
       if (idsExtras.length === 0) { setWorkspacesExtras([]); return; }
       const filtroWs = q(idsExtras.map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
       const resWs = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filtroWs}`).then(r => r.json());
@@ -531,6 +571,22 @@ export const TrelloPanel = ({
   // some daqui, mas continua aparecendo no diálogo "Compartilhar" (com o status de bloqueado),
   // que é onde esse controle é gerenciado.
   const membrosVisiveis = useMemo(() => membros.filter(m => !bloqueadosLogins.includes(m.cr4a1_username)), [membros, bloqueadosLogins]);
+
+  // Controle de Convidados Externos: se o usuário já virou membro do workspace, deixa de ser convidado automaticamente!
+  const userLower = String(user || '').trim().toLowerCase();
+  const membrosBaseLoginsSet = useMemo(
+    () => new Set(membrosBase.map(m => String(m.cr4a1_username || '').toLowerCase())),
+    [membrosBase]
+  );
+  const souMembroOuColaboradorQuadro = useMemo(() => {
+    if (isAdmin) return true;
+    if (!workspace) return true;
+    if (membrosBaseLoginsSet.has(userLower)) return true;
+    if (colaboradoresLogins.some(c => String(c).toLowerCase() === userLower)) return true;
+    if (workspaces.some(w => workspacesVinculadosIds.includes(w.cr4a1_calendarios_workspacesid))) return true;
+    return false;
+  }, [isAdmin, workspace, membrosBaseLoginsSet, userLower, colaboradoresLogins, workspaces, workspacesVinculadosIds]);
+  const souApenasConvidado = !souMembroOuColaboradorQuadro;
 
   // Dispara os e-mails configurados nas regras de automação da lista, resolvendo o endereço
   // na tabela cr4a1_credenciaises (cr4a1_email) e notificando também no app/dispositivo.
@@ -750,10 +806,95 @@ export const TrelloPanel = ({
     })();
   }, [fichas, listas, user]);
 
-  const listasVisiveis = useMemo(
-    () => listas.filter(l => l.cr4a1_pessoal !== 'Sim' || l.cr4a1_criador_login === user || isAdmin),
-    [listas, user, isAdmin]
-  );
+  // Verificação em tempo real de lembretes de subtarefas (48h, 24h ou 12h antes do prazo)
+  // enquanto o quadro está aberto — utiliza a mesma chave do cron do servidor para nunca duplicar.
+  const lembretesSubtaskEmAndamentoRef = useRef(new Set());
+  useEffect(() => {
+    if (!fichas.length) return;
+    (async () => {
+      const agoraMs = Date.now();
+      const wsNome = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '';
+      for (const ficha of fichas) {
+        if (ehFichaArquivada(ficha) || ficha.cr4a1_concluida === 'Sim') continue;
+        const tarefas = extrairTarefas(ficha.cr4a1_descricao);
+        if (!tarefas.length) continue;
+
+        const meta = parseFichaMeta(ficha.cr4a1_atividades);
+        const enviados = new Set(meta.lembretesSubtasksEnviados || []);
+        const inbox = [...(meta.notificacoesInbox || [])];
+        let alterou = false;
+        const listaNome = listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id)?.cr4a1_nome || '';
+
+        for (const t of tarefas) {
+          if (t.concluida || !t.responsavel || !t.dataVencimento || !t.lembreteHoras) continue;
+          const horasAntes = Number(t.lembreteHoras);
+          if (![48, 24, 12].includes(horasAntes)) continue;
+
+          const prazoIso = t.dataVencimento.includes('T')
+            ? t.dataVencimento
+            : `${t.dataVencimento}T08:00:00`;
+          const prazoMs = new Date(prazoIso).getTime();
+          if (Number.isNaN(prazoMs)) continue;
+
+          const horasRestantes = (prazoMs - agoraMs) / 3600000;
+          if (horasRestantes > horasAntes || horasRestantes < -24) continue;
+
+          const loginLower = String(t.responsavel).trim().toLowerCase();
+          const chave = `${t.index}_${loginLower}_${t.dataVencimento}_${horasAntes}`;
+          const lockKey = `${ficha.cr4a1_fichaid}:${chave}`;
+          if (enviados.has(chave) || lembretesSubtaskEmAndamentoRef.current.has(lockKey)) continue;
+
+          lembretesSubtaskEmAndamentoRef.current.add(lockKey);
+          try {
+            const inboxItem = await notificarLembreteSubtask({
+              destinatario: t.responsavel,
+              subtaskTexto: t.texto,
+              fichaTitulo: ficha.cr4a1_titulo || 'Ficha',
+              dataVencimento: t.dataVencimento,
+              lembreteHoras: horasAntes,
+              workspaceNome: wsNome,
+              listaNome,
+              allUsers
+            });
+            enviados.add(chave);
+            if (inboxItem) inbox.push(inboxItem);
+            alterou = true;
+          } catch {
+            lembretesSubtaskEmAndamentoRef.current.delete(lockKey);
+          }
+        }
+
+        if (alterou) {
+          const novasAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, {
+            lembretesSubtasksEnviados: [...enviados],
+            notificacoesInbox: inbox.slice(-30)
+          });
+          await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novasAtividades }).catch(() => {});
+        }
+      }
+    })();
+  }, [fichas, listas, workspaceId, todasOpcoes, allUsers]);
+
+  const listasVisiveis = useMemo(() => {
+    return listas.filter(l => {
+      // A lista "A Fazer" não deve aparecer no módulo de Fichas (mantendo intactos os eventos da Agenda)
+      if (ehListaAFazer(l)) return false;
+
+      // Se o usuário é apenas convidado externo neste workspace, só vê listas onde foi
+      // convidado para a lista inteira ou listas que contenham alguma ficha onde foi convidado.
+      if (souApenasConvidado) {
+        const convsLista = parseListaConvidados(l.cr4a1_automacao).map(c => String(c).toLowerCase());
+        if (convsLista.includes(userLower)) return true;
+        return fichas.some(f => {
+          if (ehFichaArquivada(f) || f.cr4a1_lista_id !== l.cr4a1_listaid) return false;
+          const meta = parseFichaMeta(f.cr4a1_atividades);
+          return (meta.convidados || []).some(c => String(c).toLowerCase() === userLower);
+        });
+      }
+
+      return l.cr4a1_pessoal !== 'Sim' || l.cr4a1_criador_login === user || isAdmin;
+    });
+  }, [listas, fichas, user, userLower, isAdmin, souApenasConvidado]);
 
   const post = (tabela, corpo) => fetch(`${API_PROXY}?table=${tabela}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo)
@@ -934,18 +1075,168 @@ export const TrelloPanel = ({
   const apagarLista = async (lista) => {
     const doLista = fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
     const msg = doLista.length
-      ? `Excluir a lista "${lista.cr4a1_nome}" e suas ${doLista.length} ficha(s)?`
+      ? `Excluir a lista "${lista.cr4a1_nome}" e suas ${doLista.length} ficha(s)? (Os eventos já existentes na Agenda serão preservados.)`
       : `Excluir a lista "${lista.cr4a1_nome}"?`;
     if (!(await confirm(msg, { title: 'Excluir lista' }))) return;
     try {
       for (const f of doLista) {
-        await removerEventoDaFicha(f);
+        // Preserva os eventos na Agenda ao apagar uma lista no módulo de Fichas
         await apagar('cr4a1_fichas', f.cr4a1_fichaid);
       }
       await apagar('cr4a1_listas', lista.cr4a1_listaid);
       recarregar();
-      refreshEvents?.();
     } catch { toast.error('Erro ao excluir lista.'); }
+  };
+
+  // Convida uma pessoa de fora do workspace para ver SOMENTE uma ficha ou a LISTA inteira, notificando-a.
+  const convidarExterno = async ({ login, escopo = 'ficha', ficha = null, lista = null }) => {
+    const loginLimpo = String(login || '').trim();
+    if (!loginLimpo) return;
+    if (membrosBaseLoginsSet.has(loginLimpo.toLowerCase())) {
+      toast('Esta pessoa já é membro do workspace.');
+      return;
+    }
+
+    const wsNome = workspace?.cr4a1_nome || '';
+    const listaAlvo = lista || listas.find(l => l.cr4a1_listaid === ficha?.cr4a1_lista_id);
+
+    try {
+      if (escopo === 'lista' && listaAlvo) {
+        const atuais = parseListaConvidados(listaAlvo.cr4a1_automacao);
+        const jaEsta = atuais.some(c => String(c).toLowerCase() === loginLimpo.toLowerCase());
+        const novos = jaEsta ? atuais : [...atuais, loginLimpo];
+        const inboxItem = await notificarConviteTrello({
+          destinatario: loginLimpo,
+          escopo: 'lista',
+          listaNome: listaAlvo.cr4a1_nome || 'Lista',
+          workspaceNome: wsNome,
+          autor: user,
+          currentUser: user,
+          allUsers
+        });
+        const inboxAtual = parseListaNotificacoes(listaAlvo.cr4a1_automacao);
+        const novoJson = serializarConfigLista(listaAlvo.cr4a1_automacao, {
+          convidados: novos,
+          notificacoesInbox: inboxItem ? [...inboxAtual, inboxItem] : inboxAtual
+        });
+        await patch('cr4a1_listas', listaAlvo.cr4a1_listaid, { cr4a1_automacao: novoJson });
+
+        // Se estava convidado apenas na ficha individual, limpa duplicidade mantendo o acesso maior (lista inteira)
+        if (ficha) {
+          const metaF = parseFichaMeta(ficha.cr4a1_atividades);
+          if ((metaF.convidados || []).some(c => String(c).toLowerCase() === loginLimpo.toLowerCase())) {
+            const novasAtiv = atualizarFichaMeta(ficha.cr4a1_atividades, {
+              convidados: (metaF.convidados || []).filter(c => String(c).toLowerCase() !== loginLimpo.toLowerCase())
+            });
+            await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novasAtiv });
+          }
+        }
+        recarregar();
+      } else if (escopo === 'ficha' && ficha) {
+        const metaF = parseFichaMeta(ficha.cr4a1_atividades);
+        const atuais = metaF.convidados || [];
+        const jaEsta = atuais.some(c => String(c).toLowerCase() === loginLimpo.toLowerCase());
+        const novos = jaEsta ? atuais : [...atuais, loginLimpo];
+        const inboxItem = await notificarConviteTrello({
+          destinatario: loginLimpo,
+          escopo: 'ficha',
+          fichaTitulo: ficha.cr4a1_titulo || 'Ficha',
+          listaNome: listaAlvo?.cr4a1_nome || '',
+          workspaceNome: wsNome,
+          autor: user,
+          currentUser: user,
+          allUsers
+        });
+        const inboxAtual = metaF.notificacoesInbox || [];
+        const novasAtiv = registrarAtividade(
+          ficha.cr4a1_atividades,
+          'convidado',
+          user,
+          nomeDe(loginLimpo, allUsers),
+          {
+            convidados: novos,
+            notificacoesInbox: inboxItem ? [...inboxAtual, inboxItem].slice(-30) : inboxAtual
+          }
+        );
+        await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novasAtiv });
+        setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_atividades: novasAtiv } : f));
+        setEditando(prev => {
+          if (!prev || prev.original?.cr4a1_fichaid !== ficha.cr4a1_fichaid) return prev;
+          return {
+            original: { ...prev.original, cr4a1_atividades: novasAtiv },
+            form: { ...prev.form, convidados: novos }
+          };
+        });
+        recarregar();
+      }
+    } catch {
+      toast.error('Erro ao convidar pessoa externa.');
+    }
+  };
+
+  const removerConvidado = async ({ login, escopo = 'ficha', ficha = null, lista = null }) => {
+    const loginLower = String(login || '').trim().toLowerCase();
+    if (!loginLower) return;
+    const listaAlvo = lista || listas.find(l => l.cr4a1_listaid === ficha?.cr4a1_lista_id);
+    try {
+      if (escopo === 'lista' && listaAlvo) {
+        const restantes = parseListaConvidados(listaAlvo.cr4a1_automacao).filter(c => String(c).toLowerCase() !== loginLower);
+        const novoJson = serializarConfigLista(listaAlvo.cr4a1_automacao, { convidados: restantes });
+        await patch('cr4a1_listas', listaAlvo.cr4a1_listaid, { cr4a1_automacao: novoJson });
+        toast.success('Convidado removido da lista.');
+        recarregar();
+      } else if (escopo === 'ficha' && ficha) {
+        const metaF = parseFichaMeta(ficha.cr4a1_atividades);
+        const restantes = (metaF.convidados || []).filter(c => String(c).toLowerCase() !== loginLower);
+        const novasAtiv = atualizarFichaMeta(ficha.cr4a1_atividades, { convidados: restantes });
+        await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_atividades: novasAtiv });
+        setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_atividades: novasAtiv } : f));
+        setEditando(prev => {
+          if (!prev || prev.original?.cr4a1_fichaid !== ficha.cr4a1_fichaid) return prev;
+          return {
+            original: { ...prev.original, cr4a1_atividades: novasAtiv },
+            form: { ...prev.form, convidados: restantes }
+          };
+        });
+        toast.success('Convidado removido da ficha.');
+        recarregar();
+      }
+    } catch {
+      toast.error('Erro ao remover convidado.');
+    }
+  };
+
+  const salvarConvidadosDaLista = async (lista, novosConvidados) => {
+    try {
+      const anteriores = new Set(parseListaConvidados(lista.cr4a1_automacao).map(c => String(c).toLowerCase()));
+      const filtrados = novosConvidados.filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase()));
+      const recemAdicionados = filtrados.filter(c => !anteriores.has(String(c).toLowerCase()));
+      const inboxAtual = parseListaNotificacoes(lista.cr4a1_automacao);
+      const novosInbox = [...inboxAtual];
+
+      for (const novoLogin of recemAdicionados) {
+        const inboxItem = await notificarConviteTrello({
+          destinatario: novoLogin,
+          escopo: 'lista',
+          listaNome: lista.cr4a1_nome || 'Lista',
+          workspaceNome: workspace?.cr4a1_nome || '',
+          autor: user,
+          currentUser: user,
+          allUsers
+        });
+        if (inboxItem) novosInbox.push(inboxItem);
+      }
+
+      const novoJson = serializarConfigLista(lista.cr4a1_automacao, {
+        convidados: filtrados,
+        notificacoesInbox: novosInbox
+      });
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoJson });
+      setListaConvidados(null);
+      recarregar();
+    } catch {
+      toast.error('Erro ao atualizar convidados da lista.');
+    }
   };
 
   // Modelos de quadro são guardados como registros de cr4a1_quadros marcados com
@@ -974,14 +1265,14 @@ export const TrelloPanel = ({
   const exportarQuadro = async () => {
     if (fichas.length === 0) { toast.error('Este quadro ainda não tem fichas pra exportar.'); return; }
     try {
-      await exportarQuadroXlsx(listas, fichas, etiquetas, allUsers, workspace?.cr4a1_nome);
+      await exportarQuadroXlsx(listasVisiveis, fichas, etiquetas, allUsers, workspace?.cr4a1_nome);
     } catch { toast.error('Erro ao exportar o quadro.'); }
   };
 
   const salvarComoModelo = async (nome) => {
-    if (listas.length === 0) { toast.error('Este quadro ainda não tem listas pra salvar como modelo.'); return; }
+    if (listasVisiveis.length === 0) { toast.error('Este quadro ainda não tem listas pra salvar como modelo.'); return; }
     try {
-      const estrutura = listas.map(l => ({ nome: l.cr4a1_nome, pessoal: l.cr4a1_pessoal === 'Sim' }));
+      const estrutura = listasVisiveis.map(l => ({ nome: l.cr4a1_nome, pessoal: l.cr4a1_pessoal === 'Sim' }));
       await post('cr4a1_quadros', {
         cr4a1_nome: nome,
         cr4a1_etemplate: 'Sim',
@@ -1369,13 +1660,51 @@ export const TrelloPanel = ({
   // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
   const salvarFicha = async (form, original, options = {}) => {
     const isAutosave = Boolean(options.autosave);
+    const manterAberto = Boolean(options.manterAberto);
     const tarefasDaDescricao = extrairTarefas(form.descricao);
+    const tarefasOriginais = extrairTarefas(original?.cr4a1_descricao || '');
+    const metaOriginal = parseFichaMeta(original.cr4a1_atividades);
 
     const dataDefinida = !!form.dia;
     const dataIso = dataDefinida ? new Date(`${form.dia}T${form.hora || '08:00'}:00`).toISOString() : null;
     const responsavelMudou = form.responsavel !== original.cr4a1_responsavel_login;
     const dataMudou = (dataIso || '') !== (original.cr4a1_data_inicio || '');
-    const avisar = !isAutosave && dataDefinida && (!comData(original) || responsavelMudou || dataMudou);
+    const avisar = !isAutosave && dataDefinida && (form.notificarSistema !== false) && (!comData(original) || responsavelMudou || dataMudou);
+
+    // Convidados externos: remove automaticamente quem já virou membro do workspace (sem perder nada nas fichas!)
+    const convidadosLimpos = (Array.isArray(form.convidados) ? form.convidados : metaOriginal.convidados || [])
+      .filter(c => c && !membrosBaseLoginsSet.has(String(c).toLowerCase()));
+
+    const notificacoesInboxAtual = Array.isArray(metaOriginal.notificacoesInbox) ? [...metaOriginal.notificacoesInbox] : [];
+    const lembretesSubtasksEnviadosAtual = Array.isArray(metaOriginal.lembretesSubtasksEnviados) ? [...metaOriginal.lembretesSubtasksEnviados] : [];
+
+    // Ao salvar (não no autosave de digitação), notifica responsáveis recém-atribuídos em subtarefas da checklist
+    if (!isAutosave && tarefasDaDescricao.length > 0) {
+      const wsNome = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '';
+      const listaNome = listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '';
+      for (const t of tarefasDaDescricao) {
+        if (!t.responsavel || t.concluida) continue;
+        const antigaMesmaPos = tarefasOriginais[t.index];
+        const antigaMesmoTexto = tarefasOriginais.find(x => x.texto === t.texto);
+        const refAntiga = (antigaMesmaPos && antigaMesmaPos.texto === t.texto) ? antigaMesmaPos : antigaMesmoTexto;
+        const respMudou = !refAntiga || String(refAntiga.responsavel || '').toLowerCase() !== String(t.responsavel).toLowerCase();
+        if (respMudou) {
+          const inboxItem = await notificarSubtaskAtribuida({
+            destinatario: t.responsavel,
+            subtaskTexto: t.texto,
+            fichaTitulo: form.titulo || original?.cr4a1_titulo || 'Ficha',
+            dataVencimento: t.dataVencimento || form.dia || '',
+            lembreteHoras: t.lembreteHoras || '',
+            autor: user,
+            currentUser: user,
+            workspaceNome: wsNome,
+            listaNome,
+            allUsers
+          });
+          if (inboxItem) notificacoesInboxAtual.push(inboxItem);
+        }
+      }
+    }
 
     const novoMeta = {
       coResponsaveis: form.coResponsaveis || [],
@@ -1396,7 +1725,10 @@ export const TrelloPanel = ({
       dependenciasFichasIds: Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : [],
       sincronizarAgenda: Boolean(form.sincronizarAgenda),
       notificarSistema: form.notificarSistema !== false,
-      notificarEmail: Boolean(form.notificarEmail)
+      notificarEmail: Boolean(form.notificarEmail),
+      convidados: convidadosLimpos,
+      lembretesSubtasksEnviados: lembretesSubtasksEnviadosAtual,
+      notificacoesInbox: notificacoesInboxAtual.slice(-30)
     };
 
     // Avalia progresso combinado e dependências
@@ -1599,10 +1931,15 @@ export const TrelloPanel = ({
         await executarAutomacoes(fichaPosSave, form.listaId, 'etiqueta', etiquetaId);
       }
 
-      if (isAutosave) {
-        setEditando(prev => (prev && prev.original.cr4a1_fichaid === original.cr4a1_fichaid ? { ...prev, original: fichaPosSave } : prev));
-        setFichas(prev => prev.map(f => f.cr4a1_fichaid === original.cr4a1_fichaid ? fichaPosSave : f));
-        return fichaPosSave;
+      if (isAutosave || manterAberto) {
+        const fichaComEvento = { ...fichaPosSave, cr4a1_evento_id: eventoId };
+        setEditando(prev => (prev && prev.original.cr4a1_fichaid === original.cr4a1_fichaid ? { ...prev, original: fichaComEvento, ...(manterAberto ? { form } : {}) } : prev));
+        setFichas(prev => prev.map(f => f.cr4a1_fichaid === original.cr4a1_fichaid ? fichaComEvento : f));
+        if (manterAberto) {
+          refreshEvents?.();
+          toast.success('Prazo atualizado.');
+        }
+        return fichaComEvento;
       }
 
       setEditando(null);
@@ -1649,7 +1986,8 @@ export const TrelloPanel = ({
         dependenciasFichasIds: Array.isArray(meta.dependenciasFichasIds) ? meta.dependenciasFichasIds : [],
         sincronizarAgenda: meta.sincronizarAgenda ?? Boolean(ficha.cr4a1_evento_id),
         notificarSistema: meta.notificarSistema !== false,
-        notificarEmail: Boolean(meta.notificarEmail)
+        notificarEmail: Boolean(meta.notificarEmail),
+        convidados: (Array.isArray(meta.convidados) ? meta.convidados : []).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase()))
       }
     });
   };
@@ -1825,7 +2163,16 @@ export const TrelloPanel = ({
     [fichasAtivas, filtros, filtrosAtivos, user]
   );
   const fichasDaLista = (lista) => {
-    const doLista = fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+    let doLista = fichasVisiveis.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+    if (souApenasConvidado) {
+      const convsLista = parseListaConvidados(lista.cr4a1_automacao).map(c => String(c).toLowerCase());
+      if (!convsLista.includes(userLower)) {
+        doLista = doLista.filter(f => {
+          const meta = parseFichaMeta(f.cr4a1_atividades);
+          return (meta.convidados || []).some(c => String(c).toLowerCase() === userLower);
+        });
+      }
+    }
     const crit = ordenacaoPorLista[lista.cr4a1_listaid] || 'padrao';
     return ordenarFichasPorCriterio(doLista, crit);
   };
@@ -2485,6 +2832,15 @@ export const TrelloPanel = ({
       </div>
     </header>
 
+      {souApenasConvidado && (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2 text-xs text-blue-700 dark:text-blue-300">
+          <UserPlus className="size-4 shrink-0" />
+          <span>
+            <strong>Modo Convidado</strong> — Você está visualizando apenas as listas/fichas compartilhadas com você neste workspace.
+          </span>
+        </div>
+      )}
+
       {minhasFichasAberto ? (
         <div className="flex flex-col gap-4">
           {minhasFichasCarregando ? (
@@ -2700,15 +3056,17 @@ export const TrelloPanel = ({
                   <ListaOpcoesMenu
                     lista={lista}
                     corDaLista={corDaLista}
-                    podeGerenciar={podeGerenciar}
-                    podeGerenciarAutomacoes={podeGerenciarAutomacoes}
-                    souDono={souDono}
+                    podeGerenciar={podeGerenciar && !souApenasConvidado}
+                    podeGerenciarAutomacoes={podeGerenciarAutomacoes && !souApenasConvidado}
+                    souDono={souDono && !souApenasConvidado}
                     pessoal={pessoal}
                     gerentesDaLista={gerentesDaLista}
+                    convidadosDaLista={parseListaConvidados(lista.cr4a1_automacao).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase()))}
                     listasVisiveis={listasVisiveis}
                     definirCorLista={definirCorLista}
                     setListaAutomacao={setListaAutomacao}
                     setListaGerentes={setListaGerentes}
+                    setListaConvidados={setListaConvidados}
                     clonarListaInteira={clonarListaInteira}
                     setListaMoverFichas={setListaMoverFichas}
                     alternarListaPessoal={alternarListaPessoal}
@@ -3146,17 +3504,19 @@ export const TrelloPanel = ({
 
             {providedBoard.placeholder}
 
-            <form
-              onSubmit={e => { e.preventDefault(); criarLista(); }}
-              className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
-            >
-              <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
-                Lista pessoal (só eu vejo)
-              </label>
-              <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
-            </form>
+            {!souApenasConvidado && (
+              <form
+                onSubmit={e => { e.preventDefault(); criarLista(); }}
+                className="flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border border-dashed border-border bg-secondary p-3"
+              >
+                <Input value={novaLista} onChange={e => setNovaLista(e.target.value)} placeholder="Nova lista..." className="bg-card" />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch checked={novaListaPessoal} onCheckedChange={setNovaListaPessoal} />
+                  Lista pessoal (só eu vejo)
+                </label>
+                <Button type="submit" size="sm" variant="outline">Adicionar lista</Button>
+              </form>
+            )}
           </div>
         )}
       </Droppable>
@@ -3188,8 +3548,13 @@ export const TrelloPanel = ({
               onRemoverComentario={(id) => removerComentario(editando.original, id)}
               onCancel={() => setEditando(null)}
               onSave={(form) => salvarFicha(form, editando.original)}
+              onSaveRapido={(form) => salvarFicha(form, editando.original, { manterAberto: true })}
               onAutosave={(form) => salvarFicha(form, editando.original, { autosave: true })}
               onDelete={() => excluirFicha(editando.original)}
+              membrosBaseLoginsSet={membrosBaseLoginsSet}
+              souApenasConvidado={souApenasConvidado}
+              onConvidarExterno={(dados) => convidarExterno({ ...dados, ficha: editando.original })}
+              onRemoverConvidado={(dados) => removerConvidado({ ...dados, ficha: editando.original })}
               notas={notas}
               fichas={fichas}
               onCriarNota={async (tituloFicha) => {
@@ -3362,6 +3727,16 @@ export const TrelloPanel = ({
         />
       )}
 
+      {listaConvidados && (
+        <ConvidadosListaDialog
+          lista={listas.find(l => l.cr4a1_listaid === listaConvidados.cr4a1_listaid) || listaConvidados}
+          allUsers={allUsers}
+          membrosBaseLoginsSet={membrosBaseLoginsSet}
+          onClose={() => setListaConvidados(null)}
+          onSave={(novosConvidados) => salvarConvidadosDaLista(listaConvidados, novosConvidados)}
+        />
+      )}
+
       {listaMoverWorkspace && (
         <MoverListaWorkspaceDialog
           lista={listaMoverWorkspace}
@@ -3416,8 +3791,13 @@ const FichaForm = ({
   onRemoverComentario,
   onCancel,
   onSave,
+  onSaveRapido,
   onAutosave,
   onDelete,
+  membrosBaseLoginsSet = new Set(),
+  souApenasConvidado = false,
+  onConvidarExterno,
+  onRemoverConvidado,
   notas = [],
   fichas = [],
   onCriarNota,
@@ -3427,6 +3807,10 @@ const FichaForm = ({
   onRegistrarCorRecente
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [prazoPopoverAberto, setPrazoPopoverAberto] = useState(false);
+  const [convidarPopoverAberto, setConvidarPopoverAberto] = useState(false);
+  const [buscaConvidado, setBuscaConvidado] = useState('');
+  const [escopoConvite, setEscopoConvite] = useState('ficha'); // 'ficha' | 'lista'
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
@@ -3476,10 +3860,14 @@ const FichaForm = ({
     form.dataInicioTrabalho,
     form.tempoEstimadoMin,
     form.tempoGastoMin,
+    form.sincronizarAgenda,
+    form.notificarSistema,
+    form.notificarEmail,
     JSON.stringify(form.etiquetas),
     JSON.stringify(form.stickers),
     JSON.stringify(form.coResponsaveis),
     JSON.stringify(form.observadores),
+    JSON.stringify(form.convidados),
     JSON.stringify(form.notasIds),
     JSON.stringify(form.dependenciasFichasIds),
     JSON.stringify(form.anexos)
@@ -3645,6 +4033,39 @@ const FichaForm = ({
     : (fichaOriginal?.createdon ? format(new Date(fichaOriginal.createdon), 'dd/MM/yyyy') : null);
   const listaAtual = listas.find(l => l.cr4a1_listaid === form.listaId);
 
+  // Convidados externos da ficha e da lista atual (exclui automaticamente quem já é membro do workspace)
+  const convidadosDaListaAtual = useMemo(
+    () => parseListaConvidados(listaAtual?.cr4a1_automacao).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase())),
+    [listaAtual, membrosBaseLoginsSet]
+  );
+  const convidadosDaFichaAtual = useMemo(
+    () => (Array.isArray(form.convidados) ? form.convidados : []).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase())),
+    [form.convidados, membrosBaseLoginsSet]
+  );
+  const usuariosExternosCandidatos = useMemo(() => {
+    const termo = buscaConvidado.trim().toLowerCase();
+    return (allUsers || []).filter(u => {
+      const loginLower = String(u.cr4a1_username || '').toLowerCase();
+      if (!loginLower || membrosBaseLoginsSet.has(loginLower)) return false;
+      if (!termo) return true;
+      const nome = String(u.cr4a1_nome_exibicao || '').toLowerCase();
+      return nome.includes(termo) || loginLower.includes(termo);
+    });
+  }, [allUsers, membrosBaseLoginsSet, buscaConvidado]);
+
+  // Pessoas atribuíveis (membros do workspace + convidados desta ficha/lista)
+  const pessoasAtribuiveis = useMemo(() => {
+    const base = membros.length ? [...membros] : [...allUsers];
+    const extrasLogins = new Set([...convidadosDaFichaAtual, ...convidadosDaListaAtual].map(c => String(c).toLowerCase()));
+    for (const u of (allUsers || [])) {
+      const loginLower = String(u.cr4a1_username || '').toLowerCase();
+      if (extrasLogins.has(loginLower) && !base.some(m => String(m.cr4a1_username || '').toLowerCase() === loginLower)) {
+        base.push(u);
+      }
+    }
+    return base;
+  }, [membros, allUsers, convidadosDaFichaAtual, convidadosDaListaAtual]);
+
   // Estilos de botões do cabeçalho que garantem contraste absoluto (sem texto branco sobre fundo branco)
   const getHeaderBtnClass = (ativo = false) => {
     if (!corCabecalho) return '';
@@ -3728,6 +4149,168 @@ const FichaForm = ({
                   <span>Editar Ficha</span>
                 </Button>
 
+                {/* Botão de Convidar pessoa externa ao workspace (ficha ou lista inteira) */}
+                {!souApenasConvidado && onConvidarExterno && (
+                  <Popover open={convidarPopoverAberto} onOpenChange={setConvidarPopoverAberto}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className={`${getHeaderBtnClass(convidadosDaFichaAtual.length > 0 || convidadosDaListaAtual.length > 0)} gap-1.5 h-8 px-2.5 text-xs`}
+                        title="Convidar alguém de fora do workspace para ver esta ficha ou a lista inteira"
+                      >
+                        <UserPlus className="size-3.5" />
+                        <span className="hidden sm:inline">Convidar</span>
+                        {(convidadosDaFichaAtual.length + convidadosDaListaAtual.length) > 0 && (
+                          <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4">
+                            {convidadosDaFichaAtual.length + convidadosDaListaAtual.length}
+                          </Badge>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 max-w-[calc(100vw-24px)] p-3 flex flex-col gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <UserPlus className="size-3.5 text-primary" /> Convidar pessoa externa
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Convide alguém de fora deste workspace e escolha o nível de acesso. Ela será notificada.
+                        </span>
+                      </div>
+
+                      {/* Seletor de Escopo: Somente esta ficha vs Lista inteira */}
+                      <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary/70 p-1 border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setEscopoConvite('ficha')}
+                          className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all ${
+                            escopoConvite === 'ficha'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Somente esta ficha
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEscopoConvite('lista')}
+                          className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all ${
+                            escopoConvite === 'lista'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Lista inteira
+                        </button>
+                      </div>
+
+                      <Input
+                        value={buscaConvidado}
+                        onChange={e => setBuscaConvidado(e.target.value)}
+                        placeholder="Buscar usuário externo..."
+                        className="h-8 text-xs"
+                      />
+
+                      <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                        {usuariosExternosCandidatos.length === 0 ? (
+                          <p className="py-3 text-center text-[11px] text-muted-foreground">
+                            Nenhum usuário externo encontrado.
+                          </p>
+                        ) : (
+                          usuariosExternosCandidatos.map(u => {
+                            const loginLower = String(u.cr4a1_username || '').toLowerCase();
+                            const naLista = convidadosDaListaAtual.some(c => String(c).toLowerCase() === loginLower);
+                            const naFicha = convidadosDaFichaAtual.some(c => String(c).toLowerCase() === loginLower);
+                            const jaConvidadoNoEscopo = escopoConvite === 'lista' ? naLista : (naFicha || naLista);
+                            return (
+                              <div
+                                key={u.cr4a1_username}
+                                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-secondary/30 px-2 py-1.5 text-xs"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <UserAvatar login={u.cr4a1_username} allUsers={allUsers} size={20} />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-semibold truncate text-foreground">{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
+                                    {(naLista || naFicha) && (
+                                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                        {naLista ? 'Convidado na lista inteira' : 'Convidado nesta ficha'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={jaConvidadoNoEscopo ? 'secondary' : 'default'}
+                                  disabled={jaConvidadoNoEscopo}
+                                  className="h-7 px-2 text-[11px] shrink-0"
+                                  onClick={() => onConvidarExterno({
+                                    login: u.cr4a1_username,
+                                    escopo: escopoConvite,
+                                    lista: listaAtual
+                                  })}
+                                >
+                                  {jaConvidadoNoEscopo ? 'Convidado' : 'Convidar'}
+                                </Button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Convidados ativos */}
+                      {(convidadosDaFichaAtual.length > 0 || convidadosDaListaAtual.length > 0) && (
+                        <div className="border-t border-border pt-2 flex flex-col gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Convidados com acesso
+                          </span>
+                          <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
+                            {convidadosDaFichaAtual.map(login => (
+                              <div key={`f-${login}`} className="flex items-center justify-between gap-1.5 text-xs bg-secondary/50 rounded-lg px-2 py-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <UserAvatar login={login} allUsers={allUsers} size={16} />
+                                  <span className="truncate font-medium">{nomeDe(login, allUsers)}</span>
+                                  <Badge variant="outline" className="text-[9px] py-0 px-1 shrink-0">Ficha</Badge>
+                                </div>
+                                {onRemoverConvidado && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onRemoverConvidado({ login, escopo: 'ficha', lista: listaAtual })}
+                                    className="text-muted-foreground hover:text-destructive p-0.5"
+                                    title="Remover convidado da ficha"
+                                  >
+                                    <X className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {convidadosDaListaAtual.map(login => (
+                              <div key={`l-${login}`} className="flex items-center justify-between gap-1.5 text-xs bg-blue-500/10 rounded-lg px-2 py-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <UserAvatar login={login} allUsers={allUsers} size={16} />
+                                  <span className="truncate font-medium">{nomeDe(login, allUsers)}</span>
+                                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-blue-500/40 text-blue-600 dark:text-blue-400 shrink-0">Lista inteira</Badge>
+                                </div>
+                                {onRemoverConvidado && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onRemoverConvidado({ login, escopo: 'lista', lista: listaAtual })}
+                                    className="text-muted-foreground hover:text-destructive p-0.5"
+                                    title="Remover convidado da lista"
+                                  >
+                                    <X className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                )}
+
                 <Button
                   type="button"
                   size="sm"
@@ -3787,27 +4370,107 @@ const FichaForm = ({
                 </div>
               </div>
 
-              {/* Prazo */}
-              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <CalendarDays className="size-3 text-primary" /> Prazo
-                </span>
-                {form.dia ? (
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <span className="text-xs font-semibold">
-                      {format(new Date(`${form.dia}T${form.hora || '08:00'}:00`), 'dd/MM/yyyy')}
-                      {form.hora ? ` às ${form.hora}` : ''}
+              {/* Prazo — editável diretamente no modo de visualização estilo Trello */}
+              <Popover open={prazoPopoverAberto} onOpenChange={setPrazoPopoverAberto}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 hover:bg-secondary/75 hover:border-primary/50 p-2.5 text-left transition-all cursor-pointer group"
+                    title="Clique para alterar data e hora diretamente"
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between w-full gap-1">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="size-3 text-primary" /> Prazo
+                      </span>
+                      <Pencil className="size-2.5 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
                     </span>
-                    {form.sincronizarAgenda && (
-                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/40 text-primary bg-primary/10 font-bold">
-                        Agenda
-                      </Badge>
+                    {form.dia ? (
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-xs font-semibold">
+                          {format(new Date(`${form.dia}T${form.hora || '08:00'}:00`), 'dd/MM/yyyy')}
+                          {form.hora ? ` às ${form.hora}` : ''}
+                        </span>
+                        {form.sincronizarAgenda && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/40 text-primary bg-primary/10 font-bold">
+                            Agenda
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic mt-0.5">Definir data e hora...</span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 sm:w-80 p-3 flex flex-col gap-3">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <CalendarDays className="size-3.5 text-primary" /> Datas da Ficha
+                    </span>
+                    {form.dia && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const atualizado = { ...form, dia: '', sincronizarAgenda: false };
+                          setForm(atualizado);
+                          onSaveRapido?.(atualizado);
+                          setPrazoPopoverAberto(false);
+                        }}
+                        className="text-[11px] text-destructive hover:underline font-medium"
+                      >
+                        Remover prazo
+                      </button>
                     )}
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground italic mt-0.5">Sem prazo definido</span>
-                )}
-              </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    <DateField
+                      label="Data de entrega"
+                      selectedDate={form.dia}
+                      onSelect={d => set('dia', d)}
+                      allowClear
+                    />
+                    <TimeField
+                      label="Horário"
+                      value={form.hora}
+                      onSelect={h => set('hora', h)}
+                      disabled={!form.dia}
+                    />
+                  </div>
+                  {form.dia && (
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
+                      <div className="pr-2">
+                        <p className="text-xs font-semibold text-foreground">Sincronizar com a Agenda</p>
+                        <p className="text-[10px] text-muted-foreground">Opcional: exibir no Calendário</p>
+                      </div>
+                      <Switch
+                        checked={Boolean(form.sincronizarAgenda)}
+                        onCheckedChange={v => set('sincronizarAgenda', v)}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-1.5 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setPrazoPopoverAberto(false)}
+                    >
+                      Fechar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 text-xs font-semibold"
+                      onClick={() => {
+                        onSaveRapido?.(form);
+                        setPrazoPopoverAberto(false);
+                      }}
+                    >
+                      Salvar prazo
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Prioridade */}
               <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
@@ -3849,6 +4512,31 @@ const FichaForm = ({
                     <div key={u} className="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-full border border-border text-xs">
                       <UserAvatar login={u} allUsers={allUsers} size={16} />
                       <span className="font-medium">{nomeDe(u, allUsers)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Convidados Externos (se houver) */}
+            {(convidadosDaFichaAtual.length > 0 || convidadosDaListaAtual.length > 0) && (
+              <div className="flex flex-col gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <UserPlus className="size-3" /> Convidados Externos ({convidadosDaFichaAtual.length + convidadosDaListaAtual.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5 mt-0.5">
+                  {convidadosDaFichaAtual.map(u => (
+                    <div key={`vf-${u}`} className="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-full border border-border text-xs">
+                      <UserAvatar login={u} allUsers={allUsers} size={16} />
+                      <span className="font-medium">{nomeDe(u, allUsers)}</span>
+                      <Badge variant="outline" className="text-[9px] py-0 px-1">Ficha</Badge>
+                    </div>
+                  ))}
+                  {convidadosDaListaAtual.map(u => (
+                    <div key={`vl-${u}`} className="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-full border border-blue-500/30 text-xs">
+                      <UserAvatar login={u} allUsers={allUsers} size={16} />
+                      <span className="font-medium">{nomeDe(u, allUsers)}</span>
+                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-blue-500/40 text-blue-600 dark:text-blue-400">Lista inteira</Badge>
                     </div>
                   ))}
                 </div>
@@ -4017,18 +4705,24 @@ const FichaForm = ({
                         <p className={`text-xs sm:text-sm font-medium ${t.concluida ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                           {t.texto}
                         </p>
-                        {(t.dataVencimento || t.responsavel) && (
+                        {(t.dataVencimento || t.responsavel || t.lembreteHoras) && (
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
                             {t.dataVencimento && (
                               <span className="flex items-center gap-1">
                                 <CalendarDays className="size-3" />
-                                {format(new Date(t.dataVencimento), 'dd/MM/yyyy')}
+                                {format(new Date(t.dataVencimento.includes('T') ? t.dataVencimento : `${t.dataVencimento}T12:00:00`), 'dd/MM/yyyy')}
                               </span>
                             )}
                             {t.responsavel && (
                               <span className="flex items-center gap-1">
                                 <UserCircle2 className="size-3" />
                                 {nomeDe(t.responsavel, allUsers)}
+                              </span>
+                            )}
+                            {t.lembreteHoras && (
+                              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                                <Bell className="size-3" />
+                                {t.lembreteHoras}h antes
                               </span>
                             )}
                           </div>
@@ -4366,13 +5060,16 @@ const FichaForm = ({
           {temTarefas && (
             <div className={`flex flex-col gap-1.5 ${corCabecalho ? 'rounded-2xl bg-card p-3 sm:p-4 text-foreground shadow-sm border border-border/50' : ''}`}>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Microtarefas — prazo e responsável
+                Microtarefas — prazo, responsável e lembrete
               </Label>
+              <p className="text-[11px] text-muted-foreground">
+                Ao atribuir uma subtarefa e salvar a ficha, o responsável é notificado na Agenda, no sistema e por e-mail — e novamente no horário de lembrete escolhido.
+              </p>
               <div className="flex flex-col gap-1.5">
                 {tarefasDaDescricao.map(t => (
                   <div key={t.index} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary px-2.5 sm:px-3 py-1.5 text-sm">
                     <span className={`min-w-[140px] flex-1 truncate ${t.concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{t.texto}</span>
-                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                    <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
                       <div className="w-28 sm:w-32">
                         <DateField
                           compact
@@ -4390,9 +5087,30 @@ const FichaForm = ({
                         <SelectTrigger className="h-8 w-32 sm:w-36 shrink-0 text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__nenhum__">Sem responsável</SelectItem>
-                          {opcoesComAtual(membros.length ? membros : allUsers, t.responsavel, allUsers).map(u => (
+                          {opcoesComAtual(pessoasAtribuiveis, t.responsavel, allUsers).map(u => (
                             <SelectItem key={u.cr4a1_username} value={u.cr4a1_username}>{u.cr4a1_nome_exibicao || u.cr4a1_username}</SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={t.lembreteHoras || '__nenhum__'}
+                        onValueChange={v => aplicarAtributoTarefa(editorDescricao, t.index, { reminder: v === '__nenhum__' ? null : v })}
+                        disabled={!t.dataVencimento || !t.responsavel}
+                      >
+                        <SelectTrigger
+                          className="h-8 w-32 shrink-0 text-xs"
+                          title={!t.dataVencimento || !t.responsavel ? 'Defina prazo e responsável para ativar o lembrete' : 'Lembrete antes do prazo'}
+                        >
+                          <div className="flex items-center gap-1 truncate">
+                            <Bell className="size-3 shrink-0 text-primary" />
+                            <SelectValue placeholder="Lembrete" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__nenhum__">Sem lembrete</SelectItem>
+                          <SelectItem value="48">48h antes</SelectItem>
+                          <SelectItem value="24">24h antes</SelectItem>
+                          <SelectItem value="12">12h antes</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -6868,10 +7586,12 @@ const ListaOpcoesMenu = ({
   souDono,
   pessoal,
   gerentesDaLista = [],
+  convidadosDaLista = [],
   listasVisiveis = [],
   definirCorLista,
   setListaAutomacao,
   setListaGerentes,
+  setListaConvidados,
   clonarListaInteira,
   setListaMoverFichas,
   alternarListaPessoal,
@@ -6970,6 +7690,18 @@ const ListaOpcoesMenu = ({
             {gerentesDaLista.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
                 {gerentesDaLista.length}
+              </Badge>
+            )}
+          </DropdownMenuItem>
+        )}
+
+        {podeGerenciar && setListaConvidados && (
+          <DropdownMenuItem onClick={() => setListaConvidados(lista)} className="cursor-pointer">
+            <UserPlus className={`size-4 mr-2 ${convidadosDaLista.length > 0 ? 'text-blue-500' : ''}`} />
+            Convidados da Lista
+            {convidadosDaLista.length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-[10px] px-1 py-0">
+                {convidadosDaLista.length}
               </Badge>
             )}
           </DropdownMenuItem>
@@ -7112,6 +7844,93 @@ const GerentesListaDialog = ({ lista, allUsers = [], onClose, onSave }) => {
         <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="button" onClick={() => onSave(selecionados)}>Salvar Gerentes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ConvidadosListaDialog = ({ lista, allUsers = [], membrosBaseLoginsSet = new Set(), onClose, onSave }) => {
+  const convidadosAtuais = useMemo(
+    () => parseListaConvidados(lista?.cr4a1_automacao).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase())),
+    [lista, membrosBaseLoginsSet]
+  );
+  const [selecionados, setSelecionados] = useState(convidadosAtuais);
+  const [busca, setBusca] = useState('');
+
+  const toggleUsuario = (login) => {
+    setSelecionados(prev => prev.includes(login) ? prev.filter(l => l !== login) : [...prev, login]);
+  };
+
+  const usuariosExternos = useMemo(() => {
+    return allUsers.filter(u => {
+      const loginLower = String(u.cr4a1_username || '').toLowerCase();
+      if (!loginLower || membrosBaseLoginsSet.has(loginLower)) return false;
+      if (!busca.trim()) return true;
+      const termo = busca.toLowerCase();
+      return (u.cr4a1_nome_exibicao || '').toLowerCase().includes(termo) ||
+             loginLower.includes(termo);
+    });
+  }, [allUsers, membrosBaseLoginsSet, busca]);
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="size-5 text-primary" />
+            Convidados Externos da Lista
+          </DialogTitle>
+          <DialogDescription>
+            Convide pessoas de fora deste workspace para visualizar todas as fichas da lista <strong>{lista?.cr4a1_nome}</strong>. Novos convidados serão notificados automaticamente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-2">
+          <Input
+            placeholder="Buscar usuário externo por nome ou login..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="h-9"
+          />
+
+          <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 border border-border rounded-lg p-2">
+            {usuariosExternos.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum usuário externo encontrado.</p>
+            ) : (
+              usuariosExternos.map(u => {
+                const isSelected = selecionados.includes(u.cr4a1_username);
+                return (
+                  <label
+                    key={u.cr4a1_username}
+                    className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors text-xs ${isSelected ? 'bg-blue-500/10 border border-blue-500/30' : 'hover:bg-secondary border border-transparent'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserAvatar login={u.cr4a1_username} allUsers={allUsers} size={22} />
+                      <div className="truncate">
+                        <span className="font-semibold block truncate">{u.cr4a1_nome_exibicao || u.cr4a1_username}</span>
+                        <span className="text-[11px] text-muted-foreground truncate block">@{u.cr4a1_username}</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleUsuario(u.cr4a1_username)}
+                      className="size-4 rounded text-primary focus:ring-primary accent-primary"
+                    />
+                  </label>
+                );
+              })
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Se algum convidado for adicionado posteriormente como membro do workspace, ele passará a membro automaticamente sem perder nada nas fichas.
+          </p>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="button" onClick={() => onSave(selecionados)}>Salvar Convidados</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

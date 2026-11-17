@@ -681,7 +681,9 @@ export const NotesPanel = ({
       .then(r => r.json())
       .then(res => {
         if (cancelado) return;
-        const l = (res.value || []).sort((a, b) => (Number(a.cr4a1_ordem) || 0) - (Number(b.cr4a1_ordem) || 0));
+        const l = (res.value || [])
+          .filter(item => (item.cr4a1_nome || '').trim().toLowerCase() !== 'a fazer')
+          .sort((a, b) => (Number(a.cr4a1_ordem) || 0) - (Number(b.cr4a1_ordem) || 0));
         setFichaFormListas(l);
         if (l.length > 0) {
           setFichaFormLista(l[0].cr4a1_listaid);

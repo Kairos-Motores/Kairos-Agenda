@@ -39,7 +39,10 @@ export const META_PADRAO = () => ({
   dependenciasFichasIds: [],
   sincronizarAgenda: false,
   notificarSistema: true,
-  notificarEmail: false
+  notificarEmail: false,
+  convidados: [],
+  lembretesSubtasksEnviados: [],
+  notificacoesInbox: []
 });
 
 export const parseAtividades = (raw) => {
@@ -67,7 +70,10 @@ export const parseFichaMeta = (raw) => {
         dependenciasFichasIds: Array.isArray(parsed.meta.dependenciasFichasIds) ? parsed.meta.dependenciasFichasIds.filter(Boolean) : [],
         sincronizarAgenda: Boolean(parsed.meta.sincronizarAgenda),
         notificarSistema: parsed.meta.notificarSistema !== false,
-        notificarEmail: Boolean(parsed.meta.notificarEmail)
+        notificarEmail: Boolean(parsed.meta.notificarEmail),
+        convidados: Array.isArray(parsed.meta.convidados) ? parsed.meta.convidados.filter(Boolean) : [],
+        lembretesSubtasksEnviados: Array.isArray(parsed.meta.lembretesSubtasksEnviados) ? parsed.meta.lembretesSubtasksEnviados.filter(Boolean) : [],
+        notificacoesInbox: Array.isArray(parsed.meta.notificacoesInbox) ? parsed.meta.notificacoesInbox.filter(Boolean).slice(-30) : []
       };
     }
     if (Array.isArray(parsed)) {
@@ -82,7 +88,10 @@ export const parseFichaMeta = (raw) => {
           dependenciasFichasIds: Array.isArray(metaEntry.meta.dependenciasFichasIds) ? metaEntry.meta.dependenciasFichasIds.filter(Boolean) : [],
           sincronizarAgenda: Boolean(metaEntry.meta.sincronizarAgenda),
           notificarSistema: metaEntry.meta.notificarSistema !== false,
-          notificarEmail: Boolean(metaEntry.meta.notificarEmail)
+          notificarEmail: Boolean(metaEntry.meta.notificarEmail),
+          convidados: Array.isArray(metaEntry.meta.convidados) ? metaEntry.meta.convidados.filter(Boolean) : [],
+          lembretesSubtasksEnviados: Array.isArray(metaEntry.meta.lembretesSubtasksEnviados) ? metaEntry.meta.lembretesSubtasksEnviados.filter(Boolean) : [],
+          notificacoesInbox: Array.isArray(metaEntry.meta.notificacoesInbox) ? metaEntry.meta.notificacoesInbox.filter(Boolean).slice(-30) : []
         };
       }
     }
@@ -143,6 +152,7 @@ export const descricaoAtividade = (atividade, nomeDe) => {
     case 'arquivada': return atividade.detalhe ? `Ficha arquivada (${atividade.detalhe})` : `${nome} arquivou a ficha`;
     case 'desarquivada': return `${nome} restaurou a ficha para o quadro`;
     case 'duplicada': return `${nome} duplicou a ficha`;
+    case 'convidado': return `${nome} convidou ${atividade.detalhe} para a ficha`;
     default: return `${nome} atualizou a ficha`;
   }
 };

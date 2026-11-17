@@ -111,6 +111,20 @@ function gerarHtmlEmail({ tipo, titulo, mensagem, autor, detalhes = {} }) {
       badge: 'Automação Trello',
       icone: '⚡'
     },
+    subtask: {
+      primary: '#B45309',
+      lightBg: '#FDF6E8',
+      border: '#F4DCB4',
+      badge: 'Tarefa Atribuída',
+      icone: '✅'
+    },
+    convite: {
+      primary: '#1D4ED8',
+      lightBg: '#EFF6FF',
+      border: '#BFDBFE',
+      badge: 'Convite Externo',
+      icone: '🎟️'
+    },
     padrao: {
       primary: '#7A4536',
       lightBg: '#FAF0EB',
