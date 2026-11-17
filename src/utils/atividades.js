@@ -36,7 +36,10 @@ export const META_PADRAO = () => ({
   tempoGastoMin: 0,
   cronometroInicio: null,
   notasIds: [],
-  dependenciasFichasIds: []
+  dependenciasFichasIds: [],
+  sincronizarAgenda: false,
+  notificarSistema: true,
+  notificarEmail: false
 });
 
 export const parseAtividades = (raw) => {
@@ -61,7 +64,10 @@ export const parseFichaMeta = (raw) => {
         coResponsaveis: Array.isArray(parsed.meta.coResponsaveis) ? parsed.meta.coResponsaveis.filter(Boolean) : [],
         observadores: Array.isArray(parsed.meta.observadores) ? parsed.meta.observadores.filter(Boolean) : [],
         notasIds: Array.isArray(parsed.meta.notasIds) ? parsed.meta.notasIds.filter(Boolean) : [],
-        dependenciasFichasIds: Array.isArray(parsed.meta.dependenciasFichasIds) ? parsed.meta.dependenciasFichasIds.filter(Boolean) : []
+        dependenciasFichasIds: Array.isArray(parsed.meta.dependenciasFichasIds) ? parsed.meta.dependenciasFichasIds.filter(Boolean) : [],
+        sincronizarAgenda: Boolean(parsed.meta.sincronizarAgenda),
+        notificarSistema: parsed.meta.notificarSistema !== false,
+        notificarEmail: Boolean(parsed.meta.notificarEmail)
       };
     }
     if (Array.isArray(parsed)) {
@@ -73,7 +79,10 @@ export const parseFichaMeta = (raw) => {
           coResponsaveis: Array.isArray(metaEntry.meta.coResponsaveis) ? metaEntry.meta.coResponsaveis.filter(Boolean) : [],
           observadores: Array.isArray(metaEntry.meta.observadores) ? metaEntry.meta.observadores.filter(Boolean) : [],
           notasIds: Array.isArray(metaEntry.meta.notasIds) ? metaEntry.meta.notasIds.filter(Boolean) : [],
-          dependenciasFichasIds: Array.isArray(metaEntry.meta.dependenciasFichasIds) ? metaEntry.meta.dependenciasFichasIds.filter(Boolean) : []
+          dependenciasFichasIds: Array.isArray(metaEntry.meta.dependenciasFichasIds) ? metaEntry.meta.dependenciasFichasIds.filter(Boolean) : [],
+          sincronizarAgenda: Boolean(metaEntry.meta.sincronizarAgenda),
+          notificarSistema: metaEntry.meta.notificarSistema !== false,
+          notificarEmail: Boolean(metaEntry.meta.notificarEmail)
         };
       }
     }

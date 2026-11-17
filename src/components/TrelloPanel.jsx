@@ -195,66 +195,87 @@ const ordenar = (lista) => [...lista].sort((a, b) => {
 
 const PESO_PRIORIDADE = { critica: 4, alta: 3, media: 2, baixa: 1, '': 0 };
 
-// Ordenação flexível por critério com preservação de fichas fixadas no topo
+// Compara dois itens por um critério individual
+const compararFichasIndividual = (a, b, crit) => {
+  switch (crit) {
+    case 'prioridade_alta': {
+      const pA = PESO_PRIORIDADE[parseFichaMeta(a.cr4a1_atividades).prioridade || ''] || 0;
+      const pB = PESO_PRIORIDADE[parseFichaMeta(b.cr4a1_atividades).prioridade || ''] || 0;
+      if (pA !== pB) return pB - pA;
+      return 0;
+    }
+    case 'prioridade_baixa': {
+      const rawA = parseFichaMeta(a.cr4a1_atividades).prioridade || '';
+      const rawB = parseFichaMeta(b.cr4a1_atividades).prioridade || '';
+      const pA = rawA ? PESO_PRIORIDADE[rawA] : 99;
+      const pB = rawB ? PESO_PRIORIDADE[rawB] : 99;
+      if (pA !== pB) return pA - pB;
+      return 0;
+    }
+    case 'data_recente':
+    case 'prazo_urgente': {
+      // Prazo mais próximo (Urgência: Hoje antes de amanhã)
+      if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return 0;
+      if (!a.cr4a1_data_inicio) return 1;
+      if (!b.cr4a1_data_inicio) return -1;
+      const diff = new Date(a.cr4a1_data_inicio).getTime() - new Date(b.cr4a1_data_inicio).getTime();
+      return diff !== 0 ? diff : 0;
+    }
+    case 'data_antiga':
+    case 'prazo_distante': {
+      // Prazo mais distante no futuro
+      if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return 0;
+      if (!a.cr4a1_data_inicio) return 1;
+      if (!b.cr4a1_data_inicio) return -1;
+      const diff = new Date(b.cr4a1_data_inicio).getTime() - new Date(a.cr4a1_data_inicio).getTime();
+      return diff !== 0 ? diff : 0;
+    }
+    case 'criacao_recente': {
+      const dataA = a.createdon ? new Date(a.createdon).getTime() : 0;
+      const dataB = b.createdon ? new Date(b.createdon).getTime() : 0;
+      return dataB - dataA;
+    }
+    case 'titulo_az': {
+      const tA = (a.cr4a1_titulo || '').trim();
+      const tB = (b.cr4a1_titulo || '').trim();
+      return tA.localeCompare(tB, 'pt-BR', { sensitivity: 'base' });
+    }
+    case 'titulo_za': {
+      const tA = (a.cr4a1_titulo || '').trim();
+      const tB = (b.cr4a1_titulo || '').trim();
+      return tB.localeCompare(tA, 'pt-BR', { sensitivity: 'base' });
+    }
+    default:
+      return 0;
+  }
+};
+
+// Ordenação flexível com suporte a múltiplos critérios simultâneos
+// Regra mandatória: fichas concluídas SEMPRE ficam no final de cada lista!
 const ordenarFichasPorCriterio = (fichasLista, criterio = 'padrao') => {
+  const listaCriterios = Array.isArray(criterio)
+    ? criterio.filter(c => c && c !== 'padrao')
+    : (criterio && criterio !== 'padrao' ? [criterio] : []);
+
   return [...fichasLista].sort((a, b) => {
+    // 1. REGRA MANDATÓRIA: Fichas concluídas SEMPRE ficam no final!
+    const cA = a.cr4a1_concluida === 'Sim' ? 1 : 0;
+    const cB = b.cr4a1_concluida === 'Sim' ? 1 : 0;
+    if (cA !== cB) return cA - cB;
+
+    // 2. Fichas fixadas no topo (dentro do grupo pendente ou concluído)
     const fixadaA = a.cr4a1_fixada === 'Sim' ? 0 : 1;
     const fixadaB = b.cr4a1_fixada === 'Sim' ? 0 : 1;
     if (fixadaA !== fixadaB) return fixadaA - fixadaB;
 
-    switch (criterio) {
-      case 'prioridade_alta': {
-        const pA = PESO_PRIORIDADE[parseFichaMeta(a.cr4a1_atividades).prioridade || ''] || 0;
-        const pB = PESO_PRIORIDADE[parseFichaMeta(b.cr4a1_atividades).prioridade || ''] || 0;
-        if (pA !== pB) return pB - pA;
-        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-      }
-      case 'prioridade_baixa': {
-        const rawA = parseFichaMeta(a.cr4a1_atividades).prioridade || '';
-        const rawB = parseFichaMeta(b.cr4a1_atividades).prioridade || '';
-        const pA = rawA ? PESO_PRIORIDADE[rawA] : 99;
-        const pB = rawB ? PESO_PRIORIDADE[rawB] : 99;
-        if (pA !== pB) return pA - pB;
-        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-      }
-      case 'data_recente': {
-        if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-        if (!a.cr4a1_data_inicio) return 1;
-        if (!b.cr4a1_data_inicio) return -1;
-        return new Date(b.cr4a1_data_inicio).getTime() - new Date(a.cr4a1_data_inicio).getTime();
-      }
-      case 'data_antiga': {
-        if (!a.cr4a1_data_inicio && !b.cr4a1_data_inicio) return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-        if (!a.cr4a1_data_inicio) return 1;
-        if (!b.cr4a1_data_inicio) return -1;
-        return new Date(a.cr4a1_data_inicio).getTime() - new Date(b.cr4a1_data_inicio).getTime();
-      }
-      case 'titulo_az': {
-        const tA = (a.cr4a1_titulo || '').trim();
-        const tB = (b.cr4a1_titulo || '').trim();
-        return tA.localeCompare(tB, 'pt-BR', { sensitivity: 'base' });
-      }
-      case 'titulo_za': {
-        const tA = (a.cr4a1_titulo || '').trim();
-        const tB = (b.cr4a1_titulo || '').trim();
-        return tB.localeCompare(tA, 'pt-BR', { sensitivity: 'base' });
-      }
-      case 'pendentes': {
-        const cA = a.cr4a1_concluida === 'Sim' ? 1 : 0;
-        const cB = b.cr4a1_concluida === 'Sim' ? 1 : 0;
-        if (cA !== cB) return cA - cB;
-        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-      }
-      case 'concluidas': {
-        const cA = a.cr4a1_concluida === 'Sim' ? 0 : 1;
-        const cB = b.cr4a1_concluida === 'Sim' ? 0 : 1;
-        if (cA !== cB) return cA - cB;
-        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
-      }
-      case 'padrao':
-      default:
-        return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
+    // 3. Aplica os múltiplos critérios selecionados em ordem de precedência
+    for (const crit of listaCriterios) {
+      const res = compararFichasIndividual(a, b, crit);
+      if (res !== 0) return res;
     }
+
+    // 4. Desempate: ordem manual pré-definida
+    return (a.cr4a1_ordem ?? 0) - (b.cr4a1_ordem ?? 0);
   });
 };
 
@@ -1372,7 +1393,10 @@ export const TrelloPanel = ({
       tempoGastoMin: Number(form.tempoGastoMin) || 0,
       cronometroInicio: form.cronometroInicio || null,
       notasIds: Array.isArray(form.notasIds) ? form.notasIds : [],
-      dependenciasFichasIds: Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : []
+      dependenciasFichasIds: Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : [],
+      sincronizarAgenda: Boolean(form.sincronizarAgenda),
+      notificarSistema: form.notificarSistema !== false,
+      notificarEmail: Boolean(form.notificarEmail)
     };
 
     // Avalia progresso combinado e dependências
@@ -1413,10 +1437,13 @@ export const TrelloPanel = ({
 
     let eventoId = original.cr4a1_evento_id || '';
     try {
-      if (!dataDefinida && eventoId) {
+      // Sincronização com o Calendário da Agenda é 100% OPCIONAL (conforme solicitado pelo usuário)
+      const deveSincronizarAgenda = Boolean(form.sincronizarAgenda);
+
+      if ((!dataDefinida || !deveSincronizarAgenda) && eventoId) {
         await apagar('cr4a1_agenda_kairoses', eventoId);
         eventoId = '';
-      } else if (dataDefinida && eventoId) {
+      } else if (dataDefinida && deveSincronizarAgenda && eventoId) {
         const { inicioIso, fimIso, horaFim } = intervaloDoEvento(form.dia, form.hora || '08:00');
         await patch('cr4a1_agenda_kairoses', eventoId, {
           cr4a1_titulo: form.titulo,
@@ -1426,7 +1453,7 @@ export const TrelloPanel = ({
           cr4a1_hora_inicio: form.hora || '08:00',
           cr4a1_hora_fim: horaFim
         });
-      } else if (dataDefinida) {
+      } else if (dataDefinida && deveSincronizarAgenda) {
         const { inicioIso, fimIso, horaFim } = intervaloDoEvento(form.dia, form.hora || '08:00');
         const resCriado = await post('cr4a1_agenda_kairoses', {
           cr4a1_event_id: crypto.randomUUID(),
@@ -1448,44 +1475,54 @@ export const TrelloPanel = ({
       }
 
       if (!isAutosave) {
-        // Notifica mencões no título e na descrição da ficha
-        const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
-      const textoAntigo = original ? `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}` : '';
-      await notificarMencoes({
-        textoNovo,
-        textoAntigo,
-        origem: 'Ficha do Trello',
-        itemTitulo: form.titulo || original?.cr4a1_titulo || 'Ficha',
-        autor: user,
-        currentUser: user,
-        allUsers,
-        workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
-        lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || ''
-      });
+        // Notificações opcionais no sistema e no e-mail (conforme solicitado pelo usuário)
+        const enviarSistema = form.notificarSistema !== false;
+        const enviarEmail = Boolean(form.notificarEmail);
 
-      // Notifica novo responsável e novos co-responsáveis atribuídos à ficha
-      const metaAntigo = parseFichaMeta(original.cr4a1_atividades);
-      const novosCoResp = (form.coResponsaveis || []).filter(c => !(metaAntigo.coResponsaveis || []).includes(c) && c !== user);
-      const destinatariosAtribuicao = [
-        ...(form.responsavel && form.responsavel !== original.cr4a1_responsavel_login && form.responsavel !== user ? [form.responsavel] : []),
-        ...novosCoResp
-      ];
-      if (destinatariosAtribuicao.length > 0) {
-        notificarCompartilhamento({
-          tipoItem: 'Ficha do Trello',
-          itemTitulo: form.titulo || original.cr4a1_titulo,
-          autor: user,
-          destinatarios: [...new Set(destinatariosAtribuicao)],
-          currentUser: user,
-          allUsers,
-          detalhes: {
-            origem: 'Trello',
+        if (enviarSistema || enviarEmail) {
+          // Notifica mencões no título e na descrição da ficha
+          const textoNovo = `${form.titulo || ''}\n${form.descricao || ''}`;
+          const textoAntigo = original ? `${original.cr4a1_titulo || ''}\n${original.cr4a1_descricao || ''}` : '';
+          await notificarMencoes({
+            textoNovo,
+            textoAntigo,
+            origem: 'Ficha do Trello',
+            itemTitulo: form.titulo || original?.cr4a1_titulo || 'Ficha',
+            autor: user,
+            currentUser: user,
+            allUsers,
             workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
             lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '',
-            dataHora: form.dia ? `${form.dia} ${form.hora || ''}` : ''
+            enviarSistema,
+            enviarEmail
+          });
+
+          // Notifica novo responsável e novos co-responsáveis atribuídos à ficha
+          const metaAntigo = parseFichaMeta(original.cr4a1_atividades);
+          const novosCoResp = (form.coResponsaveis || []).filter(c => !(metaAntigo.coResponsaveis || []).includes(c) && c !== user);
+          const destinatariosAtribuicao = [
+            ...(form.responsavel && form.responsavel !== original.cr4a1_responsavel_login && form.responsavel !== user ? [form.responsavel] : []),
+            ...novosCoResp
+          ];
+          if (destinatariosAtribuicao.length > 0) {
+            notificarCompartilhamento({
+              tipoItem: 'Ficha do Trello',
+              itemTitulo: form.titulo || original.cr4a1_titulo,
+              autor: user,
+              destinatarios: [...new Set(destinatariosAtribuicao)],
+              currentUser: user,
+              allUsers,
+              detalhes: {
+                origem: 'Trello',
+                workspace: todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === workspaceId)?.cr4a1_nome || '',
+                lista: listas.find(l => l.cr4a1_listaid === form.listaId)?.cr4a1_nome || '',
+                dataHora: form.dia ? `${form.dia} ${form.hora || ''}` : ''
+              },
+              enviarSistema,
+              enviarEmail
+            });
           }
-        });
-      }
+        }
       } // fim do if (!isAutosave)
 
       await patch('cr4a1_fichas', original.cr4a1_fichaid, {
@@ -1609,7 +1646,10 @@ export const TrelloPanel = ({
         recorrencia: ficha.cr4a1_recorrencia || '',
         ...meta,
         notasIds: Array.isArray(meta.notasIds) ? meta.notasIds : [],
-        dependenciasFichasIds: Array.isArray(meta.dependenciasFichasIds) ? meta.dependenciasFichasIds : []
+        dependenciasFichasIds: Array.isArray(meta.dependenciasFichasIds) ? meta.dependenciasFichasIds : [],
+        sincronizarAgenda: meta.sincronizarAgenda ?? Boolean(ficha.cr4a1_evento_id),
+        notificarSistema: meta.notificarSistema !== false,
+        notificarEmail: Boolean(meta.notificarEmail)
       }
     });
   };
@@ -3386,6 +3426,7 @@ const FichaForm = ({
   coresRecentesMarcaTexto = [],
   onRegistrarCorRecente
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
   const [atividadesAbertas, setAtividadesAbertas] = useState(false);
   const [form, setForm] = useState(inicial);
   const [novoComentario, setNovoComentario] = useState('');
@@ -3635,6 +3676,529 @@ const FichaForm = ({
     }
   };
 
+  if (!isEditing) {
+    return (
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-background">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+          {/* Topo / Capa da Ficha no Modo de Visualização */}
+          <DialogHeader
+            className="p-4 sm:p-6 pb-4 border-b border-border/50 bg-card rounded-t-[28px] sm:rounded-t-none flex flex-col gap-3 mb-0 shrink-0 transition-colors pr-3 sm:pr-8"
+            style={corCabecalho ? { backgroundColor: form.cor } : undefined}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 pr-8 sm:pr-0">
+                <UserAvatar login={criadorLogin} allUsers={allUsers} size={28} className="ring-2 ring-background/30 shadow-sm shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      className="text-xs sm:text-sm font-semibold truncate"
+                      style={{ color: corCabecalho ? corCabecalho.principal : undefined }}
+                    >
+                      {criadorNome}
+                    </span>
+                    {form.ehModelo && (
+                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0">📋 Modelo</Badge>
+                    )}
+                    {progressoFichaAtual.concluida && (
+                      <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] py-0 px-1.5 h-4 shrink-0 font-bold">
+                        ✓ Concluída
+                      </Badge>
+                    )}
+                  </div>
+                  <span
+                    className="text-[11px] truncate"
+                    style={{ color: corCabecalho ? corCabecalho.suave : undefined }}
+                  >
+                    {listaAtual ? `na lista ${listaAtual.cr4a1_nome}` : ''} {workspaceNome ? `• ${workspaceNome}` : ''} {dataCriacaoFormatada ? `• ${dataCriacaoFormatada}` : ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0 sm:pr-8">
+                {/* Botão de Editar em destaque no cabeçalho */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="gap-1.5 font-semibold shadow-sm h-8 px-3 text-xs"
+                  onClick={() => setIsEditing(true)}
+                  title="Editar informações desta ficha"
+                >
+                  <Pencil className="size-3.5" />
+                  <span>Editar Ficha</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={seguindo ? 'default' : 'outline'}
+                  className={`${getHeaderBtnClass(seguindo)} h-8 px-2.5 text-xs`}
+                  onClick={() => alternarObservador(usuarioAtual)}
+                  title="Receber alertas sobre movimentações e comentários desta ficha"
+                >
+                  {seguindo ? <Bell className="size-3.5 fill-current" /> : <Bell className="size-3.5" />}
+                  <span className="hidden sm:inline">{seguindo ? 'Seguindo' : 'Seguir'}</span>
+                </Button>
+
+                {onDuplicar && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className={`${getHeaderBtnClass(false)} h-8 px-2.5 text-xs`}
+                    onClick={onDuplicar}
+                    title="Criar uma cópia idêntica desta ficha"
+                  >
+                    <Copy className="size-3.5" />
+                    <span className="hidden sm:inline">Duplicar</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Título Limpo e Elegante */}
+            <div className="flex flex-col gap-1 mt-1">
+              <DialogTitle asChild>
+                <h2
+                  className="text-lg sm:text-2xl font-bold tracking-tight leading-snug break-words"
+                  style={{ color: corCabecalho ? corCabecalho.principal : undefined }}
+                >
+                  {form.titulo || 'Ficha sem título'}
+                </h2>
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {workspaceNome || 'Ficha do quadro'}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          {/* Corpo no Modo de Visualização */}
+          <div className="p-4 sm:p-6 flex flex-col gap-4">
+            {/* Metadados Chave em Grade de Chips */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* Responsável */}
+              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <UserCircle2 className="size-3 text-primary" /> Responsável
+                </span>
+                <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                  <UserAvatar login={form.responsavel} allUsers={allUsers} size={20} className="shrink-0" />
+                  <span className="text-xs font-semibold truncate">{nomeDe(form.responsavel, allUsers)}</span>
+                </div>
+              </div>
+
+              {/* Prazo */}
+              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <CalendarDays className="size-3 text-primary" /> Prazo
+                </span>
+                {form.dia ? (
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="text-xs font-semibold">
+                      {format(new Date(`${form.dia}T${form.hora || '08:00'}:00`), 'dd/MM/yyyy')}
+                      {form.hora ? ` às ${form.hora}` : ''}
+                    </span>
+                    {form.sincronizarAgenda && (
+                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-primary/40 text-primary bg-primary/10 font-bold">
+                        Agenda
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic mt-0.5">Sem prazo definido</span>
+                )}
+              </div>
+
+              {/* Prioridade */}
+              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Flag className="size-3 text-primary" /> Prioridade
+                </span>
+                {form.prioridade && PRIORIDADES_FICHA[form.prioridade] ? (
+                  <span
+                    className="text-xs font-bold mt-0.5 flex items-center gap-1.5"
+                    style={{ color: PRIORIDADES_FICHA[form.prioridade].cor }}
+                  >
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: PRIORIDADES_FICHA[form.prioridade].cor }} />
+                    {PRIORIDADES_FICHA[form.prioridade].label}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic mt-0.5">Sem prioridade</span>
+                )}
+              </div>
+
+              {/* Status de Conclusão / Progresso */}
+              <div className="flex flex-col gap-1 rounded-xl border border-border bg-secondary/40 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="size-3 text-primary" /> Status
+                </span>
+                <span className={`text-xs font-bold mt-0.5 ${progressoFichaAtual.concluida ? 'text-emerald-500' : 'text-primary'}`}>
+                  {progressoFichaAtual.concluida ? '✓ Concluída' : `${progressoFichaAtual.porcentagem}% Pendente`}
+                </span>
+              </div>
+            </div>
+
+            {/* Co-responsáveis (se houver) */}
+            {Array.isArray(form.coResponsaveis) && form.coResponsaveis.length > 0 && (
+              <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-secondary/30 p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Users className="size-3 text-primary" /> Co-responsáveis ({form.coResponsaveis.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5 mt-0.5">
+                  {form.coResponsaveis.map(u => (
+                    <div key={u} className="flex items-center gap-1.5 bg-card px-2 py-0.5 rounded-full border border-border text-xs">
+                      <UserAvatar login={u} allUsers={allUsers} size={16} />
+                      <span className="font-medium">{nomeDe(u, allUsers)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Etiquetas (se houver) */}
+            {Array.isArray(form.etiquetas) && form.etiquetas.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {etiquetas.filter(et => form.etiquetas.includes(et.cr4a1_etiquetaid)).map(et => (
+                  <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} selecionada />
+                ))}
+              </div>
+            )}
+
+            {/* Metadados Opcionais (Aprovação, Custo, Link, Referência) */}
+            {(form.statusAprovacao || form.custo || form.linkUrl || form.campoTexto) && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {form.statusAprovacao && STATUS_APROVACAO_FICHA[form.statusAprovacao] && (
+                  <Badge variant="outline" className="px-2.5 py-1 text-xs">
+                    {STATUS_APROVACAO_FICHA[form.statusAprovacao].label}
+                  </Badge>
+                )}
+                {form.custo && (
+                  <div className="flex items-center gap-1 bg-secondary/60 px-2.5 py-1 rounded-lg border border-border font-medium">
+                    <DollarSign className="size-3 text-emerald-500" /> R$ {form.custo}
+                  </div>
+                )}
+                {form.linkUrl && (
+                  <a
+                    href={form.linkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-lg border border-border text-primary underline"
+                  >
+                    <ExternalLink className="size-3" /> Abrir Link Externo
+                  </a>
+                )}
+                {form.campoTexto && (
+                  <div className="flex items-center gap-1 bg-secondary/60 px-2.5 py-1 rounded-lg border border-border text-muted-foreground">
+                    <span className="font-semibold text-foreground">Ref:</span> {form.campoTexto}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Barra de Progresso Geral da Ficha */}
+            {(temTarefas || dependenciasFichasIds.length > 0) && (
+              <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+                    Progresso Geral
+                    {dependenciasFichasIds.length > 0 && (
+                      <span className="text-[10px] font-normal normal-case">
+                        ({dependenciasFichasIds.length} dependência{dependenciasFichasIds.length > 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </span>
+                  <span className={progressoFichaAtual.porcentagem === 100 ? 'text-emerald-500 font-bold' : 'text-primary font-bold'}>
+                    {progressoFichaAtual.porcentagem}% {progressoFichaAtual.porcentagem === 100 ? '✓ Concluída' : ''}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary border border-border/40">
+                  <div
+                    className={`h-full transition-all duration-300 ${progressoFichaAtual.porcentagem === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+                    style={{ width: `${progressoFichaAtual.porcentagem}%` }}
+                  />
+                </div>
+                {!progressoFichaAtual.podeConcluir && dependenciasFichasIds.length > 0 && (
+                  <p className="text-[11px] text-amber-500 flex items-center gap-1 font-medium">
+                    <Lock className="size-3 shrink-0" />
+                    Esta ficha só atingirá 100% e conclusão quando todas as dependências forem concluídas.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Dependências de outras Fichas (Visualização) */}
+            {dependenciasFichasIds.length > 0 && (
+              <div className="rounded-xl border border-border bg-secondary/40 p-3 flex flex-col gap-2.5">
+                <Label className="mb-0 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                  <Lock className="size-3.5 text-amber-500" /> Dependências ({fichasDependentesObjetos.length})
+                </Label>
+                <div className="flex flex-col gap-1.5">
+                  {fichasDependentesObjetos.map(dep => {
+                    const concluida = dep.cr4a1_concluida === 'Sim' || dep.progresso?.concluida;
+                    return (
+                      <div
+                        key={dep.cr4a1_fichaid}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border/60 bg-card text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {concluida ? (
+                            <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <Clock className="size-4 text-amber-500 shrink-0" />
+                          )}
+                          <span className={`font-semibold truncate ${concluida ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                            {dep.cr4a1_titulo}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[11px] font-bold ${concluida ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {concluida ? '100% ✓' : `${dep.progresso?.porcentagem ?? 0}%`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Descrição Formatada */}
+            {extrairDescricaoSemTarefas(form.descricao)?.trim() ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Descrição
+                </Label>
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none text-xs sm:text-sm text-foreground/90 leading-relaxed overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: extrairDescricaoSemTarefas(form.descricao) }}
+                />
+              </div>
+            ) : !temTarefas ? (
+              <div className="rounded-xl border border-dashed border-border/70 p-4 text-center">
+                <p className="text-xs text-muted-foreground italic">Esta ficha não possui descrição detalhada.</p>
+              </div>
+            ) : null}
+
+            {/* Microtarefas / Checklist Interativo */}
+            {temTarefas && (
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 text-primary" /> Checklist ({tarefasDaDescricao.filter(t => t.concluida).length}/{tarefasDaDescricao.length})
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">Clique para marcar/desmarcar</span>
+                </div>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  {tarefasDaDescricao.map((t, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        const novaDesc = alternarTarefaNaDescricao(form.descricao || '', t.index);
+                        set('descricao', novaDesc);
+                      }}
+                      className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors border border-border/40 bg-secondary/20"
+                    >
+                      <button
+                        type="button"
+                        className="mt-0.5 shrink-0 text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const novaDesc = alternarTarefaNaDescricao(form.descricao || '', t.index);
+                          set('descricao', novaDesc);
+                        }}
+                      >
+                        {t.concluida ? (
+                          <CheckCircle2 className="size-4 text-emerald-500 fill-emerald-500/10" />
+                        ) : (
+                          <Circle className="size-4 text-muted-foreground" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs sm:text-sm font-medium ${t.concluida ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                          {t.texto}
+                        </p>
+                        {(t.dataVencimento || t.responsavel) && (
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                            {t.dataVencimento && (
+                              <span className="flex items-center gap-1">
+                                <CalendarDays className="size-3" />
+                                {format(new Date(t.dataVencimento), 'dd/MM/yyyy')}
+                              </span>
+                            )}
+                            {t.responsavel && (
+                              <span className="flex items-center gap-1">
+                                <UserCircle2 className="size-3" />
+                                {nomeDe(t.responsavel, allUsers)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Anexos (se houver) */}
+            {Array.isArray(form.anexos) && form.anexos.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Paperclip className="size-3.5 text-primary" /> Anexos ({form.anexos.length})
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {form.anexos.map((a, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-secondary/60 p-2 rounded-lg border border-border text-xs max-w-xs">
+                      {a.type?.startsWith('image/') ? (
+                        <ImageIcon className="size-4 text-primary shrink-0" />
+                      ) : (
+                        <Paperclip className="size-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="truncate font-medium">{a.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notas Vinculadas (se houver) */}
+            {notasVinculadasObjetos.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="size-3.5 text-primary" /> Notas Vinculadas ({notasVinculadasObjetos.length})
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {notasVinculadasObjetos.map(n => (
+                    <button
+                      key={n.cr4a1_notas_kairosid || n.cr4a1_id_da_nota}
+                      type="button"
+                      onClick={() => setNotaEmVisualizacao(n)}
+                      className="flex items-center gap-2 bg-secondary/60 hover:bg-secondary p-2 rounded-lg border border-border text-xs transition-colors"
+                    >
+                      {n.cr4a1_cor && (
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: n.cr4a1_cor }} />
+                      )}
+                      <span className="font-semibold text-foreground">{n.cr4a1_titulo || 'Nota vinculada'}</span>
+                      <Eye className="size-3 text-muted-foreground ml-1" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Comentários da Ficha */}
+            <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <MessageCircle className="size-3.5 text-primary" /> Comentários ({comentarios.length})
+              </Label>
+              <div className="flex gap-2">
+                <MentionInput
+                  allUsers={allUsers}
+                  value={novoComentario}
+                  onChange={e => setNovoComentario(e.target.value)}
+                  placeholder="Escreva um comentário ou use @ para mencionar..."
+                  className="h-9 text-xs flex-1 bg-secondary/50"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      comentarEnviar();
+                    }
+                  }}
+                />
+                <Button type="button" size="sm" onClick={comentarEnviar} disabled={!novoComentario.trim()} className="h-9 px-3 gap-1">
+                  <Send className="size-3.5" />
+                  <span className="hidden sm:inline">Enviar</span>
+                </Button>
+              </div>
+
+              {comentarios.length > 0 && (
+                <div className="flex flex-col gap-2 mt-2">
+                  {comentarios.map(c => (
+                    <div key={c.id} className="rounded-lg border border-border bg-secondary/30 p-2.5 text-xs flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <UserAvatar login={c.autor} allUsers={allUsers} size={18} />
+                          <span className="font-bold text-foreground">{nomeDe(c.autor, allUsers)}</span>
+                          <span className="text-[10px] text-muted-foreground">— {format(new Date(c.data), 'dd/MM/yyyy HH:mm')}</span>
+                        </div>
+                        {onRemoverComentario && (c.autor === usuarioAtual || isAdmin) && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoverComentario(c.id)}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded"
+                            title="Excluir comentário"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-foreground whitespace-pre-wrap pl-6">{c.texto}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Histórico de Atividades Colapsável */}
+            {atividades.length > 0 && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold transition-colors"
+                  onClick={() => setAtividadesAbertas(!atividadesAbertas)}
+                >
+                  <History className="size-3.5" />
+                  {atividadesAbertas ? 'Ocultar histórico de atividades' : 'Ver histórico de atividades'}
+                </button>
+                {atividadesAbertas && (
+                  <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-border pl-3">
+                    {[...atividades].reverse().map(a => (
+                      <div key={a.id} className="text-[11px] text-muted-foreground">
+                        <span>{descricaoAtividade(a, (login) => nomeDe(login, allUsers))}</span>
+                        <span className="ml-1.5 text-[10px]">— {format(new Date(a.data), 'dd/MM/yyyy HH:mm')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Rodapé no Modo de Visualização */}
+        <DialogFooter className="shrink-0 p-3 sm:p-4 border-t border-border/60 bg-card/95 backdrop-blur-md flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shadow-lg mt-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+            <Button type="button" variant="ghost" size="sm" className="text-destructive h-9 px-2 sm:px-3 text-xs sm:text-sm" onClick={onDelete}>
+              <Trash2 className="size-3.5 sm:size-4" /> <span className="hidden sm:inline">Excluir</span>
+            </Button>
+            {onToggleArquivo && (
+              <Button type="button" variant="outline" size="sm" className="h-9 px-2.5 sm:px-3 text-xs sm:text-sm" onClick={onToggleArquivo}>
+                {arquivada ? (
+                  <>
+                    <ArchiveRestore className="size-3.5 sm:size-4" /> <span className="truncate">Restaurar</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="size-3.5 sm:size-4" /> <span className="truncate">Arquivar</span>
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 text-xs sm:text-sm" onClick={onCancel}>
+              Fechar
+            </Button>
+            <Button size="sm" className="h-9 px-3 sm:px-4 text-xs sm:text-sm gap-1.5 font-semibold" onClick={() => setIsEditing(true)}>
+              <Pencil className="size-3.5" />
+              <span>Editar Ficha</span>
+            </Button>
+          </div>
+        </DialogFooter>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
@@ -3693,6 +4257,17 @@ const FichaForm = ({
                 </div>
               )}
 
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`${getHeaderBtnClass(false)} gap-1 max-sm:px-2 max-sm:text-xs max-sm:h-8`}
+                onClick={() => setIsEditing(false)}
+                title="Voltar para o modo de visualização"
+              >
+                <Eye className="size-3.5" />
+                <span className="hidden sm:inline">Visualizar</span>
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -4115,7 +4690,48 @@ const FichaForm = ({
         <DateField label="Prazo / Entrega" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
         <TimeField label="Hora da Entrega" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
       </div>
-      {form.dia && <p className="text-xs text-muted-foreground">Limpar o prazo mantém a ficha no quadro, mas ela sai da agenda.</p>}
+      {form.dia && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/50 p-3">
+          <div className="space-y-0.5 pr-2">
+            <Label className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              <CalendarDays className="size-3.5 text-primary" /> Sincronizar com a Agenda
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Opcional: cria e atualiza este prazo como evento/tarefa no Calendário da Agenda.
+            </p>
+          </div>
+          <Switch
+            checked={Boolean(form.sincronizarAgenda)}
+            onCheckedChange={v => set('sincronizarAgenda', v)}
+          />
+        </div>
+      )}
+      {/* Notificações Opcionais da Ficha */}
+      <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-2.5">
+        <Label className="mb-0 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+          <Bell className="size-3.5 text-primary" /> Notificações da Ficha
+        </Label>
+        <div className="flex items-center justify-between py-1 border-b border-border/40">
+          <div>
+            <p className="text-xs font-medium">Avisos no Sistema</p>
+            <p className="text-[11px] text-muted-foreground">Notificações no sininho e alertas de área de trabalho/push.</p>
+          </div>
+          <Switch
+            checked={form.notificarSistema !== false}
+            onCheckedChange={v => set('notificarSistema', v)}
+          />
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <div>
+            <p className="text-xs font-medium">Avisos por E-mail</p>
+            <p className="text-[11px] text-muted-foreground">Dispara avisos por e-mail para responsável e co-responsáveis.</p>
+          </div>
+          <Switch
+            checked={Boolean(form.notificarEmail)}
+            onCheckedChange={v => set('notificarEmail', v)}
+          />
+        </div>
+      </div>
 
       {/* Estimativa de Tempo & Cronômetro */}
       <div className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-2.5">
@@ -4735,8 +5351,8 @@ const FichaForm = ({
               <Check className="size-3" /> Salvo
             </span>
           )}
-          <Button variant="outline" size="sm" className="h-9 px-2.5 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={onCancel}>Cancelar</Button>
-          <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => onSave(form)} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
+          <Button variant="outline" size="sm" className="h-9 px-2.5 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => setIsEditing(false)}>Cancelar</Button>
+          <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => { onSave(form); setIsEditing(false); }} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
         </div>
       </DialogFooter>
     </div>
@@ -6144,47 +6760,101 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
 // ==========================================
 
 const CRITERIOS_ORDENACAO = [
-  { id: 'padrao', rotulo: 'Padrão (Manual)' },
   { id: 'prioridade_alta', rotulo: 'Prioridade: Mais alta primeiro' },
   { id: 'prioridade_baixa', rotulo: 'Prioridade: Mais baixa primeiro' },
-  { id: 'data_recente', rotulo: 'Data: Mais recente primeiro' },
-  { id: 'data_antiga', rotulo: 'Data: Mais antiga primeiro' },
+  { id: 'data_recente', rotulo: 'Prazo: Mais próximo primeiro (Urgência)' },
+  { id: 'data_antiga', rotulo: 'Prazo: Mais distante no futuro' },
+  { id: 'criacao_recente', rotulo: 'Criação: Mais recente primeiro' },
   { id: 'titulo_az', rotulo: 'Título: A → Z' },
-  { id: 'titulo_za', rotulo: 'Título: Z → A' },
-  { id: 'pendentes', rotulo: 'Pendentes primeiro' },
-  { id: 'concluidas', rotulo: 'Concluídas primeiro' }
+  { id: 'titulo_za', rotulo: 'Título: Z → A' }
 ];
 
 const ListaOrdenacaoMenu = ({ criterioAtual = 'padrao', onChange }) => {
-  const isCustom = criterioAtual !== 'padrao';
+  const criteriosAtivos = Array.isArray(criterioAtual)
+    ? criterioAtual.filter(c => c && c !== 'padrao')
+    : (criterioAtual && criterioAtual !== 'padrao' ? [criterioAtual] : []);
+
+  const isCustom = criteriosAtivos.length > 0;
+
+  const handleToggle = (critId) => {
+    let novos;
+    if (criteriosAtivos.includes(critId)) {
+      novos = criteriosAtivos.filter(c => c !== critId);
+    } else {
+      novos = [...criteriosAtivos, critId];
+    }
+    onChange(novos.length === 0 ? 'padrao' : novos);
+  };
+
+  const handleLimpar = () => {
+    onChange('padrao');
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           aria-label="Organizar lista"
-          title={`Organizar lista (${CRITERIOS_ORDENACAO.find(c => c.id === criterioAtual)?.rotulo || 'Padrão'})`}
-          className={`shrink-0 rounded p-1 transition-colors ${isCustom ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-secondary'}`}
+          title={isCustom ? `Organização ativa: ${criteriosAtivos.length} critério(s)` : 'Organizar lista'}
+          className={`shrink-0 rounded p-1 transition-colors relative flex items-center justify-center ${
+            isCustom ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-secondary'
+          }`}
         >
           <ArrowUpDown className="size-3.5" />
+          {criteriosAtivos.length > 1 && (
+            <span className="absolute -top-1 -right-1 size-3.5 rounded-full bg-primary text-[9px] font-bold text-primary-foreground flex items-center justify-center leading-none">
+              {criteriosAtivos.length}
+            </span>
+          )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border">
-          Organizar lista por:
+      <DropdownMenuContent align="end" className="w-64">
+        <div className="px-2.5 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border flex items-center justify-between">
+          <span>Organizar lista por:</span>
+          {isCustom && (
+            <button
+              type="button"
+              onClick={handleLimpar}
+              className="text-[11px] text-primary hover:underline font-normal"
+            >
+              Redefinir
+            </button>
+          )}
         </div>
-        {CRITERIOS_ORDENACAO.map(crit => (
-          <DropdownMenuItem
-            key={crit.id}
-            onClick={() => onChange(crit.id)}
-            className="flex items-center justify-between text-xs cursor-pointer py-1.5"
-          >
-            <span className={criterioAtual === crit.id ? 'font-bold text-primary' : ''}>
-              {crit.rotulo}
-            </span>
-            {criterioAtual === crit.id && <Check className="size-3.5 text-primary shrink-0" />}
-          </DropdownMenuItem>
-        ))}
+        <div className="p-1 flex flex-col gap-0.5">
+          {CRITERIOS_ORDENACAO.map(crit => {
+            const indexAtivo = criteriosAtivos.indexOf(crit.id);
+            const selecionado = indexAtivo !== -1;
+            return (
+              <DropdownMenuItem
+                key={crit.id}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleToggle(crit.id);
+                }}
+                className="flex items-center justify-between text-xs cursor-pointer py-1.5 px-2 rounded-md hover:bg-secondary"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`size-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    selecionado ? 'bg-primary text-primary-foreground' : 'border border-muted-foreground/30 text-muted-foreground'
+                  }`}>
+                    {selecionado ? `${indexAtivo + 1}º` : ''}
+                  </div>
+                  <span className={`truncate ${selecionado ? 'font-bold text-primary' : 'text-foreground'}`}>
+                    {crit.rotulo}
+                  </span>
+                </div>
+                {selecionado && <Check className="size-3.5 text-primary shrink-0 ml-1.5" />}
+              </DropdownMenuItem>
+            );
+          })}
+        </div>
+        {isCustom && (
+          <div className="px-2 py-1.5 border-t border-border/50 text-[10px] text-muted-foreground">
+            Critérios aplicados em ordem de precedência. Concluídos sempre no final.
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

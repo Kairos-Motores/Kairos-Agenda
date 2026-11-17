@@ -311,7 +311,9 @@ export const notificarMencoes = async ({
   currentUser = '',
   allUsers = [],
   workspace = '',
-  lista = ''
+  lista = '',
+  enviarEmail = true,
+  enviarSistema = true
 }) => {
   const mencoesNovas = extrairMencoes(textoNovo, allUsers);
   const mencoesAntigas = extrairMencoes(textoAntigo, allUsers);
@@ -337,37 +339,42 @@ export const notificarMencoes = async ({
     const pushTitle = `💬 Menção em ${origem}`;
     const pushBody = `${autorNome} mencionou você em "${itemTitulo}"${trecho ? `: "${trecho}"` : ''}`;
 
-    // 1. Salva para o sininho/app
-    salvarNotificacaoNoApp({
-      destinatario: info.username,
-      tipo: 'mencao',
-      titulo: `Menção em ${origem}`,
-      mensagem: pushBody,
-      itemTitulo,
-      origem
-    });
+    // 1. Salva para o sininho/app e Push do dispositivo (se habilitado)
+    if (enviarSistema) {
+      salvarNotificacaoNoApp({
+        destinatario: info.username,
+        tipo: 'mencao',
+        titulo: `Menção em ${origem}`,
+        mensagem: pushBody,
+        itemTitulo,
+        origem
+      });
 
-    // 2. Dispara Push para dispositivos móveis/desktop (smartphones, tablets, notebooks)
-    enviarAlertaPush({
-      usuarios: [info.username],
-      title: pushTitle,
-      body: pushBody,
-      url: '/',
-      tag: pushTag
-    });
-    dispararNotificacaoDispositivo({
-      title: pushTitle,
-      body: pushBody,
-      tag: pushTag,
-      destinatario: info.username
-    });
+      enviarAlertaPush({
+        usuarios: [info.username],
+        title: pushTitle,
+        body: pushBody,
+        url: '/',
+        tag: pushTag
+      });
+      dispararNotificacaoDispositivo({
+        title: pushTitle,
+        body: pushBody,
+        tag: pushTag,
+        destinatario: info.username
+      });
+    }
+
+    if (!enviarEmail) continue;
 
     if (!info.email) {
-      toast.error(`O usuário @${info.username} foi notificado no app/dispositivo, mas não possui e-mail na tabela de credenciais.`, { duration: 5000 });
+      if (enviarSistema) {
+        toast.error(`O usuário @${info.username} foi notificado no app/dispositivo, mas não possui e-mail na tabela de credenciais.`, { duration: 5000 });
+      }
       continue;
     }
 
-    // 3. Dispara envio de e-mail para o endereço cadastrado em cr4a1_credenciaises
+    // 2. Dispara envio de e-mail para o endereço cadastrado em cr4a1_credenciaises
     try {
       const resEmail = await enviarAlertaEmail({
         usuarios: [info.username],
@@ -471,7 +478,9 @@ export const notificarCompartilhamento = async ({
   destinatarios = [],
   currentUser = '',
   detalhes = {},
-  allUsers = []
+  allUsers = [],
+  enviarEmail = true,
+  enviarSistema = true
 }) => {
   const autorInfo = resolverInfoDestinatario(currentUser, allUsers);
   const autorNome = autorInfo.nomeExibicao || autor || currentUser;
@@ -491,34 +500,36 @@ export const notificarCompartilhamento = async ({
     const info = await resolverInfoDestinatarioCredenciais(dest, allUsers);
     const pushTag = `compartilhamento-${info.username}-${itemTitulo}`;
 
-    // 1. Salva para o sininho/app
-    salvarNotificacaoNoApp({
-      destinatario: info.username,
-      tipo: 'compartilhamento',
-      titulo: `${tipoItem} Compartilhada`,
-      mensagem: pushBody,
-      itemTitulo,
-      origem: tipoItem
-    });
+    // 1. Salva para o sininho/app e Push do dispositivo (se habilitado)
+    if (enviarSistema) {
+      salvarNotificacaoNoApp({
+        destinatario: info.username,
+        tipo: 'compartilhamento',
+        titulo: `${tipoItem} Compartilhada`,
+        mensagem: pushBody,
+        itemTitulo,
+        origem: tipoItem
+      });
 
-    // 2. Dispara Web Push para todos os dispositivos (smartphones, tablets, notebooks)
-    enviarAlertaPush({
-      usuarios: [info.username],
-      title: pushTitle,
-      body: pushBody,
-      url: '/',
-      tag: pushTag
-    });
-    dispararNotificacaoDispositivo({
-      title: pushTitle,
-      body: pushBody,
-      tag: pushTag,
-      destinatario: info.username
-    });
+      enviarAlertaPush({
+        usuarios: [info.username],
+        title: pushTitle,
+        body: pushBody,
+        url: '/',
+        tag: pushTag
+      });
+      dispararNotificacaoDispositivo({
+        title: pushTitle,
+        body: pushBody,
+        tag: pushTag,
+        destinatario: info.username
+      });
+    }
 
+    if (!enviarEmail) continue;
     if (!info.email) continue;
 
-    // 3. Envia por E-mail cadastrado na tabela de credenciais
+    // 2. Envia por E-mail cadastrado na tabela de credenciais
     const resEmail = await enviarAlertaEmail({
       usuarios: [info.username],
       destinatarios: [info.email],
