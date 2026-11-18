@@ -38,6 +38,8 @@ export const META_PADRAO = () => ({
   notasIds: [],
   dependenciasFichasIds: [],
   sincronizarAgenda: false,
+  sincronizarSubtasksAgenda: false,
+  subtasksEventosIds: {},
   notificarSistema: true,
   notificarEmail: false,
   convidados: [],
@@ -69,6 +71,10 @@ export const parseFichaMeta = (raw) => {
         notasIds: Array.isArray(parsed.meta.notasIds) ? parsed.meta.notasIds.filter(Boolean) : [],
         dependenciasFichasIds: Array.isArray(parsed.meta.dependenciasFichasIds) ? parsed.meta.dependenciasFichasIds.filter(Boolean) : [],
         sincronizarAgenda: Boolean(parsed.meta.sincronizarAgenda),
+        sincronizarSubtasksAgenda: Boolean(parsed.meta.sincronizarSubtasksAgenda),
+        subtasksEventosIds: (parsed.meta.subtasksEventosIds && typeof parsed.meta.subtasksEventosIds === 'object' && !Array.isArray(parsed.meta.subtasksEventosIds))
+          ? parsed.meta.subtasksEventosIds
+          : {},
         notificarSistema: parsed.meta.notificarSistema !== false,
         notificarEmail: Boolean(parsed.meta.notificarEmail),
         convidados: Array.isArray(parsed.meta.convidados) ? parsed.meta.convidados.filter(Boolean) : [],
@@ -87,6 +93,10 @@ export const parseFichaMeta = (raw) => {
           notasIds: Array.isArray(metaEntry.meta.notasIds) ? metaEntry.meta.notasIds.filter(Boolean) : [],
           dependenciasFichasIds: Array.isArray(metaEntry.meta.dependenciasFichasIds) ? metaEntry.meta.dependenciasFichasIds.filter(Boolean) : [],
           sincronizarAgenda: Boolean(metaEntry.meta.sincronizarAgenda),
+          sincronizarSubtasksAgenda: Boolean(metaEntry.meta.sincronizarSubtasksAgenda),
+          subtasksEventosIds: (metaEntry.meta.subtasksEventosIds && typeof metaEntry.meta.subtasksEventosIds === 'object' && !Array.isArray(metaEntry.meta.subtasksEventosIds))
+            ? metaEntry.meta.subtasksEventosIds
+            : {},
           notificarSistema: metaEntry.meta.notificarSistema !== false,
           notificarEmail: Boolean(metaEntry.meta.notificarEmail),
           convidados: Array.isArray(metaEntry.meta.convidados) ? metaEntry.meta.convidados.filter(Boolean) : [],

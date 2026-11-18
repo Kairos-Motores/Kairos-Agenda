@@ -54,7 +54,22 @@ export const parseListaNotificacoes = (raw) => {
   } catch { return []; }
 };
 
-// Serializa { automacoes, gerentes, cor, convidados, notificacoesInbox } preservando os campos existentes
+// Preferência opcional de sincronização com a Agenda da lista (fichas e/ou subtasks)
+export const parseListaSyncAgenda = (raw) => {
+  if (!raw) return { fichas: false, subtasks: false };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.syncAgenda && typeof parsed.syncAgenda === 'object') {
+      return {
+        fichas: Boolean(parsed.syncAgenda.fichas),
+        subtasks: Boolean(parsed.syncAgenda.subtasks)
+      };
+    }
+    return { fichas: false, subtasks: false };
+  } catch { return { fichas: false, subtasks: false }; }
+};
+
+// Serializa { automacoes, gerentes, cor, convidados, notificacoesInbox, syncAgenda } preservando os campos existentes
 export const serializarConfigLista = (rawAtual, mudancas = {}) => {
   const automacoes = mudancas.automacoes !== undefined ? mudancas.automacoes : parseAutomacoes(rawAtual);
   const gerentes = mudancas.gerentes !== undefined ? mudancas.gerentes : parseListaGerentes(rawAtual);
@@ -63,7 +78,8 @@ export const serializarConfigLista = (rawAtual, mudancas = {}) => {
   const notificacoesInbox = mudancas.notificacoesInbox !== undefined
     ? mudancas.notificacoesInbox.slice(-30)
     : parseListaNotificacoes(rawAtual);
-  return JSON.stringify({ automacoes, gerentes, cor, convidados, notificacoesInbox });
+  const syncAgenda = mudancas.syncAgenda !== undefined ? mudancas.syncAgenda : parseListaSyncAgenda(rawAtual);
+  return JSON.stringify({ automacoes, gerentes, cor, convidados, notificacoesInbox, syncAgenda });
 };
 
 // Verifica se uma ficha está no espaço de arquivadas

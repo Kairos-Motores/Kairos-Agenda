@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { addMonths, subMonths, addDays, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { fetchNationalHolidays } from '../api/holidays';
-import { checkAccess, parseRoles, joinRoles } from '../utils/permissions';
+import { checkAccess, parseRoles, joinRoles, canBorrowUnit, parseUnidadesEmprestimo, joinUnidadesEmprestimo } from '../utils/permissions';
 import { parseAssignees, joinAssignees, isAssignedTo } from '../utils/assignees';
 import { renderUndoToast } from '../components/UndoToast';
 import { ROLE_WORKSPACE_MAP, ALL_KNOWN_ROLES, PROTECTED_ROLES } from '../config/roleWorkspaceMap';
@@ -383,12 +383,47 @@ export const useCalendar = () => {
         }, duration + 50);
     };
 
-    const fetchWorkspaces = useCallback(async () => {
+    const fetchWorkspaces = useCallback(async (unidadesEmprestimoOverride = null) => {
         try {
-            const filter = encodeURIComponent(`(cr4a1_criador_login eq '${user}') or (contains(cr4a1_membros_logins, '${user}'))`);
+            const condicoes = [
+                `(cr4a1_criador_login eq '${user}')`,
+                `(contains(cr4a1_membros_logins, '${user}'))`
+            ];
+
+            // Inclui workspaces correspondentes às unidades emprestadas (sem alterar a unidade principal do usuário)
+            let unidadesEmprestadas = [];
+            if (Array.isArray(unidadesEmprestimoOverride)) {
+                unidadesEmprestadas = unidadesEmprestimoOverride;
+            } else {
+                try {
+                    const cacheEmprestimo = JSON.parse(localStorage.getItem('kairos_unidades_emprestimo_cache') || '{}');
+                    const userKey = String(user || '').trim().toLowerCase();
+                    if (userKey && cacheEmprestimo[userKey]) {
+                        unidadesEmprestadas = parseUnidadesEmprestimo(cacheEmprestimo[userKey]);
+                    }
+                } catch { /* ignora erro de localStorage */ }
+            }
+
+            unidadesEmprestadas.forEach(un => {
+                const limpo = String(un || '').replace(/'/g, "''").trim();
+                if (limpo) condicoes.push(`(cr4a1_nome eq '${limpo}')`);
+            });
+
+            const filter = encodeURIComponent(condicoes.join(' or '));
             const response = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filter}`);
             const data = await response.json();
-            const wsList = data.value || [];
+            const rawList = data.value || [];
+            const emprestadasSet = new Set(unidadesEmprestadas.map(u => String(u).toLowerCase()));
+            const wsList = rawList.map(w => {
+                const ehMembroDireto =
+                    String(w.cr4a1_criador_login || '').toLowerCase() === String(user || '').toLowerCase() ||
+                    parseAssignees(w.cr4a1_membros_logins).some(m => m.toLowerCase() === String(user || '').toLowerCase());
+                return {
+                    ...w,
+                    _porEmprestimoUnidade: !ehMembroDireto && emprestadasSet.has(String(w.cr4a1_nome || '').trim().toLowerCase())
+                };
+            });
+
             setWorkspaces(wsList);
             try { localStorage.setItem('kairos_workspaces_cache', JSON.stringify(wsList)); } catch (e) { void e; }
 
@@ -396,6 +431,18 @@ export const useCalendar = () => {
                 const activeIds = wsList.map(w => w.cr4a1_calendarios_workspacesid);
                 setActiveWorkspaces(activeIds);
                 try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(activeIds)); } catch (e) { void e; }
+            } else if (unidadesEmprestadas.length > 0) {
+                // Garante que workspaces recém-emprestados apareçam imediatamente nos menus e BIs
+                const idsEmprestimo = wsList
+                    .filter(w => emprestadasSet.has(String(w.cr4a1_nome || '').trim().toLowerCase()))
+                    .map(w => w.cr4a1_calendarios_workspacesid);
+                if (idsEmprestimo.length > 0) {
+                    setActiveWorkspaces(prev => {
+                        const proximo = [...new Set([...prev, ...idsEmprestimo])];
+                        try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(proximo)); } catch { /* ignora */ }
+                        return proximo;
+                    });
+                }
             }
         } catch (error) {
             console.warn('Erro ao buscar Workspaces da nuvem, usando cache local:', error);
@@ -416,12 +463,27 @@ export const useCalendar = () => {
 
     const fetchUsers = useCallback(async () => {
         try {
-            const [resUsers, resCreds] = await Promise.all([
+            const baseSelect = 'cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title,cr4a1_credenciaisid,cr4a1_matr_x00ed_cula,cr4a1_xstatus,cr4a1_filial,cr4a1_agenda_roles,statecode';
+            const fetchCredenciais = async () => {
+                // Tenta buscar incluindo a coluna cr4a1_unidades_emprestimo; caso a coluna ainda não exista no Dataverse, faz fallback sem quebrar o login/carregamento.
+                const resComColuna = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=${baseSelect},cr4a1_unidades_emprestimo`).catch(() => null);
+                if (resComColuna && resComColuna.ok) return { res: resComColuna, temColunaEmprestimo: true };
+                const resSemColuna = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=${baseSelect}`).catch(() => null);
+                return { res: resSemColuna, temColunaEmprestimo: false };
+            };
+
+            const [resUsers, credResult] = await Promise.all([
                 fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas`),
-                fetch(`${API_PROXY}?table=cr4a1_credenciaises&$select=cr4a1_usu_x00e1_rio,cr4a1_email,cr4a1_title,cr4a1_credenciaisid,cr4a1_matr_x00ed_cula,cr4a1_xstatus,cr4a1_filial,cr4a1_agenda_roles,statecode`).catch(() => null)
+                fetchCredenciais()
             ]);
             const dataUsers = await resUsers.json();
-            const dataCreds = resCreds && resCreds.ok ? await resCreds.json() : { value: [] };
+            const dataCreds = credResult.res && credResult.res.ok ? await credResult.res.json() : { value: [] };
+            const temColunaEmprestimo = credResult.temColunaEmprestimo;
+
+            let cacheEmprestimoLocal = {};
+            try {
+                cacheEmprestimoLocal = JSON.parse(localStorage.getItem('kairos_unidades_emprestimo_cache') || '{}');
+            } catch { cacheEmprestimoLocal = {}; }
 
             const credsMap = new Map();
             const credEmailsCache = {};
@@ -430,6 +492,9 @@ export const useCalendar = () => {
                     const key = c.cr4a1_usu_x00e1_rio.trim().toLowerCase();
                     const existing = credsMap.get(key);
                     const emailLimpo = (c.cr4a1_email || '').trim();
+                    const emprestimoRaw = temColunaEmprestimo
+                        ? (c.cr4a1_unidades_emprestimo || '')
+                        : (cacheEmprestimoLocal[key] || '');
                     if (!existing || (!existing.email && emailLimpo)) {
                         credsMap.set(key, {
                             email: emailLimpo,
@@ -439,6 +504,8 @@ export const useCalendar = () => {
                             status: (c.cr4a1_xstatus || '').trim(),
                             filial: (c.cr4a1_filial || '').trim(),
                             agendaRoles: (c.cr4a1_agenda_roles || '').trim(),
+                            unidadesEmprestimo: parseUnidadesEmprestimo(emprestimoRaw),
+                            unidadesEmprestimoRaw: joinUnidadesEmprestimo(parseUnidadesEmprestimo(emprestimoRaw)),
                             statecode: c.statecode,
                             rawUsername: c.cr4a1_usu_x00e1_rio.trim()
                         });
@@ -446,12 +513,18 @@ export const useCalendar = () => {
                     if (emailLimpo) {
                         credEmailsCache[key] = emailLimpo;
                     }
+                    if (temColunaEmprestimo) {
+                        cacheEmprestimoLocal[key] = joinUnidadesEmprestimo(parseUnidadesEmprestimo(c.cr4a1_unidades_emprestimo || ''));
+                    }
                 }
             });
 
             try {
                 if (Object.keys(credEmailsCache).length > 0) {
                     localStorage.setItem('kairos_user_emails', JSON.stringify(credEmailsCache));
+                }
+                if (temColunaEmprestimo) {
+                    localStorage.setItem('kairos_unidades_emprestimo_cache', JSON.stringify(cacheEmprestimoLocal));
                 }
             } catch (e) { void e; }
 
@@ -478,6 +551,9 @@ export const useCalendar = () => {
                 }
 
                 const parsedCor = parseUserCorField(u.cr4a1_cor);
+                const unidadePrincipal = (u.cr4a1_unidade || '').trim();
+                const emprestadas = (cred?.unidadesEmprestimo || parseUnidadesEmprestimo(cacheEmprestimoLocal[uname] || ''))
+                    .filter(un => un.toLowerCase() !== unidadePrincipal.toLowerCase());
 
                 return {
                     ...u,
@@ -488,9 +564,20 @@ export const useCalendar = () => {
                     cr4a1_nome_exibicao: nomeExibicaoFinal,
                     cr4a1_email: email,
                     email: email,
-                    cr4a1_credenciaisid: cred?.credenciaisId || u.cr4a1_credenciaisid
+                    cr4a1_credenciaisid: cred?.credenciaisId || u.cr4a1_credenciaisid,
+                    cr4a1_unidades_emprestimo: joinUnidadesEmprestimo(emprestadas),
+                    unidadesEmprestimo: emprestadas
                 };
             });
+
+            // Se o usuário logado tiver unidades emprestadas vindas da nuvem, garante carregamento dos workspaces correspondentes
+            const userLogadoKey = String(user || '').trim().toLowerCase();
+            if (userLogadoKey) {
+                const meuRegistro = merged.find(u => String(u.cr4a1_username || '').trim().toLowerCase() === userLogadoKey);
+                if (meuRegistro?.unidadesEmprestimo?.length > 0) {
+                    fetchWorkspaces(meuRegistro.unidadesEmprestimo);
+                }
+            }
 
             // Usuários ativos em cr4a1_credenciaises que ainda não estão em cr4a1_usuarios_agendas
             const pendentes = [];
@@ -2468,6 +2555,95 @@ export const useCalendar = () => {
         }
     };
 
+    // Empréstimo de Unidade: grava na coluna cr4a1_unidades_emprestimo da tabela cr4a1_credenciaises
+    // sem alterar a unidade principal (cr4a1_unidade / cr4a1_filial) do usuário.
+    // Permitido exclusivamente para ADMIN, DIRETORIA e COORD.
+    const atualizarEmprestimoUnidade = async (targetUsername, unidadesSelecionadas = []) => {
+        if (!canBorrowUnit(userRole)) {
+            toast.error('Apenas ADMIN, DIRETORIA e COORD podem realizar empréstimo de unidade.');
+            return { success: false, forbidden: true };
+        }
+
+        const loginAlvo = String(targetUsername || user || '').trim();
+        const loginLower = loginAlvo.toLowerCase();
+        const targetUser = allUsers.find(u => String(u.cr4a1_username || '').trim().toLowerCase() === loginLower);
+        const unidadePrincipal = (targetUser?.cr4a1_unidade || '').trim();
+
+        const unidadesLimpas = parseUnidadesEmprestimo(unidadesSelecionadas)
+            .filter(un => un.toLowerCase() !== unidadePrincipal.toLowerCase());
+        const valorCsv = joinUnidadesEmprestimo(unidadesLimpas);
+
+        // 1. Atualiza estado local e cache imediatamente (sem tocar em cr4a1_unidade!)
+        try {
+            const cache = JSON.parse(localStorage.getItem('kairos_unidades_emprestimo_cache') || '{}');
+            cache[loginLower] = valorCsv;
+            localStorage.setItem('kairos_unidades_emprestimo_cache', JSON.stringify(cache));
+        } catch { /* ignora erro de localStorage */ }
+
+        setAllUsers(prev => prev.map(u => {
+            if (String(u.cr4a1_username || '').trim().toLowerCase() === loginLower) {
+                return {
+                    ...u,
+                    cr4a1_unidades_emprestimo: valorCsv,
+                    unidadesEmprestimo: unidadesLimpas
+                };
+            }
+            return u;
+        }));
+
+        // 2. Persiste na tabela cr4a1_credenciaises (coluna cr4a1_unidades_emprestimo)
+        try {
+            let credId = targetUser?.cr4a1_credenciaisid;
+            if (!credId && loginAlvo) {
+                const filtro = encodeURIComponent(`cr4a1_usu_x00e1_rio eq '${loginAlvo}'`);
+                const resBusca = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&$filter=${filtro}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }));
+                credId = resBusca.value?.[0]?.cr4a1_credenciaisid;
+            }
+
+            if (!credId) {
+                toast.error('Registro de credenciais (cr4a1_credenciaises) não encontrado para este usuário.');
+                return { success: false };
+            }
+
+            const patchRes = await fetch(`${API_PROXY}?table=cr4a1_credenciaises&id=${credId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cr4a1_unidades_emprestimo: valorCsv })
+            });
+
+            if (!patchRes.ok) {
+                const errText = await patchRes.text().catch(() => '');
+                console.error('[atualizarEmprestimoUnidade] Erro Dataverse:', errText);
+                const colunaAusente = errText.includes('cr4a1_unidades_emprestimo') || patchRes.status === 400;
+                if (colunaAusente) {
+                    toast.error('Crie a coluna "cr4a1_unidades_emprestimo" (Texto) na tabela Credenciaiss no Dataverse para salvar na nuvem.', { duration: 6000 });
+                } else {
+                    toast.error('Erro ao salvar empréstimo de unidade no Dataverse.');
+                }
+                if (loginLower === String(user || '').trim().toLowerCase()) {
+                    await fetchWorkspaces(unidadesLimpas);
+                }
+                return { success: false, colunaAusente };
+            }
+
+            // Atualiza workspaces imediatamente se o empréstimo for do usuário logado
+            if (loginLower === String(user || '').trim().toLowerCase()) {
+                await fetchWorkspaces(unidadesLimpas);
+            }
+
+            toast.success(
+                unidadesLimpas.length > 0
+                    ? `Empréstimo ativo para: ${unidadesLimpas.join(', ')} (sua unidade principal continua ${unidadePrincipal || 'inalterada'}).`
+                    : 'Empréstimo de unidade encerrado.'
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('[atualizarEmprestimoUnidade] Erro de rede:', error);
+            toast.error('Erro de conexão ao salvar empréstimo de unidade.');
+            return { success: false };
+        }
+    };
+
     return {
         view, setView, currentDate, setCurrentDate, user, userRole, viewedUser, setViewedUser,
         allUsers, credenciaisPendentes, criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, notification,
@@ -2477,7 +2653,7 @@ export const useCalendar = () => {
         isOnline, isSyncing, syncPendingQueue, pendingSyncCount, updateWhatsApp, addWorkspace, updateWorkspace,
         updateUnit, updateProfile, updateUserEmail, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
         workspaces, activeWorkspaces, toggleWorkspaceFilter,
-        organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria,
+        organizacoes, visitas, addVisitas, updateVisitas, atualizarFilialTemporaria, atualizarEmprestimoUnidade,
         gerarLinkAgendamento, confirmarVisita, recusarVisita,
         googleEvents, fetchGoogleEvents, disconnectGoogleCalendar,
         ssmaAtividades, ssmaGastos, ssmaIndicadores, addSsmaAtividade, updateSsmaAtividade, deleteSsmaAtividade, addSsmaGasto, updateSsmaGasto, deleteSsmaGasto,

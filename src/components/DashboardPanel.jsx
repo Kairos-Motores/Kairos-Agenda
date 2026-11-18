@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { checkAccess, canAccessBiMonitoring } from '../utils/permissions';
+import { checkAccess, canAccessBiMonitoring, hasCoordRole, parseRoles, UNIT_TO_COORD_ROLES } from '../utils/permissions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import ReactDOM from 'react-dom';
 import * as pbi from 'powerbi-client';
@@ -102,7 +102,7 @@ import { cn } from '@/lib/utils';
 const TABS_STORAGE_KEY = 'kairos_bi_open_tabs';
 const ACTIVE_TAB_STORAGE_KEY = 'kairos_bi_active_tab';
 
-export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biPermissoes = [] }) => {
+export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biPermissoes = [], unidadesEmprestimo = [] }) => {
   // Cada aba: { bi, url, loading, reloadKey }
   const [openTabs, setOpenTabs] = useState([]);
   const [activeTabId, setActiveTabId] = useState(null);
@@ -383,9 +383,24 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
   // cada render sai barato, sem necessidade de useMemo.
   const biRolesOverrideMap = buildBiRolesOverrideMap(biPermissoes);
 
+  // Se o usuário é COORD e está emprestado para outras unidades, libera os menus/BIs dessas unidades
+  // mantendo a sua unidade principal e roles reais intactas no sistema.
+  const effectiveRolesForBi = (() => {
+    const baseRoles = parseRoles(userRole);
+    if (!hasCoordRole(userRole) || !Array.isArray(unidadesEmprestimo) || unidadesEmprestimo.length === 0) {
+      return userRole;
+    }
+    const extras = [];
+    for (const un of unidadesEmprestimo) {
+      const rolesUnidade = UNIT_TO_COORD_ROLES[un] || [];
+      extras.push(...rolesUnidade);
+    }
+    return [...new Set([...baseRoles, ...extras])];
+  })();
+
   const isBiPermitido = (bi) => {
     const isWorkspaceAtivo = activeWorkspaceNames.includes(bi.workspaceName);
-    const temPermissao = isBiVisibleForRoles(bi, userRole, biRolesOverrideMap);
+    const temPermissao = isBiVisibleForRoles(bi, effectiveRolesForBi, biRolesOverrideMap);
     return isWorkspaceAtivo && temPermissao;
   };
 

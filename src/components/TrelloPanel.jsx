@@ -14,7 +14,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, Ban, GripVertical, CalendarDays, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, Ban, GripVertical, CalendarDays, RefreshCw, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -63,6 +63,7 @@ import {
   parseListaCor,
   parseListaConvidados,
   parseListaNotificacoes,
+  parseListaSyncAgenda,
   serializarConfigLista,
   aplicarAutomacoes,
   regrasPara,
@@ -1069,7 +1070,188 @@ export const TrelloPanel = ({
   };
 
   const removerEventoDaFicha = async (ficha) => {
-    if (ficha.cr4a1_evento_id) await apagar('cr4a1_agenda_kairoses', ficha.cr4a1_evento_id);
+    if (ficha.cr4a1_evento_id) await apagar('cr4a1_agenda_kairoses', ficha.cr4a1_evento_id).catch(() => {});
+    const meta = parseFichaMeta(ficha.cr4a1_atividades);
+    const subIds = Object.values(meta.subtasksEventosIds || {}).filter(Boolean);
+    for (const subEvId of subIds) {
+      await apagar('cr4a1_agenda_kairoses', subEvId).catch(() => {});
+    }
+  };
+
+  // Sincroniza (ou remove) os eventos no Calendário para cada subtask com prazo de uma ficha checklist.
+  const sincronizarEventosSubtasksFicha = async ({
+    tituloFicha,
+    responsavelFicha,
+    horaPadrao = '08:00',
+    tarefas = [],
+    subtasksEventosIdsAtuais = {},
+    ativar = false
+  }) => {
+    const mapaAtual = (subtasksEventosIdsAtuais && typeof subtasksEventosIdsAtuais === 'object') ? subtasksEventosIdsAtuais : {};
+    const novosIds = {};
+
+    if (!ativar) {
+      for (const evId of Object.values(mapaAtual)) {
+        if (evId) await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+      }
+      return {};
+    }
+
+    const chavesAtivas = new Set();
+    for (const t of tarefas) {
+      const chave = String(t.index);
+      const diaLimpo = t.dataVencimento ? String(t.dataVencimento).slice(0, 10) : '';
+      const evExistente = mapaAtual[chave] || '';
+
+      if (!diaLimpo) {
+        if (evExistente) await apagar('cr4a1_agenda_kairoses', evExistente).catch(() => {});
+        continue;
+      }
+
+      chavesAtivas.add(chave);
+      const { inicioIso, fimIso, horaFim } = intervaloDoEvento(diaLimpo, horaPadrao || '08:00');
+      const tituloEvento = `${t.texto || 'Subtask'} (${tituloFicha || 'Ficha'})`;
+      const respEvento = t.responsavel || responsavelFicha || user;
+
+      if (evExistente) {
+        await patch('cr4a1_agenda_kairoses', evExistente, {
+          cr4a1_titulo: tituloEvento,
+          cr4a1_user_login: respEvento,
+          cr4a1_data_inicio: inicioIso,
+          cr4a1_data_fim: fimIso,
+          cr4a1_hora_inicio: horaPadrao || '08:00',
+          cr4a1_hora_fim: horaFim
+        }).catch(() => {});
+        novosIds[chave] = evExistente;
+      } else {
+        const resCriado = await post('cr4a1_agenda_kairoses', {
+          cr4a1_event_id: crypto.randomUUID(),
+          cr4a1_titulo: tituloEvento,
+          cr4a1_user_login: respEvento,
+          cr4a1_data_inicio: inicioIso,
+          cr4a1_data_fim: fimIso,
+          cr4a1_hora_inicio: horaPadrao || '08:00',
+          cr4a1_hora_fim: horaFim,
+          cr4a1_tipo: 'Tarefa',
+          cr4a1_detalhes: `Subtask da checklist da ficha "${tituloFicha || 'Ficha'}"`,
+          cr4a1_subtasks: '[]',
+          cr4a1_privado: false,
+          cr4a1_arquivos: '[]',
+          cr4a1_workspace_id: workspaceId
+        });
+        if (resCriado.ok) {
+          const criado = await resCriado.json();
+          if (criado?.cr4a1_agenda_kairosid) {
+            novosIds[chave] = criado.cr4a1_agenda_kairosid;
+          }
+        }
+      }
+    }
+
+    // Remove eventos órfãos de subtasks excluídas
+    for (const [chave, evId] of Object.entries(mapaAtual)) {
+      if (!chavesAtivas.has(chave) && evId) {
+        await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+      }
+    }
+
+    return novosIds;
+  };
+
+  // Sincronização opcional acionada pelo botão no cabeçalho de uma lista (prazos das fichas e/ou subtasks)
+  const sincronizarListaComAgenda = async (lista, { fichas: syncFichas, subtasks: syncSubtasks }) => {
+    try {
+      const novoConfigLista = serializarConfigLista(lista.cr4a1_automacao, {
+        syncAgenda: { fichas: Boolean(syncFichas), subtasks: Boolean(syncSubtasks) }
+      });
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConfigLista });
+
+      const fichasDaColuna = fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid && !ehFichaArquivada(f));
+      let totalFichasSync = 0;
+      let totalSubtasksSync = 0;
+
+      for (const ficha of fichasDaColuna) {
+        const meta = parseFichaMeta(ficha.cr4a1_atividades);
+        const tarefas = extrairTarefas(ficha.cr4a1_descricao);
+        const dataIsoFicha = ficha.cr4a1_data_inicio;
+        const dataObj = dataIsoFicha ? new Date(dataIsoFicha) : null;
+        const dia = dataObj ? format(dataObj, 'yyyy-MM-dd') : '';
+        const hora = dataObj ? format(dataObj, 'HH:mm') : '08:00';
+
+        // 1. Prazo principal da ficha
+        let eventoId = ficha.cr4a1_evento_id || '';
+        if (!syncFichas && eventoId) {
+          await apagar('cr4a1_agenda_kairoses', eventoId).catch(() => {});
+          eventoId = '';
+        } else if (syncFichas && dia) {
+          const { inicioIso, fimIso, horaFim } = intervaloDoEvento(dia, hora);
+          if (eventoId) {
+            await patch('cr4a1_agenda_kairoses', eventoId, {
+              cr4a1_titulo: ficha.cr4a1_titulo,
+              cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
+              cr4a1_data_inicio: inicioIso,
+              cr4a1_data_fim: fimIso,
+              cr4a1_hora_inicio: hora,
+              cr4a1_hora_fim: horaFim
+            }).catch(() => {});
+          } else {
+            const resEv = await post('cr4a1_agenda_kairoses', {
+              cr4a1_event_id: crypto.randomUUID(),
+              cr4a1_titulo: ficha.cr4a1_titulo,
+              cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
+              cr4a1_data_inicio: inicioIso,
+              cr4a1_data_fim: fimIso,
+              cr4a1_hora_inicio: hora,
+              cr4a1_hora_fim: horaFim,
+              cr4a1_tipo: 'Tarefa',
+              cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
+              cr4a1_subtasks: '[]',
+              cr4a1_privado: false,
+              cr4a1_arquivos: '[]',
+              cr4a1_workspace_id: workspaceId
+            });
+            if (resEv.ok) {
+              const criado = await resEv.json();
+              eventoId = criado?.cr4a1_agenda_kairosid || '';
+            }
+          }
+          if (eventoId) totalFichasSync += 1;
+        }
+
+        // 2. Prazos das subtasks (checklists)
+        const novosSubtasksIds = await sincronizarEventosSubtasksFicha({
+          tituloFicha: ficha.cr4a1_titulo,
+          responsavelFicha: ficha.cr4a1_responsavel_login || user,
+          horaPadrao: hora,
+          tarefas,
+          subtasksEventosIdsAtuais: meta.subtasksEventosIds || {},
+          ativar: Boolean(syncSubtasks)
+        });
+        totalSubtasksSync += Object.keys(novosSubtasksIds).length;
+
+        const novasAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, {
+          sincronizarAgenda: Boolean(syncFichas && dia),
+          sincronizarSubtasksAgenda: Boolean(syncSubtasks),
+          subtasksEventosIds: novosSubtasksIds
+        });
+
+        await patch('cr4a1_fichas', ficha.cr4a1_fichaid, {
+          cr4a1_evento_id: eventoId,
+          cr4a1_atividades: novasAtividades
+        });
+      }
+
+      recarregar();
+      refreshEvents?.();
+      if (!syncFichas && !syncSubtasks) {
+        toast.success(`Sincronização desativada para "${lista.cr4a1_nome}". Eventos removidos da Agenda.`);
+      } else {
+        toast.success(`Lista "${lista.cr4a1_nome}" sincronizada: ${totalFichasSync} ficha(s) e ${totalSubtasksSync} subtask(s) na Agenda.`);
+      }
+    } catch (err) {
+      console.error('[sincronizarListaComAgenda]', err);
+      toast.error('Erro ao sincronizar lista com a Agenda.');
+    }
   };
 
   const apagarLista = async (lista) => {
@@ -1724,6 +1906,8 @@ export const TrelloPanel = ({
       notasIds: Array.isArray(form.notasIds) ? form.notasIds : [],
       dependenciasFichasIds: Array.isArray(form.dependenciasFichasIds) ? form.dependenciasFichasIds : [],
       sincronizarAgenda: Boolean(form.sincronizarAgenda),
+      sincronizarSubtasksAgenda: Boolean(form.sincronizarSubtasksAgenda),
+      subtasksEventosIds: metaOriginal.subtasksEventosIds || {},
       notificarSistema: form.notificarSistema !== false,
       notificarEmail: Boolean(form.notificarEmail),
       convidados: convidadosLimpos,
@@ -1805,6 +1989,22 @@ export const TrelloPanel = ({
         const criado = await resCriado.json();
         eventoId = criado.cr4a1_agenda_kairosid;
       }
+
+      // Sincronização opcional das subtasks (checklists) com prazo para o Calendário da Agenda
+      const deveSincronizarSubtasks = Boolean(form.sincronizarSubtasksAgenda);
+      const novosSubtasksEventosIds = await sincronizarEventosSubtasksFicha({
+        tituloFicha: form.titulo || original.cr4a1_titulo,
+        responsavelFicha: form.responsavel || user,
+        horaPadrao: form.hora || '08:00',
+        tarefas: tarefasDaDescricao,
+        subtasksEventosIdsAtuais: metaOriginal.subtasksEventosIds || {},
+        ativar: deveSincronizarSubtasks
+      });
+      novoMeta.subtasksEventosIds = novosSubtasksEventosIds;
+      atividades = atualizarFichaMeta(atividades, {
+        sincronizarSubtasksAgenda: deveSincronizarSubtasks,
+        subtasksEventosIds: novosSubtasksEventosIds
+      });
 
       if (!isAutosave) {
         // Notificações opcionais no sistema e no e-mail (conforme solicitado pelo usuário)
@@ -1985,6 +2185,7 @@ export const TrelloPanel = ({
         notasIds: Array.isArray(meta.notasIds) ? meta.notasIds : [],
         dependenciasFichasIds: Array.isArray(meta.dependenciasFichasIds) ? meta.dependenciasFichasIds : [],
         sincronizarAgenda: meta.sincronizarAgenda ?? Boolean(ficha.cr4a1_evento_id),
+        sincronizarSubtasksAgenda: Boolean(meta.sincronizarSubtasksAgenda),
         notificarSistema: meta.notificarSistema !== false,
         notificarEmail: Boolean(meta.notificarEmail),
         convidados: (Array.isArray(meta.convidados) ? meta.convidados : []).filter(c => !membrosBaseLoginsSet.has(String(c).toLowerCase()))
@@ -3048,6 +3249,14 @@ export const TrelloPanel = ({
                 <div className="flex items-center gap-1 shrink-0 mt-0.5">
                   <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">{fichasDaLista(lista).length}</Badge>
 
+                  {!souApenasConvidado && (
+                    <ListaSincronizacaoAgendaMenu
+                      lista={lista}
+                      syncConfig={parseListaSyncAgenda(lista.cr4a1_automacao)}
+                      onSincronizar={(opcoes) => sincronizarListaComAgenda(lista, opcoes)}
+                    />
+                  )}
+
                   <ListaOrdenacaoMenu
                     criterioAtual={ordenacaoPorLista[lista.cr4a1_listaid] || 'padrao'}
                     onChange={(crit) => mudarOrdenacaoLista(lista.cr4a1_listaid, crit)}
@@ -3862,6 +4071,7 @@ const FichaForm = ({
     form.tempoEstimadoMin,
     form.tempoGastoMin,
     form.sincronizarAgenda,
+    form.sincronizarSubtasksAgenda,
     form.notificarSistema,
     form.notificarEmail,
     JSON.stringify(form.etiquetas),
@@ -4440,11 +4650,23 @@ const FichaForm = ({
                     <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
                       <div className="pr-2">
                         <p className="text-xs font-semibold text-foreground">Sincronizar com a Agenda</p>
-                        <p className="text-[10px] text-muted-foreground">Opcional: exibir no Calendário</p>
+                        <p className="text-[10px] text-muted-foreground">Opcional: exibir prazo da ficha no Calendário</p>
                       </div>
                       <Switch
                         checked={Boolean(form.sincronizarAgenda)}
                         onCheckedChange={v => set('sincronizarAgenda', v)}
+                      />
+                    </div>
+                  )}
+                  {temTarefas && (
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
+                      <div className="pr-2">
+                        <p className="text-xs font-semibold text-foreground">Sincronizar subtasks na Agenda</p>
+                        <p className="text-[10px] text-muted-foreground">Opcional: exibir subtasks com prazo no Calendário</p>
+                      </div>
+                      <Switch
+                        checked={Boolean(form.sincronizarSubtasksAgenda)}
+                        onCheckedChange={v => set('sincronizarSubtasksAgenda', v)}
                       />
                     </div>
                   )}
@@ -5469,6 +5691,22 @@ const FichaForm = ({
           <Switch
             checked={Boolean(form.sincronizarAgenda)}
             onCheckedChange={v => set('sincronizarAgenda', v)}
+          />
+        </div>
+      )}
+      {temTarefas && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/50 p-3">
+          <div className="space-y-0.5 pr-2">
+            <Label className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              <CheckCircle2 className="size-3.5 text-primary" /> Sincronizar subtasks (checklist) com a Agenda
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Opcional: envia para o Calendário cada subtarefa da checklist que possuir prazo definido.
+            </p>
+          </div>
+          <Switch
+            checked={Boolean(form.sincronizarSubtasksAgenda)}
+            onCheckedChange={v => set('sincronizarSubtasksAgenda', v)}
           />
         </div>
       )}
@@ -7524,6 +7762,101 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
 // ==========================================
 // COMPONENTES AUXILIARES PARA LISTAS DO TRELLO
 // ==========================================
+
+const ListaSincronizacaoAgendaMenu = ({ lista, syncConfig = { fichas: false, subtasks: false }, onSincronizar }) => {
+  const [aberto, setAberto] = useState(false);
+  const [syncFichas, setSyncFichas] = useState(Boolean(syncConfig.fichas));
+  const [syncSubtasks, setSyncSubtasks] = useState(Boolean(syncConfig.subtasks));
+  const [sincronizando, setSincronizando] = useState(false);
+
+  const ativo = Boolean(syncConfig.fichas || syncConfig.subtasks);
+
+  const handleOpenChange = (open) => {
+    setAberto(open);
+    if (open) {
+      setSyncFichas(Boolean(syncConfig.fichas));
+      setSyncSubtasks(Boolean(syncConfig.subtasks));
+    }
+  };
+
+  const handleAplicar = async () => {
+    setSincronizando(true);
+    try {
+      await onSincronizar({ fichas: syncFichas, subtasks: syncSubtasks });
+      setAberto(false);
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
+  return (
+    <Popover open={aberto} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Sincronizar lista ${lista?.cr4a1_nome} com a Agenda`}
+          title={ativo ? 'Sincronização com a Agenda ativa (clique para configurar)' : 'Sincronizar fichas e subtasks desta lista com a Agenda'}
+          className={`shrink-0 rounded p-1 transition-colors relative flex items-center justify-center ${
+            ativo ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-secondary'
+          }`}
+        >
+          <RefreshCw className={`size-3.5 ${sincronizando ? 'animate-spin' : ''}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5 border-b border-border pb-2">
+          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <CalendarDays className="size-3.5 text-primary" /> Sincronizar com a Agenda
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            Escolha o que deseja enviar da lista <strong>{lista?.cr4a1_nome}</strong> para o Calendário (100% opcional):
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 p-2.5">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">Prazos das fichas</p>
+              <p className="text-[10px] text-muted-foreground">Adiciona no calendário cartões que tenham prazo.</p>
+            </div>
+            <Switch checked={syncFichas} onCheckedChange={setSyncFichas} />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 p-2.5">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">Prazos das subtasks (checklists)</p>
+              <p className="text-[10px] text-muted-foreground">Adiciona no calendário cada subtask com prazo.</p>
+            </div>
+            <Switch checked={syncSubtasks} onCheckedChange={setSyncSubtasks} />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-1.5 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            disabled={sincronizando}
+            onClick={() => setAberto(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-xs gap-1.5 font-semibold"
+            disabled={sincronizando}
+            onClick={handleAplicar}
+          >
+            {sincronizando ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+            <span>{sincronizando ? 'Sincronizando...' : 'Aplicar e Sincronizar'}</span>
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const CRITERIOS_ORDENACAO = [
   { id: 'prioridade_alta', rotulo: 'Prioridade: Mais alta primeiro' },

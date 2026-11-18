@@ -29,6 +29,7 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { VisitaModal } from './components/VisitaModal';
 import { WatchPairingModal } from './components/WatchPairingModal';
 import { FilialTemporariaModal } from './components/FilialTemporariaModal';
+import { EmprestimoUnidadeModal } from './components/EmprestimoUnidadeModal';
 import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
 import { themeColors } from './constants/materialColors';
@@ -63,7 +64,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { applyDynamicTheme } from './utils/themeGenerator';
-import { parseRoles, hasCoordRole } from './utils/permissions';
+import { parseRoles, hasCoordRole, canBorrowUnit, parseUnidadesEmprestimo, getUnidadesAcessiveis } from './utils/permissions';
 import { parseAssignees, isAssignedTo } from './utils/assignees';
 import { getEventTypeLayer, typeLayerBorderStyle, typeLayerPatternStyle } from './utils/eventTypeLayer';
 
@@ -101,7 +102,7 @@ function App() {
     getEventsForDay, next, prev, user, userRole, viewedUser, setViewedUser, allUsers, credenciaisPendentes = [], criarUsuarioDaCredencial, eventTypes, addEventType, updateEventType, deleteEventType, login, logout, loading, isValidatingSession, fetchEvents, updateUserColor, registrarCorRecenteUsuario, filters, setFilters, filteredEvents, moveEvent,
     updateWhatsApp, addWorkspace, updateWorkspace, updateUnit, updateProfile, updateTrelloFundo, updateUserRoles, adicionarUsuarioAoCalendarioComum, addUser, deleteUser,
     workspaces, activeWorkspaces, toggleWorkspaceFilter,
-    organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria,
+    organizacoes = [], visitas = [], addVisitas, updateVisitas, atualizarFilialTemporaria, atualizarEmprestimoUnidade,
     gerarLinkAgendamento, confirmarVisita, recusarVisita,
     googleEvents = [], fetchGoogleEvents, disconnectGoogleCalendar,
     appRoles = [], availableRoles = [], addAppRole, renameAppRole, deleteAppRole,
@@ -323,6 +324,8 @@ function App() {
   const [isWorkspacesLoaded, setIsWorkspacesLoaded] = useState(false);
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [isFilialTemporariaOpen, setIsFilialTemporariaOpen] = useState(false);
+  const [isEmprestimoUnidadeOpen, setIsEmprestimoUnidadeOpen] = useState(false);
+  const podeEmprestarUnidade = canBorrowUnit(userRole);
 
   const [dayVisitasModalOpen, setDayVisitasModalOpen] = useState(false);
   const [selectedDayVisitas, setSelectedDayVisitas] = useState([]);
@@ -385,6 +388,10 @@ function App() {
   const [listViewMode, setListViewMode] = useState('grid');
 
   const currentUser = allUsers.find(u => u.cr4a1_username === user);
+  const minhasUnidadesEmprestimo = useMemo(
+    () => parseUnidadesEmprestimo(currentUser?.cr4a1_unidades_emprestimo || currentUser?.unidadesEmprestimo),
+    [currentUser?.cr4a1_unidades_emprestimo, currentUser?.unidadesEmprestimo]
+  );
   useEffect(() => {
     if (isProfileModalOpen) {
       setAniversarioEdit(currentUser?.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : '');
@@ -1449,6 +1456,23 @@ function App() {
                       Filial Temporária
                     </button>
                   )}
+                  {podeEmprestarUnidade && (
+                    <button
+                      onClick={() => { setIsEmprestimoUnidadeOpen(true); setIsSidebarOpen(false); }}
+                      className="nav-pill boing-effect"
+                      style={{ justifyContent: 'space-between', gap: '8px', width: '100%', padding: '10px 14px', borderRadius: '100px', border: 'none', cursor: 'pointer', marginBottom: '12px', backgroundColor: minhasUnidadesEmprestimo.length > 0 ? 'rgba(26, 115, 232, 0.12)' : 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '600' }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '19px', color: 'var(--text-accent)' }}>domain_add</span>
+                        Empréstimo de Unidade
+                      </span>
+                      {minhasUnidadesEmprestimo.length > 0 && (
+                        <span style={{ fontSize: '10px', fontWeight: '700', backgroundColor: 'var(--text-accent)', color: '#fff', borderRadius: '999px', padding: '2px 7px' }}>
+                          +{minhasUnidadesEmprestimo.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {/* Nova barra de pesquisa de workspaces */}
                   <Input
                     placeholder="Procurar workspace..."
@@ -1470,7 +1494,9 @@ function App() {
                           <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: ws.cr4a1_cor_hex || '#3498db' }}></div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ color: 'var(--text-primary)' }}>{ws.cr4a1_nome}</span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{ws.cr4a1_tipo_workspace}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                              {ws.cr4a1_tipo_workspace}{ws._porEmprestimoUnidade ? ' • Empréstimo' : ''}
+                            </span>
                           </div>
                         </label>
                         {(ws.cr4a1_criador_login === user || hasRole('ADMIN')) && (
@@ -1541,7 +1567,10 @@ function App() {
                         (u.cr4a1_nome_exibicao && matchesSearch(u.cr4a1_nome_exibicao, userSearchTerm));
                       const matchesUnit = userUnitFilter === 'Todas' || u.cr4a1_unidade === userUnitFilter;
 
-                      if (hasRole('COMUM') && !hasRole('ADMIN')) return matchesQuery && matchesUnit && u.cr4a1_unidade === currentUser?.cr4a1_unidade;
+                      if (hasRole('COMUM') && !hasRole('ADMIN')) {
+                        const unidadesPermitidas = getUnidadesAcessiveis(currentUser);
+                        return matchesQuery && matchesUnit && (unidadesPermitidas.length === 0 || unidadesPermitidas.includes(u.cr4a1_unidade));
+                      }
                       return matchesQuery && matchesUnit;
                     }).map(u => (
                       <label key={u.cr4a1_usuarios_agendaid || u.cr4a1_username} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', padding: '4px 0' }}>
@@ -1977,6 +2006,17 @@ function App() {
                   <span className="material-symbols-rounded mr-2 text-base">person</span>
                   <span>Meu Perfil</span>
                 </DropdownMenuItem>
+                {podeEmprestarUnidade && (
+                  <DropdownMenuItem onClick={() => setIsEmprestimoUnidadeOpen(true)}>
+                    <span className="material-symbols-rounded mr-2 text-base text-primary">domain_add</span>
+                    <span className="flex-1">Empréstimo de Unidade</span>
+                    {minhasUnidadesEmprestimo.length > 0 && (
+                      <span className="ml-2 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                        +{minhasUnidadesEmprestimo.length}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                )}
 
                 <DropdownMenuSeparator />
 
@@ -2163,6 +2203,7 @@ function App() {
                     user={user}
                     biConfig={BI_CONFIG}
                     biPermissoes={biPermissoes}
+                    unidadesEmprestimo={minhasUnidadesEmprestimo}
                   />
                 </React.Suspense>
               ) : appMode === 'notas' ? (
@@ -2459,6 +2500,16 @@ function App() {
               mostrarTodos={hasRole('ADMIN') || hasRole('RH')}
             />
           )}
+          {isEmprestimoUnidadeOpen && podeEmprestarUnidade && (
+            <EmprestimoUnidadeModal
+              isOpen={isEmprestimoUnidadeOpen}
+              onClose={() => setIsEmprestimoUnidadeOpen(false)}
+              currentUser={currentUser}
+              userRole={userRole}
+              allUsers={allUsers}
+              onSave={atualizarEmprestimoUnidade}
+            />
+          )}
           {isModalOpen && (
             <EventModal
               isOpen={isModalOpen}
@@ -2588,6 +2639,31 @@ function App() {
                     </Button>
                   </div>
                   <hr className="border-border" />
+                  {podeEmprestarUnidade && (
+                    <>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                        <div>
+                          <span className="font-semibold text-sm block">Empréstimo de Unidade</span>
+                          <span className="text-xs text-muted-foreground">
+                            Unidade principal: <strong>{currentUser.cr4a1_unidade || 'Não definida'}</strong>
+                            {minhasUnidadesEmprestimo.length > 0
+                              ? ` • Emprestado para: ${minhasUnidadesEmprestimo.join(', ')}`
+                              : ' • Sem empréstimo ativo'}
+                          </span>
+                        </div>
+                        <Button
+                          variant={minhasUnidadesEmprestimo.length > 0 ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => { setIsProfileModalOpen(false); setIsEmprestimoUnidadeOpen(true); }}
+                          className="gap-1.5 shrink-0 self-start sm:self-auto"
+                        >
+                          <span className="material-symbols-rounded text-sm">domain_add</span>
+                          Gerenciar
+                        </Button>
+                      </div>
+                      <hr className="border-border" />
+                    </>
+                  )}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                     <div>
                       <span className="font-semibold text-sm block">Galaxy Watch</span>

@@ -83,15 +83,25 @@ export const SsmaPanel = ({
     const [competencia, setCompetencia] = useState(format(new Date(), 'MM/yyyy'));
     const [unidade, setUnidade] = useState(isAdmin || isChefe ? '' : (currentUser?.cr4a1_unidade || ''));
 
-    const unidadesDisponiveis = useMemo(() => {
-        const set = new Set((allUsers || []).map(u => u.cr4a1_unidade).filter(Boolean));
-        return Array.from(set).sort();
-    }, [allUsers]);
+    const unidadesEmprestadasUser = Array.isArray(currentUser?.unidadesEmprestimo) ? currentUser.unidadesEmprestimo : [];
+    const unidadesPermitidasUser = useMemo(() => {
+        const principal = (currentUser?.cr4a1_unidade || '').trim();
+        return [...new Set([principal, ...unidadesEmprestadasUser].filter(Boolean))];
+    }, [currentUser?.cr4a1_unidade, unidadesEmprestadasUser]);
 
-    // Admin não tem restrição de unidade; técnico está sempre preso à própria unidade,
-    // mesmo que o estado `unidade` seja mexido em algum lugar — é a filial ligada ao
-    // login dele, não uma escolha.
-    const unidadeEfetiva = (isAdmin || isChefe) ? unidade : (currentUser?.cr4a1_unidade || '');
+    const unidadesDisponiveis = useMemo(() => {
+        if (isAdmin || isChefe) {
+            const set = new Set((allUsers || []).map(u => u.cr4a1_unidade).filter(Boolean));
+            return Array.from(set).sort();
+        }
+        return unidadesPermitidasUser;
+    }, [allUsers, isAdmin, isChefe, unidadesPermitidasUser]);
+
+    // Admin e Chefe não têm restrição de unidade; usuários com empréstimo de unidade podem
+    // alternar entre sua unidade principal e as emprestadas sem alterar sua unidade de origem.
+    const unidadeEfetiva = (isAdmin || isChefe)
+        ? unidade
+        : (unidadesPermitidasUser.includes(unidade) ? unidade : (currentUser?.cr4a1_unidade || ''));
 
     const resumo = useMemo(
         () => computeSsmaResumo(ssmaAtividades, ssmaGastos, competencia, unidadeEfetiva, indicadores),
