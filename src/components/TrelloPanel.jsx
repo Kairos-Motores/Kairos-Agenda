@@ -364,6 +364,21 @@ export const TrelloPanel = ({
   const [workspacesExtras, setWorkspacesExtras] = useState([]);
   const [listas, setListas] = useState([]);
   const [fichas, setFichas] = useState([]);
+  const fichasRef = useRef([]);
+  useEffect(() => { fichasRef.current = fichas; }, [fichas]);
+  const syncLockPorFichaRef = useRef(new Map());
+  const executarComLockFicha = useCallback((fichaId, fn) => {
+    if (!fichaId) return fn();
+    const anterior = syncLockPorFichaRef.current.get(fichaId) || Promise.resolve();
+    const proxima = anterior.catch(() => {}).then(fn);
+    syncLockPorFichaRef.current.set(fichaId, proxima);
+    proxima.finally(() => {
+      if (syncLockPorFichaRef.current.get(fichaId) === proxima) {
+        syncLockPorFichaRef.current.delete(fichaId);
+      }
+    });
+    return proxima;
+  }, []);
   const [quadro, setQuadro] = useState(null);
   const [etiquetas, setEtiquetas] = useState([]);
   const [novaLista, setNovaLista] = useState('');
@@ -1078,80 +1093,180 @@ export const TrelloPanel = ({
     }
   };
 
+  // Busca eventos de Tarefa existentes no workspace na Agenda (usado para evitar duplicação e limpar duplicatas antigas)
+  const buscarEventosTarefaWorkspace = async (wsId) => {
+    if (!wsId) return [];
+    try {
+      const filtroEv = q(`cr4a1_workspace_id eq '${wsId}' and cr4a1_tipo eq 'Tarefa'`);
+      const res = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$select=cr4a1_agenda_kairosid,cr4a1_event_id,cr4a1_titulo,cr4a1_data_inicio,cr4a1_detalhes&$filter=${filtroEv}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data.value) ? data.value : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Sincroniza (ou remove) os eventos no Calendário para cada subtask com prazo de uma ficha checklist.
+  // Usa cr4a1_event_id determinístico e deduplicação automática contra o Dataverse para nunca repetir subtasks na Agenda.
   const sincronizarEventosSubtasksFicha = async ({
+    fichaId,
     tituloFicha,
     responsavelFicha,
     horaPadrao = '08:00',
     tarefas = [],
     subtasksEventosIdsAtuais = {},
-    ativar = false
+    ativar = false,
+    eventosWorkspaceCache = null
   }) => {
     const mapaAtual = (subtasksEventosIdsAtuais && typeof subtasksEventosIdsAtuais === 'object') ? subtasksEventosIdsAtuais : {};
     const novosIds = {};
+    const prefixoEventId = fichaId ? `subtask-${fichaId}-` : '';
+    const detalheSubtask = `Subtask da checklist da ficha "${tituloFicha || 'Ficha'}"`;
+
+    const eventosExistentes = Array.isArray(eventosWorkspaceCache)
+      ? eventosWorkspaceCache
+      : await buscarEventosTarefaWorkspace(workspaceId);
+
+    const removerDaCache = (idApagado) => {
+      const idx = eventosExistentes.findIndex(e => e.cr4a1_agenda_kairosid === idApagado);
+      if (idx !== -1) eventosExistentes.splice(idx, 1);
+    };
 
     if (!ativar) {
-      for (const evId of Object.values(mapaAtual)) {
-        if (evId) await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+      const idsParaApagar = new Set(Object.values(mapaAtual).filter(Boolean));
+      for (const ev of eventosExistentes) {
+        const evId = ev.cr4a1_agenda_kairosid;
+        if (!evId) continue;
+        if (
+          (prefixoEventId && String(ev.cr4a1_event_id || '').startsWith(prefixoEventId)) ||
+          (ev.cr4a1_detalhes === detalheSubtask)
+        ) {
+          idsParaApagar.add(evId);
+        }
+      }
+      for (const evId of idsParaApagar) {
+        await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+        removerDaCache(evId);
       }
       return {};
     }
 
     const chavesAtivas = new Set();
+    const idsMantidos = new Set();
+
     for (const t of tarefas) {
       const chave = String(t.index);
+      const eventKey = prefixoEventId ? `${prefixoEventId}${chave}` : '';
       const diaLimpo = t.dataVencimento ? String(t.dataVencimento).slice(0, 10) : '';
-      const evExistente = mapaAtual[chave] || '';
+      const tituloEvento = `${t.texto || 'Subtask'} (${tituloFicha || 'Ficha'})`;
+      const evIdSalvo = mapaAtual[chave] || '';
+
+      // Localiza TODOS os eventos existentes desta subtask (por ID salvo, por cr4a1_event_id determinístico ou duplicata legada)
+      const matches = eventosExistentes.filter(ev => {
+        if (!ev?.cr4a1_agenda_kairosid) return false;
+        if (idsMantidos.has(ev.cr4a1_agenda_kairosid)) return false;
+        if (evIdSalvo && ev.cr4a1_agenda_kairosid === evIdSalvo) return true;
+        if (eventKey && ev.cr4a1_event_id === eventKey) return true;
+        if (ev.cr4a1_titulo === tituloEvento && ev.cr4a1_detalhes === detalheSubtask) return true;
+        return false;
+      });
 
       if (!diaLimpo) {
-        if (evExistente) await apagar('cr4a1_agenda_kairoses', evExistente).catch(() => {});
+        for (const m of matches) {
+          await apagar('cr4a1_agenda_kairoses', m.cr4a1_agenda_kairosid).catch(() => {});
+          removerDaCache(m.cr4a1_agenda_kairosid);
+        }
+        if (evIdSalvo && !matches.some(m => m.cr4a1_agenda_kairosid === evIdSalvo)) {
+          await apagar('cr4a1_agenda_kairoses', evIdSalvo).catch(() => {});
+        }
         continue;
       }
 
       chavesAtivas.add(chave);
       const { inicioIso, fimIso, horaFim } = intervaloDoEvento(diaLimpo, horaPadrao || '08:00');
-      const tituloEvento = `${t.texto || 'Subtask'} (${tituloFicha || 'Ficha'})`;
       const respEvento = t.responsavel || responsavelFicha || user;
 
-      if (evExistente) {
-        await patch('cr4a1_agenda_kairoses', evExistente, {
-          cr4a1_titulo: tituloEvento,
-          cr4a1_user_login: respEvento,
-          cr4a1_data_inicio: inicioIso,
-          cr4a1_data_fim: fimIso,
-          cr4a1_hora_inicio: horaPadrao || '08:00',
-          cr4a1_hora_fim: horaFim
-        }).catch(() => {});
-        novosIds[chave] = evExistente;
-      } else {
-        const resCriado = await post('cr4a1_agenda_kairoses', {
-          cr4a1_event_id: crypto.randomUUID(),
+      // Se houver duplicatas (ex.: de sincronizações anteriores), mantém a primeira e apaga todas as cópias extras!
+      if (matches.length > 1) {
+        for (const dup of matches.slice(1)) {
+          await apagar('cr4a1_agenda_kairoses', dup.cr4a1_agenda_kairosid).catch(() => {});
+          removerDaCache(dup.cr4a1_agenda_kairosid);
+        }
+      }
+
+      const evPrincipalId = matches[0]?.cr4a1_agenda_kairosid || '';
+
+      if (evPrincipalId) {
+        const resPatch = await patch('cr4a1_agenda_kairoses', evPrincipalId, {
+          ...(eventKey ? { cr4a1_event_id: eventKey } : {}),
           cr4a1_titulo: tituloEvento,
           cr4a1_user_login: respEvento,
           cr4a1_data_inicio: inicioIso,
           cr4a1_data_fim: fimIso,
           cr4a1_hora_inicio: horaPadrao || '08:00',
           cr4a1_hora_fim: horaFim,
-          cr4a1_tipo: 'Tarefa',
-          cr4a1_detalhes: `Subtask da checklist da ficha "${tituloFicha || 'Ficha'}"`,
-          cr4a1_subtasks: '[]',
-          cr4a1_privado: false,
-          cr4a1_arquivos: '[]',
-          cr4a1_workspace_id: workspaceId
-        });
-        if (resCriado.ok) {
-          const criado = await resCriado.json();
-          if (criado?.cr4a1_agenda_kairosid) {
-            novosIds[chave] = criado.cr4a1_agenda_kairosid;
+          cr4a1_detalhes: detalheSubtask
+        }).catch(() => null);
+        if (resPatch && resPatch.ok) {
+          novosIds[chave] = evPrincipalId;
+          idsMantidos.add(evPrincipalId);
+          if (matches[0]) {
+            matches[0].cr4a1_event_id = eventKey || matches[0].cr4a1_event_id;
+            matches[0].cr4a1_titulo = tituloEvento;
+            matches[0].cr4a1_data_inicio = inicioIso;
           }
+          continue;
+        }
+      }
+
+      const resCriado = await post('cr4a1_agenda_kairoses', {
+        cr4a1_event_id: eventKey || crypto.randomUUID(),
+        cr4a1_titulo: tituloEvento,
+        cr4a1_user_login: respEvento,
+        cr4a1_data_inicio: inicioIso,
+        cr4a1_data_fim: fimIso,
+        cr4a1_hora_inicio: horaPadrao || '08:00',
+        cr4a1_hora_fim: horaFim,
+        cr4a1_tipo: 'Tarefa',
+        cr4a1_detalhes: detalheSubtask,
+        cr4a1_subtasks: '[]',
+        cr4a1_privado: false,
+        cr4a1_arquivos: '[]',
+        cr4a1_workspace_id: workspaceId
+      });
+      if (resCriado.ok) {
+        const criado = await resCriado.json();
+        if (criado?.cr4a1_agenda_kairosid) {
+          novosIds[chave] = criado.cr4a1_agenda_kairosid;
+          idsMantidos.add(criado.cr4a1_agenda_kairosid);
+          eventosExistentes.push({
+            cr4a1_agenda_kairosid: criado.cr4a1_agenda_kairosid,
+            cr4a1_event_id: eventKey || criado.cr4a1_event_id,
+            cr4a1_titulo: tituloEvento,
+            cr4a1_data_inicio: inicioIso,
+            cr4a1_detalhes: detalheSubtask
+          });
         }
       }
     }
 
-    // Remove eventos órfãos de subtasks excluídas
+    // Remove eventos órfãos ou duplicatas residuais de subtasks excluídas desta ficha
     for (const [chave, evId] of Object.entries(mapaAtual)) {
-      if (!chavesAtivas.has(chave) && evId) {
+      if (!chavesAtivas.has(chave) && evId && !idsMantidos.has(evId)) {
         await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+        removerDaCache(evId);
+      }
+    }
+    for (const ev of [...eventosExistentes]) {
+      const evId = ev.cr4a1_agenda_kairosid;
+      if (!evId || idsMantidos.has(evId)) continue;
+      if (
+        (prefixoEventId && String(ev.cr4a1_event_id || '').startsWith(prefixoEventId)) ||
+        (ev.cr4a1_detalhes === detalheSubtask)
+      ) {
+        await apagar('cr4a1_agenda_kairoses', evId).catch(() => {});
+        removerDaCache(evId);
       }
     }
 
@@ -1166,78 +1281,97 @@ export const TrelloPanel = ({
       });
       await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_automacao: novoConfigLista });
 
-      const fichasDaColuna = fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid && !ehFichaArquivada(f));
+      const eventosWorkspaceCache = await buscarEventosTarefaWorkspace(workspaceId);
+      const fichasDaColuna = fichasRef.current.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid && !ehFichaArquivada(f));
       let totalFichasSync = 0;
       let totalSubtasksSync = 0;
 
-      for (const ficha of fichasDaColuna) {
-        const meta = parseFichaMeta(ficha.cr4a1_atividades);
-        const tarefas = extrairTarefas(ficha.cr4a1_descricao);
-        const dataIsoFicha = ficha.cr4a1_data_inicio;
-        const dataObj = dataIsoFicha ? new Date(dataIsoFicha) : null;
-        const dia = dataObj ? format(dataObj, 'yyyy-MM-dd') : '';
-        const hora = dataObj ? format(dataObj, 'HH:mm') : '08:00';
+      for (const fichaBase of fichasDaColuna) {
+        await executarComLockFicha(fichaBase.cr4a1_fichaid, async () => {
+          const ficha = fichasRef.current.find(f => f.cr4a1_fichaid === fichaBase.cr4a1_fichaid) || fichaBase;
+          const meta = parseFichaMeta(ficha.cr4a1_atividades);
+          const tarefas = extrairTarefas(ficha.cr4a1_descricao);
+          const dataIsoFicha = ficha.cr4a1_data_inicio;
+          const dataObj = dataIsoFicha ? new Date(dataIsoFicha) : null;
+          const dia = dataObj ? format(dataObj, 'yyyy-MM-dd') : '';
+          const hora = dataObj ? format(dataObj, 'HH:mm') : '08:00';
 
-        // 1. Prazo principal da ficha
-        let eventoId = ficha.cr4a1_evento_id || '';
-        if (!syncFichas && eventoId) {
-          await apagar('cr4a1_agenda_kairoses', eventoId).catch(() => {});
-          eventoId = '';
-        } else if (syncFichas && dia) {
-          const { inicioIso, fimIso, horaFim } = intervaloDoEvento(dia, hora);
-          if (eventoId) {
-            await patch('cr4a1_agenda_kairoses', eventoId, {
-              cr4a1_titulo: ficha.cr4a1_titulo,
-              cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
-              cr4a1_data_inicio: inicioIso,
-              cr4a1_data_fim: fimIso,
-              cr4a1_hora_inicio: hora,
-              cr4a1_hora_fim: horaFim
-            }).catch(() => {});
-          } else {
-            const resEv = await post('cr4a1_agenda_kairoses', {
-              cr4a1_event_id: crypto.randomUUID(),
-              cr4a1_titulo: ficha.cr4a1_titulo,
-              cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
-              cr4a1_data_inicio: inicioIso,
-              cr4a1_data_fim: fimIso,
-              cr4a1_hora_inicio: hora,
-              cr4a1_hora_fim: horaFim,
-              cr4a1_tipo: 'Tarefa',
-              cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
-              cr4a1_subtasks: '[]',
-              cr4a1_privado: false,
-              cr4a1_arquivos: '[]',
-              cr4a1_workspace_id: workspaceId
-            });
-            if (resEv.ok) {
-              const criado = await resEv.json();
-              eventoId = criado?.cr4a1_agenda_kairosid || '';
+          // 1. Prazo principal da ficha
+          let eventoId = ficha.cr4a1_evento_id || '';
+          const fichaEventKey = `ficha-${ficha.cr4a1_fichaid}`;
+          if (!syncFichas && eventoId) {
+            await apagar('cr4a1_agenda_kairoses', eventoId).catch(() => {});
+            eventoId = '';
+          } else if (syncFichas && dia) {
+            const { inicioIso, fimIso, horaFim } = intervaloDoEvento(dia, hora);
+            const evMatch = eventosWorkspaceCache.find(e =>
+              (eventoId && e.cr4a1_agenda_kairosid === eventoId) || e.cr4a1_event_id === fichaEventKey
+            );
+            const idAlvo = evMatch?.cr4a1_agenda_kairosid || eventoId;
+            if (idAlvo) {
+              const resP = await patch('cr4a1_agenda_kairoses', idAlvo, {
+                cr4a1_event_id: fichaEventKey,
+                cr4a1_titulo: ficha.cr4a1_titulo,
+                cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
+                cr4a1_data_inicio: inicioIso,
+                cr4a1_data_fim: fimIso,
+                cr4a1_hora_inicio: hora,
+                cr4a1_hora_fim: horaFim
+              }).catch(() => null);
+              eventoId = (resP && resP.ok) ? idAlvo : '';
             }
+            if (!eventoId) {
+              const resEv = await post('cr4a1_agenda_kairoses', {
+                cr4a1_event_id: fichaEventKey,
+                cr4a1_titulo: ficha.cr4a1_titulo,
+                cr4a1_user_login: ficha.cr4a1_responsavel_login || user,
+                cr4a1_data_inicio: inicioIso,
+                cr4a1_data_fim: fimIso,
+                cr4a1_hora_inicio: hora,
+                cr4a1_hora_fim: horaFim,
+                cr4a1_tipo: 'Tarefa',
+                cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
+                cr4a1_subtasks: '[]',
+                cr4a1_privado: false,
+                cr4a1_arquivos: '[]',
+                cr4a1_workspace_id: workspaceId
+              });
+              if (resEv.ok) {
+                const criado = await resEv.json();
+                eventoId = criado?.cr4a1_agenda_kairosid || '';
+              }
+            }
+            if (eventoId) totalFichasSync += 1;
           }
-          if (eventoId) totalFichasSync += 1;
-        }
 
-        // 2. Prazos das subtasks (checklists)
-        const novosSubtasksIds = await sincronizarEventosSubtasksFicha({
-          tituloFicha: ficha.cr4a1_titulo,
-          responsavelFicha: ficha.cr4a1_responsavel_login || user,
-          horaPadrao: hora,
-          tarefas,
-          subtasksEventosIdsAtuais: meta.subtasksEventosIds || {},
-          ativar: Boolean(syncSubtasks)
-        });
-        totalSubtasksSync += Object.keys(novosSubtasksIds).length;
+          // 2. Prazos das subtasks (checklists) — com deduplicação automática
+          const novosSubtasksIds = await sincronizarEventosSubtasksFicha({
+            fichaId: ficha.cr4a1_fichaid,
+            tituloFicha: ficha.cr4a1_titulo,
+            responsavelFicha: ficha.cr4a1_responsavel_login || user,
+            horaPadrao: hora,
+            tarefas,
+            subtasksEventosIdsAtuais: meta.subtasksEventosIds || {},
+            ativar: Boolean(syncSubtasks),
+            eventosWorkspaceCache
+          });
+          totalSubtasksSync += Object.keys(novosSubtasksIds).length;
 
-        const novasAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, {
-          sincronizarAgenda: Boolean(syncFichas && dia),
-          sincronizarSubtasksAgenda: Boolean(syncSubtasks),
-          subtasksEventosIds: novosSubtasksIds
-        });
+          const novasAtividades = atualizarFichaMeta(ficha.cr4a1_atividades, {
+            sincronizarAgenda: Boolean(syncFichas && dia),
+            sincronizarSubtasksAgenda: Boolean(syncSubtasks),
+            subtasksEventosIds: novosSubtasksIds
+          });
 
-        await patch('cr4a1_fichas', ficha.cr4a1_fichaid, {
-          cr4a1_evento_id: eventoId,
-          cr4a1_atividades: novasAtividades
+          await patch('cr4a1_fichas', ficha.cr4a1_fichaid, {
+            cr4a1_evento_id: eventoId,
+            cr4a1_atividades: novasAtividades
+          });
+          setFichas(prev => prev.map(item =>
+            item.cr4a1_fichaid === ficha.cr4a1_fichaid
+              ? { ...item, cr4a1_evento_id: eventoId, cr4a1_atividades: novasAtividades }
+              : item
+          ));
         });
       }
 
@@ -1839,8 +1973,9 @@ export const TrelloPanel = ({
     }
   };
 
-  // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida.
-  const salvarFicha = async (form, original, options = {}) => {
+  // Salva a ficha e mantém o evento da agenda em sintonia com a data escolhida (serializado por fichaId para evitar duplicação).
+  const salvarFicha = async (form, originalBase, options = {}) => executarComLockFicha(originalBase?.cr4a1_fichaid, async () => {
+    const original = fichasRef.current.find(f => f.cr4a1_fichaid === originalBase?.cr4a1_fichaid) || originalBase;
     const isAutosave = Boolean(options.autosave);
     const manterAberto = Boolean(options.manterAberto);
     const tarefasDaDescricao = extrairTarefas(form.descricao);
@@ -1993,6 +2128,7 @@ export const TrelloPanel = ({
       // Sincronização opcional das subtasks (checklists) com prazo para o Calendário da Agenda
       const deveSincronizarSubtasks = Boolean(form.sincronizarSubtasksAgenda);
       const novosSubtasksEventosIds = await sincronizarEventosSubtasksFicha({
+        fichaId: original.cr4a1_fichaid,
         tituloFicha: form.titulo || original.cr4a1_titulo,
         responsavelFicha: form.responsavel || user,
         horaPadrao: form.hora || '08:00',
@@ -2149,7 +2285,7 @@ export const TrelloPanel = ({
     } catch {
       toast.error('Erro ao salvar ficha.');
     }
-  };
+  });
 
   const excluirFicha = async (ficha) => {
     if (!(await confirm(`Excluir a ficha "${ficha.cr4a1_titulo}"?`, { title: 'Excluir ficha' }))) return;
@@ -4029,6 +4165,13 @@ const FichaForm = ({
   // Status do Salvamento Automático na Nuvem
   const [autosaveStatus, setAutosaveStatus] = useState(null); // 'saving' | 'saved' | null
   const isPrimeiraRenderRef = useRef(true);
+  const autosaveTimerRef = useRef(null);
+  const cancelarAutosavePendente = () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+  };
 
   // Autosave com debounce de 1500ms quando qualquer campo for alterado
   useEffect(() => {
@@ -4039,7 +4182,8 @@ const FichaForm = ({
     if (!form.titulo?.trim() || !form.listaId) return;
 
     setAutosaveStatus('saving');
-    const timer = setTimeout(async () => {
+    autosaveTimerRef.current = setTimeout(async () => {
+      autosaveTimerRef.current = null;
       try {
         if (onAutosave) {
           await onAutosave(form);
@@ -4051,7 +4195,7 @@ const FichaForm = ({
       }
     }, 1500);
 
-    return () => clearTimeout(timer);
+    return () => cancelarAutosavePendente();
   }, [
     form.titulo,
     form.descricao,
@@ -4621,6 +4765,7 @@ const FichaForm = ({
                       <button
                         type="button"
                         onClick={() => {
+                          cancelarAutosavePendente();
                           const atualizado = { ...form, dia: '', sincronizarAgenda: false };
                           setForm(atualizado);
                           onSaveRapido?.(atualizado, 'Prazo removido.');
@@ -4685,6 +4830,7 @@ const FichaForm = ({
                       size="sm"
                       className="h-8 text-xs font-semibold"
                       onClick={() => {
+                        cancelarAutosavePendente();
                         onSaveRapido?.(form, 'Prazo atualizado.');
                         setPrazoPopoverAberto(false);
                       }}
@@ -4736,6 +4882,7 @@ const FichaForm = ({
                           key={chave || '__sem__'}
                           type="button"
                           onClick={() => {
+                            cancelarAutosavePendente();
                             const atualizado = { ...form, prioridade: chave };
                             setForm(atualizado);
                             onSaveRapido?.(atualizado, 'Prioridade atualizada.');
@@ -6356,7 +6503,7 @@ const FichaForm = ({
             </span>
           )}
           <Button variant="outline" size="sm" className="h-9 px-2.5 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => setIsEditing(false)}>Cancelar</Button>
-          <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => { onSave(form); setIsEditing(false); }} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
+          <Button size="sm" className="h-9 px-3 sm:h-10 sm:px-4 text-xs sm:text-sm" onClick={() => { cancelarAutosavePendente(); onSave(form); setIsEditing(false); }} disabled={!form.titulo.trim() || !form.listaId}>Salvar</Button>
         </div>
       </DialogFooter>
     </div>
