@@ -544,7 +544,16 @@ function App() {
       });
     }
 
-    return events;
+    // Deduplicação estrita para garantir que nenhum evento/subtask apareça duplicado na interface
+    const mapUnicos = new Map();
+    for (const ev of events) {
+      const chave = ev.cr4a1_agenda_kairosid || ev.id || ev.cr4a1_event_id;
+      if (!chave) continue;
+      if (!mapUnicos.has(chave)) {
+        mapUnicos.set(chave, ev);
+      }
+    }
+    return Array.from(mapUnicos.values());
   };
 
   useEffect(() => {

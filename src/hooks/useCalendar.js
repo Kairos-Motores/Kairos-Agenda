@@ -173,26 +173,45 @@ export const useCalendar = () => {
     };
 
     const fetchEvents = useCallback(async () => {
-        if (workspaces.length === 0) { setEvents([]); return; }
+        if (!user) { setEvents([]); return; }
         setLoading(true);
         try {
-            const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
-            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${encodeURIComponent(wsFilter)}`);
+            const condicoes = [];
+            if (workspaces.length > 0) {
+                const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
+                condicoes.push(`(${wsFilter})`);
+            }
+            // Além dos workspaces diretos, busca tarefas/subtasks atribuídas ao usuário onde quer que estejam (incluindo workspaces onde é convidado)
+            condicoes.push(`(contains(cr4a1_user_login, '${user}') and cr4a1_tipo eq 'Tarefa')`);
+
+            const filterQuery = encodeURIComponent(condicoes.join(' or '));
+            const response = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$filter=${filterQuery}`);
             const data = await response.json();
-            const mapped = (data.value || []).filter(e => !e.cr4a1_privado || isAssignedTo(e.cr4a1_user_login, user)).map(e => {
+            const rawEvents = Array.isArray(data.value) ? data.value : [];
+
+            // Deduplicação estrita por ID e cr4a1_event_id para nunca exibir eventos repetidos na Agenda
+            const mapUnicos = new Map();
+            rawEvents.forEach(e => {
+                if (e.cr4a1_privado && !isAssignedTo(e.cr4a1_user_login, user)) return;
+
+                const chave = e.cr4a1_agenda_kairosid || e.cr4a1_event_id;
+                if (!chave || mapUnicos.has(chave)) return;
+
                 const inicio = diaLocal(e.cr4a1_data_inicio);
                 const fimBruto = diaLocal(e.cr4a1_data_fim);
                 // Eventos salvos com data final anterior à inicial sumiam da agenda; mostram no dia de início.
                 const fim = fimBruto && inicio && fimBruto < inicio ? inicio : fimBruto;
-                return {
+
+                mapUnicos.set(chave, {
                     ...e,
                     cr4a1_data_inicio: inicio,
                     cr4a1_data_fim: fim,
                     cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
                     cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
-                };
+                });
             });
-            setEvents(mapped);
+
+            setEvents(Array.from(mapUnicos.values()));
         } catch (error) { setEvents([]); } finally { setLoading(false); }
     }, [workspaces, user]);
 
@@ -424,21 +443,68 @@ export const useCalendar = () => {
                 };
             });
 
-            setWorkspaces(wsList);
-            try { localStorage.setItem('kairos_workspaces_cache', JSON.stringify(wsList)); } catch (e) { void e; }
+            // Descobre workspaces onde o usuário é apenas convidado externo em Fichas ou Listas
+            const userLower = String(user || '').trim().toLowerCase();
+            const wsConhecidos = new Set(wsList.map(w => w.cr4a1_calendarios_workspacesid));
+            let wsConvidadosExtras = [];
+            try {
+                const [resFichasConv, resListasConv] = await Promise.all([
+                    fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_workspace_id,cr4a1_atividades&$filter=${encodeURIComponent(`contains(cr4a1_atividades, '${user}')`)}`)
+                        .then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
+                    fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_workspace_id,cr4a1_automacao&$filter=${encodeURIComponent(`contains(cr4a1_automacao, '${user}')`)}`)
+                        .then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
+                ]);
 
+                const wsIdsConvidados = new Set();
+                (resFichasConv.value || []).forEach(f => {
+                    const meta = parseFichaMeta(f.cr4a1_atividades);
+                    if ((meta.convidados || []).some(c => String(c).toLowerCase() === userLower)) {
+                        if (f.cr4a1_workspace_id && !wsConhecidos.has(f.cr4a1_workspace_id)) {
+                            wsIdsConvidados.add(f.cr4a1_workspace_id);
+                        }
+                    }
+                });
+                (resListasConv.value || []).forEach(l => {
+                    if (parseListaConvidados(l.cr4a1_automacao).some(c => String(c).toLowerCase() === userLower)) {
+                        if (l.cr4a1_workspace_id && !wsConhecidos.has(l.cr4a1_workspace_id)) {
+                            wsIdsConvidados.add(l.cr4a1_workspace_id);
+                        }
+                    }
+                });
+
+                if (wsIdsConvidados.size > 0) {
+                    const filtroConv = encodeURIComponent(Array.from(wsIdsConvidados).map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
+                    const resWsConv = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filtroConv}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }));
+                    wsConvidadosExtras = (resWsConv.value || []).map(w => ({
+                        ...w,
+                        _apenasFichasConvidado: true,
+                        cr4a1_nome: w.cr4a1_nome ? `${w.cr4a1_nome} (Convidado)` : 'Workspace (Convidado)'
+                    }));
+                }
+            } catch { /* ignora erro de busca de convidados */ }
+
+            const wsListFinal = [...wsList, ...wsConvidadosExtras];
+
+            setWorkspaces(wsListFinal);
+            try { localStorage.setItem('kairos_workspaces_cache', JSON.stringify(wsListFinal)); } catch (e) { void e; }
+
+            const idsParaAtivar = [];
             if (activeWorkspaces.length === 0) {
-                const activeIds = wsList.map(w => w.cr4a1_calendarios_workspacesid);
+                const activeIds = wsListFinal.map(w => w.cr4a1_calendarios_workspacesid);
                 setActiveWorkspaces(activeIds);
                 try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(activeIds)); } catch (e) { void e; }
-            } else if (unidadesEmprestadas.length > 0) {
-                // Garante que workspaces recém-emprestados apareçam imediatamente nos menus e BIs
-                const idsEmprestimo = wsList
-                    .filter(w => emprestadasSet.has(String(w.cr4a1_nome || '').trim().toLowerCase()))
-                    .map(w => w.cr4a1_calendarios_workspacesid);
-                if (idsEmprestimo.length > 0) {
+            } else {
+                if (unidadesEmprestadas.length > 0) {
+                    wsList
+                        .filter(w => emprestadasSet.has(String(w.cr4a1_nome || '').trim().toLowerCase()))
+                        .forEach(w => idsParaAtivar.push(w.cr4a1_calendarios_workspacesid));
+                }
+                if (wsConvidadosExtras.length > 0) {
+                    wsConvidadosExtras.forEach(w => idsParaAtivar.push(w.cr4a1_calendarios_workspacesid));
+                }
+                if (idsParaAtivar.length > 0) {
                     setActiveWorkspaces(prev => {
-                        const proximo = [...new Set([...prev, ...idsEmprestimo])];
+                        const proximo = [...new Set([...prev, ...idsParaAtivar])];
                         try { localStorage.setItem('kairos_active_workspaces', JSON.stringify(proximo)); } catch { /* ignora */ }
                         return proximo;
                     });
@@ -918,14 +984,27 @@ export const useCalendar = () => {
 
     const filteredEvents = useMemo(() => {
         if (activeWorkspaces.length === 0) return [];
+        const wsMap = new Map(workspaces.map(w => [w.cr4a1_calendarios_workspacesid, w]));
+
         return events.filter(event => {
             const matchesWorkspace = activeWorkspaces.includes(event.cr4a1_workspace_id);
+            if (!matchesWorkspace) return false;
+
+            // Se o usuário é apenas convidado externo neste workspace (não é membro pleno):
+            // Só pode ver eventos do Fichas (cr4a1_tipo === 'Tarefa') que sejam atribuídos a ele!
+            // Todas as outras reuniões, visitas, notas e eventos de terceiros permanecem estritamente invisíveis.
+            const wsObj = wsMap.get(event.cr4a1_workspace_id);
+            if (wsObj?._apenasFichasConvidado) {
+                const ehMinhaTarefa = event.cr4a1_tipo === 'Tarefa' && isAssignedTo(event.cr4a1_user_login, user);
+                if (!ehMinhaTarefa) return false;
+            }
+
             const matchesText = !filters.text || (matchesSearch(event.cr4a1_titulo, filters.text)) || (matchesSearch(event.cr4a1_detalhes, filters.text));
             const matchesUser = filters.users.length === 0 || parseAssignees(event.cr4a1_user_login).some(u => filters.users.includes(u));
             const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
-            return matchesWorkspace && matchesText && matchesUser && matchesType;
+            return matchesText && matchesUser && matchesType;
         });
-    }, [events, filters, activeWorkspaces]);
+    }, [events, filters, activeWorkspaces, workspaces, user]);
 
     const toggleWorkspaceFilter = (wsId) => {
         setActiveWorkspaces(prev => {

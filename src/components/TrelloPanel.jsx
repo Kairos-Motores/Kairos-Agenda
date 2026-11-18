@@ -78,6 +78,13 @@ import { stickers } from '../constants/stickers';
 import { WORKSPACE_COORD_ROLES } from '../config/roleWorkspaceMap';
 import { useConfirm } from '../hooks/useConfirm';
 
+const obterMetaPadrao = () => {
+  try {
+    if (typeof META_PADRAO === 'function') return META_PADRAO();
+  } catch {}
+  return parseFichaMeta('');
+};
+
 const API_PROXY = '/api/dataverse-proxy';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
@@ -1169,6 +1176,7 @@ export const TrelloPanel = ({
         if (evIdSalvo && ev.cr4a1_agenda_kairosid === evIdSalvo) return true;
         if (eventKey && ev.cr4a1_event_id === eventKey) return true;
         if (ev.cr4a1_titulo === tituloEvento && ev.cr4a1_detalhes === detalheSubtask) return true;
+        if (ev.cr4a1_detalhes === detalheSubtask && (ev.cr4a1_titulo === t.texto || ev.cr4a1_titulo?.startsWith(t.texto))) return true;
         return false;
       });
 
@@ -4236,7 +4244,7 @@ const FichaForm = ({
 
   const progressoFichaAtual = useMemo(() => {
     const metaAtual = {
-      ...META_PADRAO(),
+      ...obterMetaPadrao(),
       ...form,
       dependenciasFichasIds
     };

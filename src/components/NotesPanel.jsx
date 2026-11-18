@@ -734,7 +734,7 @@ export const NotesPanel = ({
       }
 
       const meta = {
-        ...META_PADRAO(),
+        ...(typeof META_PADRAO === 'function' ? META_PADRAO() : {}),
         notasIds: notaId ? [notaId] : []
       };
       const corpo = {
