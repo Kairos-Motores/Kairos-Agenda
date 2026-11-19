@@ -3554,6 +3554,16 @@ export const TrelloPanel = ({
                       }}
                       className={`flex w-[84vw] sm:w-72 shrink-0 max-w-[320px] snap-start flex-col gap-2 rounded-2xl border p-3 max-h-[calc(100dvh-130px)] sm:max-h-[calc(100vh-120px)] ${pessoal ? 'border-primary/40 bg-primary/5' : 'border-border bg-secondary'} ${snapshotList.isDragging ? 'shadow-2xl ring-2 ring-primary/40 rotate-1 z-50' : ''}`}
                     >
+                      {lista._origemWorkspaceNome && (
+                        <div className="flex items-center px-0.5 -mb-0.5 shrink-0">
+                          <span
+                            className="inline-flex max-w-full truncate text-[10px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-semibold"
+                            title={`Workspace de origem: ${lista._origemWorkspaceNome}`}
+                          >
+                            {lista._origemWorkspaceNome}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-1 shrink-0">
                         <div
                           {...providedList.dragHandleProps}
@@ -3591,11 +3601,6 @@ export const TrelloPanel = ({
                   className="min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-sm font-bold leading-snug text-foreground outline-none break-words [word-break:normal] hyphens-none focus:ring-1 focus:ring-primary/40 rounded px-1"
                 />
                 <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                  {lista._origemWorkspaceNome && (
-                    <span className="text-[10px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-medium" title={`Workspace de origem: ${lista._origemWorkspaceNome}`}>
-                      {lista._origemWorkspaceNome}
-                    </span>
-                  )}
                   <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">{fichasDaLista(lista).length}</Badge>
 
                   {!souApenasConvidado && (
