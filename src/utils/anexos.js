@@ -2,8 +2,13 @@
 // data URL base64 guardado direto numa coluna de texto do Dataverse (sem serviço de storage
 // à parte). O campo aguenta ~1.048.576 caracteres — damos uma boa margem abaixo disso pra
 // sobrar espaço pro JSON em volta (nome, tamanho...) e pra mais de um arquivo.
-export const MAX_ANEXO_BYTES = 400 * 1024; // 400 KB por arquivo
-export const MAX_TOTAL_ANEXOS_BYTES = 700 * 1024; // ~700 KB somando todos os anexos do mesmo registro
+export const MAX_ANEXO_BYTES = 400 * 1024; // 400 KB por arquivo (legado/eventos)
+export const MAX_TOTAL_ANEXOS_BYTES = 700 * 1024; // ~700 KB somando todos os anexos do mesmo registro (legado)
+
+// Limite para anexos das FICHAS: salvos diretamente na tabela dedicada "annotations" do Dataverse.
+// Cada arquivo é um registro independente, superando o teto de 1 MB da coluna de texto e permitindo
+// múltiplos arquivos grandes por cartão.
+export const MAX_ANEXO_FICHA_BYTES = Math.floor(3.5 * 1024 * 1024); // 3.5 MB por arquivo
 
 export const formatarTamanho = (bytes) => {
   if (!bytes) return '0 B';
@@ -42,11 +47,76 @@ export const tipoDoAnexo = (anexo) => {
 
 export const primeiraImagem = (anexos) => (anexos || []).find(a => tipoDoAnexo(a) === 'imagem') || null;
 
-export const baixarAnexo = (anexo) => {
+export const obterBase64Anexo = async (anexo) => {
+  if (anexo?.base64) return anexo.base64;
+  if (!anexo?.annotationId) return null;
+  try {
+    const res = await fetch(`/api/dataverse-proxy?table=annotations&id=${anexo.annotationId}&$select=documentbody,mimetype,filename`);
+    if (!res.ok) throw new Error('Falha ao baixar anexo do Dataverse');
+    const data = await res.json();
+    const mime = data.mimetype || anexo.type || 'application/octet-stream';
+    const dataUrl = `data:${mime};base64,${data.documentbody}`;
+    anexo.base64 = dataUrl;
+    return dataUrl;
+  } catch (err) {
+    console.error('Erro ao obter anexo do Dataverse:', err);
+    return null;
+  }
+};
+
+export const baixarAnexo = async (anexo) => {
+  const base64 = await obterBase64Anexo(anexo);
+  if (!base64) return;
   const a = document.createElement('a');
-  a.href = anexo.base64;
+  a.href = base64;
   a.download = anexo.name;
   a.click();
+};
+
+export const uploadAnexoDataverse = async (fichaId, processado) => {
+  if (!fichaId) throw new Error('ID da ficha ausente para o upload.');
+  const rawBase64 = processado.base64.includes(',')
+    ? processado.base64.split(',')[1]
+    : processado.base64;
+
+  const res = await fetch('/api/dataverse-proxy?table=annotations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      subject: `Anexo Ficha: ${processado.name}`,
+      filename: processado.name,
+      mimetype: processado.type || 'application/octet-stream',
+      documentbody: rawBase64,
+      'objectid_cr4a1_ficha@odata.bind': `/cr4a1_fichas(${fichaId})`
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || err.error || 'Erro ao salvar anexo no Dataverse.');
+  }
+
+  const data = await res.json();
+  return {
+    id: data.annotationid,
+    annotationId: data.annotationid,
+    name: processado.name,
+    size: processado.size,
+    type: processado.type,
+    base64: processado.base64,
+    thumbnail: processado.thumbnail
+  };
+};
+
+export const removerAnexoDataverse = async (annotationId) => {
+  if (!annotationId) return;
+  try {
+    await fetch(`/api/dataverse-proxy?table=annotations&id=${annotationId}`, {
+      method: 'DELETE'
+    });
+  } catch (e) {
+    console.warn('Erro ao deletar anexo no Dataverse:', e);
+  }
 };
 
 /**
@@ -106,11 +176,23 @@ export const comprimirImagemParaAnexo = (file, options = {}) => {
           const originalExt = file.name.split('.').pop() || 'jpg';
           const novoNome = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
 
+          let thumbnail = null;
+          try {
+            const thumbCanvas = document.createElement('canvas');
+            const thumbRatio = Math.min(260 / (width || 1), 160 / (height || 1), 1);
+            thumbCanvas.width = Math.max(1, Math.round((width || 1) * thumbRatio));
+            thumbCanvas.height = Math.max(1, Math.round((height || 1) * thumbRatio));
+            const thumbCtx = thumbCanvas.getContext('2d');
+            thumbCtx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+            thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.65);
+          } catch {}
+
           resolve({
             name: novoNome,
             size: approxBytes,
             type: 'image/jpeg',
             base64: dataUrl,
+            thumbnail,
             originalSize: file.size,
             foiComprimido: file.size > approxBytes
           });

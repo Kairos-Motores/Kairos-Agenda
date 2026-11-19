@@ -2377,6 +2377,20 @@ export const TrelloPanel = ({
         }
       } // fim do if (!isAutosave)
 
+      const anexosParaSalvar = (form.anexos || []).map(a => {
+        if (a && a.annotationId) {
+          return {
+            id: a.id || a.annotationId,
+            annotationId: a.annotationId,
+            name: a.name,
+            size: a.size,
+            type: a.type,
+            thumbnail: a.thumbnail || (a.type?.startsWith('image/') && a.base64 && a.base64.length < 40000 ? a.base64 : undefined)
+          };
+        }
+        return a;
+      });
+
       await patch('cr4a1_fichas', original.cr4a1_fichaid, {
         cr4a1_titulo: form.titulo,
         cr4a1_descricao: form.descricao || '',
@@ -2386,7 +2400,7 @@ export const TrelloPanel = ({
         cr4a1_evento_id: eventoId,
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
-        cr4a1_arquivos: JSON.stringify(form.anexos || []),
+        cr4a1_arquivos: JSON.stringify(anexosParaSalvar),
         cr4a1_cor: form.cor || '',
         cr4a1_stickers: joinAssignees(form.stickers),
         cr4a1_atividades: atividades,
@@ -2423,6 +2437,7 @@ export const TrelloPanel = ({
         cr4a1_data_inicio: dataIso,
         cr4a1_etiquetas: joinAssignees(form.etiquetas),
         cr4a1_concluida: concluidaFinal ? 'Sim' : 'Não',
+        cr4a1_arquivos: JSON.stringify(anexosParaSalvar),
         cr4a1_cor: form.cor || '',
         cr4a1_atividades: atividades
       };
@@ -3686,7 +3701,7 @@ export const TrelloPanel = ({
                                   className={`-mx-3 ${ficha.cr4a1_cor && modoCapa === 'faixa' ? '-mt-1' : '-mt-3 rounded-t-xl'} mb-0.5 block overflow-hidden`}
                                   aria-label={`Visualizar ${capaImagem.name}`}
                                 >
-                                  <img src={capaImagem.base64} alt={capaImagem.name} className="h-28 w-full object-cover" />
+                                  <img src={capaImagem.thumbnail || capaImagem.base64} alt={capaImagem.name} className="h-28 w-full object-cover" />
                                 </button>
                               )}
                               <div className="flex items-start gap-2">
@@ -6202,7 +6217,7 @@ const FichaForm = ({
         />
       </div>
 
-      <AttachmentsField anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
+      <AttachmentsField fichaId={fichaOriginal?.cr4a1_fichaid} anexos={form.anexos || []} onChange={(novos) => set('anexos', novos)} />
 
       {/* SEÇÃO: NOTAS VINCULADAS */}
       <div className="rounded-xl border border-border bg-secondary/40 p-3 flex flex-col gap-2.5">
