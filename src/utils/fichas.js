@@ -56,15 +56,23 @@ export const deduplicarEventosAgenda = (events) => {
     const diaInicio = ev.cr4a1_data_inicio ? String(ev.cr4a1_data_inicio).split('T')[0] : '';
     const responsavelLimpo = (ev.cr4a1_user_login || '').trim().toLowerCase();
     const horaInicio = (ev.cr4a1_hora_inicio || '').trim();
+    const detalhesLimpo = (ev.cr4a1_detalhes || '').trim().toLowerCase().slice(0, 100);
 
     const ehSubtask = Boolean(ev.cr4a1_detalhes && String(ev.cr4a1_detalhes).startsWith('Subtask da checklist'));
     const ehTarefa = tipo === 'Tarefa';
 
     let chaveLogica = null;
-    if ((ehTarefa || ehSubtask) && tituloLimpo && diaInicio) {
-      chaveLogica = `${ehSubtask ? 'subtask' : 'tarefa'}__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}`;
+    if (ehSubtask && tituloLimpo && diaInicio) {
+      // Subtasks de checklists de fichas: deduplica por título, dia, hora, responsável e ficha de origem
+      chaveLogica = `subtask__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}__${detalhesLimpo}`;
       if (chavesLogicas.has(chaveLogica)) {
-        continue; // Descarta duplicata da mesma tarefa/subtask
+        continue; // Descarta duplicata
+      }
+    } else if (ehTarefa && tituloLimpo && diaInicio) {
+      // Tarefas normais: só deduplica se o título, data, hora, responsável E detalhes forem idênticos (cópia exata gerada por sincronização repetida)
+      chaveLogica = `tarefa__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}__${detalhesLimpo}`;
+      if (chavesLogicas.has(chaveLogica)) {
+        continue; // Descarta cópia repetida
       }
     }
 

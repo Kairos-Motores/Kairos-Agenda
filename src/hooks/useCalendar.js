@@ -19,6 +19,7 @@ import {
     extrairMetaConteudoNota,
     empacotarMetaConteudoNota
 } from '../utils/coresRecentes';
+import { deduplicarEventosAgenda } from '../utils/fichas';
 
 const API_PROXY = '/api/dataverse-proxy';
 
@@ -177,8 +178,9 @@ export const useCalendar = () => {
         setLoading(true);
         try {
             const condicoes = [];
-            if (workspaces.length > 0) {
-                const wsFilter = workspaces.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
+            const workspacesReais = workspaces.filter(w => !w._virtual && w.cr4a1_calendarios_workspacesid !== '__espaco_convidados__');
+            if (workspacesReais.length > 0) {
+                const wsFilter = workspacesReais.map(w => `cr4a1_workspace_id eq '${w.cr4a1_calendarios_workspacesid}'`).join(' or ');
                 condicoes.push(`(${wsFilter})`);
             }
             // Além dos workspaces diretos, busca tarefas/subtasks atribuídas ao usuário onde quer que estejam (incluindo workspaces onde é convidado)
@@ -207,7 +209,10 @@ export const useCalendar = () => {
 
             // Deduplicação estrita (por banco, event_id determinístico e chave lógica de tarefas/subtasks)
             setEvents(deduplicarEventosAgenda(eventosNormalizados));
-        } catch (error) { setEvents([]); } finally { setLoading(false); }
+        } catch (error) {
+            console.error('Erro ao buscar eventos:', error);
+            setEvents([]);
+        } finally { setLoading(false); }
     }, [workspaces, user]);
 
     const triggerAndroidNotification = (message) => {
@@ -984,6 +989,11 @@ export const useCalendar = () => {
         const virtualConvidadosAtivo = activeWorkspaces.includes('__espaco_convidados__');
 
         return events.filter(event => {
+            if (!event.cr4a1_workspace_id) {
+                // Eventos sem workspace específico são exibidos se o usuário tiver acesso
+                return !event.cr4a1_privado || isAssignedTo(event.cr4a1_user_login, user);
+            }
+
             const ehWorkspaceDireto = wsMap.has(event.cr4a1_workspace_id) && !wsMap.get(event.cr4a1_workspace_id)?._apenasFichasConvidado;
 
             if (ehWorkspaceDireto) {
