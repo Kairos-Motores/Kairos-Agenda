@@ -5366,22 +5366,12 @@ const FichaForm = ({
 
             {/* Anexos (se houver) */}
             {Array.isArray(form.anexos) && form.anexos.length > 0 && (
-              <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Paperclip className="size-3.5 text-primary" /> Anexos ({form.anexos.length})
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {form.anexos.map((a, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-secondary/60 p-2 rounded-lg border border-border text-xs max-w-xs">
-                      {a.type?.startsWith('image/') ? (
-                        <ImageIcon className="size-4 text-primary shrink-0" />
-                      ) : (
-                        <Paperclip className="size-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span className="truncate font-medium">{a.name}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <AttachmentsField
+                  anexos={form.anexos}
+                  label={`Anexos (${form.anexos.length})`}
+                  readOnly
+                />
               </div>
             )}
 

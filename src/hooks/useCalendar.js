@@ -1416,13 +1416,23 @@ export const useCalendar = () => {
                 recentesMarcaTexto: targetUser?.coresRecentesMarcaTexto || [],
                 recentesNota: targetUser?.coresRecentesNota || []
             });
-            await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
+            setAllUsers(prev => prev.map(u =>
+                u.cr4a1_usuarios_agendaid === userId
+                    ? { ...u, cr4a1_cor: newColor, _raw_cr4a1_cor: serialized }
+                    : u
+            ));
+            const res = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cr4a1_cor: serialized })
             });
+            if (!res.ok) throw new Error('Falha ao atualizar cor');
             fetchUsers();
-        } catch (error) { toast.error("Erro ao atualizar cor"); }
+            toast.success('Cor atualizada!');
+        } catch (error) {
+            fetchUsers();
+            toast.error("Erro ao atualizar cor");
+        }
     };
 
     const registrarCorRecenteUsuario = useCallback(async (tipo, hex) => {

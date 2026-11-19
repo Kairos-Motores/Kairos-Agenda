@@ -17,6 +17,7 @@ import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from './ui/popo
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from './ui/command';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { useConfirm } from '../hooks/useConfirm';
+import { encontrarUsuariosComCor } from '../utils/coresRecentes';
 
 const layerOptions = [
     { id: 'icone', label: 'Ícone', description: 'Mostra o emoji do tipo no card do evento' },
@@ -237,7 +238,13 @@ export const UserManagementModal = ({ isOpen, onClose, allUsers, credenciaisPend
                                     user={u}
                                     isAdmin={isAdmin}
                                     isSelf={u.cr4a1_username === currentUsername}
-                                    updateUserColor={updateUserColor}
+                                    updateUserColor={(userId, newColor) => {
+                                        const outros = encontrarUsuariosComCor(allUsers, newColor, userId);
+                                        if (outros.length > 0) {
+                                            toast(`Atenção: cor também usada por ${outros.map(o => o.cr4a1_nome_exibicao || o.cr4a1_username).join(', ')}.`, { icon: '⚠️', id: 'cor-duplicada-aviso' });
+                                        }
+                                        return updateUserColor(userId, newColor);
+                                    }}
                                     updateUserRoles={updateUserRoles}
                                     onDelete={() => handleDeleteUser(u)}
                                     biRolesOverrideMap={biRolesOverrideMap}

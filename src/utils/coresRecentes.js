@@ -9,11 +9,24 @@
 
 const MAX_RECENTES = 6;
 
-const normalizarHex = (hex) => {
+export const normalizarHex = (hex) => {
   if (!hex || typeof hex !== 'string') return '';
   const limpo = hex.trim().replace(/^#/, '').toLowerCase();
   if (/^[0-9a-f]{6}$/.test(limpo)) return `#${limpo}`;
   return '';
+};
+
+/**
+ * Retorna os outros usuários (excluindo o próprio usuário, se informado) que já utilizam
+ * exatamente a mesma cor hex informada. Usado para alertar sem proibir a escolha.
+ */
+export const encontrarUsuariosComCor = (allUsers = [], hex, excluirUserId = null) => {
+  const alvo = normalizarHex(hex);
+  if (!alvo) return [];
+  return (allUsers || []).filter((u) => {
+    if (excluirUserId && u.cr4a1_usuarios_agendaid === excluirUserId) return false;
+    return normalizarHex(u.cr4a1_cor) === alvo;
+  });
 };
 
 const hexSemHash = (hex) => normalizarHex(hex).replace('#', '');

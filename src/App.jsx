@@ -32,7 +32,8 @@ import { FilialTemporariaModal } from './components/FilialTemporariaModal';
 import { EmprestimoUnidadeModal } from './components/EmprestimoUnidadeModal';
 import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
-import { themeColors } from './constants/materialColors';
+import { themeColors, materialColors } from './constants/materialColors';
+import { encontrarUsuariosComCor, normalizarHex } from './utils/coresRecentes';
 import { registerPushSubscription } from './utils/push';
 import { avisarFichasDoResponsavel, deduplicarEventosAgenda } from './utils/fichas';
 import { DateField } from './components/ui/date-field';
@@ -318,6 +319,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [aniversarioEdit, setAniversarioEdit] = useState('');
   const [emailEdit, setEmailEdit] = useState('');
+  const [corEdit, setCorEdit] = useState('#1a73e8');
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [deviceNotificationPermission, setDeviceNotificationPermission] = useState(() => (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default');
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
@@ -392,10 +394,15 @@ function App() {
     () => parseUnidadesEmprestimo(currentUser?.cr4a1_unidades_emprestimo || currentUser?.unidadesEmprestimo),
     [currentUser?.cr4a1_unidades_emprestimo, currentUser?.unidadesEmprestimo]
   );
+  const usuariosMesmaCor = useMemo(
+    () => encontrarUsuariosComCor(allUsers, corEdit, currentUser?.cr4a1_usuarios_agendaid),
+    [allUsers, corEdit, currentUser?.cr4a1_usuarios_agendaid]
+  );
   useEffect(() => {
     if (isProfileModalOpen) {
       setAniversarioEdit(currentUser?.cr4a1_aniversario ? currentUser.cr4a1_aniversario.split('T')[0] : '');
       setEmailEdit(currentUser?.cr4a1_email || currentUser?.email || '');
+      setCorEdit(normalizarHex(currentUser?.cr4a1_cor) || '#1a73e8');
     }
   }, [isProfileModalOpen, currentUser]);
 
@@ -2603,15 +2610,79 @@ function App() {
 
                   <DateField label="Aniversário" selectedDate={aniversarioEdit} onSelect={setAniversarioEdit} allowClear />
 
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <Label>Minha Cor na Agenda</Label>
+                      <span className="text-[11px] font-mono text-muted-foreground">{normalizarHex(corEdit) || corEdit}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {materialColors.map((c) => {
+                        const selecionada = normalizarHex(corEdit) === normalizarHex(c.hex);
+                        const donos = encontrarUsuariosComCor(allUsers, c.hex, currentUser.cr4a1_usuarios_agendaid);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setCorEdit(c.hex)}
+                            style={{ backgroundColor: c.hex }}
+                            className={`relative size-6 rounded-full transition-transform hover:scale-110 ${selecionada ? 'ring-2 ring-offset-2 ring-primary ring-offset-background scale-110' : ''}`}
+                            title={donos.length > 0 ? `${c.label} (em uso por ${donos.map(d => d.cr4a1_nome_exibicao || d.cr4a1_username).join(', ')})` : c.label}
+                            aria-label={`Selecionar cor ${c.label}`}
+                          >
+                            {donos.length > 0 && !selecionada && (
+                              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-400 ring-1 ring-background" />
+                            )}
+                          </button>
+                        );
+                      })}
+                      <label className="relative flex items-center gap-1 cursor-pointer rounded-full border border-border px-2 py-1 text-[11px] font-medium hover:bg-secondary" title="Escolher cor personalizada">
+                        <input
+                          type="color"
+                          value={normalizarHex(corEdit) || '#1a73e8'}
+                          onChange={(e) => setCorEdit(e.target.value)}
+                          className="size-4 cursor-pointer rounded-full border-none bg-transparent p-0"
+                          aria-label="Cor personalizada"
+                        />
+                        <span>Outra</span>
+                      </label>
+                    </div>
+                    {usuariosMesmaCor.length > 0 && (
+                      <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                        <span className="material-symbols-rounded text-base shrink-0">warning</span>
+                        <span>
+                          Atenção: esta cor já está sendo usada por{' '}
+                          <strong>{usuariosMesmaCor.map(u => u.cr4a1_nome_exibicao || u.cr4a1_username).join(', ')}</strong>.
+                          Você pode escolhê-la mesmo assim, é apenas um aviso.
+                        </span>
+                      </div>
+                    )}
+                    {normalizarHex(corEdit) && normalizarHex(corEdit) !== normalizarHex(currentUser.cr4a1_cor) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 w-full"
+                        onClick={() => updateUserColor(currentUser.cr4a1_usuarios_agendaid, corEdit)}
+                      >
+                        Aplicar Nova Cor
+                      </Button>
+                    )}
+                  </div>
+
                   <Button
                     className="w-full"
                     size="lg"
-                    onClick={() => updateProfile(currentUser.cr4a1_usuarios_agendaid, {
-                      nomeExibicao: document.getElementById('n-up').value,
-                      aniversario: aniversarioEdit,
-                      foto: currentUser.cr4a1_foto,
-                      email: emailEdit
-                    })}
+                    onClick={async () => {
+                      await updateProfile(currentUser.cr4a1_usuarios_agendaid, {
+                        nomeExibicao: document.getElementById('n-up').value,
+                        aniversario: aniversarioEdit,
+                        foto: currentUser.cr4a1_foto,
+                        email: emailEdit
+                      });
+                      if (normalizarHex(corEdit) && normalizarHex(corEdit) !== normalizarHex(currentUser.cr4a1_cor)) {
+                        await updateUserColor(currentUser.cr4a1_usuarios_agendaid, corEdit);
+                      }
+                    }}
                   >
                     Salvar Dados do Perfil
                   </Button>
