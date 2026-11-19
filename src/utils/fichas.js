@@ -30,7 +30,7 @@ export const avisarFichasDoResponsavel = async (user) => {
  * Prioriza:
  * 1. dbId (cr4a1_agenda_kairosid ou id)
  * 2. eventId determinístico (cr4a1_event_id, ex: subtask-xxx, ficha-xxx)
- * 3. Chave lógica para tarefas/subtasks: (tipo, título normalizado, dia de início, responsável normalizado)
+ * 3. Chave lógica para tarefas/subtasks: (título normalizado, dia de início, responsável normalizado)
  */
 export const deduplicarEventosAgenda = (events) => {
   if (!Array.isArray(events)) return [];
@@ -52,35 +52,27 @@ export const deduplicarEventosAgenda = (events) => {
 
     // Deduplicação lógica para tarefas/subtasks
     const tipo = ev.cr4a1_tipo || '';
-    const tituloLimpo = (ev.cr4a1_titulo || '').trim().toLowerCase();
+    const tituloLimpo = (ev.cr4a1_titulo || '').trim().toLowerCase().replace(/\s+/g, ' ');
     const diaInicio = ev.cr4a1_data_inicio ? String(ev.cr4a1_data_inicio).split('T')[0] : '';
     const responsavelLimpo = (ev.cr4a1_user_login || '').trim().toLowerCase();
-    const horaInicio = (ev.cr4a1_hora_inicio || '').trim();
-    const detalhesLimpo = (ev.cr4a1_detalhes || '').trim().toLowerCase().slice(0, 100);
-
     const ehSubtask = Boolean(ev.cr4a1_detalhes && String(ev.cr4a1_detalhes).startsWith('Subtask da checklist'));
-    const ehTarefa = tipo === 'Tarefa';
+    const ehTarefa = tipo === 'Tarefa' || ehSubtask;
 
-    let chaveLogica = null;
-    if (ehSubtask && tituloLimpo && diaInicio) {
-      // Subtasks de checklists de fichas: deduplica por título, dia, hora, responsável e ficha de origem
-      chaveLogica = `subtask__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}__${detalhesLimpo}`;
+    if (ehTarefa && tituloLimpo && diaInicio) {
+      // Subtasks de fichas e tarefas da agenda:
+      // Se compartilharem o mesmo título normalizado, mesmo dia de início e mesmo responsável,
+      // são cópias duplicadas do mesmo item (mesmo que detalhes ou hora tenham variações de sincronização).
+      const chaveLogica = `tarefa__${tituloLimpo}__${diaInicio}__${responsavelLimpo}`;
       if (chavesLogicas.has(chaveLogica)) {
-        continue; // Descarta duplicata
+        continue; // Descarta a cópia duplicada
       }
-    } else if (ehTarefa && tituloLimpo && diaInicio) {
-      // Tarefas normais: só deduplica se o título, data, hora, responsável E detalhes forem idênticos (cópia exata gerada por sincronização repetida)
-      chaveLogica = `tarefa__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}__${detalhesLimpo}`;
-      if (chavesLogicas.has(chaveLogica)) {
-        continue; // Descarta cópia repetida
-      }
+      chavesLogicas.add(chaveLogica);
     }
 
     if (dbId) mapUnicos.set(dbId, ev);
     else mapUnicos.set(eventId || Math.random().toString(), ev);
 
     if (eventId) chavesEventId.add(eventId);
-    if (chaveLogica) chavesLogicas.add(chaveLogica);
   }
 
   return Array.from(mapUnicos.values());

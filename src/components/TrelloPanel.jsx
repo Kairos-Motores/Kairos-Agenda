@@ -86,6 +86,7 @@ const obterMetaPadrao = () => {
 };
 
 const API_PROXY = '/api/dataverse-proxy';
+export const VIRTUAL_WORKSPACE_CONVIDADOS_ID = '__espaco_convidados__';
 const q = (valor) => encodeURIComponent(valor);
 const comData = (ficha) => !!ficha.cr4a1_data_inicio;
 // A lista padrão "A Fazer" deve ser ocultada do módulo de Fichas (sem apagar eventos da Agenda)
@@ -447,25 +448,28 @@ export const TrelloPanel = ({
   const recarregar = useCallback(() => setVersao(v => v + 1), []);
 
   // Workspaces onde o usuário não é membro do calendário, mas foi convidado pro quadro,
-  // para uma lista inteira ou para uma ficha específica.
+  // ou possui fichas/listas onde foi convidado externamente (reunidas no Espaço do Convidado).
   useEffect(() => {
     let cancelado = false;
     (async () => {
       const userLower = String(user || '').trim().toLowerCase();
-      const condicoes = [`contains(cr4a1_colaboradores, '${user}')`];
+      if (!userLower) return;
+
+      const userVariants = Array.from(new Set([user, userLower, user?.toUpperCase()].filter(Boolean)));
+      const condicoesQuadros = [`contains(cr4a1_colaboradores, '${user}')`];
       workspaces.forEach(w => {
-        if (w.cr4a1_calendarios_workspacesid) {
-          condicoes.push(`contains(cr4a1_colaboradores, 'ws:${w.cr4a1_calendarios_workspacesid}')`);
+        if (w.cr4a1_calendarios_workspacesid && !w._virtual && w.cr4a1_calendarios_workspacesid !== VIRTUAL_WORKSPACE_CONVIDADOS_ID) {
+          condicoesQuadros.push(`contains(cr4a1_colaboradores, 'ws:${w.cr4a1_calendarios_workspacesid}')`);
         }
       });
-      const filtroQuadros = q(condicoes.join(' or '));
-      const filtroConvidadoFicha = q(`contains(cr4a1_atividades, '${user}')`);
-      const filtroConvidadoLista = q(`contains(cr4a1_automacao, '${user}')`);
+      const filtroQuadros = q(condicoesQuadros.join(' or '));
+      const filtroConvidadoFicha = q(userVariants.map(u => `contains(cr4a1_atividades, '${u}')`).join(' or '));
+      const filtroConvidadoLista = q(userVariants.map(u => `contains(cr4a1_automacao, '${u}')`).join(' or '));
 
       const [resQuadros, resFichasConv, resListasConv] = await Promise.all([
         fetch(`${API_PROXY}?table=cr4a1_quadros&$filter=${filtroQuadros}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
-        fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_workspace_id,cr4a1_atividades,cr4a1_fixada&$filter=${filtroConvidadoFicha}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
-        fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_workspace_id,cr4a1_automacao,cr4a1_nome&$filter=${filtroConvidadoLista}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
+        fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_fichaid,cr4a1_workspace_id,cr4a1_atividades,cr4a1_fixada&$filter=${filtroConvidadoFicha}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
+        fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_listaid,cr4a1_workspace_id,cr4a1_automacao,cr4a1_nome&$filter=${filtroConvidadoLista}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
       ]);
       if (cancelado) return;
 
@@ -475,28 +479,45 @@ export const TrelloPanel = ({
           const meta = parseFichaMeta(f.cr4a1_atividades);
           return (meta.convidados || []).some(c => String(c).toLowerCase() === userLower);
         })
-        .map(f => f.cr4a1_workspace_id);
+        .map(f => f.cr4a1_workspace_id)
+        .filter(Boolean);
 
       const wsIdsConvidadosListas = (resListasConv.value || [])
         .filter(l => {
           if (ehListaAFazer(l)) return false;
           return parseListaConvidados(l.cr4a1_automacao).some(c => String(c).toLowerCase() === userLower);
         })
-        .map(l => l.cr4a1_workspace_id);
+        .map(l => l.cr4a1_workspace_id)
+        .filter(Boolean);
 
       const conhecidos = new Set(workspaces.map(w => w.cr4a1_calendarios_workspacesid));
-      const idsExtras = [
-        ...new Set([
-          ...(resQuadros.value || []).map(qd => qd.cr4a1_workspace_id),
-          ...wsIdsConvidadosFichas,
-          ...wsIdsConvidadosListas
-        ])
-      ].filter(id => id && !conhecidos.has(id));
+      const wsIdsConvidadosExternos = [...new Set([...wsIdsConvidadosFichas, ...wsIdsConvidadosListas])].filter(id => !conhecidos.has(id));
 
-      if (idsExtras.length === 0) { setWorkspacesExtras([]); return; }
-      const filtroWs = q(idsExtras.map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
-      const resWs = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filtroWs}`).then(r => r.json());
-      if (!cancelado) setWorkspacesExtras(resWs.value || []);
+      // Workspaces extras onde o usuário é colaborador de todo o quadro
+      const idsQuadrosExtras = (resQuadros.value || []).map(qd => qd.cr4a1_workspace_id).filter(id => id && !conhecidos.has(id) && !wsIdsConvidadosExternos.includes(id));
+
+      const extras = [];
+      if (idsQuadrosExtras.length > 0) {
+        const filtroWs = q(idsQuadrosExtras.map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
+        const resWs = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filtroWs}`).then(r => r.json()).catch(() => ({ value: [] }));
+        if (Array.isArray(resWs.value)) extras.push(...resWs.value);
+      }
+
+      // Conforme solicitado: quem for convidado para fichas/listas não entra diretamente no workspace externo.
+      // Em vez disso, existe o workspace virtual "Espaço do Convidado", reunindo tudo o que foi compartilhado com ele.
+      const jaTemVirtualNoWorkspaces = workspaces.some(w => w.cr4a1_calendarios_workspacesid === VIRTUAL_WORKSPACE_CONVIDADOS_ID);
+      if (wsIdsConvidadosExternos.length > 0 || jaTemVirtualNoWorkspaces) {
+        extras.push({
+          cr4a1_calendarios_workspacesid: VIRTUAL_WORKSPACE_CONVIDADOS_ID,
+          cr4a1_nome: 'Espaço do Convidado',
+          cr4a1_cor_hex: '#6366f1',
+          _virtual: true,
+          _apenasFichasConvidado: true,
+          _workspacesOrigemIds: wsIdsConvidadosExternos
+        });
+      }
+
+      if (!cancelado) setWorkspacesExtras(extras);
     })();
     return () => { cancelado = true; };
   }, [user, workspaces]);
@@ -602,13 +623,14 @@ export const TrelloPanel = ({
     [membrosBase]
   );
   const souMembroOuColaboradorQuadro = useMemo(() => {
+    if (workspaceId === VIRTUAL_WORKSPACE_CONVIDADOS_ID || workspace?._virtual) return false;
     if (isAdmin) return true;
     if (!workspace) return true;
     if (membrosBaseLoginsSet.has(userLower)) return true;
     if (colaboradoresLogins.some(c => String(c).toLowerCase() === userLower)) return true;
     if (workspaces.some(w => workspacesVinculadosIds.includes(w.cr4a1_calendarios_workspacesid))) return true;
     return false;
-  }, [isAdmin, workspace, membrosBaseLoginsSet, userLower, colaboradoresLogins, workspaces, workspacesVinculadosIds]);
+  }, [workspaceId, isAdmin, workspace, membrosBaseLoginsSet, userLower, colaboradoresLogins, workspaces, workspacesVinculadosIds]);
   const souApenasConvidado = !souMembroOuColaboradorQuadro;
 
   // Dispara os e-mails configurados nas regras de automação da lista, resolvendo o endereço
@@ -764,9 +786,104 @@ export const TrelloPanel = ({
   useEffect(() => {
     if (!workspaceId) return undefined;
     let cancelado = false;
-    const filtro = q(`cr4a1_workspace_id eq '${workspaceId}'`);
-    const carregar = () => {
+
+    const carregar = async () => {
       if (document.hidden) return;
+
+      if (workspaceId === VIRTUAL_WORKSPACE_CONVIDADOS_ID) {
+        // === CARREGAMENTO DO ESPAÇO VIRTUAL DO CONVIDADO ===
+        try {
+          const userLower = String(user || '').trim().toLowerCase();
+          const userVariants = Array.from(new Set([user, userLower, user?.toUpperCase()].filter(Boolean)));
+          const condicoesFichas = userVariants.map(u => `contains(cr4a1_atividades, '${u}')`).join(' or ');
+          const condicoesListas = userVariants.map(u => `contains(cr4a1_automacao, '${u}')`).join(' or ');
+
+          const [resFichasConv, resListasConv] = await Promise.all([
+            fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${q(condicoesFichas)}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
+            fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${q(condicoesListas)}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
+          ]);
+          if (cancelado) return;
+
+          // Fichas onde o usuário foi convidado diretamente
+          const fichasConvidadas = (resFichasConv.value || []).filter(f => {
+            if (ehFichaArquivada(f)) return false;
+            const meta = parseFichaMeta(f.cr4a1_atividades);
+            return (meta.convidados || []).some(c => String(c).toLowerCase() === userLower);
+          });
+
+          // Listas onde o usuário foi convidado para a lista inteira
+          const listasConvidadas = (resListasConv.value || []).filter(l => {
+            if (ehListaAFazer(l)) return false;
+            return parseListaConvidados(l.cr4a1_automacao).some(c => String(c).toLowerCase() === userLower);
+          });
+
+          // Para listas convidadas inteiras, busca todas as fichas dessas listas
+          const listasConvIds = listasConvidadas.map(l => l.cr4a1_listaid).filter(Boolean);
+          let fichasDasListas = [];
+          if (listasConvIds.length > 0) {
+            const filtroFichasListas = q(listasConvIds.map(id => `cr4a1_lista_id eq '${id}'`).join(' or '));
+            const resFichasListas = await fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${filtroFichasListas}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }));
+            fichasDasListas = (resFichasListas.value || []).filter(f => !ehFichaArquivada(f));
+          }
+
+          // Unifica todas as fichas acessíveis ao convidado (sem duplicatas)
+          const mapaFichas = new Map();
+          [...fichasConvidadas, ...fichasDasListas].forEach(f => {
+            if (f?.cr4a1_fichaid && !mapaFichas.has(f.cr4a1_fichaid)) {
+              mapaFichas.set(f.cr4a1_fichaid, f);
+            }
+          });
+          const fichasFinais = Array.from(mapaFichas.values());
+
+          // Garante que todas as listas-pai das fichas convidadas estejam carregadas (para renderizar as colunas)
+          const listasIdsNecessarios = new Set(fichasFinais.map(f => f.cr4a1_lista_id).filter(Boolean));
+          const listasIdsFaltantes = Array.from(listasIdsNecessarios).filter(id => !listasConvidadas.some(l => l.cr4a1_listaid === id));
+          let listasExtras = [];
+          if (listasIdsFaltantes.length > 0) {
+            const filtroFaltantes = q(listasIdsFaltantes.map(id => `cr4a1_listaid eq '${id}'`).join(' or '));
+            const resFaltantes = await fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${filtroFaltantes}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }));
+            listasExtras = (resFaltantes.value || []).filter(l => !ehListaAFazer(l));
+          }
+
+          const todasAsListas = [...listasConvidadas, ...listasExtras];
+
+          // Descobre o nome do workspace de origem de cada lista para exibir no badge
+          const wsIdsOrigem = [...new Set([...todasAsListas.map(l => l.cr4a1_workspace_id), ...fichasFinais.map(f => f.cr4a1_workspace_id)].filter(Boolean))];
+          const mapaNomesWs = new Map();
+          todasOpcoes.forEach(w => {
+            if (w.cr4a1_calendarios_workspacesid && w.cr4a1_nome) {
+              mapaNomesWs.set(w.cr4a1_calendarios_workspacesid, w.cr4a1_nome);
+            }
+          });
+          const wsIdsFaltantes = wsIdsOrigem.filter(id => !mapaNomesWs.has(id));
+          if (wsIdsFaltantes.length > 0) {
+            const filtroWs = q(wsIdsFaltantes.map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
+            const resWs = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$select=cr4a1_calendarios_workspacesid,cr4a1_nome&$filter=${filtroWs}`).then(r => r.json()).catch(() => ({ value: [] }));
+            (resWs.value || []).forEach(w => mapaNomesWs.set(w.cr4a1_calendarios_workspacesid, w.cr4a1_nome));
+          }
+
+          const listasComOrigem = todasAsListas.map(l => ({
+            ...l,
+            _origemWorkspaceNome: mapaNomesWs.get(l.cr4a1_workspace_id) || 'Workspace'
+          }));
+
+          if (cancelado) return;
+          setListas(ordenar(listasComOrigem));
+          setFichas(fichasFinais);
+          setQuadro({
+            cr4a1_nome: 'Espaço do Convidado',
+            cr4a1_workspace_id: VIRTUAL_WORKSPACE_CONVIDADOS_ID,
+            _virtual: true
+          });
+          setEtiquetas([]);
+        } catch (err) {
+          console.error('[carregarEspacoConvidado]', err);
+        }
+        return;
+      }
+
+      // === CARREGAMENTO NORMAL DE WORKSPACE ESPECÍFICO ===
+      const filtro = q(`cr4a1_workspace_id eq '${workspaceId}'`);
       Promise.all([
         fetch(`${API_PROXY}?table=cr4a1_listas&$filter=${filtro}`).then(r => r.json()),
         fetch(`${API_PROXY}?table=cr4a1_fichas&$filter=${filtro}`).then(r => r.json()),
@@ -778,12 +895,15 @@ export const TrelloPanel = ({
         setFichas(resFichas.value || []);
         setQuadro((resQuadro.value || [])[0] || null);
         setEtiquetas(resEtiquetas.value || []);
+      }).catch(err => {
+        console.error('[carregarQuadro]', err);
       });
     };
+
     carregar();
     const intervalo = setInterval(carregar, TRELLO_POLL_MS);
     return () => { cancelado = true; clearInterval(intervalo); };
-  }, [workspaceId, versao]);
+  }, [workspaceId, versao, user, todasOpcoes]);
 
   // Gatilhos "vencendo"/"urgente"/"atrasada" não dependem de nenhuma ação do usuário — rodam sozinhos
   // sempre que o quadro atualiza (a cada poll, já que fichas/listas trocam de referência a
@@ -1197,8 +1317,11 @@ export const TrelloPanel = ({
         if (idsMantidos.has(ev.cr4a1_agenda_kairosid)) return false;
         if (evIdSalvo && ev.cr4a1_agenda_kairosid === evIdSalvo) return true;
         if (eventKey && ev.cr4a1_event_id === eventKey) return true;
-        if (ev.cr4a1_titulo === tituloEvento && ev.cr4a1_detalhes === detalheSubtask) return true;
-        if (ev.cr4a1_detalhes === detalheSubtask && (ev.cr4a1_titulo === t.texto || ev.cr4a1_titulo?.startsWith(t.texto))) return true;
+        const tituloEvLimpo = (ev.cr4a1_titulo || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const tituloNovoLimpo = tituloEvento.trim().toLowerCase().replace(/\s+/g, ' ');
+        const textoSubtaskLimpo = (t.texto || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        if (tituloEvLimpo === tituloNovoLimpo) return true;
+        if (textoSubtaskLimpo && tituloEvLimpo.startsWith(textoSubtaskLimpo) && (ev.cr4a1_detalhes?.includes('Subtask da checklist') || ev.cr4a1_tipo === 'Tarefa')) return true;
         return false;
       });
 
@@ -2984,10 +3107,11 @@ export const TrelloPanel = ({
                 <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Workspace" /></SelectTrigger>
                 <SelectContent>
                   {todasOpcoes.map(w => {
-                    const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
+                    const ehVirtual = w.cr4a1_calendarios_workspacesid === VIRTUAL_WORKSPACE_CONVIDADOS_ID || w._virtual;
+                    const ehExtra = !ehVirtual && workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
                     return (
                       <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
-                        {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
+                        {w.cr4a1_nome}{ehVirtual ? ' (Virtual)' : (ehExtra ? ' (Compartilhado)' : '')}
                       </SelectItem>
                     );
                   })}
@@ -3214,10 +3338,11 @@ export const TrelloPanel = ({
               <SelectTrigger className="h-8 w-36 text-xs lg:w-48"><SelectValue placeholder="Workspace" /></SelectTrigger>
               <SelectContent>
                 {todasOpcoes.map(w => {
-                  const ehExtra = workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
+                  const ehVirtual = w.cr4a1_calendarios_workspacesid === VIRTUAL_WORKSPACE_CONVIDADOS_ID || w._virtual;
+                  const ehExtra = !ehVirtual && workspacesExtras.some(e => e.cr4a1_calendarios_workspacesid === w.cr4a1_calendarios_workspacesid);
                   return (
                     <SelectItem key={w.cr4a1_calendarios_workspacesid} value={w.cr4a1_calendarios_workspacesid}>
-                      {w.cr4a1_nome}{ehExtra ? ' (Compartilhado)' : ''}
+                      {w.cr4a1_nome}{ehVirtual ? ' (Virtual)' : (ehExtra ? ' (Compartilhado)' : '')}
                     </SelectItem>
                   );
                 })}
@@ -3228,7 +3353,14 @@ export const TrelloPanel = ({
       </div>
     </header>
 
-      {souApenasConvidado && (
+      {workspaceId === VIRTUAL_WORKSPACE_CONVIDADOS_ID ? (
+        <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2 text-xs text-indigo-700 dark:text-indigo-300">
+          <Users className="size-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+          <span>
+            <strong>Espaço do Convidado</strong> — Você está visualizando todas as listas e fichas para as quais foi convidado a partir de diferentes workspaces.
+          </span>
+        </div>
+      ) : souApenasConvidado && (
         <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2 text-xs text-blue-700 dark:text-blue-300">
           <UserPlus className="size-4 shrink-0" />
           <span>
@@ -3442,6 +3574,11 @@ export const TrelloPanel = ({
                   className="min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-sm font-bold leading-snug text-foreground outline-none break-words [word-break:normal] hyphens-none focus:ring-1 focus:ring-primary/40 rounded px-1"
                 />
                 <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                  {lista._origemWorkspaceNome && (
+                    <span className="text-[10px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-medium" title={`Workspace de origem: ${lista._origemWorkspaceNome}`}>
+                      {lista._origemWorkspaceNome}
+                    </span>
+                  )}
                   <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">{fichasDaLista(lista).length}</Badge>
 
                   {!souApenasConvidado && (

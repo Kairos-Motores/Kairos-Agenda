@@ -448,10 +448,13 @@ export const useCalendar = () => {
             const wsConhecidos = new Set(wsList.map(w => w.cr4a1_calendarios_workspacesid));
             let wsConvidadosExtras = [];
             try {
+                const userVariants = Array.from(new Set([user, userLower, user?.toUpperCase()].filter(Boolean)));
+                const condFichas = userVariants.map(u => `contains(cr4a1_atividades, '${u}')`).join(' or ');
+                const condListas = userVariants.map(u => `contains(cr4a1_automacao, '${u}')`).join(' or ');
                 const [resFichasConv, resListasConv] = await Promise.all([
-                    fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_workspace_id,cr4a1_atividades&$filter=${encodeURIComponent(`contains(cr4a1_atividades, '${user}')`)}`)
+                    fetch(`${API_PROXY}?table=cr4a1_fichas&$select=cr4a1_workspace_id,cr4a1_atividades&$filter=${encodeURIComponent(condFichas)}`)
                         .then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] })),
-                    fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_workspace_id,cr4a1_automacao&$filter=${encodeURIComponent(`contains(cr4a1_automacao, '${user}')`)}`)
+                    fetch(`${API_PROXY}?table=cr4a1_listas&$select=cr4a1_workspace_id,cr4a1_automacao&$filter=${encodeURIComponent(condListas)}`)
                         .then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }))
                 ]);
 
