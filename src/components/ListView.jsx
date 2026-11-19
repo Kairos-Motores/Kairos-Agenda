@@ -127,7 +127,7 @@ export const ListView = ({
   const renderCard = (event) => {
     const currentWorkspace = workspaces.find(
       ws => ws.cr4a1_calendarios_workspacesid === event.cr4a1_workspace_id
-    );
+    ) || workspaces.find(ws => ws.cr4a1_calendarios_workspacesid === '__espaco_convidados__');
     const workspaceColor = currentWorkspace?.cr4a1_cor_hex || 'var(--border-color)';
     const workspaceName = currentWorkspace?.cr4a1_nome || '';
     const typeLayer = getEventTypeLayer(event.cr4a1_tipo, eventTypes);

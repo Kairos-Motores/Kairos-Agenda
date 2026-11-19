@@ -34,7 +34,7 @@ import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
 import { themeColors } from './constants/materialColors';
 import { registerPushSubscription } from './utils/push';
-import { avisarFichasDoResponsavel } from './utils/fichas';
+import { avisarFichasDoResponsavel, deduplicarEventosAgenda } from './utils/fichas';
 import { DateField } from './components/ui/date-field';
 import { compressImage } from './utils/compressImage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
@@ -544,16 +544,8 @@ function App() {
       });
     }
 
-    // Deduplicação estrita para garantir que nenhum evento/subtask apareça duplicado na interface
-    const mapUnicos = new Map();
-    for (const ev of events) {
-      const chave = ev.cr4a1_agenda_kairosid || ev.id || ev.cr4a1_event_id;
-      if (!chave) continue;
-      if (!mapUnicos.has(chave)) {
-        mapUnicos.set(chave, ev);
-      }
-    }
-    return Array.from(mapUnicos.values());
+    // Deduplicação estrita (por banco, event_id e chave lógica) para garantir que nenhum evento/subtask apareça duplicado na interface
+    return deduplicarEventosAgenda(events);
   };
 
   useEffect(() => {

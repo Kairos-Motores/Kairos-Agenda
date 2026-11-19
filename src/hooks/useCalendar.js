@@ -189,29 +189,24 @@ export const useCalendar = () => {
             const data = await response.json();
             const rawEvents = Array.isArray(data.value) ? data.value : [];
 
-            // Deduplicação estrita por ID e cr4a1_event_id para nunca exibir eventos repetidos na Agenda
-            const mapUnicos = new Map();
-            rawEvents.forEach(e => {
-                if (e.cr4a1_privado && !isAssignedTo(e.cr4a1_user_login, user)) return;
-
-                const chave = e.cr4a1_agenda_kairosid || e.cr4a1_event_id;
-                if (!chave || mapUnicos.has(chave)) return;
-
-                const inicio = diaLocal(e.cr4a1_data_inicio);
-                const fimBruto = diaLocal(e.cr4a1_data_fim);
-                // Eventos salvos com data final anterior à inicial sumiam da agenda; mostram no dia de início.
-                const fim = fimBruto && inicio && fimBruto < inicio ? inicio : fimBruto;
-
-                mapUnicos.set(chave, {
-                    ...e,
-                    cr4a1_data_inicio: inicio,
-                    cr4a1_data_fim: fim,
-                    cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
-                    cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+            // Normaliza datas e limpa detalhes dos eventos visíveis
+            const eventosNormalizados = rawEvents
+                .filter(e => !e.cr4a1_privado || isAssignedTo(e.cr4a1_user_login, user))
+                .map(e => {
+                    const inicio = diaLocal(e.cr4a1_data_inicio);
+                    const fimBruto = diaLocal(e.cr4a1_data_fim);
+                    const fim = fimBruto && inicio && fimBruto < inicio ? inicio : fimBruto;
+                    return {
+                        ...e,
+                        cr4a1_data_inicio: inicio,
+                        cr4a1_data_fim: fim,
+                        cr4a1_dia_inteiro: e.cr4a1_detalhes?.includes('[DIA_INTEIRO]'),
+                        cr4a1_detalhes: e.cr4a1_detalhes?.replace('[DIA_INTEIRO]', '').trim()
+                    };
                 });
-            });
 
-            setEvents(Array.from(mapUnicos.values()));
+            // Deduplicação estrita (por banco, event_id determinístico e chave lógica de tarefas/subtasks)
+            setEvents(deduplicarEventosAgenda(eventosNormalizados));
         } catch (error) { setEvents([]); } finally { setLoading(false); }
     }, [workspaces, user]);
 
@@ -473,13 +468,14 @@ export const useCalendar = () => {
                 });
 
                 if (wsIdsConvidados.size > 0) {
-                    const filtroConv = encodeURIComponent(Array.from(wsIdsConvidados).map(id => `cr4a1_calendarios_workspacesid eq '${id}'`).join(' or '));
-                    const resWsConv = await fetch(`${API_PROXY}?table=cr4a1_calendarios_workspaceses&$filter=${filtroConv}`).then(r => r.ok ? r.json() : { value: [] }).catch(() => ({ value: [] }));
-                    wsConvidadosExtras = (resWsConv.value || []).map(w => ({
-                        ...w,
+                    wsConvidadosExtras = [{
+                        cr4a1_calendarios_workspacesid: '__espaco_convidados__',
+                        cr4a1_nome: 'Espaço do Convidado',
+                        cr4a1_cor_hex: '#6366f1',
+                        _virtual: true,
                         _apenasFichasConvidado: true,
-                        cr4a1_nome: w.cr4a1_nome ? `${w.cr4a1_nome} (Convidado)` : 'Workspace (Convidado)'
-                    }));
+                        _workspacesOrigemIds: Array.from(wsIdsConvidados)
+                    }];
                 }
             } catch { /* ignora erro de busca de convidados */ }
 
@@ -985,16 +981,17 @@ export const useCalendar = () => {
     const filteredEvents = useMemo(() => {
         if (activeWorkspaces.length === 0) return [];
         const wsMap = new Map(workspaces.map(w => [w.cr4a1_calendarios_workspacesid, w]));
+        const virtualConvidadosAtivo = activeWorkspaces.includes('__espaco_convidados__');
 
         return events.filter(event => {
-            const matchesWorkspace = activeWorkspaces.includes(event.cr4a1_workspace_id);
-            if (!matchesWorkspace) return false;
+            const ehWorkspaceDireto = wsMap.has(event.cr4a1_workspace_id) && !wsMap.get(event.cr4a1_workspace_id)?._apenasFichasConvidado;
 
-            // Se o usuário é apenas convidado externo neste workspace (não é membro pleno):
-            // Só pode ver eventos do Fichas (cr4a1_tipo === 'Tarefa') que sejam atribuídos a ele!
-            // Todas as outras reuniões, visitas, notas e eventos de terceiros permanecem estritamente invisíveis.
-            const wsObj = wsMap.get(event.cr4a1_workspace_id);
-            if (wsObj?._apenasFichasConvidado) {
+            if (ehWorkspaceDireto) {
+                if (!activeWorkspaces.includes(event.cr4a1_workspace_id)) return false;
+            } else {
+                // Evento de tarefa/subtask originária de outro workspace onde o usuário é apenas convidado:
+                // Só aparece se o filtro virtual "Espaço do Convidado" estiver ativo, for do tipo Tarefa e for competente a este usuário!
+                if (!virtualConvidadosAtivo) return false;
                 const ehMinhaTarefa = event.cr4a1_tipo === 'Tarefa' && isAssignedTo(event.cr4a1_user_login, user);
                 if (!ehMinhaTarefa) return false;
             }

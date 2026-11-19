@@ -1124,16 +1124,38 @@ export const TrelloPanel = ({
     tarefas = [],
     subtasksEventosIdsAtuais = {},
     ativar = false,
-    eventosWorkspaceCache = null
+    eventosWorkspaceCache = null,
+    workspaceIdFicha = null
   }) => {
     const mapaAtual = (subtasksEventosIdsAtuais && typeof subtasksEventosIdsAtuais === 'object') ? subtasksEventosIdsAtuais : {};
     const novosIds = {};
     const prefixoEventId = fichaId ? `subtask-${fichaId}-` : '';
     const detalheSubtask = `Subtask da checklist da ficha "${tituloFicha || 'Ficha'}"`;
+    const targetWsId = workspaceIdFicha || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null);
 
-    const eventosExistentes = Array.isArray(eventosWorkspaceCache)
-      ? eventosWorkspaceCache
-      : await buscarEventosTarefaWorkspace(workspaceId);
+    let eventosExistentes = [];
+    if (Array.isArray(eventosWorkspaceCache)) {
+      eventosExistentes = eventosWorkspaceCache;
+    } else {
+      const promessas = [];
+      if (targetWsId) promessas.push(buscarEventosTarefaWorkspace(targetWsId));
+      if (prefixoEventId) {
+        promessas.push(
+          fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$select=cr4a1_agenda_kairosid,cr4a1_event_id,cr4a1_titulo,cr4a1_data_inicio,cr4a1_detalhes&$filter=${q(`contains(cr4a1_event_id, '${prefixoEventId}')`)}`)
+            .then(r => r.ok ? r.json() : { value: [] })
+            .then(d => d.value || [])
+            .catch(() => [])
+        );
+      }
+      const resultados = await Promise.all(promessas);
+      const mapaEvs = new Map();
+      resultados.flat().forEach(ev => {
+        if (ev?.cr4a1_agenda_kairosid && !mapaEvs.has(ev.cr4a1_agenda_kairosid)) {
+          mapaEvs.set(ev.cr4a1_agenda_kairosid, ev);
+        }
+      });
+      eventosExistentes = Array.from(mapaEvs.values());
+    }
 
     const removerDaCache = (idApagado) => {
       const idx = eventosExistentes.findIndex(e => e.cr4a1_agenda_kairosid === idApagado);
@@ -1241,7 +1263,7 @@ export const TrelloPanel = ({
         cr4a1_subtasks: '[]',
         cr4a1_privado: false,
         cr4a1_arquivos: '[]',
-        cr4a1_workspace_id: workspaceId
+        cr4a1_workspace_id: targetWsId
       });
       if (resCriado.ok) {
         const criado = await resCriado.json();
@@ -1342,7 +1364,7 @@ export const TrelloPanel = ({
                 cr4a1_subtasks: '[]',
                 cr4a1_privado: false,
                 cr4a1_arquivos: '[]',
-                cr4a1_workspace_id: workspaceId
+                cr4a1_workspace_id: ficha.cr4a1_workspace_id || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null)
               });
               if (resEv.ok) {
                 const criado = await resEv.json();
@@ -1361,7 +1383,8 @@ export const TrelloPanel = ({
             tarefas,
             subtasksEventosIdsAtuais: meta.subtasksEventosIds || {},
             ativar: Boolean(syncSubtasks),
-            eventosWorkspaceCache
+            eventosWorkspaceCache,
+            workspaceIdFicha: ficha.cr4a1_workspace_id
           });
           totalSubtasksSync += Object.keys(novosSubtasksIds).length;
 
@@ -2114,23 +2137,50 @@ export const TrelloPanel = ({
         });
       } else if (dataDefinida && deveSincronizarAgenda) {
         const { inicioIso, fimIso, horaFim } = intervaloDoEvento(form.dia, form.hora || '08:00');
-        const resCriado = await post('cr4a1_agenda_kairoses', {
-          cr4a1_event_id: crypto.randomUUID(),
-          cr4a1_titulo: form.titulo,
-          cr4a1_user_login: form.responsavel,
-          cr4a1_data_inicio: inicioIso,
-          cr4a1_data_fim: fimIso,
-          cr4a1_hora_inicio: form.hora || '08:00',
-          cr4a1_hora_fim: horaFim,
-          cr4a1_tipo: 'Tarefa',
-          cr4a1_detalhes: htmlParaTexto(form.descricao),
-          cr4a1_subtasks: '[]',
-          cr4a1_privado: false,
-          cr4a1_arquivos: '[]',
-          cr4a1_workspace_id: workspaceId
-        });
-        const criado = await resCriado.json();
-        eventoId = criado.cr4a1_agenda_kairosid;
+        const fichaEventKey = `ficha-${original.cr4a1_fichaid}`;
+        const targetWsFicha = original.cr4a1_workspace_id || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null);
+        let idExistente = null;
+        try {
+          const resBusca = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$select=cr4a1_agenda_kairosid&$filter=${q(`cr4a1_event_id eq '${fichaEventKey}'`)}`);
+          if (resBusca.ok) {
+            const dataBusca = await resBusca.json();
+            if (dataBusca.value && dataBusca.value.length > 0) {
+              idExistente = dataBusca.value[0].cr4a1_agenda_kairosid;
+            }
+          }
+        } catch {}
+
+        if (idExistente) {
+          await patch('cr4a1_agenda_kairoses', idExistente, {
+            cr4a1_titulo: form.titulo,
+            cr4a1_user_login: form.responsavel,
+            cr4a1_data_inicio: inicioIso,
+            cr4a1_data_fim: fimIso,
+            cr4a1_hora_inicio: form.hora || '08:00',
+            cr4a1_hora_fim: horaFim,
+            cr4a1_detalhes: htmlParaTexto(form.descricao),
+            cr4a1_workspace_id: targetWsFicha
+          });
+          eventoId = idExistente;
+        } else {
+          const resCriado = await post('cr4a1_agenda_kairoses', {
+            cr4a1_event_id: fichaEventKey,
+            cr4a1_titulo: form.titulo,
+            cr4a1_user_login: form.responsavel,
+            cr4a1_data_inicio: inicioIso,
+            cr4a1_data_fim: fimIso,
+            cr4a1_hora_inicio: form.hora || '08:00',
+            cr4a1_hora_fim: horaFim,
+            cr4a1_tipo: 'Tarefa',
+            cr4a1_detalhes: htmlParaTexto(form.descricao),
+            cr4a1_subtasks: '[]',
+            cr4a1_privado: false,
+            cr4a1_arquivos: '[]',
+            cr4a1_workspace_id: targetWsFicha
+          });
+          const criado = await resCriado.json();
+          eventoId = criado.cr4a1_agenda_kairosid;
+        }
       }
 
       // Sincronização opcional das subtasks (checklists) com prazo para o Calendário da Agenda
@@ -2142,7 +2192,8 @@ export const TrelloPanel = ({
         horaPadrao: form.hora || '08:00',
         tarefas: tarefasDaDescricao,
         subtasksEventosIdsAtuais: metaOriginal.subtasksEventosIds || {},
-        ativar: deveSincronizarSubtasks
+        ativar: deveSincronizarSubtasks,
+        workspaceIdFicha: original.cr4a1_workspace_id
       });
       novoMeta.subtasksEventosIds = novosSubtasksEventosIds;
       atividades = atualizarFichaMeta(atividades, {

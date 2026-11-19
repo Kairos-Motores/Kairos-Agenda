@@ -24,3 +24,57 @@ export const avisarFichasDoResponsavel = async (user) => {
     console.error('Erro ao verificar fichas:', error);
   }
 };
+
+/**
+ * Deduplica eventos e subtasks com garantia estrita para a Agenda/Calendário.
+ * Prioriza:
+ * 1. dbId (cr4a1_agenda_kairosid ou id)
+ * 2. eventId determinístico (cr4a1_event_id, ex: subtask-xxx, ficha-xxx)
+ * 3. Chave lógica para tarefas/subtasks: (tipo, título normalizado, dia de início, responsável normalizado)
+ */
+export const deduplicarEventosAgenda = (events) => {
+  if (!Array.isArray(events)) return [];
+
+  const mapUnicos = new Map();
+  const chavesEventId = new Set();
+  const chavesLogicas = new Set();
+
+  for (const ev of events) {
+    if (!ev) continue;
+    const dbId = ev.cr4a1_agenda_kairosid || ev.id;
+    const eventId = ev.cr4a1_event_id;
+
+    // Se já incluímos este registro exato pelo ID primário
+    if (dbId && mapUnicos.has(dbId)) continue;
+
+    // Se o evento tem um event_id determinístico (ex.: subtask-xxx ou ficha-xxx) e já foi processado
+    if (eventId && chavesEventId.has(eventId)) continue;
+
+    // Deduplicação lógica para tarefas/subtasks
+    const tipo = ev.cr4a1_tipo || '';
+    const tituloLimpo = (ev.cr4a1_titulo || '').trim().toLowerCase();
+    const diaInicio = ev.cr4a1_data_inicio ? String(ev.cr4a1_data_inicio).split('T')[0] : '';
+    const responsavelLimpo = (ev.cr4a1_user_login || '').trim().toLowerCase();
+    const horaInicio = (ev.cr4a1_hora_inicio || '').trim();
+
+    const ehSubtask = Boolean(ev.cr4a1_detalhes && String(ev.cr4a1_detalhes).startsWith('Subtask da checklist'));
+    const ehTarefa = tipo === 'Tarefa';
+
+    let chaveLogica = null;
+    if ((ehTarefa || ehSubtask) && tituloLimpo && diaInicio) {
+      chaveLogica = `${ehSubtask ? 'subtask' : 'tarefa'}__${tituloLimpo}__${diaInicio}__${horaInicio}__${responsavelLimpo}`;
+      if (chavesLogicas.has(chaveLogica)) {
+        continue; // Descarta duplicata da mesma tarefa/subtask
+      }
+    }
+
+    if (dbId) mapUnicos.set(dbId, ev);
+    else mapUnicos.set(eventId || Math.random().toString(), ev);
+
+    if (eventId) chavesEventId.add(eventId);
+    if (chaveLogica) chavesLogicas.add(chaveLogica);
+  }
+
+  return Array.from(mapUnicos.values());
+};
+
