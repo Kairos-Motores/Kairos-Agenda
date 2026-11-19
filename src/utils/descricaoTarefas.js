@@ -4,17 +4,22 @@
 export const extrairTarefas = (html) => {
   if (!html || !html.includes('data-type="taskItem"')) return [];
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  return [...doc.querySelectorAll('li[data-type="taskItem"]')].map((li, index) => ({
-    index,
-    texto: (li.querySelector('div')?.textContent || li.textContent || '').trim(),
-    concluida: li.getAttribute('data-checked') === 'true',
-    // Data, responsável e lembrete não fazem parte do editor de texto rico (TipTap) — ficam guardados
-    // como atributos extras no próprio <li>, lidos/escritos por fora da edição do texto,
-    // igual ao data-checked já faz pro estado de concluída.
-    dataVencimento: li.getAttribute('data-due') || '',
-    responsavel: li.getAttribute('data-assignee') || '',
-    lembreteHoras: li.getAttribute('data-reminder') || ''
-  }));
+  return [...doc.querySelectorAll('li[data-type="taskItem"]')].map((li, index) => {
+    const clone = li.cloneNode(true);
+    clone.querySelectorAll('label, input').forEach(el => el.remove());
+    const texto = (clone.querySelector('div')?.textContent || clone.textContent || '').replace(/\s+/g, ' ').trim();
+    return {
+      index,
+      texto,
+      concluida: li.getAttribute('data-checked') === 'true',
+      // Data, responsável e lembrete não fazem parte do editor de texto rico (TipTap) — ficam guardados
+      // como atributos extras no próprio <li>, lidos/escritos por fora da edição do texto,
+      // igual ao data-checked já faz pro estado de concluída.
+      dataVencimento: li.getAttribute('data-due') || '',
+      responsavel: li.getAttribute('data-assignee') || '',
+      lembreteHoras: li.getAttribute('data-reminder') || ''
+    };
+  });
 };
 
 export const atualizarAtributoTarefaNoHtml = (html, index, atributos = {}) => {

@@ -67,7 +67,8 @@ const extrairTarefasNode = (html = '') => {
   let index = 0;
   while ((match = regex.exec(html)) !== null) {
     const attrs = match[1] || '';
-    const inner = match[2] || '';
+    let inner = match[2] || '';
+    inner = inner.replace(/<label\b[\s\S]*?<\/label>/gi, '').replace(/<input\b[^>]*>/gi, '');
     tarefas.push({
       index,
       texto: limparHtml(inner),
@@ -241,17 +242,22 @@ export default async function handler(req, res) {
         const chave = `${t.index}_${loginLower}_${t.dataVencimento}_${horasAntes}`;
         if (enviados.has(chave)) continue;
 
-        const fichaTitulo = ficha.cr4a1_titulo || 'Ficha';
+        const nomeItem = (t.texto || '').trim();
+        // Não envia lembrete para item sem texto digitado
+        if (!nomeItem) continue;
+
+        const fichaTitulo = (ficha.cr4a1_titulo || '').trim() || 'Ficha';
         const listaNome = listaNomePorId.get(ficha.cr4a1_lista_id) || '';
         const workspaceNome = wsNomePorId.get(ficha.cr4a1_workspace_id) || '';
         const prazoFmt = new Date(prazoIso).toLocaleDateString('pt-BR', { timeZone: 'America/Belem' });
+        const descricaoAlvo = `"${nomeItem}" na ficha "${fichaTitulo}"`;
 
         // 1. Web Push para todos os dispositivos inscritos (mesmo com app/site fechado)
         if (pushHabilitado) {
           const subs = subsPorLogin.get(loginLower) || [];
           const payload = JSON.stringify({
             title: `⏰ Prazo em ${horasAntes}h: ${fichaTitulo}`,
-            body: `Lembrete: conclua "${t.texto}" até ${prazoFmt}.`,
+            body: `Lembrete: conclua ${descricaoAlvo} até ${prazoFmt}.`,
             url: '/',
             tag: `cron-subtask-${ficha.cr4a1_fichaid}-${t.index}-${horasAntes}h`
           });
@@ -274,17 +280,17 @@ export default async function handler(req, res) {
         const emailDest = emailPorLogin.get(loginLower);
         if (transporter && emailDest) {
           try {
-            const tituloEmail = `Lembrete (${horasAntes}h): concluir "${t.texto}"`;
+            const tituloEmail = `Lembrete (${horasAntes}h): concluir "${nomeItem}" (${fichaTitulo})`;
             const mensagemEmail = `Falta menos de <strong>${horasAntes} horas</strong> para o vencimento da sua tarefa na ficha <strong>"${fichaTitulo}"</strong>.`;
             await transporter.sendMail({
               from: `"Kairós Agenda" <${mailUser}>`,
               to: emailDest,
               subject: `[Kairós Agenda] ${tituloEmail}`,
-              text: `${tituloEmail}\n\nTarefa: ${t.texto}\nFicha: ${fichaTitulo}\nPrazo: ${prazoFmt}\nAcesse: ${APP_URL}`,
+              text: `${tituloEmail}\n\nTarefa: ${nomeItem}\nFicha: ${fichaTitulo}\nPrazo: ${prazoFmt}\nAcesse: ${APP_URL}`,
               html: gerarHtmlLembrete({
                 titulo: tituloEmail,
                 mensagem: mensagemEmail,
-                subtaskTexto: t.texto,
+                subtaskTexto: nomeItem,
                 fichaTitulo,
                 workspaceNome,
                 listaNome,
@@ -306,8 +312,9 @@ export default async function handler(req, res) {
           destinatario: t.responsavel,
           tipo: 'evento_proximo',
           titulo: `Lembrete (${horasAntes}h): ${fichaTitulo}`,
-          mensagem: `Lembrete: conclua "${t.texto}" até ${prazoFmt}.`,
+          mensagem: `Lembrete: conclua ${descricaoAlvo} até ${prazoFmt}.`,
           itemTitulo: fichaTitulo,
+          subtaskTitulo: nomeItem,
           origem: 'Prazo de Checklist',
           timestamp: new Date().toISOString()
         });

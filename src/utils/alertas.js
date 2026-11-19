@@ -744,20 +744,27 @@ export const notificarLembreteSubtask = async ({
       })()
     : '';
 
-  const titulo = `Lembrete (${lembreteHoras}h): concluir "${subtaskTexto}"`;
-  const mensagemHtml = `Atenção! Falta menos de <strong>${lembreteHoras} horas</strong> para o prazo da sua tarefa na ficha <strong>"${fichaTitulo}"</strong>:<br/><br/>• <strong>${subtaskTexto}</strong>${prazoFmt ? `<br/>Prazo: <strong>${prazoFmt}</strong>` : ''}`;
-  const pushTitle = `⏰ Prazo em ${lembreteHoras}h: ${fichaTitulo}`;
-  const pushBody = `Lembrete: conclua "${subtaskTexto}"${prazoFmt ? ` até ${prazoFmt}` : ''}.`;
-  const pushTag = `lembrete-subtask-${info.username}-${fichaTitulo}-${lembreteHoras}h`;
+  const nomeItem = (subtaskTexto || '').trim();
+  const nomeFicha = (fichaTitulo || '').trim() || 'Ficha';
+  const descricaoAlvo = nomeItem
+    ? `"${nomeItem}" na ficha "${nomeFicha}"`
+    : `a tarefa na ficha "${nomeFicha}"`;
+
+  const titulo = `Lembrete (${lembreteHoras}h): concluir ${nomeItem ? `"${nomeItem}" (${nomeFicha})` : `tarefa em "${nomeFicha}"`}`;
+  const mensagemHtml = `Atenção! Falta menos de <strong>${lembreteHoras} horas</strong> para o prazo da sua tarefa na ficha <strong>"${nomeFicha}"</strong>:<br/><br/>• <strong>${nomeItem || nomeFicha}</strong>${prazoFmt ? `<br/>Prazo: <strong>${prazoFmt}</strong>` : ''}`;
+  const pushTitle = `⏰ Prazo em ${lembreteHoras}h: ${nomeFicha}`;
+  const pushBody = `Lembrete: conclua ${descricaoAlvo}${prazoFmt ? ` até ${prazoFmt}` : ''}.`;
+  const pushTag = `lembrete-subtask-${info.username}-${nomeFicha}-${lembreteHoras}h`;
 
   const inboxItem = {
     id: crypto.randomUUID(),
     para: info.username.toLowerCase(),
     destinatario: info.username,
     tipo: 'evento_proximo',
-    titulo: `Lembrete (${lembreteHoras}h): ${fichaTitulo}`,
+    titulo: `Lembrete (${lembreteHoras}h): ${nomeFicha}`,
     mensagem: pushBody,
-    itemTitulo: fichaTitulo,
+    itemTitulo: nomeFicha,
+    subtaskTitulo: nomeItem,
     origem: 'Prazo de Checklist',
     timestamp: new Date().toISOString()
   };

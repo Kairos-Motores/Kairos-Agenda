@@ -970,6 +970,8 @@ export const TrelloPanel = ({
 
         for (const t of tarefas) {
           if (t.concluida || !t.responsavel || !t.dataVencimento || !t.lembreteHoras) continue;
+          const textoSubtask = (t.texto || '').trim();
+          if (!textoSubtask) continue;
           const horasAntes = Number(t.lembreteHoras);
           if (![48, 24, 12].includes(horasAntes)) continue;
 
