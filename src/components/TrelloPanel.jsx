@@ -14,7 +14,13 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, Ban, GripVertical, CalendarDays, RefreshCw, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye } from 'lucide-react';
+import { Plus, Trash2, Ban, GripVertical, CalendarDays, RefreshCw, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye, Type } from 'lucide-react';
+import {
+  GOOGLE_FONTS_FICHAS,
+  carregarGoogleFont,
+  carregarCatalogoGoogleFonts,
+  getFichasFontCss
+} from '../utils/googleFontsFichas';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
@@ -397,6 +403,40 @@ export const TrelloPanel = ({
   const [compartilharAberto, setCompartilharAberto] = useState(false);
   const [etiquetasAberto, setEtiquetasAberto] = useState(false);
   const [fundoAberto, setFundoAberto] = useState(false);
+
+  const fonteUsuarioFichas = useMemo(() => {
+    if (currentUser?.cr4a1_fonte_fichas !== undefined && currentUser?.cr4a1_fonte_fichas !== null) {
+      return currentUser.cr4a1_fonte_fichas;
+    }
+    try {
+      return localStorage.getItem(`kairos_fichas_font_${String(user || '').toLowerCase()}`) || '';
+    } catch {
+      return '';
+    }
+  }, [currentUser?.cr4a1_fonte_fichas, user]);
+
+  const fichasFontCss = useMemo(() => getFichasFontCss(fonteUsuarioFichas), [fonteUsuarioFichas]);
+
+  useEffect(() => {
+    if (fonteUsuarioFichas) {
+      carregarGoogleFont(fonteUsuarioFichas);
+    }
+    try {
+      if (user && currentUser?.cr4a1_fonte_fichas !== undefined) {
+        localStorage.setItem(`kairos_fichas_font_${String(user).toLowerCase()}`, currentUser.cr4a1_fonte_fichas || '');
+      }
+    } catch {}
+  }, [fonteUsuarioFichas, currentUser?.cr4a1_fonte_fichas, user]);
+
+  // Aplica a fonte escolhida apenas enquanto o usuário está no módulo Fichas (inclusive modais/portais),
+  // restaurando o padrão global (Poppins) ao sair do Fichas.
+  useEffect(() => {
+    const temCustom = Boolean(fonteUsuarioFichas && fonteUsuarioFichas !== 'Poppins');
+    document.body.style.fontFamily = temCustom ? fichasFontCss : '';
+    return () => {
+      document.body.style.fontFamily = '';
+    };
+  }, [fichasFontCss, fonteUsuarioFichas]);
   const [filtrosAberto, setFiltrosAberto] = useState(false);
   const [anexoCardPreview, setAnexoCardPreview] = useState(null);
   const [minhasFichasAberto, setMinhasFichasAberto] = useState(false);
@@ -3337,7 +3377,7 @@ export const TrelloPanel = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Fundo</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Aparência (Fundo e Fonte)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
               {podeGerenciarColaboradores && (
@@ -8037,11 +8077,25 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
   );
 };
 
-// O fundo é por pessoa (guardado no usuário), não no quadro — cada um vê o que escolheu.
+// O fundo e a fonte são por pessoa (guardados no usuário), não no quadro — cada um vê o que escolheu.
 const FundoDialog = ({ currentUser, onSave, onClose }) => {
+  const [aba, setAba] = useState('fundo');
   const [cor, setCor] = useState(currentUser?.cr4a1_trello_fundo_cor || '');
   const [imagem, setImagem] = useState(currentUser?.cr4a1_trello_fundo_imagem || '');
+  const [fonte, setFonte] = useState(currentUser?.cr4a1_fonte_fichas || '');
+  const [fonteCustomInput, setFonteCustomInput] = useState(() => {
+    const atual = currentUser?.cr4a1_fonte_fichas || '';
+    const estaNoCatalogo = !atual || GOOGLE_FONTS_FICHAS.some(f => f.value.toLowerCase() === atual.toLowerCase());
+    return estaNoCatalogo ? '' : atual;
+  });
   const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    carregarCatalogoGoogleFonts();
+    if (currentUser?.cr4a1_fonte_fichas) {
+      carregarGoogleFont(currentUser.cr4a1_fonte_fichas);
+    }
+  }, [currentUser?.cr4a1_fonte_fichas]);
 
   const escolherCor = (hex) => { setCor(hex); setImagem(''); };
   const handleUpload = (file) => {
@@ -8055,8 +8109,25 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
   };
   const limpar = () => { setCor(''); setImagem(''); };
 
+  const aplicarFonteCatalogo = (valor) => {
+    const limpa = valor === 'Poppins' ? '' : valor;
+    if (limpa) carregarGoogleFont(limpa);
+    setFonte(limpa);
+  };
+
+  const aplicarFonteCustom = () => {
+    const nome = fonteCustomInput.trim();
+    if (!nome) return;
+    carregarGoogleFont(nome);
+    setFonte(nome);
+    toast.success(`Fonte "${nome}" carregada do Google Fonts para pré-visualização.`);
+  };
+
+  const fonteAtualEfetiva = fonte || 'Poppins';
+  const fontCssPreview = getFichasFontCss(fonte);
+
   const salvar = async () => {
-    await onSave({ cor, imagem });
+    await onSave({ cor, imagem, fonte });
     onClose();
   };
 
@@ -8064,46 +8135,138 @@ const FundoDialog = ({ currentUser, onSave, onClose }) => {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md sm:max-w-xl lg:max-w-2xl">
         <DialogHeader>
-          <DialogTitle><Palette className="size-5" /> Fundo do seu Trello</DialogTitle>
-          <DialogDescription>É só seu — mesmo dividindo o quadro com outras pessoas, cada uma vê o fundo que escolheu.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Palette className="size-5 text-primary" /> Aparência do seu Fichas
+          </DialogTitle>
+          <DialogDescription>
+            Personalização individual — mesmo dividindo o quadro com outras pessoas, apenas você vê o fundo e a fonte que escolher.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          {imagem && (
-            <div className="h-28 w-full rounded-xl border border-border bg-cover bg-center" style={{ backgroundImage: `url(${imagem})` }} />
-          )}
-
-          <div>
-            <Label>Cor sólida</Label>
-            <div className="grid max-h-36 grid-cols-10 gap-1.5 overflow-y-auto p-1">
-              {themeColors.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => escolherCor(c.hex)}
-                  title={c.label}
-                  aria-label={c.label}
-                  className="size-5 shrink-0 rounded-full transition-transform active:scale-90"
-                  style={{ backgroundColor: c.hex, boxShadow: cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label>Ou uma imagem</Label>
-            <div>
-              <Button type="button" variant="outline" size="sm" className="mt-1" onClick={() => document.getElementById('trello-fundo-upload').click()} disabled={enviando}>
-                <ImageIcon className="size-4" /> {enviando ? 'A preparar...' : 'Escolher imagem'}
-              </Button>
-              <input type="file" id="trello-fundo-upload" hidden accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} />
-            </div>
-          </div>
-
-          {(cor || imagem) && (
-            <Button type="button" variant="ghost" size="sm" className="self-start text-destructive" onClick={limpar}>Remover fundo</Button>
-          )}
+        <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary/70 p-1 border border-border">
+          <button
+            type="button"
+            onClick={() => setAba('fundo')}
+            className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              aba === 'fundo' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Palette className="size-3.5" /> Fundo do Quadro
+          </button>
+          <button
+            type="button"
+            onClick={() => setAba('fonte')}
+            className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              aba === 'fonte' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Type className="size-3.5" /> Fonte (Google Fonts)
+          </button>
         </div>
+
+        {aba === 'fundo' ? (
+          <div className="flex flex-col gap-4">
+            {imagem && (
+              <div className="h-28 w-full rounded-xl border border-border bg-cover bg-center" style={{ backgroundImage: `url(${imagem})` }} />
+            )}
+
+            <div>
+              <Label>Cor sólida</Label>
+              <div className="grid max-h-36 grid-cols-10 gap-1.5 overflow-y-auto p-1">
+                {themeColors.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => escolherCor(c.hex)}
+                    title={c.label}
+                    aria-label={c.label}
+                    className="size-5 shrink-0 rounded-full transition-transform active:scale-90"
+                    style={{ backgroundColor: c.hex, boxShadow: cor === c.hex ? `0 0 0 2px var(--card), 0 0 0 4px ${c.hex}` : 'none' }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Ou uma imagem</Label>
+              <div>
+                <Button type="button" variant="outline" size="sm" className="mt-1" onClick={() => document.getElementById('trello-fundo-upload').click()} disabled={enviando}>
+                  <ImageIcon className="size-4" /> {enviando ? 'A preparar...' : 'Escolher imagem'}
+                </Button>
+                <input type="file" id="trello-fundo-upload" hidden accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} />
+              </div>
+            </div>
+
+            {(cor || imagem) && (
+              <Button type="button" variant="ghost" size="sm" className="self-start text-destructive" onClick={limpar}>Remover fundo</Button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="mb-0">Escolha uma fonte do Google Fonts</Label>
+              {fonte && (
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { setFonte(''); setFonteCustomInput(''); }}>
+                  Restaurar padrão (Poppins)
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
+              {GOOGLE_FONTS_FICHAS.map((f) => {
+                const selecionada = fonteAtualEfetiva.toLowerCase() === f.value.toLowerCase();
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => aplicarFonteCatalogo(f.value)}
+                    style={{ fontFamily: getFichasFontCss(f.value) }}
+                    className={`flex flex-col items-start rounded-xl border p-2.5 text-left transition-all ${
+                      selecionada
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                        : 'border-border bg-secondary/40 hover:bg-secondary'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-foreground truncate w-full">{f.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{f.categoria}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">Ou digite qualquer outra fonte do Google Fonts (ex.: Ubuntu, Work Sans, Rubik)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Nome exato da fonte no Google Fonts..."
+                  value={fonteCustomInput}
+                  onChange={(e) => setFonteCustomInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); aplicarFonteCustom(); } }}
+                  className="h-8 text-xs"
+                />
+                <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 text-xs" onClick={aplicarFonteCustom} disabled={!fonteCustomInput.trim()}>
+                  Carregar
+                </Button>
+              </div>
+            </div>
+
+            <div
+              className="rounded-xl border border-border bg-secondary/50 p-3 flex flex-col gap-1"
+              style={{ fontFamily: fontCssPreview }}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                Pré-visualização ({fonteAtualEfetiva})
+              </span>
+              <span className="text-sm font-bold text-foreground">
+                Lista: Em Andamento • Ficha: Revisar proposta comercial
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Os textos formatados manualmente dentro das fichas continuam preservando suas fontes próprias.
+              </span>
+            </div>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

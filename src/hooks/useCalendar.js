@@ -2107,23 +2107,42 @@ export const useCalendar = () => {
         }
     };
 
-    // Fundo do Trello é por usuário (não por quadro): cada um vê o seu, mesmo dividindo o mesmo quadro.
-    const updateTrelloFundo = async (userId, { cor, imagem }) => {
+    // Fundo e fonte do Trello são por usuário (não por quadro): cada um vê o seu, mesmo dividindo o mesmo quadro.
+    const updateTrelloFundo = async (userId, { cor, imagem, fonte }) => {
         try {
+            const payload = {
+                cr4a1_trello_fundo_cor: cor ?? '',
+                cr4a1_trello_fundo_imagem: imagem ?? ''
+            };
+            if (fonte !== undefined) {
+                payload.cr4a1_fonte_fichas = fonte || '';
+            }
             const response = await fetch(`${API_PROXY}?table=cr4a1_usuarios_agendas&id=${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cr4a1_trello_fundo_cor: cor ?? '',
-                    cr4a1_trello_fundo_imagem: imagem ?? ''
-                })
+                body: JSON.stringify(payload)
             });
             if (!response.ok) throw new Error("Erro na API Gateway");
-            setAllUsers(prev => prev.map(u => u.cr4a1_usuarios_agendaid === userId ?
-                { ...u, cr4a1_trello_fundo_cor: cor ?? '', cr4a1_trello_fundo_imagem: imagem ?? '' } : u
-            ));
+            setAllUsers(prev => prev.map(u => {
+                if (u.cr4a1_usuarios_agendaid !== userId) return u;
+                const atualizado = {
+                    ...u,
+                    cr4a1_trello_fundo_cor: cor ?? '',
+                    cr4a1_trello_fundo_imagem: imagem ?? ''
+                };
+                if (fonte !== undefined) {
+                    atualizado.cr4a1_fonte_fichas = fonte || '';
+                    try {
+                        if (u.cr4a1_username) {
+                            localStorage.setItem(`kairos_fichas_font_${u.cr4a1_username.toLowerCase()}`, fonte || '');
+                        }
+                    } catch {}
+                }
+                return atualizado;
+            }));
+            toast.success('Aparência do Fichas atualizada!');
         } catch (error) {
-            toast.error("Erro ao atualizar o fundo do Trello.");
+            toast.error("Erro ao atualizar aparência do Fichas.");
             console.error(error);
         }
     };
