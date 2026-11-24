@@ -90,9 +90,10 @@ const PowerBIEmbeddedReport = ({ tab }) => {
   );
 };
 import { isBiVisibleForRoles, buildBiRolesOverrideMap } from '../utils/biPermissions';
+import { BI_EMBEDDED_IDS } from '../config/biEmbeddedIds';
 import {
   BarChart3, Search, FilterX, X, EyeOff, Plus, RotateCw, ChevronDown,
-  RefreshCw, CheckCircle2, AlertTriangle, Clock, Info, Copy, Check, Activity
+  RefreshCw, CheckCircle2, AlertTriangle, Clock, Info, Copy, Check, Activity, FileSpreadsheet
 } from 'lucide-react';
 import { BiMonitoringModal } from './BiMonitoringModal';
 import { Button } from './ui/button';
@@ -535,6 +536,7 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
         ) : (
           bisPermitidos.map(bi => {
             const isOpen = openTabs.some(t => t.bi.id === bi.id);
+            const suportaExportacao = BI_EMBEDDED_IDS.has(bi.id);
             return (
               <div key={bi.id} onClick={() => abrirBI(bi)} className="boing-effect note-card"
                 style={{
@@ -550,6 +552,17 @@ export const DashboardPanel = ({ activeWorkspaces, userRole, user, biConfig, biP
                   <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-title)' }}>{bi.title}</h3>
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>{bi.description}</p>
+                {suportaExportacao && (
+                  <span
+                    title="Permite exportar os dados do relatório para Excel (.xlsx)"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px', alignSelf: 'flex-start',
+                      fontSize: '11px', background: '#e8f5e9', color: '#2e7d32', padding: '2px 8px', borderRadius: '12px', fontWeight: '600'
+                    }}
+                  >
+                    <FileSpreadsheet className="size-3" /> Exportável (.xlsx)
+                  </span>
+                )}
               </div>
             );
           })
