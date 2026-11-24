@@ -4,6 +4,13 @@
 let cachedAadToken = null;
 let tokenExpiresAt = 0;
 
+// Capacidade compartilhada do Power BI tem uma cota diária de quantos embed
+// tokens podem ser gerados — reaproveitar o token do mesmo relatório até perto
+// de expirar (em vez de gerar um novo a cada abertura de aba) reduz bastante
+// o consumo dessa cota.
+const embedTokenCache = new Map(); // reportId -> { token, tokenId, expiration, expiresAtMs }
+const EMBED_TOKEN_SAFETY_MARGIN_MS = 3 * 60 * 1000;
+
 // Obtém e faz cache do token AAD (App Registration) para a API do Power BI
 export async function getPowerBIAccessToken() {
   const now = Date.now();
@@ -38,8 +45,14 @@ export async function getPowerBIAccessToken() {
   return cachedAadToken;
 }
 
-// Gera um Embed Token oficial para um relatório específico
+// Gera (ou reaproveita, se ainda válido) um Embed Token oficial para um relatório específico
 async function generateReportEmbedToken(workspaceId, reportId) {
+  const now = Date.now();
+  const cached = embedTokenCache.get(reportId);
+  if (cached && now < cached.expiresAtMs - EMBED_TOKEN_SAFETY_MARGIN_MS) {
+    return cached;
+  }
+
   const aadToken = await getPowerBIAccessToken();
 
   const res = await fetch(
@@ -62,11 +75,14 @@ async function generateReportEmbedToken(workspaceId, reportId) {
     throw new Error(data.message || 'Falha ao gerar Embed Token no Power BI');
   }
 
-  return {
+  const result = {
     token: data.token,
     tokenId: data.tokenId,
     expiration: data.expiration,
+    expiresAtMs: new Date(data.expiration).getTime(),
   };
+  embedTokenCache.set(reportId, result);
+  return result;
 }
 
 // Mapa completo de todos os 61 relatórios dos 8 workspaces migrados para Power BI Embedded oficial (App Owns Data)
