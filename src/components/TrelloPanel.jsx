@@ -644,7 +644,6 @@ export const TrelloPanel = ({
     return [...todosMembros, ...extras];
   }, [membrosBase, workspacesVinculadosIds, todasOpcoes, allUsers, colaboradoresLogins]);
   const podeMudarWorkspace = isAdmin || (!!workspace && workspace.cr4a1_criador_login === user);
-  const podeGerenciarColaboradores = !souApenasConvidado && !estouBloqueado;
   const historicoCompartilhamento = useMemo(() => {
     try {
       const parsed = quadro?.cr4a1_historico_compartilhamento ? JSON.parse(quadro.cr4a1_historico_compartilhamento) : [];
@@ -681,6 +680,7 @@ export const TrelloPanel = ({
     return false;
   }, [workspaceId, isAdmin, workspace, membrosBaseLoginsSet, userLower, colaboradoresLogins, workspaces, workspacesVinculadosIds]);
   const souApenasConvidado = !souMembroOuColaboradorQuadro;
+  const podeGerenciarColaboradores = !souApenasConvidado && !estouBloqueado;
 
   // Dispara os e-mails configurados nas regras de automação da lista, resolvendo o endereço
   // na tabela cr4a1_credenciaises (cr4a1_email) e notificando também no app/dispositivo.
