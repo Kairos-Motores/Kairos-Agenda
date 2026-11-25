@@ -643,7 +643,16 @@ export const TrelloPanel = ({
     const extras = allUsers.filter(u => colaboradoresLogins.includes(u.cr4a1_username) && !todosMembros.some(b => b.cr4a1_username === u.cr4a1_username));
     return [...todosMembros, ...extras];
   }, [membrosBase, workspacesVinculadosIds, todasOpcoes, allUsers, colaboradoresLogins]);
-  const podeGerenciarColaboradores = isAdmin || (!!workspace && workspace.cr4a1_criador_login === user);
+  const podeMudarWorkspace = isAdmin || (!!workspace && workspace.cr4a1_criador_login === user);
+  const podeGerenciarColaboradores = !souApenasConvidado && !estouBloqueado;
+  const historicoCompartilhamento = useMemo(() => {
+    try {
+      const parsed = quadro?.cr4a1_historico_compartilhamento ? JSON.parse(quadro.cr4a1_historico_compartilhamento) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [quadro?.cr4a1_historico_compartilhamento]);
 
   // Quem coordena o setor (mesmo papel "COORD X" que já libera os painéis de BI do setor)
   // pode bloquear o acesso de membros do workspace ao Trello — além do ADMIN, sempre.
@@ -1504,6 +1513,7 @@ export const TrelloPanel = ({
             );
             const idAlvo = evMatch?.cr4a1_agenda_kairosid || eventoId;
             if (idAlvo) {
+              const targetWsLista = ficha.cr4a1_workspace_id || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null);
               const resP = await patch('cr4a1_agenda_kairoses', idAlvo, {
                 cr4a1_event_id: fichaEventKey,
                 cr4a1_titulo: ficha.cr4a1_titulo,
@@ -1511,7 +1521,9 @@ export const TrelloPanel = ({
                 cr4a1_data_inicio: inicioIso,
                 cr4a1_data_fim: fimIso,
                 cr4a1_hora_inicio: hora,
-                cr4a1_hora_fim: horaFim
+                cr4a1_hora_fim: horaFim,
+                cr4a1_privado: false,
+                ...(targetWsLista ? { cr4a1_workspace_id: targetWsLista } : {})
               }).catch(() => null);
               eventoId = (resP && resP.ok) ? idAlvo : '';
             }
@@ -2290,61 +2302,69 @@ export const TrelloPanel = ({
       if ((!dataDefinida || !deveSincronizarAgenda) && eventoId) {
         await apagar('cr4a1_agenda_kairoses', eventoId);
         eventoId = '';
-      } else if (dataDefinida && deveSincronizarAgenda && eventoId) {
-        const { inicioIso, fimIso, horaFim } = intervaloDoEvento(form.dia, form.hora || '08:00');
-        await patch('cr4a1_agenda_kairoses', eventoId, {
-          cr4a1_titulo: form.titulo,
-          cr4a1_user_login: form.responsavel,
-          cr4a1_data_inicio: inicioIso,
-          cr4a1_data_fim: fimIso,
-          cr4a1_hora_inicio: form.hora || '08:00',
-          cr4a1_hora_fim: horaFim
-        });
       } else if (dataDefinida && deveSincronizarAgenda) {
         const { inicioIso, fimIso, horaFim } = intervaloDoEvento(form.dia, form.hora || '08:00');
-        const fichaEventKey = `ficha-${original.cr4a1_fichaid}`;
         const targetWsFicha = original.cr4a1_workspace_id || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null);
-        let idExistente = null;
-        try {
-          const resBusca = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$select=cr4a1_agenda_kairosid&$filter=${q(`cr4a1_event_id eq '${fichaEventKey}'`)}`);
-          if (resBusca.ok) {
-            const dataBusca = await resBusca.json();
-            if (dataBusca.value && dataBusca.value.length > 0) {
-              idExistente = dataBusca.value[0].cr4a1_agenda_kairosid;
-            }
-          }
-        } catch {}
-
-        if (idExistente) {
-          await patch('cr4a1_agenda_kairoses', idExistente, {
+        let patchOk = false;
+        if (eventoId) {
+          const resPatchEv = await patch('cr4a1_agenda_kairoses', eventoId, {
             cr4a1_titulo: form.titulo,
             cr4a1_user_login: form.responsavel,
             cr4a1_data_inicio: inicioIso,
             cr4a1_data_fim: fimIso,
             cr4a1_hora_inicio: form.hora || '08:00',
             cr4a1_hora_fim: horaFim,
-            cr4a1_detalhes: htmlParaTexto(form.descricao),
-            cr4a1_workspace_id: targetWsFicha
-          });
-          eventoId = idExistente;
-        } else {
-          const resCriado = await post('cr4a1_agenda_kairoses', {
-            cr4a1_event_id: fichaEventKey,
-            cr4a1_titulo: form.titulo,
-            cr4a1_user_login: form.responsavel,
-            cr4a1_data_inicio: inicioIso,
-            cr4a1_data_fim: fimIso,
-            cr4a1_hora_inicio: form.hora || '08:00',
-            cr4a1_hora_fim: horaFim,
-            cr4a1_tipo: 'Tarefa',
-            cr4a1_detalhes: htmlParaTexto(form.descricao),
-            cr4a1_subtasks: '[]',
             cr4a1_privado: false,
-            cr4a1_arquivos: '[]',
-            cr4a1_workspace_id: targetWsFicha
-          });
-          const criado = await resCriado.json();
-          eventoId = criado.cr4a1_agenda_kairosid;
+            ...(targetWsFicha ? { cr4a1_workspace_id: targetWsFicha } : {})
+          }).catch(() => null);
+          patchOk = Boolean(resPatchEv && resPatchEv.ok);
+          if (!patchOk) eventoId = '';
+        }
+        if (!patchOk) {
+          const fichaEventKey = `ficha-${original.cr4a1_fichaid}`;
+          let idExistente = null;
+          try {
+            const resBusca = await fetch(`${API_PROXY}?table=cr4a1_agenda_kairoses&$select=cr4a1_agenda_kairosid&$filter=${q(`cr4a1_event_id eq '${fichaEventKey}'`)}`);
+            if (resBusca.ok) {
+              const dataBusca = await resBusca.json();
+              if (dataBusca.value && dataBusca.value.length > 0) {
+                idExistente = dataBusca.value[0].cr4a1_agenda_kairosid;
+              }
+            }
+          } catch {}
+
+          if (idExistente) {
+            await patch('cr4a1_agenda_kairoses', idExistente, {
+              cr4a1_titulo: form.titulo,
+              cr4a1_user_login: form.responsavel,
+              cr4a1_data_inicio: inicioIso,
+              cr4a1_data_fim: fimIso,
+              cr4a1_hora_inicio: form.hora || '08:00',
+              cr4a1_hora_fim: horaFim,
+              cr4a1_detalhes: htmlParaTexto(form.descricao),
+              cr4a1_privado: false,
+              cr4a1_workspace_id: targetWsFicha
+            });
+            eventoId = idExistente;
+          } else {
+            const resCriado = await post('cr4a1_agenda_kairoses', {
+              cr4a1_event_id: fichaEventKey,
+              cr4a1_titulo: form.titulo,
+              cr4a1_user_login: form.responsavel,
+              cr4a1_data_inicio: inicioIso,
+              cr4a1_data_fim: fimIso,
+              cr4a1_hora_inicio: form.hora || '08:00',
+              cr4a1_hora_fim: horaFim,
+              cr4a1_tipo: 'Tarefa',
+              cr4a1_detalhes: htmlParaTexto(form.descricao),
+              cr4a1_subtasks: '[]',
+              cr4a1_privado: false,
+              cr4a1_arquivos: '[]',
+              cr4a1_workspace_id: targetWsFicha
+            });
+            const criado = await resCriado.json();
+            eventoId = criado.cr4a1_agenda_kairosid;
+          }
         }
       }
 
@@ -2602,26 +2622,50 @@ export const TrelloPanel = ({
   };
 
   // Colaboradores e Workspaces vinculados do quadro (além dos membros do workspace)
-  const salvarColaboradoresEWorkspaces = async (novosLogins, novosWsIds) => {
+  const salvarColaboradoresEWorkspaces = async (novosLogins, novosWsIds, eventoRegistro = null) => {
     const itens = [
       ...novosLogins.filter(l => !l.startsWith('ws:')),
       ...novosWsIds.map(id => id.startsWith('ws:') ? id : `ws:${id}`)
     ];
     const valorColaboradores = joinAssignees(itens);
+    const novoHistorico = eventoRegistro
+      ? [
+          {
+            id: crypto.randomUUID(),
+            ...eventoRegistro,
+            ator: user,
+            timestamp: new Date().toISOString()
+          },
+          ...historicoCompartilhamento
+        ].slice(0, 100)
+      : historicoCompartilhamento;
+    const historicoJson = JSON.stringify(novoHistorico);
+
     const corpo = {
       cr4a1_nome: workspace?.cr4a1_nome || workspaceId,
       cr4a1_workspace_id: workspaceId,
       cr4a1_criador_login: workspace?.cr4a1_criador_login || user,
-      cr4a1_colaboradores: valorColaboradores
+      cr4a1_colaboradores: valorColaboradores,
+      cr4a1_historico_compartilhamento: historicoJson
     };
     try {
-      if (quadro?.cr4a1_quadroid) await patch('cr4a1_quadros', quadro.cr4a1_quadroid, { cr4a1_colaboradores: valorColaboradores });
-      else await post('cr4a1_quadros', corpo);
+      if (quadro?.cr4a1_quadroid) {
+        await patch('cr4a1_quadros', quadro.cr4a1_quadroid, {
+          cr4a1_colaboradores: valorColaboradores,
+          cr4a1_historico_compartilhamento: historicoJson
+        });
+      } else {
+        await post('cr4a1_quadros', corpo);
+      }
       recarregar();
     } catch { toast.error('Erro ao atualizar compartilhamento.'); }
   };
   const adicionarColaborador = (login) => {
-    salvarColaboradoresEWorkspaces([...colaboradoresLogins, login], workspacesVinculadosIds);
+    salvarColaboradoresEWorkspaces(
+      [...colaboradoresLogins, login],
+      workspacesVinculadosIds,
+      { tipo: 'add_user', alvo: login, alvoNome: nomeDe(login, allUsers) }
+    );
     notificarCompartilhamento({
       tipoItem: 'Quadro do Trello',
       itemTitulo: workspace?.cr4a1_nome || 'Quadro de Tarefas',
@@ -2635,9 +2679,27 @@ export const TrelloPanel = ({
       }
     });
   };
-  const removerColaborador = (login) => salvarColaboradoresEWorkspaces(colaboradoresLogins.filter(l => l !== login), workspacesVinculadosIds);
-  const adicionarWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, [...workspacesVinculadosIds, wsId]);
-  const removerWorkspaceVinculado = (wsId) => salvarColaboradoresEWorkspaces(colaboradoresLogins, workspacesVinculadosIds.filter(id => id !== wsId));
+  const removerColaborador = (login) => salvarColaboradoresEWorkspaces(
+    colaboradoresLogins.filter(l => l !== login),
+    workspacesVinculadosIds,
+    { tipo: 'remove_user', alvo: login, alvoNome: nomeDe(login, allUsers) }
+  );
+  const adicionarWorkspaceVinculado = (wsId) => {
+    const wsAlvo = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === wsId);
+    salvarColaboradoresEWorkspaces(
+      colaboradoresLogins,
+      [...workspacesVinculadosIds, wsId],
+      { tipo: 'add_ws', alvo: wsId, alvoNome: wsAlvo?.cr4a1_nome || wsId }
+    );
+  };
+  const removerWorkspaceVinculado = (wsId) => {
+    const wsAlvo = todasOpcoes.find(w => w.cr4a1_calendarios_workspacesid === wsId);
+    salvarColaboradoresEWorkspaces(
+      colaboradoresLogins,
+      workspacesVinculadosIds.filter(id => id !== wsId),
+      { tipo: 'remove_ws', alvo: wsId, alvoNome: wsAlvo?.cr4a1_nome || wsId }
+    );
+  };
 
   // Transfere o quadro inteiro (quadro, listas, fichas, etiquetas e eventos vinculados) para outro workspace
   const transferirQuadroParaWorkspace = async (novoWsId) => {
@@ -3380,7 +3442,7 @@ export const TrelloPanel = ({
               <DropdownMenuItem onClick={() => setFundoAberto(true)}><Palette className="size-4" /> Aparência (Fundo e Fonte)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEtiquetasAberto(true)}><Tag className="size-4" /> Etiquetas</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCompartilharAberto(true)}><Users className="size-4" /> Compartilhar</DropdownMenuItem>
-              {podeGerenciarColaboradores && (
+              {podeMudarWorkspace && (
                 <DropdownMenuItem onClick={() => setMudarWorkspaceAberto(true)}><FolderSync className="size-4" /> Mudar Workspace</DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={() => setModelosAberto(true)}><LayoutTemplate className="size-4" /> Modelos</DropdownMenuItem>
@@ -4241,6 +4303,7 @@ export const TrelloPanel = ({
           todosWorkspaces={todasOpcoes}
           allUsers={allUsers}
           podeEditar={podeGerenciarColaboradores}
+          historicoCompartilhamento={historicoCompartilhamento}
           onAdd={adicionarColaborador}
           onRemove={removerColaborador}
           onAddWorkspaceVinculado={adicionarWorkspaceVinculado}
@@ -5039,7 +5102,15 @@ const FichaForm = ({
                     <DateField
                       label="Data de entrega"
                       selectedDate={form.dia}
-                      onSelect={d => set('dia', d)}
+                      onSelect={d => setForm(prev => {
+                        const tinhaDia = Boolean(prev.dia);
+                        const temDia = Boolean(d);
+                        return {
+                          ...prev,
+                          dia: d,
+                          sincronizarAgenda: !temDia ? false : (!tinhaDia ? true : prev.sincronizarAgenda)
+                        };
+                      })}
                       allowClear
                     />
                     <TimeField
@@ -6070,7 +6141,20 @@ const FichaForm = ({
           onSelect={d => set('dataInicioTrabalho', d)}
           allowClear
         />
-        <DateField label="Prazo / Entrega" selectedDate={form.dia} onSelect={d => set('dia', d)} allowClear />
+        <DateField
+          label="Prazo / Entrega"
+          selectedDate={form.dia}
+          onSelect={d => setForm(prev => {
+            const tinhaDia = Boolean(prev.dia);
+            const temDia = Boolean(d);
+            return {
+              ...prev,
+              dia: d,
+              sincronizarAgenda: !temDia ? false : (!tinhaDia ? true : prev.sincronizarAgenda)
+            };
+          })}
+          allowClear
+        />
         <TimeField label="Hora da Entrega" value={form.hora} onSelect={h => set('hora', h)} disabled={!form.dia} />
       </div>
       {form.dia && (
@@ -6950,6 +7034,7 @@ const CompartilharDialog = ({
   todosWorkspaces = [],
   allUsers,
   podeEditar,
+  historicoCompartilhamento = [],
   onAdd,
   onRemove,
   onAddWorkspaceVinculado,
@@ -6968,6 +7053,13 @@ const CompartilharDialog = ({
     ? allUsers.filter(u => !jaTemAcesso.has(u.cr4a1_username) && matchesSearch(u.cr4a1_nome_exibicao || u.cr4a1_username, busca)).slice(0, 8)
     : [];
   const membrosBloqueaveis = membrosBase.filter(m => m.cr4a1_username !== workspace?.cr4a1_criador_login && m.cr4a1_username !== user);
+
+  const ultimoRegistroAdicao = (tipo, alvo) => {
+    const alvoLower = String(alvo || '').toLowerCase();
+    return (historicoCompartilhamento || []).find(h =>
+      h.tipo === tipo && String(h.alvo || '').toLowerCase() === alvoLower
+    );
+  };
 
   const workspacesDisponiveisParaVincular = useMemo(() => {
     return (todosWorkspaces || []).filter(w =>
@@ -7007,18 +7099,27 @@ const CompartilharDialog = ({
               {workspacesVinculadosIds.map(wsId => {
                 const ws = (todosWorkspaces || []).find(w => w.cr4a1_calendarios_workspacesid === wsId);
                 const nomeWs = ws?.cr4a1_nome || 'Workspace vinculado';
+                const regWs = ultimoRegistroAdicao('add_ws', wsId);
                 return (
                   <div key={wsId} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{nomeWs}</span>
-                      <Badge variant="outline" className="text-[10px]">Vinculado</Badge>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground truncate">{nomeWs}</span>
+                        <Badge variant="outline" className="text-[10px]">Vinculado</Badge>
+                      </div>
+                      {regWs && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Vinculado por <strong>{nomeDe(regWs.ator, allUsers)}</strong>
+                          {regWs.timestamp ? ` em ${format(new Date(regWs.timestamp), 'dd/MM HH:mm')}` : ''}
+                        </span>
+                      )}
                     </div>
                     {podeEditar && onRemoveWorkspaceVinculado && (
                       <button
                         type="button"
                         onClick={() => onRemoveWorkspaceVinculado(wsId)}
                         aria-label={`Desvincular workspace ${nomeWs}`}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="text-muted-foreground hover:text-destructive shrink-0"
                       >
                         <X className="size-4" />
                       </button>
@@ -7090,16 +7191,27 @@ const CompartilharDialog = ({
             <Label>Colaboradores só deste quadro</Label>
             <div className="mt-1.5 flex flex-col gap-1.5">
               {colaboradoresLogins.length === 0 && <p className="text-[12px] italic text-muted-foreground">Nenhum colaborador extra ainda.</p>}
-              {colaboradoresLogins.map(login => (
-                <div key={login} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
-                  <span>{nomeDe(login, allUsers)}</span>
-                  {podeEditar && (
-                    <button onClick={() => onRemove(login)} aria-label={`Remover ${login}`} className="text-muted-foreground hover:text-destructive">
-                      <X className="size-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {colaboradoresLogins.map(login => {
+                const reg = ultimoRegistroAdicao('add_user', login);
+                return (
+                  <div key={login} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="font-medium text-foreground truncate">{nomeDe(login, allUsers)}</span>
+                      {reg && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Adicionado por <strong>{nomeDe(reg.ator, allUsers)}</strong>
+                          {reg.timestamp ? ` em ${format(new Date(reg.timestamp), 'dd/MM HH:mm')}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    {podeEditar && (
+                      <button onClick={() => onRemove(login)} aria-label={`Remover ${login}`} className="text-muted-foreground hover:text-destructive shrink-0">
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -7123,7 +7235,37 @@ const CompartilharDialog = ({
               )}
             </div>
           ) : (
-            <p className="text-[12px] text-muted-foreground">Só quem criou o workspace (ou o ADMIN) pode adicionar ou remover colaboradores.</p>
+            <p className="text-[12px] text-muted-foreground">Você não tem permissão para alterar colaboradores neste quadro.</p>
+          )}
+
+          {historicoCompartilhamento.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
+                <History className="size-3.5 text-primary" /> Registro de compartilhamentos ({historicoCompartilhamento.length})
+              </Label>
+              <div className="flex max-h-36 flex-col gap-1 overflow-y-auto pr-1">
+                {historicoCompartilhamento.map(h => {
+                  const acao =
+                    h.tipo === 'add_user' ? 'adicionou' :
+                    h.tipo === 'remove_user' ? 'removeu' :
+                    h.tipo === 'add_ws' ? 'vinculou o workspace' :
+                    'desvinculou o workspace';
+                  return (
+                    <div key={h.id} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                      <span className="truncate">
+                        <strong className="text-foreground">{nomeDe(h.ator, allUsers)}</strong> {acao}{' '}
+                        <strong className="text-foreground">{h.alvoNome || nomeDe(h.alvo, allUsers)}</strong>
+                      </span>
+                      {h.timestamp && (
+                        <span className="shrink-0 text-[10px] opacity-75">
+                          {format(new Date(h.timestamp), 'dd/MM HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 
