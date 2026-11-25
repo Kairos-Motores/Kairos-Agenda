@@ -77,7 +77,9 @@ import {
   TIPOS_AUTOMACAO,
   GATILHOS_AUTOMACAO,
   descricaoAutomacao,
-  ehFichaArquivada
+  ehFichaArquivada,
+  chavePeriodoDiario,
+  chavePeriodoSemanal
 } from '../utils/automacoes';
 import { TrelloTabelaView, TrelloCronogramaView, TrelloPainelView } from './TrelloViews';
 import { stickers } from '../constants/stickers';
@@ -798,7 +800,7 @@ export const TrelloPanel = ({
     const lista = listas.find(l => l.cr4a1_listaid === listaId);
     if (!lista) return;
     const regras = regrasPara(parseAutomacoes(lista.cr4a1_automacao), gatilho, etiquetaId);
-    const resultado = aplicarAutomacoes(regras, ficha.cr4a1_etiquetas);
+    const resultado = aplicarAutomacoes(regras, ficha.cr4a1_etiquetas, ficha);
     if (!resultado) return;
     const { patch: mudancas, comentarios, notificar, emails, duplicarPara } = resultado;
     if (mudancas.cr4a1_fixada === 'Arq') {
@@ -994,6 +996,127 @@ export const TrelloPanel = ({
             await dispararEmailsAutomacao(resultado.emails, fichaAtualizada, lista, estadoAtual);
           }
         } catch { /* falha silenciosa — tenta de novo no próximo poll */ }
+      }
+    })();
+  }, [fichas, listas, user]);
+
+  // Automações periódicas ("demanda_diaria" e "demanda_semanal"):
+  // Roda a cada atualização do quadro para reabrir/desmarcar ou executar ações na virada do dia ou da semana.
+  const automacoesPeriodicasEmAndamentoRef = useRef(new Set());
+  useEffect(() => {
+    if (!fichas.length || !listas.length) return;
+    (async () => {
+      const hojeKey = chavePeriodoDiario();
+      const semanaKey = chavePeriodoSemanal();
+
+      for (const ficha of fichas) {
+        if (ehFichaArquivada(ficha)) continue;
+        const lista = listas.find(l => l.cr4a1_listaid === ficha.cr4a1_lista_id);
+        if (!lista) continue;
+        const automacoes = parseAutomacoes(lista.cr4a1_automacao);
+        const regrasDiarias = regrasPara(automacoes, 'demanda_diaria');
+        const regrasSemanais = regrasPara(automacoes, 'demanda_semanal');
+        if (!regrasDiarias.length && !regrasSemanais.length) continue;
+
+        const meta = parseFichaMeta(ficha.cr4a1_atividades);
+        const periodicas = { ...(meta.automacoesPeriodicas || {}) };
+        const atividadesLista = parseAtividades(ficha.cr4a1_atividades);
+        const ultimaConclusao = [...atividadesLista].reverse().find(a => a.tipo === 'concluida');
+        const dataRefConclusao = ultimaConclusao?.data || ficha.modifiedon || '';
+
+        const regrasParaExecutar = [];
+        let precisaAtualizarMeta = false;
+
+        if (regrasDiarias.length) {
+          if (!periodicas.diaria) {
+            const concluidaHoje = ficha.cr4a1_concluida === 'Sim' && dataRefConclusao && chavePeriodoDiario(dataRefConclusao) === hojeKey;
+            if (ficha.cr4a1_concluida !== 'Sim' || concluidaHoje) {
+              periodicas.diaria = hojeKey;
+              precisaAtualizarMeta = true;
+            } else {
+              regrasParaExecutar.push({ gatilho: 'demanda_diaria', regras: regrasDiarias });
+              periodicas.diaria = hojeKey;
+              precisaAtualizarMeta = true;
+            }
+          } else if (periodicas.diaria !== hojeKey) {
+            regrasParaExecutar.push({ gatilho: 'demanda_diaria', regras: regrasDiarias });
+            periodicas.diaria = hojeKey;
+            precisaAtualizarMeta = true;
+          }
+        }
+
+        if (regrasSemanais.length) {
+          if (!periodicas.semanal) {
+            const concluidaEstaSemana = ficha.cr4a1_concluida === 'Sim' && dataRefConclusao && chavePeriodoSemanal(dataRefConclusao) === semanaKey;
+            if (ficha.cr4a1_concluida !== 'Sim' || concluidaEstaSemana) {
+              periodicas.semanal = semanaKey;
+              precisaAtualizarMeta = true;
+            } else {
+              regrasParaExecutar.push({ gatilho: 'demanda_semanal', regras: regrasSemanais });
+              periodicas.semanal = semanaKey;
+              precisaAtualizarMeta = true;
+            }
+          } else if (periodicas.semanal !== semanaKey) {
+            regrasParaExecutar.push({ gatilho: 'demanda_semanal', regras: regrasSemanais });
+            periodicas.semanal = semanaKey;
+            precisaAtualizarMeta = true;
+          }
+        }
+
+        if (!precisaAtualizarMeta) continue;
+        const lockKey = `${ficha.cr4a1_fichaid}:${hojeKey}:${semanaKey}`;
+        if (automacoesPeriodicasEmAndamentoRef.current.has(lockKey)) continue;
+        automacoesPeriodicasEmAndamentoRef.current.add(lockKey);
+
+        try {
+          let mudancasTotais = {};
+          let atividadesAtualizadas = atualizarFichaMeta(ficha.cr4a1_atividades, {
+            automacoesPeriodicas: periodicas
+          });
+
+          for (const bloco of regrasParaExecutar) {
+            const resultado = aplicarAutomacoes(bloco.regras, mudancasTotais.cr4a1_etiquetas ?? ficha.cr4a1_etiquetas, {
+              ...ficha,
+              ...mudancasTotais
+            });
+            if (!resultado) continue;
+            mudancasTotais = { ...mudancasTotais, ...(resultado.patch || {}) };
+            if (resultado.patch?.cr4a1_concluida === 'Não' && ficha.cr4a1_concluida === 'Sim') {
+              atividadesAtualizadas = registrarAtividade(
+                atividadesAtualizadas,
+                'reaberta',
+                user || 'Sistema',
+                bloco.gatilho === 'demanda_diaria' ? 'demanda diária' : 'demanda semanal',
+                { automacoesPeriodicas: periodicas }
+              );
+            }
+            const fichaAtualizada = { ...ficha, ...mudancasTotais, cr4a1_atividades: atividadesAtualizadas };
+            if (resultado.comentarios?.length) {
+              const todos = resultado.comentarios.reduce((acc, texto) => [...acc, criarComentario(user || 'Sistema', texto)], parseComentarios(ficha.cr4a1_comentarios));
+              mudancasTotais.cr4a1_comentarios = JSON.stringify(todos);
+            }
+            if (resultado.duplicarPara?.length) {
+              await duplicarFichaAutomacao(fichaAtualizada, resultado.duplicarPara);
+            }
+            if (resultado.notificar) {
+              enviarAlertaPush({ fichaId: ficha.cr4a1_fichaid });
+            }
+            if (resultado.emails?.length) {
+              await dispararEmailsAutomacao(resultado.emails, fichaAtualizada, lista, bloco.gatilho);
+            }
+          }
+
+          const patchFinal = {
+            ...mudancasTotais,
+            cr4a1_atividades: atividadesAtualizadas
+          };
+          await patch('cr4a1_fichas', ficha.cr4a1_fichaid, patchFinal);
+          setFichas(prev => prev.map(f =>
+            f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, ...patchFinal } : f
+          ));
+        } catch {
+          automacoesPeriodicasEmAndamentoRef.current.delete(lockKey);
+        }
       }
     })();
   }, [fichas, listas, user]);
@@ -8108,7 +8231,17 @@ const AutomacaoDialog = ({ lista, listas, etiquetas, membros, onSave, onClose })
             <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Nova regra</span>
 
             <Label className="mb-0 text-[11px]">Quando (Gatilho)</Label>
-            <Select value={gatilho} onValueChange={(v) => { setGatilho(v); setEtiquetaGatilho(''); }}>
+            <Select
+              value={gatilho}
+              onValueChange={(v) => {
+                setGatilho(v);
+                setEtiquetaGatilho('');
+                if (v === 'demanda_diaria' || v === 'demanda_semanal') {
+                  setTipo('reabrir');
+                  setValor('');
+                }
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(GATILHOS_AUTOMACAO).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}

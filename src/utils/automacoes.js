@@ -1,5 +1,6 @@
 import { parseAssignees, joinAssignees } from './assignees';
 import { addDays } from 'date-fns';
+import { marcarTodasTarefas } from './descricaoTarefas';
 
 // Automações por lista: "quando X acontecer com uma ficha desta lista, faça Y" — guardadas
 // como um array JSON na própria lista (cr4a1_automacao), sem precisar de tabela à parte. Cada
@@ -99,7 +100,27 @@ export const GATILHOS_AUTOMACAO = {
   checklist_concluida: 'Todas as subtarefas (checklist) forem concluídas',
   vencendo: 'Faltar menos de 24h pro prazo',
   urgente: 'Faltar menos de 2h pro prazo (Urgente)',
-  atrasada: 'Ficha ficar atrasada'
+  atrasada: 'Ficha ficar atrasada',
+  demanda_diaria: 'Demanda diária (todo dia)',
+  demanda_semanal: 'Demanda semanal (toda semana)'
+};
+
+export const chavePeriodoDiario = (data = new Date()) => {
+  const d = new Date(data);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+export const chavePeriodoSemanal = (data = new Date()) => {
+  const d = new Date(data);
+  if (Number.isNaN(d.getTime())) return '';
+  d.setHours(0, 0, 0, 0);
+  const diff = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - diff);
+  return chavePeriodoDiario(d);
 };
 
 export const TIPOS_AUTOMACAO = {
@@ -145,7 +166,7 @@ export const regrasPara = (automacoes, gatilho, etiquetaId) => automacoes.filter
 
 // Aplica as regras já filtradas, devolvendo os campos (formato Dataverse) a corrigir num
 // patch, comentários a deixar, envios de e-mail, notificações push e duplicações — ou null se não há nada a fazer.
-export const aplicarAutomacoes = (regras, etiquetasAtuaisCsv) => {
+export const aplicarAutomacoes = (regras, etiquetasAtuaisCsv, ficha = null) => {
   if (!regras.length) return null;
   const patch = {};
   const etiquetasOriginais = parseAssignees(etiquetasAtuaisCsv);
@@ -187,6 +208,12 @@ export const aplicarAutomacoes = (regras, etiquetasAtuaisCsv) => {
         break;
       case 'reabrir':
         patch.cr4a1_concluida = 'Não';
+        if (
+          (regra.gatilho === 'demanda_diaria' || regra.gatilho === 'demanda_semanal') &&
+          ficha?.cr4a1_descricao?.includes('data-type="taskItem"')
+        ) {
+          patch.cr4a1_descricao = marcarTodasTarefas(ficha.cr4a1_descricao, false);
+        }
         break;
       case 'fixar':
         patch.cr4a1_fixada = 'Sim';
