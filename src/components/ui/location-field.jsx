@@ -3,12 +3,12 @@ import { Building2, Loader2, MapPin, X } from 'lucide-react';
 import { matchesSearch } from '../../utils/search';
 
 const UNIDADES_PADRAO_KAIROS = [
-  'Kairós São Luís',
-  'Kairós Forquilha',
-  'Kairós Barcarena',
-  'Kairós Parauapebas',
-  'Kairós São José dos Campos',
-  'Kairós Aveiro (Portugal)'
+  'Kairós Motores — São Luís (Matriz)',
+  'Kairós Motores — Forquilha',
+  'Kairós Motores — Barcarena',
+  'Kairós Motores — Parauapebas',
+  'Kairós Motores — São José dos Campos',
+  'Kairós Motores — Aveiro (Portugal)'
 ];
 
 const formatarFeaturePhoton = (feature) => {
@@ -70,7 +70,8 @@ export const LocationField = ({
   const unidadesFiltradas = useMemo(() => {
     const termo = String(value || '').trim();
     if (!termo) return unidadesDisponiveis;
-    return unidadesDisponiveis.filter((u) => matchesSearch(u, termo));
+    const palavras = termo.split(/\s+/).filter(Boolean);
+    return unidadesDisponiveis.filter((u) => palavras.every((p) => matchesSearch(u, p)));
   }, [unidadesDisponiveis, value]);
 
   useEffect(() => {
@@ -127,12 +128,9 @@ export const LocationField = ({
           if (resPhoton.ok) {
             const dataPhoton = await resPhoton.json();
             const features = Array.isArray(dataPhoton?.features) ? dataPhoton.features : [];
-            const ordenadas = [
-              ...features.filter((f) => ['BR', 'PT'].includes(f.properties?.countrycode)),
-              ...features.filter((f) => !['BR', 'PT'].includes(f.properties?.countrycode))
-            ];
+            const apenasBrPt = features.filter((f) => ['BR', 'PT'].includes(f.properties?.countrycode));
             const vistos = new Set();
-            for (const f of ordenadas) {
+            for (const f of apenasBrPt) {
               const { label, sub } = formatarFeaturePhoton(f);
               if (!label || vistos.has(label.toLowerCase())) continue;
               vistos.add(label.toLowerCase());
