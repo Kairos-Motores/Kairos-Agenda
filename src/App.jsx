@@ -30,6 +30,7 @@ import { VisitaModal } from './components/VisitaModal';
 import { WatchPairingModal } from './components/WatchPairingModal';
 import { FilialTemporariaModal } from './components/FilialTemporariaModal';
 import { EmprestimoUnidadeModal } from './components/EmprestimoUnidadeModal';
+import { ExportarDiretoriaPdfModal } from './components/ExportarDiretoriaPdfModal';
 import { DayVisitasModal } from './components/DayVisitasModal';
 import { DayTooltip } from './components/DayTooltip';
 import { themeColors, materialColors } from './constants/materialColors';
@@ -271,6 +272,7 @@ function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isUserManagementModalOpen, setIsUserManagementModalOpen] = useState(false);
+  const [isExportarDiretoriaOpen, setIsExportarDiretoriaOpen] = useState(false);
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
   const [preselectedTargetUser, setPreselectedTargetUser] = useState('');
   const [preselectedWorkspaceId, setPreselectedWorkspaceId] = useState('');
@@ -1947,9 +1949,14 @@ function App() {
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
               </Button>
               {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group</span>
-                </Button>
+                <>
+                  <Button variant="ghost" size="icon" className="size-8 text-primary hover:text-primary" onClick={() => setIsExportarDiretoriaOpen(true)} title="Exportar Agenda da Diretoria (PDF)">
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>picture_as_pdf</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setIsUserManagementModalOpen(true)} title="Gerir Utilizadores">
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group</span>
+                  </Button>
+                </>
               )}
               {appMode !== 'trello' && (
                 <Button
@@ -2044,10 +2051,16 @@ function App() {
                   </DropdownMenuItem>
                 )}
                 {(hasRole('ADMIN') || hasRole('SECRETARIA')) && (
-                  <DropdownMenuItem onClick={() => setIsUserManagementModalOpen(true)}>
-                    <span className="material-symbols-rounded mr-2 text-base">group</span>
-                    <span>Gerir Utilizadores</span>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => setIsExportarDiretoriaOpen(true)}>
+                      <span className="material-symbols-rounded mr-2 text-base text-primary">picture_as_pdf</span>
+                      <span>Exportar Agenda da Diretoria</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsUserManagementModalOpen(true)}>
+                      <span className="material-symbols-rounded mr-2 text-base">group</span>
+                      <span>Gerir Utilizadores</span>
+                    </DropdownMenuItem>
+                  </>
                 )}
 
                 <DropdownMenuSeparator />
@@ -2540,6 +2553,16 @@ function App() {
           )}
           {isVisitaModalOpen && <VisitaModal isOpen={isVisitaModalOpen} onClose={() => { setIsVisitaModalOpen(false); setEditingVisita(null); }} onSave={handleSaveVisitaData} currentUser={currentUser} organizacoes={organizacoes} allUsers={allUsers} hasRole={hasRole} editingVisita={editingVisita} holidays={holidays} />}
           {isUserManagementModalOpen && <UserManagementModal isOpen={isUserManagementModalOpen} onClose={() => setIsUserManagementModalOpen(false)} allUsers={allUsers} credenciaisPendentes={credenciaisPendentes} criarUsuarioDaCredencial={criarUsuarioDaCredencial} updateUserColor={updateUserColor} eventTypes={eventTypes} addEventType={addEventType} updateEventType={updateEventType} deleteEventType={deleteEventType} isAdmin={hasRole('ADMIN')} updateUserRoles={updateUserRoles} addUser={addUser} deleteUser={deleteUser} currentUsername={user} biPermissoes={biPermissoes} upsertBiPermission={upsertBiPermission} resetBiPermission={resetBiPermission} appRoles={appRoles} availableRoles={availableRoles} addAppRole={addAppRole} renameAppRole={renameAppRole} deleteAppRole={deleteAppRole} />}
+          {isExportarDiretoriaOpen && (
+            <ExportarDiretoriaPdfModal
+              isOpen={isExportarDiretoriaOpen}
+              onClose={() => setIsExportarDiretoriaOpen(false)}
+              allUsers={allUsers}
+              events={events}
+              workspaces={workspaces}
+              currentUser={currentUser}
+            />
+          )}
           <WatchPairingModal
             isOpen={isWatchModalOpen}
             onClose={() => setIsWatchModalOpen(false)}
