@@ -1009,7 +1009,7 @@ export const useCalendar = () => {
                 if (!ehMinhaTarefa) return false;
             }
 
-            const matchesText = !filters.text || (matchesSearch(event.cr4a1_titulo, filters.text)) || (matchesSearch(event.cr4a1_detalhes, filters.text));
+            const matchesText = !filters.text || (matchesSearch(event.cr4a1_titulo, filters.text)) || (matchesSearch(event.cr4a1_detalhes, filters.text)) || (matchesSearch(event.cr4a1_local, filters.text));
             const matchesUser = filters.users.length === 0 || parseAssignees(event.cr4a1_user_login).some(u => filters.users.includes(u));
             const matchesType = filters.types.length === 0 || filters.types.includes(event.cr4a1_tipo);
             return matchesText && matchesUser && matchesType;
@@ -1073,6 +1073,7 @@ export const useCalendar = () => {
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
+            cr4a1_local: (eventData.local || '').trim(),
             cr4a1_detalhes: detailsField,
             cr4a1_subtasks: eventData.cr4a1_subtasks,
             cr4a1_privado: eventData.cr4a1_privado,
@@ -1134,6 +1135,7 @@ export const useCalendar = () => {
             cr4a1_hora_inicio: eventData.allDay ? '00:00' : eventData.startHour,
             cr4a1_hora_fim: eventData.allDay ? '23:59' : eventData.endHour,
             cr4a1_tipo: eventData.type,
+            cr4a1_local: (eventData.local || '').trim(),
             cr4a1_detalhes: detailsField,
             cr4a1_subtasks: eventData.cr4a1_subtasks,
             cr4a1_privado: eventData.cr4a1_privado,
@@ -1198,6 +1200,7 @@ export const useCalendar = () => {
             title: event.cr4a1_titulo,
             startHour: event.cr4a1_hora_inicio,
             allDay: event.cr4a1_dia_inteiro,
+            local: event.cr4a1_local || '',
             details: event.cr4a1_detalhes,
             targetUser: event.cr4a1_user_login,
             workspaceId: event.cr4a1_workspace_id,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileText, Pencil } from 'lucide-react';
+import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileText, Pencil, MapPin, ExternalLink } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer } from '../utils/eventTypeLayer';
@@ -160,6 +160,36 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
                       <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{r.cr4a1_nome_exibicao || r.cr4a1_username}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {event.cr4a1_local && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <MapPin className="size-[19px] mt-px text-primary shrink-0" />
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                  {/^https?:\/\//i.test(event.cr4a1_local.trim()) ? (
+                    <a
+                      href={event.cr4a1_local.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-primary hover:underline break-all"
+                    >
+                      {event.cr4a1_local.trim()} <ExternalLink className="size-3.5 shrink-0" />
+                    </a>
+                  ) : (
+                    <>
+                      <span>{event.cr4a1_local}</span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.cr4a1_local.trim())}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        Maps <ExternalLink className="size-3" />
+                      </a>
+                    </>
+                  )}
                 </div>
               </div>
             )}

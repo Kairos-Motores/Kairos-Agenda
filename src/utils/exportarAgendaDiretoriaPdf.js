@@ -213,7 +213,9 @@ export const exportarAgendaDiretorPdf = ({
       const tipo = (ev.cr4a1_tipo || 'Evento').trim();
       const status = ev.cr4a1_concluida === 'Sim' ? 'Concluído' : 'Agendado';
       const wsNome = ev.cr4a1_workspace_id ? wsMap.get(ev.cr4a1_workspace_id) : '';
+      const localEv = (ev.cr4a1_local || '').trim();
       const detalhes = (ev.cr4a1_detalhes || '').trim();
+      const detalhesComLocal = [localEv ? `Local: ${localEv}` : '', detalhes].filter(Boolean).join(' • ');
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
@@ -221,7 +223,7 @@ export const exportarAgendaDiretorPdf = ({
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      const linhasDetalhes = detalhes ? doc.splitTextToSize(detalhes, contentW - 24) : [];
+      const linhasDetalhes = detalhesComLocal ? doc.splitTextToSize(detalhesComLocal, contentW - 24) : [];
 
       const alturaCard =
         16 + // meta linha
@@ -328,7 +330,7 @@ export const gerarTextoAgendaWhatsapp = ({
       ? 'Dia inteiro'
       : `${ev.cr4a1_hora_inicio || '08:00'}${ev.cr4a1_hora_fim ? ` – ${ev.cr4a1_hora_fim}` : ''}`;
     const titulo = (ev.cr4a1_titulo || 'Compromisso sem título').trim();
-    const localTexto = (ev.cr4a1_detalhes || '')
+    const localTexto = (ev.cr4a1_local || '').trim() || (ev.cr4a1_detalhes || '')
       .replace(/^\[DIA_INTEIRO\]\s*/i, '')
       .replace(/^local\s*:\s*/i, '')
       .replace(/\s*\r?\n\s*/g, ' ')

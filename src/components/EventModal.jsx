@@ -11,6 +11,7 @@ import { parseAssignees } from '../utils/assignees';
 import { Dialog, DialogContent } from './ui/dialog';
 import { DateField } from './ui/date-field';
 import { TimeField } from './ui/time-field';
+import { LocationField } from './ui/location-field';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -41,7 +42,7 @@ export const EventModal = ({
     const [formData, setFormData] = useState({
         title: '', startDate: '', endDate: '',
         startHour: '08:00', endHour: '09:00',
-        details: '', type: '', files: [],
+        local: '', details: '', type: '', files: [],
         targetUser: [], allDay: false,
         workspaceId: ''
     });
@@ -114,6 +115,7 @@ export const EventModal = ({
                 endDate: editingEvent.cr4a1_data_fim ? editingEvent.cr4a1_data_fim.split('T')[0] : '',
                 startHour: editingEvent.cr4a1_hora_inicio || '08:00',
                 endHour: editingEvent.cr4a1_hora_fim || '09:00',
+                local: editingEvent.cr4a1_local || '',
                 type: editingEvent.cr4a1_tipo || (eventTypes[0]?.name || ''),
                 details: editingEvent.cr4a1_detalhes || editingEvent.cr4a1_descricao || '',
                 allDay: editingEvent.cr4a1_dia_inteiro || false,
@@ -130,7 +132,7 @@ export const EventModal = ({
             setFormData({
                 title: '', startDate: cleanInitialDate, endDate: cleanInitialDate,
                 startHour: '08:00', endHour: '09:00',
-                details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
+                local: '', details: '', type: eventTypes[0]?.name || 'Tarefa', files: [],
                 targetUser: preselectedTargetUser ? [preselectedTargetUser] : (viewedUser ? [viewedUser] : []), allDay: false,
                 workspaceId: preselectedWorkspaceId || workspaces[0]?.cr4a1_calendarios_workspacesid || ''
             });
@@ -255,6 +257,15 @@ export const EventModal = ({
                             <TimeField label="Hora de Término" icon={History} value={formData.endHour} onSelect={h => setFormData(p => ({ ...p, endHour: h }))} />
                         </div>
                     )}
+
+                    <div>
+                        <Label>Localização</Label>
+                        <LocationField
+                            value={formData.local || ''}
+                            onChange={(val) => setFormData(p => ({ ...p, local: val }))}
+                            allUsers={allUsers}
+                        />
+                    </div>
 
                     <div className="flex flex-col gap-1 rounded-3xl border border-primary/10 bg-primary/5 px-4.5 py-2.5">
                         <SwitchRow label="Compromisso de Dia Inteiro" checked={formData.allDay} onChange={val => setFormData({ ...formData, allDay: val })} />
