@@ -1241,10 +1241,35 @@ export const TrelloPanel = ({
     } catch { toast.error('Erro ao renomear lista.'); }
   };
 
+  const ehListaPessoal = (listaId) => {
+    const l = listas.find(item => item.cr4a1_listaid === listaId);
+    return l?.cr4a1_pessoal === 'Sim';
+  };
+
+  const atualizarPrivacidadeEventosFicha = async (ficha, ehPrivado) => {
+    const ids = [];
+    if (ficha?.cr4a1_evento_id) ids.push(ficha.cr4a1_evento_id);
+    const meta = parseFichaMeta(ficha?.cr4a1_atividades);
+    if (meta.subtasksEventosIds && typeof meta.subtasksEventosIds === 'object') {
+      Object.values(meta.subtasksEventosIds).forEach(id => {
+        if (id && !ids.includes(id)) ids.push(id);
+      });
+    }
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map(evId => patch('cr4a1_agenda_kairoses', evId, { cr4a1_privado: Boolean(ehPrivado) }).catch(() => {}))
+    );
+  };
+
   const alternarListaPessoal = async (lista) => {
+    const novoValor = lista.cr4a1_pessoal === 'Sim' ? 'Não' : 'Sim';
+    const novoPrivado = novoValor === 'Sim';
     try {
-      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_pessoal: lista.cr4a1_pessoal === 'Sim' ? 'Não' : 'Sim' });
+      await patch('cr4a1_listas', lista.cr4a1_listaid, { cr4a1_pessoal: novoValor });
+      const fichasDaListaAtual = fichas.filter(f => f.cr4a1_lista_id === lista.cr4a1_listaid);
+      await Promise.all(fichasDaListaAtual.map(f => atualizarPrivacidadeEventosFicha(f, novoPrivado)));
       recarregar();
+      refreshEvents?.();
     } catch { toast.error('Erro ao atualizar a lista.'); }
   };
 
@@ -1419,7 +1444,8 @@ export const TrelloPanel = ({
     subtasksEventosIdsAtuais = {},
     ativar = false,
     eventosWorkspaceCache = null,
-    workspaceIdFicha = null
+    workspaceIdFicha = null,
+    privadoFicha = false
   }) => {
     const mapaAtual = (subtasksEventosIdsAtuais && typeof subtasksEventosIdsAtuais === 'object') ? subtasksEventosIdsAtuais : {};
     const novosIds = {};
@@ -1533,7 +1559,8 @@ export const TrelloPanel = ({
           cr4a1_data_fim: fimIso,
           cr4a1_hora_inicio: horaPadrao || '08:00',
           cr4a1_hora_fim: horaFim,
-          cr4a1_detalhes: detalheSubtask
+          cr4a1_detalhes: detalheSubtask,
+          cr4a1_privado: Boolean(privadoFicha)
         }).catch(() => null);
         if (resPatch && resPatch.ok) {
           novosIds[chave] = evPrincipalId;
@@ -1558,7 +1585,7 @@ export const TrelloPanel = ({
         cr4a1_tipo: 'Tarefa',
         cr4a1_detalhes: detalheSubtask,
         cr4a1_subtasks: '[]',
-        cr4a1_privado: false,
+        cr4a1_privado: Boolean(privadoFicha),
         cr4a1_arquivos: '[]',
         cr4a1_workspace_id: targetWsId
       });
@@ -1645,7 +1672,7 @@ export const TrelloPanel = ({
                 cr4a1_data_fim: fimIso,
                 cr4a1_hora_inicio: hora,
                 cr4a1_hora_fim: horaFim,
-                cr4a1_privado: false,
+                cr4a1_privado: lista.cr4a1_pessoal === 'Sim',
                 ...(targetWsLista ? { cr4a1_workspace_id: targetWsLista } : {})
               }).catch(() => null);
               eventoId = (resP && resP.ok) ? idAlvo : '';
@@ -1662,7 +1689,7 @@ export const TrelloPanel = ({
                 cr4a1_tipo: 'Tarefa',
                 cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
                 cr4a1_subtasks: '[]',
-                cr4a1_privado: false,
+                cr4a1_privado: lista.cr4a1_pessoal === 'Sim',
                 cr4a1_arquivos: '[]',
                 cr4a1_workspace_id: ficha.cr4a1_workspace_id || (workspaceId !== VIRTUAL_WORKSPACE_CONVIDADOS_ID ? workspaceId : null)
               });
@@ -1684,7 +1711,8 @@ export const TrelloPanel = ({
             subtasksEventosIdsAtuais: meta.subtasksEventosIds || {},
             ativar: Boolean(syncSubtasks),
             eventosWorkspaceCache,
-            workspaceIdFicha: ficha.cr4a1_workspace_id
+            workspaceIdFicha: ficha.cr4a1_workspace_id,
+            privadoFicha: lista.cr4a1_pessoal === 'Sim'
           });
           totalSubtasksSync += Object.keys(novosSubtasksIds).length;
 
@@ -2041,7 +2069,7 @@ export const TrelloPanel = ({
         cr4a1_tipo: 'Tarefa',
         cr4a1_detalhes: htmlParaTexto(ficha.cr4a1_descricao),
         cr4a1_subtasks: '[]',
-        cr4a1_privado: false,
+        cr4a1_privado: ehListaPessoal(ficha.cr4a1_lista_id),
         cr4a1_arquivos: '[]',
         cr4a1_workspace_id: ficha.cr4a1_workspace_id
       });
@@ -2269,6 +2297,12 @@ export const TrelloPanel = ({
     setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades } : f));
     try {
       await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades });
+      const origemPrivada = ehListaPessoal(ficha.cr4a1_lista_id);
+      const destinoPrivado = ehListaPessoal(novaListaId);
+      if (origemPrivada !== destinoPrivado) {
+        await atualizarPrivacidadeEventosFicha(ficha, destinoPrivado);
+        refreshEvents?.();
+      }
       await executarAutomacoes({ ...ficha, cr4a1_lista_id: novaListaId, cr4a1_atividades: atividades }, novaListaId, 'entrou');
       notificarObservadoresECoResponsaveis({ ...ficha, cr4a1_lista_id: novaListaId }, `moveu a ficha para a lista "${nomeLista}"`);
     } catch {
@@ -2418,6 +2452,7 @@ export const TrelloPanel = ({
     if (concluidaMudou) atividades = registrarAtividade(atividades, concluidaFinal ? 'concluida' : 'reaberta', user, '', novoMeta);
 
     let eventoId = original.cr4a1_evento_id || '';
+    const fichaPrivada = ehListaPessoal(form.listaId || original.cr4a1_lista_id);
     try {
       // Sincronização com o Calendário da Agenda é 100% OPCIONAL (conforme solicitado pelo usuário)
       const deveSincronizarAgenda = Boolean(form.sincronizarAgenda);
@@ -2437,7 +2472,7 @@ export const TrelloPanel = ({
             cr4a1_data_fim: fimIso,
             cr4a1_hora_inicio: form.hora || '08:00',
             cr4a1_hora_fim: horaFim,
-            cr4a1_privado: false,
+            cr4a1_privado: fichaPrivada,
             ...(targetWsFicha ? { cr4a1_workspace_id: targetWsFicha } : {})
           }).catch(() => null);
           patchOk = Boolean(resPatchEv && resPatchEv.ok);
@@ -2465,7 +2500,7 @@ export const TrelloPanel = ({
               cr4a1_hora_inicio: form.hora || '08:00',
               cr4a1_hora_fim: horaFim,
               cr4a1_detalhes: htmlParaTexto(form.descricao),
-              cr4a1_privado: false,
+              cr4a1_privado: fichaPrivada,
               cr4a1_workspace_id: targetWsFicha
             });
             eventoId = idExistente;
@@ -2481,7 +2516,7 @@ export const TrelloPanel = ({
               cr4a1_tipo: 'Tarefa',
               cr4a1_detalhes: htmlParaTexto(form.descricao),
               cr4a1_subtasks: '[]',
-              cr4a1_privado: false,
+              cr4a1_privado: fichaPrivada,
               cr4a1_arquivos: '[]',
               cr4a1_workspace_id: targetWsFicha
             });
@@ -2501,7 +2536,8 @@ export const TrelloPanel = ({
         tarefas: tarefasDaDescricao,
         subtasksEventosIdsAtuais: metaOriginal.subtasksEventosIds || {},
         ativar: deveSincronizarSubtasks,
-        workspaceIdFicha: original.cr4a1_workspace_id
+        workspaceIdFicha: original.cr4a1_workspace_id,
+        privadoFicha: fichaPrivada
       });
       novoMeta.subtasksEventosIds = novosSubtasksEventosIds;
       atividades = atualizarFichaMeta(atividades, {
@@ -3238,8 +3274,16 @@ export const TrelloPanel = ({
       const corpo = { cr4a1_lista_id: f.cr4a1_lista_id, cr4a1_ordem: f.cr4a1_ordem };
       if (f.cr4a1_fichaid === draggableId && mudouDeLista) corpo.cr4a1_atividades = atividadesFicha;
       patch('cr4a1_fichas', f.cr4a1_fichaid, corpo)
-        .then(() => {
-          if (f.cr4a1_fichaid === draggableId && mudouDeLista) executarAutomacoes({ ...f, cr4a1_atividades: atividadesFicha }, destinoId, 'entrou');
+        .then(async () => {
+          if (f.cr4a1_fichaid === draggableId && mudouDeLista) {
+            const origemPrivada = ehListaPessoal(origemId);
+            const destinoPrivado = ehListaPessoal(destinoId);
+            if (origemPrivada !== destinoPrivado) {
+              await atualizarPrivacidadeEventosFicha(ficha, destinoPrivado);
+              refreshEvents?.();
+            }
+            executarAutomacoes({ ...f, cr4a1_atividades: atividadesFicha }, destinoId, 'entrou');
+          }
         })
         .catch(() => toast.error('Erro ao mover ficha.'));
     });
