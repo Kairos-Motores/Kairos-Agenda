@@ -11,6 +11,27 @@ const UNIDADES_PADRAO_KAIROS = [
   'Kairós Aveiro (Portugal)'
 ];
 
+const formatarFeaturePhoton = (feature) => {
+  const p = feature?.properties || {};
+  const nome = p.name || '';
+  const rua = [p.street, p.housenumber].filter(Boolean).join(', ');
+  const bairro = p.district || p.suburb || p.locality || '';
+  const cidade = p.city || p.town || p.village || p.county || '';
+  const estado = p.state || '';
+  const pais = p.country || '';
+
+  const partesPrincipais = [];
+  if (nome) partesPrincipais.push(nome);
+  if (rua && rua !== nome) partesPrincipais.push(rua);
+  if (bairro && bairro !== nome && bairro !== cidade) partesPrincipais.push(bairro);
+  const cidadeUf = [cidade, estado].filter(Boolean).join(' - ');
+  if (cidadeUf) partesPrincipais.push(cidadeUf);
+
+  const label = partesPrincipais.join(' • ') || [p.name, p.city, p.country].filter(Boolean).join(', ');
+  const sub = [rua, bairro, cidadeUf, pais].filter(Boolean).join(', ');
+  return { label, sub };
+};
+
 const formatarEnderecoNominatim = (item) => {
   const addr = item.address || {};
   const nomePrincipal = item.name && item.name !== addr.road ? item.name : '';
@@ -26,7 +47,7 @@ export const LocationField = ({
   value = '',
   onChange,
   allUsers = [],
-  placeholder = 'Adicionar local, unidade ou endereço...'
+  placeholder = 'Adicionar local, unidade, CEP ou endereço...'
 }) => {
   const [aberto, setAberto] = useState(false);
   const [enderecos, setEnderecos] = useState([]);
@@ -74,28 +95,87 @@ export const LocationField = ({
     const timer = setTimeout(async () => {
       setCarregandoEnderecos(true);
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=br,pt&q=${encodeURIComponent(termo)}`;
-        const res = await fetch(url, {
-          signal: controller.signal,
-          headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' }
-        });
-        if (!res.ok) throw new Error('Falha ao buscar endereços');
-        const data = await res.json();
-        if (!controller.signal.aborted && Array.isArray(data)) {
-          setEnderecos(
-            data.map((item) => ({
-              id: String(item.place_id),
-              label: formatarEnderecoNominatim(item),
-              sub: item.display_name
-            }))
-          );
+        const cepMatch = termo.replace(/\D/g, '');
+        if (/^\d{8}$/.test(cepMatch) && /^[\d-]+$/.test(termo)) {
+          const resCep = await fetch(`https://viacep.com.br/ws/${cepMatch}/json/`, {
+            signal: controller.signal
+          });
+          if (resCep.ok) {
+            const dadosCep = await resCep.json();
+            if (!dadosCep.erro && !controller.signal.aborted) {
+              const labelCep = [
+                dadosCep.logradouro,
+                dadosCep.bairro,
+                [dadosCep.localidade, dadosCep.uf].filter(Boolean).join(' - ')
+              ].filter(Boolean).join(' • ');
+              setEnderecos([{
+                id: `cep-${cepMatch}`,
+                label: labelCep || `CEP ${dadosCep.cep}`,
+                sub: `CEP ${dadosCep.cep}${dadosCep.complemento ? ` (${dadosCep.complemento})` : ''}`
+              }]);
+              setCarregandoEnderecos(false);
+              return;
+            }
+          }
+        }
+
+        // Busca principal com Photon (Komoot) — tolerante a erros de digitação, acentos e abreviações
+        let resultados = [];
+        try {
+          const urlPhoton = `https://photon.komoot.io/api/?q=${encodeURIComponent(termo)}&limit=8&lat=-2.53&lon=-44.30`;
+          const resPhoton = await fetch(urlPhoton, { signal: controller.signal });
+          if (resPhoton.ok) {
+            const dataPhoton = await resPhoton.json();
+            const features = Array.isArray(dataPhoton?.features) ? dataPhoton.features : [];
+            const ordenadas = [
+              ...features.filter((f) => ['BR', 'PT'].includes(f.properties?.countrycode)),
+              ...features.filter((f) => !['BR', 'PT'].includes(f.properties?.countrycode))
+            ];
+            const vistos = new Set();
+            for (const f of ordenadas) {
+              const { label, sub } = formatarFeaturePhoton(f);
+              if (!label || vistos.has(label.toLowerCase())) continue;
+              vistos.add(label.toLowerCase());
+              resultados.push({
+                id: `ph-${f.properties?.osm_type || 'n'}-${f.properties?.osm_id || resultados.length}`,
+                label,
+                sub: sub || label
+              });
+              if (resultados.length >= 6) break;
+            }
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+
+        // Fallback para Nominatim se o Photon não retornar nada
+        if (resultados.length === 0 && !controller.signal.aborted) {
+          const urlNom = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=br,pt&q=${encodeURIComponent(termo)}`;
+          const resNom = await fetch(urlNom, {
+            signal: controller.signal,
+            headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' }
+          });
+          if (resNom.ok) {
+            const dataNom = await resNom.json();
+            if (Array.isArray(dataNom)) {
+              resultados = dataNom.map((item) => ({
+                id: `nom-${item.place_id}`,
+                label: formatarEnderecoNominatim(item),
+                sub: item.display_name
+              }));
+            }
+          }
+        }
+
+        if (!controller.signal.aborted) {
+          setEnderecos(resultados);
         }
       } catch (err) {
         if (err.name !== 'AbortError') setEnderecos([]);
       } finally {
         if (!controller.signal.aborted) setCarregandoEnderecos(false);
       }
-    }, 420);
+    }, 350);
 
     return () => {
       clearTimeout(timer);
