@@ -296,29 +296,51 @@ export const exportarAgendaDiretorPdf = ({
 };
 
 /**
- * Gera o texto objetivo da agenda do dia formatado para WhatsApp:
- * Ex: *08:00 – 09:00* | *Fazer a IT com Amanda do processo de outras saídas, extravio e perda financeira (Brasil)*
+ * Gera o texto da agenda do dia formatado para WhatsApp no padrão executivo solicitado.
  */
 export const gerarTextoAgendaWhatsapp = ({
   diretor,
   eventos = [],
-  workspaces = [],
-  emitidoPor = '',
   diaIso = ''
 }) => {
+  const nomeDiretor = diretor?.cr4a1_nome_exibicao || diretor?.cr4a1_username || 'Diretor(a)';
+  const agora = new Date();
+  const diaAlvoIso = diaIso || format(agora, 'yyyy-MM-dd');
+  const [anoD, mesD, diaD] = diaAlvoIso.split('-').map(Number);
+  const dataAlvoObj = new Date(anoD, (mesD || 1) - 1, diaD || 1);
+  const diaFmt = format(dataAlvoObj, 'dd/MM/yyyy', { locale: ptBR });
+  const diaSemanaRaw = format(dataAlvoObj, 'EEEE', { locale: ptBR });
+  const diaSemana = diaSemanaRaw.charAt(0).toUpperCase() + diaSemanaRaw.slice(1);
+
+  const linhas = [
+    '*KAIRÓS MOTORES • AGENDA EXECUTIVA DIÁRIA*',
+    `📅 *Data:* ${diaFmt} (${diaSemana})`,
+    `👤 *Diretor(a):* ${nomeDiretor}`
+  ];
+
   if (!eventos || eventos.length === 0) {
-    return 'Nenhum compromisso agendado para hoje.';
+    linhas.push('Nenhum compromisso agendado para esta data.');
+    return linhas.join('\n');
   }
 
-  return eventos
-    .map((ev) => {
-      const horario = ev.cr4a1_dia_inteiro
-        ? 'Dia inteiro'
-        : `${ev.cr4a1_hora_inicio || '08:00'}${ev.cr4a1_hora_fim ? ` – ${ev.cr4a1_hora_fim}` : ''}`;
-      const titulo = (ev.cr4a1_titulo || 'Compromisso sem título').trim();
-      return `*${horario}* | *${titulo}*`;
-    })
-    .join('\n');
+  eventos.forEach((ev, idx) => {
+    const horario = ev.cr4a1_dia_inteiro
+      ? 'Dia inteiro'
+      : `${ev.cr4a1_hora_inicio || '08:00'}${ev.cr4a1_hora_fim ? ` – ${ev.cr4a1_hora_fim}` : ''}`;
+    const titulo = (ev.cr4a1_titulo || 'Compromisso sem título').trim();
+    const localTexto = (ev.cr4a1_detalhes || '')
+      .replace(/^\[DIA_INTEIRO\]\s*/i, '')
+      .replace(/^local\s*:\s*/i, '')
+      .replace(/\s*\r?\n\s*/g, ' ')
+      .trim();
+
+    linhas.push(`${idx + 1}. *${horario}* | ${titulo}`);
+    if (localTexto) {
+      linhas.push(`       *Local:* ${localTexto}`);
+    }
+  });
+
+  return linhas.join('\n');
 };
 
 /**

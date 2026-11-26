@@ -102,18 +102,16 @@ export const ExportarDiretoriaPdfModal = ({
 
       const blocosTexto = alvos.map((dir) => {
         const eventosDir = filtrarEventosDoDiretor(events, dir.cr4a1_username, intervaloDia);
-        const textoDir = gerarTextoAgendaWhatsapp({
+        return gerarTextoAgendaWhatsapp({
           diretor: dir,
           eventos: eventosDir,
           workspaces,
           emitidoPor,
           diaIso: diaEfetivo
         });
-        const nomeDir = dir.cr4a1_nome_exibicao || dir.cr4a1_username;
-        return alvos.length > 1 ? `*${nomeDir}:*\n${textoDir}` : textoDir;
       });
 
-      const textoCompleto = blocosTexto.join('\n\n');
+      const textoCompleto = blocosTexto.join('\n\n─────────────────────────────\n\n');
 
       const copiou = await copiarTextoClipboard(textoCompleto);
       if (copiou) {
