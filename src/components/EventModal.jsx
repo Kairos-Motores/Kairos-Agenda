@@ -35,7 +35,7 @@ const commonEmojis = [
 ];
 
 export const EventModal = ({
-    isOpen, onClose, onSave, initialDate, editingEvent,
+    isOpen, onClose, onSave, onDelete, initialDate, editingEvent,
     allUsers = [], eventTypes = [], viewedUser, workspaces = [],
     preselectedTargetUser, preselectedWorkspaceId
 }) => {
@@ -211,7 +211,22 @@ export const EventModal = ({
                         <X className="size-[18px]" />
                     </button>
                     <h2 className="text-[17px] font-bold text-foreground">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</h2>
-                    <Button size="sm" disabled={isSaving} onClick={handleSave} className="rounded-full px-4 font-semibold">{isSaving ? 'A guardar...' : 'Salvar'}</Button>
+                    <div className="flex items-center gap-1.5">
+                        {editingEvent && onDelete && !editingEvent.isExternal && (
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => onDelete(editingEvent)}
+                                aria-label="Excluir evento"
+                                title="Excluir evento"
+                                className="size-9 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                                <Trash2 className="size-[18px]" />
+                            </Button>
+                        )}
+                        <Button size="sm" disabled={isSaving} onClick={handleSave} className="rounded-full px-4 font-semibold">{isSaving ? 'A guardar...' : 'Salvar'}</Button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-[18px]">

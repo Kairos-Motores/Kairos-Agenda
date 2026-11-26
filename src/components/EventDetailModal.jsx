@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileText, Pencil, MapPin, ExternalLink } from 'lucide-react';
+import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileText, Pencil, MapPin, ExternalLink, Trash2 } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer } from '../utils/eventTypeLayer';
@@ -16,7 +16,7 @@ const TRANSITION = '0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
 // Modal de leitura de um evento, que "cresce" a partir do card/linha clicada
 // (container transform) em vez de simplesmente aparecer. Só mostra os dados;
 // quem chama decide o que "Editar" faz (normalmente abrir o EventModal real).
-export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes = [], workspaces = [], onClose, onEdit }) => {
+export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes = [], workspaces = [], onClose, onEdit, onDelete }) => {
   const trapRef = useFocusTrap(!!event);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -233,6 +233,17 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: isMobile ? '18px' : '28px' }}>
+            {onDelete && !event.isExternal && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onDelete(event)}
+                className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                title="Excluir evento"
+              >
+                <Trash2 className="size-[18px]" /> Excluir
+              </Button>
+            )}
             <Button onClick={handleClose} variant="secondary" className="flex-1">Fechar</Button>
             <Button onClick={() => onEdit(event)} className="flex-1">
               <Pencil className="size-[18px]" /> Editar

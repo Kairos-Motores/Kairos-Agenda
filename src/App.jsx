@@ -2508,6 +2508,7 @@ function App() {
           workspaces={workspaces}
           onClose={() => setDetailEvent(null)}
           onEdit={(ev) => { setDetailEvent(null); handleEditClick(ev); }}
+          onDelete={(ev) => { setDetailEvent(null); setEventToDelete(ev); setIsDeleteModalOpen(true); }}
         />
 
         {/* MODAIS E COMPONENTES FIXOS */}
@@ -2540,6 +2541,11 @@ function App() {
                 setPreselectedWorkspaceId('');
               }}
               onSave={handleSaveEvent}
+              onDelete={(ev) => {
+                setIsModalOpen(false);
+                setEventToDelete(ev);
+                setIsDeleteModalOpen(true);
+              }}
               initialDate={currentDate.toISOString()}
               editingEvent={editingEvent}
               userRole={userRole}
