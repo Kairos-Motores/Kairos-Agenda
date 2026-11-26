@@ -49,7 +49,7 @@ export const exportarAgendaDiretorPdf = ({
   eventos = [],
   workspaces = [],
   emitidoPor = '',
-  periodoLabel = 'Todos os períodos'
+  diaIso = ''
 }) => {
   const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -62,6 +62,11 @@ export const exportarAgendaDiretorPdf = ({
   const nomeDiretor = diretor?.cr4a1_nome_exibicao || diretor?.cr4a1_username || 'Diretor(a)';
   const unidadeDiretor = (diretor?.cr4a1_unidade || '').trim();
   const agora = new Date();
+  const diaAlvoIso = diaIso || format(agora, 'yyyy-MM-dd');
+  const [anoD, mesD, diaD] = diaAlvoIso.split('-').map(Number);
+  const dataAlvoObj = new Date(anoD, (mesD || 1) - 1, diaD || 1);
+  const diaFmt = format(dataAlvoObj, 'dd/MM/yyyy', { locale: ptBR });
+  const diaSemana = format(dataAlvoObj, 'EEEE', { locale: ptBR });
   const dataEmissaoFmt = format(agora, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 
   const wsMap = new Map(
@@ -84,11 +89,11 @@ export const exportarAgendaDiretorPdf = ({
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(26, 115, 232);
-  doc.text('KAIRÓS MOTORES • AGENDA EXECUTIVA', marginX + 12, y + 3);
+  doc.text('KAIRÓS MOTORES • AGENDA EXECUTIVA DIÁRIA', marginX + 12, y + 3);
 
   doc.setFontSize(17);
   doc.setTextColor(15, 23, 42);
-  doc.text('Relatório de Compromissos e Atividades', marginX + 12, y + 22);
+  doc.text(`Agenda do Dia — ${diaFmt}`, marginX + 12, y + 22);
 
   y += 42;
   doc.setDrawColor(226, 232, 240);
@@ -111,10 +116,10 @@ export const exportarAgendaDiretorPdf = ({
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(51, 65, 85);
-  doc.text('Período:', marginX + 300, y);
+  doc.text('Data:', marginX + 300, y);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(15, 23, 42);
-  doc.text(periodoLabel, marginX + 346, y);
+  doc.text(`${diaFmt} (${diaSemana})`, marginX + 332, y);
   y += 15;
 
   doc.setFont('helvetica', 'bold');
@@ -140,9 +145,10 @@ export const exportarAgendaDiretorPdf = ({
   const pendentes = total - concluidos;
 
   const textoFormal =
-    `Prezado(a) ${nomeDiretor}, apresentamos a seguir o resumo formal de seus compromissos, reuniões e atividades registrados na agenda corporativa` +
-    (periodoLabel && periodoLabel !== 'Todos os períodos' ? ` (${periodoLabel})` : '') +
-    `, contabilizando ${total} registro(s) (${pendentes} pendente(s)/agendado(s) e ${concluidos} concluído(s)), disposto(s) em ordem cronológica para seu acompanhamento.`;
+    `Prezado(a) ${nomeDiretor}, encaminhamos a seguir o resumo formal dos compromissos, reuniões e atividades programados em sua agenda para o dia ${diaFmt} (${diaSemana}), ` +
+    (total > 0
+      ? `totalizando ${total} registro(s) (${pendentes} agendado(s)/pendente(s) e ${concluidos} concluído(s)), organizados em ordem cronológica para seu acompanhamento diário.`
+      : `não havendo compromissos registrados até o momento para esta data.`);
 
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
@@ -284,8 +290,7 @@ export const exportarAgendaDiretorPdf = ({
     doc.text(`Página ${i} de ${totalPaginas}`, pageW - marginX, footerY, { align: 'right' });
   }
 
-  const dataArquivo = format(agora, 'yyyy-MM-dd');
-  const nomeArquivo = `Relatorio_Agenda_${nomeArquivoSeguro(nomeDiretor)}_${dataArquivo}.pdf`;
+  const nomeArquivo = `Agenda_Dia_${nomeArquivoSeguro(nomeDiretor)}_${diaAlvoIso}.pdf`;
   doc.save(nomeArquivo);
   return nomeArquivo;
 };

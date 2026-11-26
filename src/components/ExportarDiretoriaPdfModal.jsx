@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { addDays, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-fns';
-import { FileDown, Check, Users, CalendarRange, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { FileDown, Check, Users, CalendarDays, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -8,34 +8,8 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { DateField } from './ui/date-field';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 import { parseRoles } from '../utils/permissions';
 import { exportarAgendaDiretorPdf, filtrarEventosDoDiretor } from '../utils/exportarAgendaDiretoriaPdf';
-
-const calcularIntervalo = (modoPeriodo, dataDe, dataAte) => {
-  const hoje = new Date();
-  if (modoPeriodo === 'mes_atual') {
-    const ini = format(startOfMonth(hoje), 'yyyy-MM-dd');
-    const fim = format(endOfMonth(hoje), 'yyyy-MM-dd');
-    return { dataInicio: ini, dataFim: fim, label: `${format(startOfMonth(hoje), 'dd/MM/yyyy')} a ${format(endOfMonth(hoje), 'dd/MM/yyyy')}` };
-  }
-  if (modoPeriodo === 'semana_atual') {
-    const iniD = startOfWeek(hoje, { weekStartsOn: 1 });
-    const fimD = endOfWeek(hoje, { weekStartsOn: 1 });
-    return { dataInicio: format(iniD, 'yyyy-MM-dd'), dataFim: format(fimD, 'yyyy-MM-dd'), label: `${format(iniD, 'dd/MM/yyyy')} a ${format(fimD, 'dd/MM/yyyy')}` };
-  }
-  if (modoPeriodo === 'proximos_30') {
-    const ini = format(hoje, 'yyyy-MM-dd');
-    const fimD = addDays(hoje, 30);
-    return { dataInicio: ini, dataFim: format(fimD, 'yyyy-MM-dd'), label: `${format(hoje, 'dd/MM/yyyy')} a ${format(fimD, 'dd/MM/yyyy')}` };
-  }
-  if (modoPeriodo === 'personalizado') {
-    const iniFmt = dataDe ? dataDe.split('-').reverse().join('/') : 'Início';
-    const fimFmt = dataAte ? dataAte.split('-').reverse().join('/') : 'Sem limite';
-    return { dataInicio: dataDe || '', dataFim: dataAte || '', label: dataDe || dataAte ? `${iniFmt} a ${fimFmt}` : 'Todos os períodos' };
-  }
-  return { dataInicio: '', dataFim: '', label: 'Todos os períodos' };
-};
 
 export const ExportarDiretoriaPdfModal = ({
   isOpen,
@@ -56,15 +30,15 @@ export const ExportarDiretoriaPdfModal = ({
       );
   }, [allUsers]);
 
+  const hojeIso = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const [diaSelecionado, setDiaSelecionado] = useState(hojeIso);
   const [selecionados, setSelecionados] = useState([]);
-  const [modoPeriodo, setModoPeriodo] = useState('todos');
-  const [dataDe, setDataDe] = useState('');
-  const [dataAte, setDataAte] = useState('');
   const [exportando, setExportando] = useState(false);
 
-  const intervalo = useMemo(
-    () => calcularIntervalo(modoPeriodo, dataDe, dataAte),
-    [modoPeriodo, dataDe, dataAte]
+  const diaEfetivo = diaSelecionado || hojeIso;
+  const intervaloDia = useMemo(
+    () => ({ dataInicio: diaEfetivo, dataFim: diaEfetivo }),
+    [diaEfetivo]
   );
 
   const toggleDiretor = (username) => {
@@ -94,13 +68,13 @@ export const ExportarDiretoriaPdfModal = ({
 
       for (let i = 0; i < alvos.length; i++) {
         const dir = alvos[i];
-        const eventosDir = filtrarEventosDoDiretor(events, dir.cr4a1_username, intervalo);
+        const eventosDir = filtrarEventosDoDiretor(events, dir.cr4a1_username, intervaloDia);
         exportarAgendaDiretorPdf({
           diretor: dir,
           eventos: eventosDir,
           workspaces,
           emitidoPor,
-          periodoLabel: intervalo.label
+          diaIso: diaEfetivo
         });
         if (i < alvos.length - 1) {
           await new Promise((r) => setTimeout(r, 300));
@@ -109,8 +83,8 @@ export const ExportarDiretoriaPdfModal = ({
 
       toast.success(
         alvos.length === 1
-          ? `Relatório em PDF de ${alvos[0].cr4a1_nome_exibicao || alvos[0].cr4a1_username} exportado!`
-          : `${alvos.length} relatórios em PDF exportados (um por diretor)!`
+          ? `Agenda do dia de ${alvos[0].cr4a1_nome_exibicao || alvos[0].cr4a1_username} exportada em PDF!`
+          : `${alvos.length} agendas do dia exportadas em PDF (uma por diretor)!`
       );
       onClose();
     } catch (err) {
@@ -126,38 +100,35 @@ export const ExportarDiretoriaPdfModal = ({
       <DialogContent className="max-w-lg sm:max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileDown className="size-5 text-primary" /> Exportar Agenda da Diretoria (PDF)
+            <FileDown className="size-5 text-primary" /> Exportar Agenda do Dia (Diretoria)
           </DialogTitle>
           <DialogDescription>
-            Gera um relatório formal em PDF com o resumo de compromissos e atividades. Ao selecionar mais de um diretor, um arquivo separado é baixado para cada um.
+            Exporta um relatório formal em PDF com os compromissos e atividades do dia para cada membro da Diretoria selecionado (um arquivo separado por diretor).
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-1">
-          {/* Período */}
-          <div className="flex flex-col gap-2">
-            <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <CalendarRange className="size-3.5 text-primary" /> Período dos Eventos
-            </Label>
-            <Select value={modoPeriodo} onValueChange={setModoPeriodo}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os eventos registrados</SelectItem>
-                <SelectItem value="mes_atual">Mês atual</SelectItem>
-                <SelectItem value="semana_atual">Esta semana</SelectItem>
-                <SelectItem value="proximos_30">Próximos 30 dias</SelectItem>
-                <SelectItem value="personalizado">Período personalizado</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {modoPeriodo === 'personalizado' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-1">
-                <DateField label="De" selectedDate={dataDe} onSelect={setDataDe} allowClear />
-                <DateField label="Até" selectedDate={dataAte} onSelect={setDataAte} allowClear />
-              </div>
-            )}
+          {/* Dia da Agenda (padrão: Hoje) */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="mb-0 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <CalendarDays className="size-3.5 text-primary" /> Dia da Agenda
+              </Label>
+              {diaEfetivo !== hojeIso && (
+                <button
+                  type="button"
+                  onClick={() => setDiaSelecionado(hojeIso)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Voltar para Hoje
+                </button>
+              )}
+            </div>
+            <DateField
+              selectedDate={diaEfetivo}
+              onSelect={(d) => setDiaSelecionado(d || hojeIso)}
+              allowClear={false}
+            />
           </div>
 
           {/* Lista de Diretores */}
@@ -185,7 +156,7 @@ export const ExportarDiretoriaPdfModal = ({
               <div className="flex max-h-60 flex-col gap-1.5 overflow-y-auto pr-1">
                 {diretores.map((d) => {
                   const marcado = selecionados.includes(d.cr4a1_username);
-                  const qtd = filtrarEventosDoDiretor(events, d.cr4a1_username, intervalo).length;
+                  const qtd = filtrarEventosDoDiretor(events, d.cr4a1_username, intervaloDia).length;
                   const nome = d.cr4a1_nome_exibicao || d.cr4a1_username;
                   return (
                     <label
@@ -219,7 +190,7 @@ export const ExportarDiretoriaPdfModal = ({
                         </div>
                       </div>
                       <Badge variant="secondary" className="shrink-0 text-[11px]">
-                        {qtd} {qtd === 1 ? 'evento' : 'eventos'}
+                        {qtd} {qtd === 1 ? 'evento hoje' : 'eventos no dia'}
                       </Badge>
                     </label>
                   );
