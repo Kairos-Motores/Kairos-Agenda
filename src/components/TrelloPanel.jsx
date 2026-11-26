@@ -2289,6 +2289,24 @@ export const TrelloPanel = ({
     }
   };
 
+  // Adiciona ou remove rapidamente uma etiqueta direto pela miniatura da ficha
+  const alternarEtiquetaRapidoFicha = async (ficha, etiquetaId) => {
+    const atuais = parseAssignees(ficha.cr4a1_etiquetas);
+    const jaTem = atuais.includes(etiquetaId);
+    const novas = jaTem ? atuais.filter(id => id !== etiquetaId) : [...atuais, etiquetaId];
+    const novoValor = joinAssignees(novas);
+    setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_etiquetas: novoValor } : f));
+    try {
+      await patch('cr4a1_fichas', ficha.cr4a1_fichaid, { cr4a1_etiquetas: novoValor });
+      if (!jaTem) {
+        await executarAutomacoes({ ...ficha, cr4a1_etiquetas: novoValor }, ficha.cr4a1_lista_id, 'etiqueta_adicionada', etiquetaId);
+      }
+    } catch {
+      setFichas(prev => prev.map(f => f.cr4a1_fichaid === ficha.cr4a1_fichaid ? { ...f, cr4a1_etiquetas: ficha.cr4a1_etiquetas } : f));
+      toast.error('Erro ao atualizar etiquetas da ficha.');
+    }
+  };
+
   // Move ficha rapidamente de lista (pela tabela ou menu rápido do cartão)
   const moverFichaRapido = async (ficha, novaListaId) => {
     if (!novaListaId || novaListaId === ficha.cr4a1_lista_id) return;
@@ -4106,6 +4124,51 @@ export const TrelloPanel = ({
                                   </div>
                                 </div>
                                 <div className="mt-0.5 flex shrink-0 items-center gap-0.5">
+                                  {etiquetas.length > 0 && (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={e => e.stopPropagation()}
+                                          aria-label={`Etiquetas de "${ficha.cr4a1_titulo}"`}
+                                          title="Etiquetas rápidas"
+                                          className={`shrink-0 rounded p-0.5 transition-colors ${
+                                            etiquetasDaFicha.length > 0
+                                              ? 'text-primary/80 hover:bg-secondary hover:text-primary'
+                                              : 'text-muted-foreground/40 hover:bg-secondary hover:text-primary'
+                                          }`}
+                                        >
+                                          <Tag className="size-[13px]" />
+                                        </button>
+                                      </PopoverTrigger>
+                                      <PopoverContent align="end" className="w-56 p-2" onClick={e => e.stopPropagation()}>
+                                        <div className="px-1.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border mb-1.5 flex items-center gap-1.5">
+                                          <Tag className="size-3 text-primary" /> Etiquetas
+                                        </div>
+                                        <div className="flex flex-col gap-1 max-h-52 overflow-y-auto">
+                                          {etiquetas.map(et => {
+                                            const ativa = parseAssignees(ficha.cr4a1_etiquetas).includes(et.cr4a1_etiquetaid);
+                                            return (
+                                              <button
+                                                key={et.cr4a1_etiquetaid}
+                                                type="button"
+                                                onClick={() => alternarEtiquetaRapidoFicha(ficha, et.cr4a1_etiquetaid)}
+                                                className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                                                  ativa ? 'bg-primary/10 text-foreground font-semibold' : 'hover:bg-secondary text-foreground'
+                                                }`}
+                                              >
+                                                <span className="flex items-center gap-2 min-w-0">
+                                                  <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: et.cr4a1_cor || '#1a73e8' }} />
+                                                  <span className="truncate">{et.cr4a1_nome}</span>
+                                                </span>
+                                                {ativa && <Check className="size-3.5 text-primary shrink-0" />}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); alternarFixada(ficha); }}
@@ -4157,6 +4220,30 @@ export const TrelloPanel = ({
                                           ))}
                                         </div>
                                       </div>
+                                      {etiquetas.length > 0 && (
+                                        <div className="px-2 py-1.5 border-b border-border mb-1">
+                                          <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Etiquetas</span>
+                                          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                            {etiquetas.map(et => {
+                                              const ativa = parseAssignees(ficha.cr4a1_etiquetas).includes(et.cr4a1_etiquetaid);
+                                              return (
+                                                <button
+                                                  key={et.cr4a1_etiquetaid}
+                                                  type="button"
+                                                  onClick={() => alternarEtiquetaRapidoFicha(ficha, et.cr4a1_etiquetaid)}
+                                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border transition-opacity ${
+                                                    ativa ? 'border-transparent text-white' : 'border-border bg-secondary text-muted-foreground hover:text-foreground'
+                                                  }`}
+                                                  style={ativa ? { backgroundColor: et.cr4a1_cor || '#1a73e8' } : undefined}
+                                                >
+                                                  {!ativa && <span className="size-2 rounded-full" style={{ backgroundColor: et.cr4a1_cor || '#1a73e8' }} />}
+                                                  {et.cr4a1_nome}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
                                       {listasVisiveis.length > 1 && (
                                         <div className="px-2 py-1 border-b border-border mb-1">
                                           <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Mover para lista</span>
@@ -5456,12 +5543,76 @@ const FichaForm = ({
               </div>
             )}
 
-            {/* Etiquetas (se houver) */}
-            {Array.isArray(form.etiquetas) && form.etiquetas.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {etiquetas.filter(et => form.etiquetas.includes(et.cr4a1_etiquetaid)).map(et => (
-                  <EtiquetaChip key={et.cr4a1_etiquetaid} etiqueta={et} selecionada />
-                ))}
+            {/* Etiquetas (visualização + adição rápida sem precisar editar) */}
+            {etiquetas.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {Array.isArray(form.etiquetas) &&
+                  etiquetas
+                    .filter(et => form.etiquetas.includes(et.cr4a1_etiquetaid))
+                    .map(et => (
+                      <EtiquetaChip
+                        key={et.cr4a1_etiquetaid}
+                        etiqueta={et}
+                        selecionada
+                        onClick={() => {
+                          cancelarAutosavePendente();
+                          const novas = form.etiquetas.filter(id => id !== et.cr4a1_etiquetaid);
+                          const atualizado = { ...form, etiquetas: novas };
+                          setForm(atualizado);
+                          onSaveRapido?.(atualizado, 'Etiqueta removida.');
+                        }}
+                      />
+                    ))}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-secondary/60 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:bg-secondary hover:text-foreground cursor-pointer"
+                      title="Adicionar ou remover etiquetas"
+                    >
+                      <Tag className="size-3 text-primary" />
+                      <span>Etiquetas</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-60 p-2">
+                    <div className="px-2 py-1.5 text-xs font-bold text-foreground border-b border-border flex items-center gap-1.5 mb-1">
+                      <Tag className="size-3.5 text-primary" /> Etiquetas da ficha
+                    </div>
+                    <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pt-0.5">
+                      {etiquetas.map(et => {
+                        const atuais = Array.isArray(form.etiquetas) ? form.etiquetas : [];
+                        const ativa = atuais.includes(et.cr4a1_etiquetaid);
+                        return (
+                          <button
+                            key={et.cr4a1_etiquetaid}
+                            type="button"
+                            onClick={() => {
+                              cancelarAutosavePendente();
+                              const novas = ativa
+                                ? atuais.filter(id => id !== et.cr4a1_etiquetaid)
+                                : [...atuais, et.cr4a1_etiquetaid];
+                              const atualizado = { ...form, etiquetas: novas };
+                              setForm(atualizado);
+                              onSaveRapido?.(atualizado, ativa ? 'Etiqueta removida.' : 'Etiqueta adicionada.');
+                            }}
+                            className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors cursor-pointer ${
+                              ativa ? 'bg-primary/10 font-bold text-primary' : 'hover:bg-secondary text-foreground'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span
+                                className="size-3 rounded-full shrink-0"
+                                style={{ backgroundColor: et.cr4a1_cor || '#1a73e8' }}
+                              />
+                              <span className="truncate">{et.cr4a1_nome}</span>
+                            </span>
+                            {ativa && <Check className="size-3.5 text-primary shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
