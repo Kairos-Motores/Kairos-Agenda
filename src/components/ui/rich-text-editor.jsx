@@ -5,8 +5,10 @@ import { TextStyle, FontFamily } from '@tiptap/extension-text-style';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { Highlight } from '@tiptap/extension-highlight';
+import Image from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extensions';
-import { Bold, Italic, List, ListOrdered, CheckSquare, Highlighter, Ban } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, CheckSquare, Highlighter, Ban, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './select';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { textFonts } from '../../constants/textFonts';
@@ -86,6 +88,77 @@ export const aplicarAtributoTarefa = (editor, index, atributos) => {
   }).run();
 };
 
+const MAX_IMAGENS_EDITOR = 25;
+const MAX_HTML_TAMANHO = 950_000;
+
+const renderizarCanvasImagem = (img, maxDim, quality) => {
+  let { width, height } = img;
+  if (width > maxDim || height > maxDim) {
+    if (width >= height) {
+      height = Math.round((height * maxDim) / width);
+      width = maxDim;
+    } else {
+      width = Math.round((width * maxDim) / height);
+      height = maxDim;
+    }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+  const webp = canvas.toDataURL('image/webp', quality);
+  return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', quality);
+};
+
+// Comprime imagens coladas/arrastadas mantendo nitidez para prints e textos,
+// sem estourar o tamanho das colunas HTML no Dataverse.
+const comprimirImagemParaEditor = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('Falha ao ler imagem'));
+  reader.onload = (event) => {
+    const img = new window.Image();
+    img.onerror = () => reject(new Error('Formato de imagem inválido'));
+    img.onload = () => {
+      let dataUrl = renderizarCanvasImagem(img, 1600, 0.82);
+      if (dataUrl.length > 220_000) {
+        dataUrl = renderizarCanvasImagem(img, 1200, 0.72);
+      }
+      resolve(dataUrl);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+const contarImagensNoEditor = (editorInstance) => {
+  if (!editorInstance) return 0;
+  let total = 0;
+  editorInstance.state.doc.descendants((node) => {
+    if (node.type.name === 'image') total += 1;
+  });
+  return total;
+};
+
+const extrairArquivosImagem = (dataTransfer) => {
+  if (!dataTransfer) return [];
+  const imagens = [];
+  if (dataTransfer.items) {
+    for (const item of Array.from(dataTransfer.items)) {
+      if (item.kind === 'file' && item.type?.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) imagens.push(f);
+      }
+    }
+  }
+  if (imagens.length === 0 && dataTransfer.files) {
+    for (const f of Array.from(dataTransfer.files)) {
+      if (f.type?.startsWith('image/')) imagens.push(f);
+    }
+  }
+  return imagens;
+};
+
 const ToolbarButton = ({ active, onClick, title, children }) => (
   <button
     type="button"
@@ -114,6 +187,7 @@ export const RichTextEditor = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionCoords, setMentionCoords] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [imagemAmpliada, setImagemAmpliada] = useState(null);
 
   const coresRecentesResolvidas = useMemo(() => {
     if (Array.isArray(coresRecentes) && coresRecentes.length > 0) return coresRecentes;
@@ -139,6 +213,38 @@ export const RichTextEditor = ({
   selectedIndexRef.current = selectedIndex;
   const selectUserRef = useRef(null);
   const mentionRangeRef = useRef(null);
+  const editorRef = useRef(null);
+
+  const inserirImagensNoEditor = useCallback(async (arquivos, posDestino = null) => {
+    const ed = editorRef.current;
+    if (!ed || !arquivos?.length) return;
+
+    let qtdAtual = contarImagensNoEditor(ed);
+    let htmlTamanhoAtual = ed.getHTML().length;
+
+    for (let i = 0; i < arquivos.length; i += 1) {
+      if (qtdAtual >= MAX_IMAGENS_EDITOR) {
+        toast.error(`Limite máximo de ${MAX_IMAGENS_EDITOR} imagens por texto atingido.`);
+        break;
+      }
+      try {
+        const dataUrl = await comprimirImagemParaEditor(arquivos[i]);
+        if (htmlTamanhoAtual + dataUrl.length > MAX_HTML_TAMANHO) {
+          toast.error('O texto atingiu o tamanho máximo suportado para imagens.');
+          break;
+        }
+        const chain = ed.chain().focus();
+        if (typeof posDestino === 'number' && i === 0) {
+          chain.setTextSelection(posDestino);
+        }
+        chain.setImage({ src: dataUrl }).run();
+        qtdAtual += 1;
+        htmlTamanhoAtual += dataUrl.length;
+      } catch {
+        toast.error('Não foi possível processar uma das imagens coladas.');
+      }
+    }
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -148,6 +254,13 @@ export const RichTextEditor = ({
       TaskList,
       TaskItemComDados.configure({ nested: true }),
       HighlightSuave,
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto max-h-[420px] rounded-lg border border-border/60 my-2 object-contain cursor-zoom-in transition-opacity hover:opacity-95'
+        }
+      }),
       ...(placeholder ? [Placeholder.configure({ placeholder })] : [])
     ],
     content: value || '',
@@ -161,6 +274,22 @@ export const RichTextEditor = ({
     },
     editorProps: {
       attributes: { class: `rich-text-content ${minHeightClass} px-3 py-2 text-sm text-foreground outline-none` },
+      handlePaste: (view, event) => {
+        const imagens = extrairArquivosImagem(event.clipboardData);
+        if (imagens.length === 0) return false;
+        event.preventDefault();
+        inserirImagensNoEditor(imagens);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const imagens = extrairArquivosImagem(event.dataTransfer);
+        if (imagens.length === 0) return false;
+        event.preventDefault();
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        inserirImagensNoEditor(imagens, coords?.pos ?? null);
+        return true;
+      },
       handleKeyDown: (view, event) => {
         if (mentionOpenRef.current && filteredUsersRef.current.length > 0) {
           if (event.key === 'ArrowDown') {
@@ -237,17 +366,60 @@ export const RichTextEditor = ({
   }, [editor]);
 
   useEffect(() => {
+    editorRef.current = editor;
     if (editor && onEditorReady) onEditorReady(editor);
   }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    if (!imagemAmpliada) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setImagemAmpliada(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [imagemAmpliada]);
 
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [editor, editable]);
 
+  const handleClickContainer = (e) => {
+    const imgEl = e.target?.closest?.('img');
+    if (!imgEl?.src) return;
+    if (!editable || e.detail >= 2) {
+      setImagemAmpliada(imgEl.src);
+    }
+  };
+
+  const lightbox = imagemAmpliada ? (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onClick={() => setImagemAmpliada(null)}
+    >
+      <button
+        type="button"
+        onClick={() => setImagemAmpliada(null)}
+        aria-label="Fechar imagem"
+        className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-colors"
+      >
+        <X className="size-5" />
+      </button>
+      <img
+        src={imagemAmpliada}
+        alt="Visualização ampliada"
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[90dvh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
+      />
+    </div>
+  ) : null;
+
   if (!editor) return null;
 
   if (!editable) {
-    return <EditorContent editor={editor} />;
+    return (
+      <div onClick={handleClickContainer}>
+        <EditorContent editor={editor} />
+        {lightbox}
+      </div>
+    );
   }
 
   const aplicarFonte = (fontValue) => {
@@ -347,7 +519,10 @@ export const RichTextEditor = ({
           </PopoverContent>
         </Popover>
       </div>
-      <EditorContent editor={editor} />
+      <div onClick={handleClickContainer}>
+        <EditorContent editor={editor} />
+      </div>
+      {lightbox}
       {mentionOpen && filteredUsers.length > 0 && (
         <MentionSuggestionsMenu
           users={filteredUsers}
