@@ -14,7 +14,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { format, addHours, addDays, addMonths } from 'date-fns';
-import { Plus, Trash2, Ban, GripVertical, CalendarDays, RefreshCw, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye, Type } from 'lucide-react';
+import { Plus, Trash2, Ban, GripVertical, CalendarDays, RefreshCw, X, Users, UserPlus, Tag, Lock, Unlock, Pencil, Check, CheckCircle2, Circle, Image as ImageIcon, Palette, ShieldOff, ShieldAlert, Paperclip, Filter, ChevronLeft, ChevronRight, ChevronDown, UserCircle2, MessageCircle, Send, History, Pin, LayoutTemplate, Repeat, FileSpreadsheet, Zap, MoreHorizontal, Share2, FolderSync, FileDown, Loader2, ArrowUpDown, UserCheck, FolderInput, Archive, ArchiveRestore, Copy, Bell, BellOff, BellRing, Play, Pause, Clock, Timer, Flag, ExternalLink, Link2, DollarSign, Kanban, Columns3, Table2, CalendarRange, GanttChart, BarChart3, Sparkles, ArrowRightLeft, FileText, Eye, Type, Search } from 'lucide-react';
 import {
   GOOGLE_FONTS_FICHAS,
   carregarGoogleFont,
@@ -458,6 +458,7 @@ export const TrelloPanel = ({
   const [ordenacaoPorLista, setOrdenacaoPorLista] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kairos_trello_ordem_listas') || '{}'); } catch { return {}; }
   });
+  const [buscaPorLista, setBuscaPorLista] = useState({});
 
   const mudarOrdenacaoLista = (listaId, criterio) => {
     setOrdenacaoPorLista(prev => {
@@ -3888,7 +3889,16 @@ export const TrelloPanel = ({
                   className="min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-sm font-bold leading-snug text-foreground outline-none break-words [word-break:normal] hyphens-none focus:ring-1 focus:ring-primary/40 rounded px-1"
                 />
                 <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">{fichasDaLista(lista).length}</Badge>
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">
+                    {(buscaPorLista[lista.cr4a1_listaid] || '').trim()
+                      ? `${fichasDaLista(lista).filter(f => {
+                          const termo = (buscaPorLista[lista.cr4a1_listaid] || '').trim();
+                          const meta = parseFichaMeta(f.cr4a1_atividades);
+                          const alvo = `${f.cr4a1_titulo || ''} ${htmlParaTexto(f.cr4a1_descricao)} ${meta.campoTexto || ''} ${nomeDe(f.cr4a1_responsavel_login, allUsers)}`;
+                          return matchesSearch(alvo, termo);
+                        }).length}/${fichasDaLista(lista).length}`
+                      : fichasDaLista(lista).length}
+                  </Badge>
 
                   {!souApenasConvidado && (
                     <ListaSincronizacaoAgendaMenu
@@ -3929,15 +3939,53 @@ export const TrelloPanel = ({
                 </div>
               </div>
 
+              {(fichasDaLista(lista).length > 0 || (buscaPorLista[lista.cr4a1_listaid] || '').trim()) && (
+                <div className="relative shrink-0">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={buscaPorLista[lista.cr4a1_listaid] || ''}
+                    onChange={(e) => setBuscaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: e.target.value }))}
+                    placeholder="Buscar nesta lista..."
+                    aria-label={`Buscar fichas na lista ${lista.cr4a1_nome}`}
+                    className="h-7 w-full rounded-lg border border-border/70 bg-card/80 pl-7 pr-7 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary focus:bg-card"
+                  />
+                  {(buscaPorLista[lista.cr4a1_listaid] || '').trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setBuscaPorLista(prev => ({ ...prev, [lista.cr4a1_listaid]: '' }))}
+                      aria-label="Limpar busca da lista"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 flex size-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <Droppable droppableId={lista.cr4a1_listaid}>
-                {(provided, snapshotDroppable) => (
+                {(provided, snapshotDroppable) => {
+                  const termoLista = (buscaPorLista[lista.cr4a1_listaid] || '').trim();
+                  const fichasListaExibidas = termoLista
+                    ? fichasDaLista(lista).filter(f => {
+                        const meta = parseFichaMeta(f.cr4a1_atividades);
+                        const alvo = `${f.cr4a1_titulo || ''} ${htmlParaTexto(f.cr4a1_descricao)} ${meta.campoTexto || ''} ${nomeDe(f.cr4a1_responsavel_login, allUsers)}`;
+                        return matchesSearch(alvo, termoLista);
+                      })
+                    : fichasDaLista(lista);
+                  return (
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    style={{ minHeight: fichasDaLista(lista).length === 0 ? '48px' : '0px' }}
+                    style={{ minHeight: fichasListaExibidas.length === 0 ? '48px' : '0px' }}
                     className={`trello-card-list flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1.5 flex flex-col gap-2 transition-colors rounded-lg overscroll-contain ${snapshotDroppable.isDraggingOver ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
                   >
-                    {fichasDaLista(lista).map((ficha, index) => {
+                    {termoLista && fichasListaExibidas.length === 0 && (
+                      <p className="py-4 text-center text-[11px] text-muted-foreground">
+                        Nenhuma ficha encontrada para &quot;{termoLista}&quot;.
+                      </p>
+                    )}
+                    {fichasListaExibidas.map((ficha, index) => {
                       const etiquetasDaFicha = parseAssignees(ficha.cr4a1_etiquetas).map(id => etiquetas.find(e => e.cr4a1_etiquetaid === id)).filter(Boolean);
                       const infoProgresso = calcularProgressoFicha(ficha, fichas);
                       const concluida = infoProgresso.concluida;
@@ -4379,7 +4427,8 @@ export const TrelloPanel = ({
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                }}
               </Droppable>
 
               <div className="mt-auto flex flex-col gap-1 pt-1 shrink-0">
