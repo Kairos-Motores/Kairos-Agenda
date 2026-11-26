@@ -6,6 +6,7 @@ import { X, Lock, CalendarDays, Users, NotebookText, CheckCircle2, Circle, FileT
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { parseAssignees } from '../utils/assignees';
 import { getEventTypeLayer } from '../utils/eventTypeLayer';
+import { fetchPlaceDetails, getCachedPlace } from '../utils/placesLookup';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -20,6 +21,28 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
   const trapRef = useFocusTrap(!!event);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [placeInfo, setPlaceInfo] = useState(null);
+
+  useEffect(() => {
+    const localStr = (event?.cr4a1_local || '').trim();
+    if (!localStr || /^https?:\/\//i.test(localStr)) {
+      setPlaceInfo(null);
+      return undefined;
+    }
+    const cached = getCachedPlace(localStr);
+    if (cached) {
+      setPlaceInfo(cached);
+      return undefined;
+    }
+    setPlaceInfo(null);
+    const controller = new AbortController();
+    fetchPlaceDetails({ query: localStr, signal: controller.signal })
+      .then((info) => {
+        if (!controller.signal.aborted && info) setPlaceInfo(info);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [event?.cr4a1_local]);
 
   useEffect(() => {
     if (!event) return;
@@ -108,8 +131,28 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
       <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(12,12,16,0.55)', opacity: grown ? 1 : 0, transition: 'opacity 0.3s ease', cursor: 'pointer' }} />
 
       <div ref={trapRef} tabIndex={-1} style={cardStyle}>
-        <div style={{ padding: isMobile ? '14px 16px 24px 16px' : '24px', overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
-          {isMobile && <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" />}
+        <div style={{ overflowY: 'auto', flex: 1, opacity: grown ? 1 : 0, transition: 'opacity 0.25s ease 0.1s' }}>
+          {placeInfo?.photoUrl && (
+            <div className="relative h-44 sm:h-48 w-full shrink-0 overflow-hidden bg-muted">
+              <img
+                src={placeInfo.photoUrl}
+                alt={placeInfo.name || event.cr4a1_local}
+                className="h-full w-full object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/35" />
+              <Button
+                onClick={handleClose}
+                variant="ghost"
+                size="icon"
+                aria-label="Fechar"
+                className="absolute right-3 top-3 size-9 rounded-full bg-black/45 text-white hover:bg-black/65 hover:text-white backdrop-blur-sm"
+              >
+                <X className="size-5" />
+              </Button>
+            </div>
+          )}
+          <div style={{ padding: isMobile ? '14px 16px 24px 16px' : '24px' }}>
+          {isMobile && !placeInfo?.photoUrl && <div className="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" />}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -131,9 +174,11 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
                 {event.cr4a1_titulo || 'Sem título'}
               </h2>
             </div>
-            <Button onClick={handleClose} variant="ghost" size="icon" aria-label="Fechar" className="shrink-0 rounded-full">
-              <X className="size-5" />
-            </Button>
+            {!placeInfo?.photoUrl && (
+              <Button onClick={handleClose} variant="ghost" size="icon" aria-label="Fechar" className="shrink-0 rounded-full">
+                <X className="size-5" />
+              </Button>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -167,7 +212,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
             {event.cr4a1_local && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                 <MapPin className="size-[19px] mt-px text-primary shrink-0" />
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, fontSize: '14px', color: 'var(--text-primary)' }}>
                   {/^https?:\/\//i.test(event.cr4a1_local.trim()) ? (
                     <a
                       href={event.cr4a1_local.trim()}
@@ -179,15 +224,24 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
                     </a>
                   ) : (
                     <>
-                      <span>{event.cr4a1_local}</span>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.cr4a1_local.trim())}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
-                      >
-                        Maps <ExternalLink className="size-3" />
-                      </a>
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className="font-semibold">
+                          {placeInfo?.name || event.cr4a1_local}
+                        </span>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeInfo?.address || event.cr4a1_local.trim())}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                        >
+                          Maps <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                      {placeInfo?.address && placeInfo.address !== (placeInfo.name || event.cr4a1_local) && (
+                        <span className="text-xs text-muted-foreground leading-snug">
+                          {placeInfo.address}
+                        </span>
+                      )}
                     </>
                   )}
                 </div>
@@ -248,6 +302,7 @@ export const EventDetailModal = ({ event, sourceRect, allUsers = [], eventTypes 
             <Button onClick={() => onEdit(event)} className="flex-1">
               <Pencil className="size-[18px]" /> Editar
             </Button>
+          </div>
           </div>
         </div>
       </div>

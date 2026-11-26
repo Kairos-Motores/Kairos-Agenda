@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, Loader2, MapPin, X } from 'lucide-react';
 import { matchesSearch } from '../../utils/search';
+import { fetchPlaceDetails, setCachedPlace } from '../../utils/placesLookup';
 
 const UNIDADES_PADRAO_KAIROS = [
   'Kairós Motores — São Luís (Matriz)',
@@ -32,22 +33,11 @@ const formatarFeaturePhoton = (feature) => {
   return { label, sub };
 };
 
-const formatarEnderecoNominatim = (item) => {
-  const addr = item.address || {};
-  const nomePrincipal = item.name && item.name !== addr.road ? item.name : '';
-  const rua = [addr.road, addr.house_number].filter(Boolean).join(', ');
-  const bairro = addr.suburb || addr.neighbourhood || '';
-  const cidade = addr.city || addr.town || addr.village || addr.municipality || '';
-  const uf = addr.state_code || addr.state || '';
-  const partes = [nomePrincipal, rua, bairro, [cidade, uf].filter(Boolean).join(' - ')].filter(Boolean);
-  return partes.length > 0 ? partes.join(' • ') : item.display_name;
-};
-
 export const LocationField = ({
   value = '',
   onChange,
   allUsers = [],
-  placeholder = 'Adicionar local, unidade, CEP ou endereço...'
+  placeholder = 'Adicionar local, empresa, CEP ou endereço...'
 }) => {
   const [aberto, setAberto] = useState(false);
   const [enderecos, setEnderecos] = useState([]);
@@ -86,7 +76,7 @@ export const LocationField = ({
 
   useEffect(() => {
     const termo = String(value || '').trim();
-    if (!aberto || termo.length < 3 || /^https?:\/\//i.test(termo)) {
+    if (!aberto || termo.length < 2 || /^https?:\/\//i.test(termo)) {
       setEnderecos([]);
       setCarregandoEnderecos(false);
       return undefined;
@@ -96,6 +86,7 @@ export const LocationField = ({
     const timer = setTimeout(async () => {
       setCarregandoEnderecos(true);
       try {
+        // 1. CEP brasileiro via ViaCEP
         const cepMatch = termo.replace(/\D/g, '');
         if (/^\d{8}$/.test(cepMatch) && /^[\d-]+$/.test(termo)) {
           const resCep = await fetch(`https://viacep.com.br/ws/${cepMatch}/json/`, {
@@ -111,8 +102,9 @@ export const LocationField = ({
               ].filter(Boolean).join(' • ');
               setEnderecos([{
                 id: `cep-${cepMatch}`,
-                label: labelCep || `CEP ${dadosCep.cep}`,
-                sub: `CEP ${dadosCep.cep}${dadosCep.complemento ? ` (${dadosCep.complemento})` : ''}`
+                mainText: labelCep || `CEP ${dadosCep.cep}`,
+                secondaryText: `CEP ${dadosCep.cep}${dadosCep.complemento ? ` (${dadosCep.complemento})` : ''}`,
+                fullText: labelCep || `CEP ${dadosCep.cep}`
               }]);
               setCarregandoEnderecos(false);
               return;
@@ -120,48 +112,54 @@ export const LocationField = ({
           }
         }
 
-        // Busca principal com Photon (Komoot) — tolerante a erros de digitação, acentos e abreviações
+        // 2. Busca principal oficial via Google Places Autocomplete (New)
         let resultados = [];
         try {
-          const urlPhoton = `https://photon.komoot.io/api/?q=${encodeURIComponent(termo)}&limit=8&lat=-2.53&lon=-44.30`;
-          const resPhoton = await fetch(urlPhoton, { signal: controller.signal });
-          if (resPhoton.ok) {
-            const dataPhoton = await resPhoton.json();
-            const features = Array.isArray(dataPhoton?.features) ? dataPhoton.features : [];
-            const apenasBrPt = features.filter((f) => ['BR', 'PT'].includes(f.properties?.countrycode));
-            const vistos = new Set();
-            for (const f of apenasBrPt) {
-              const { label, sub } = formatarFeaturePhoton(f);
-              if (!label || vistos.has(label.toLowerCase())) continue;
-              vistos.add(label.toLowerCase());
-              resultados.push({
-                id: `ph-${f.properties?.osm_type || 'n'}-${f.properties?.osm_id || resultados.length}`,
-                label,
-                sub: sub || label
-              });
-              if (resultados.length >= 6) break;
+          const resGoogle = await fetch(
+            `/api/places-proxy?action=autocomplete&q=${encodeURIComponent(termo)}`,
+            { signal: controller.signal }
+          );
+          if (resGoogle.ok) {
+            const dataGoogle = await resGoogle.json();
+            if (Array.isArray(dataGoogle?.suggestions) && dataGoogle.suggestions.length > 0) {
+              resultados = dataGoogle.suggestions.map((s) => ({
+                id: `gp-${s.placeId}`,
+                placeId: s.placeId,
+                mainText: s.mainText,
+                secondaryText: s.secondaryText,
+                fullText: s.fullText
+              }));
             }
           }
         } catch (err) {
           if (err.name === 'AbortError') return;
         }
 
-        // Fallback para Nominatim se o Photon não retornar nada
-        if (resultados.length === 0 && !controller.signal.aborted) {
-          const urlNom = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=br,pt&q=${encodeURIComponent(termo)}`;
-          const resNom = await fetch(urlNom, {
-            signal: controller.signal,
-            headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' }
-          });
-          if (resNom.ok) {
-            const dataNom = await resNom.json();
-            if (Array.isArray(dataNom)) {
-              resultados = dataNom.map((item) => ({
-                id: `nom-${item.place_id}`,
-                label: formatarEnderecoNominatim(item),
-                sub: item.display_name
-              }));
+        // 3. Fallback Photon (BR/PT) se Google Places não retornar ou estiver offline
+        if (resultados.length === 0 && termo.length >= 3 && !controller.signal.aborted) {
+          try {
+            const urlPhoton = `https://photon.komoot.io/api/?q=${encodeURIComponent(termo)}&limit=8&lat=-2.53&lon=-44.30`;
+            const resPhoton = await fetch(urlPhoton, { signal: controller.signal });
+            if (resPhoton.ok) {
+              const dataPhoton = await resPhoton.json();
+              const features = (Array.isArray(dataPhoton?.features) ? dataPhoton.features : [])
+                .filter((f) => ['BR', 'PT'].includes(f.properties?.countrycode));
+              const vistos = new Set();
+              for (const f of features) {
+                const { label, sub } = formatarFeaturePhoton(f);
+                if (!label || vistos.has(label.toLowerCase())) continue;
+                vistos.add(label.toLowerCase());
+                resultados.push({
+                  id: `ph-${f.properties?.osm_type || 'n'}-${f.properties?.osm_id || resultados.length}`,
+                  mainText: label,
+                  secondaryText: sub || label,
+                  fullText: label
+                });
+                if (resultados.length >= 6) break;
+              }
             }
+          } catch (err) {
+            if (err.name === 'AbortError') return;
           }
         }
 
@@ -173,7 +171,7 @@ export const LocationField = ({
       } finally {
         if (!controller.signal.aborted) setCarregandoEnderecos(false);
       }
-    }, 350);
+    }, 320);
 
     return () => {
       clearTimeout(timer);
@@ -181,9 +179,21 @@ export const LocationField = ({
     };
   }, [value, aberto]);
 
-  const selecionar = (texto) => {
-    onChange(texto);
+  const selecionarItem = async (item) => {
     setAberto(false);
+    if (item.placeId) {
+      onChange(item.fullText || item.mainText);
+      const det = await fetchPlaceDetails({ placeId: item.placeId });
+      if (det) {
+        const valorFinal = det.name && det.address && !det.address.toLowerCase().startsWith(det.name.toLowerCase())
+          ? `${det.name} — ${det.address}`
+          : (det.address || det.name || item.fullText);
+        setCachedPlace(valorFinal, det);
+        onChange(valorFinal);
+      }
+    } else {
+      onChange(item.fullText || item.mainText);
+    }
   };
 
   const mostrarDropdown = aberto && (unidadesFiltradas.length > 0 || enderecos.length > 0 || carregandoEnderecos);
@@ -217,9 +227,35 @@ export const LocationField = ({
       </div>
 
       {mostrarDropdown && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-lg">
-          {unidadesFiltradas.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-lg">
+          {(carregandoEnderecos || enderecos.length > 0) && (
             <div className="mb-1">
+              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span>Google Maps • Locais e Endereços</span>
+                {carregandoEnderecos && <Loader2 className="size-3 animate-spin" />}
+              </div>
+              {enderecos.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selecionarItem(item)}
+                  className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-secondary"
+                >
+                  <MapPin className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-foreground">{item.mainText}</div>
+                    {item.secondaryText && (
+                      <div className="truncate text-[11px] text-muted-foreground">{item.secondaryText}</div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {unidadesFiltradas.length > 0 && (
+            <div>
               <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Unidades Kairós
               </div>
@@ -228,35 +264,11 @@ export const LocationField = ({
                   key={unidade}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => selecionar(unidade)}
+                  onClick={() => selecionarItem({ mainText: unidade, fullText: unidade })}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-secondary"
                 >
                   <Building2 className="size-3.5 shrink-0 text-primary" />
                   <span className="truncate">{unidade}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {(carregandoEnderecos || enderecos.length > 0) && (
-            <div>
-              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                <span>Endereços encontrados</span>
-                {carregandoEnderecos && <Loader2 className="size-3 animate-spin" />}
-              </div>
-              {enderecos.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => selecionar(item.label)}
-                  className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-secondary"
-                >
-                  <MapPin className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-foreground">{item.label}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">{item.sub}</div>
-                  </div>
                 </button>
               ))}
             </div>
