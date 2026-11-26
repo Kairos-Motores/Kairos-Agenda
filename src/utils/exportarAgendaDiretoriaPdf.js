@@ -296,7 +296,8 @@ export const exportarAgendaDiretorPdf = ({
 };
 
 /**
- * Gera o texto estruturado e formatado da agenda do dia pronto para envio no WhatsApp.
+ * Gera o texto objetivo da agenda do dia formatado para WhatsApp:
+ * Ex: *08:00 – 09:00* | *Fazer a IT com Amanda do processo de outras saídas, extravio e perda financeira (Brasil)*
  */
 export const gerarTextoAgendaWhatsapp = ({
   diretor,
@@ -305,86 +306,19 @@ export const gerarTextoAgendaWhatsapp = ({
   emitidoPor = '',
   diaIso = ''
 }) => {
-  const nomeDiretor = diretor?.cr4a1_nome_exibicao || diretor?.cr4a1_username || 'Diretor(a)';
-  const unidadeDiretor = (diretor?.cr4a1_unidade || '').trim();
-  const agora = new Date();
-  const diaAlvoIso = diaIso || format(agora, 'yyyy-MM-dd');
-  const [anoD, mesD, diaD] = diaAlvoIso.split('-').map(Number);
-  const dataAlvoObj = new Date(anoD, (mesD || 1) - 1, diaD || 1);
-  const diaFmt = format(dataAlvoObj, 'dd/MM/yyyy', { locale: ptBR });
-  const diaSemanaRaw = format(dataAlvoObj, 'EEEE', { locale: ptBR });
-  const diaSemana = diaSemanaRaw.charAt(0).toUpperCase() + diaSemanaRaw.slice(1);
-  const dataEmissaoFmt = format(agora, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-
-  const wsMap = new Map(
-    (workspaces || []).map((w) => [w.cr4a1_calendarios_workspacesid, w.cr4a1_nome])
-  );
-
-  const total = eventos.length;
-  const concluidos = eventos.filter((e) => e.cr4a1_concluida === 'Sim').length;
-  const pendentes = total - concluidos;
-
-  const linhas = [];
-
-  linhas.push('*KAIRÓS MOTORES • AGENDA EXECUTIVA DIÁRIA*');
-  linhas.push(`📅 *Data:* ${diaFmt} (${diaSemana})`);
-  linhas.push(`👤 *Diretor(a):* ${unidadeDiretor ? `${nomeDiretor} (${unidadeDiretor})` : nomeDiretor}`);
-  linhas.push(`🕒 *Emitido em:* ${dataEmissaoFmt}${emitidoPor ? ` (por ${emitidoPor})` : ''}`);
-  linhas.push(`📊 *Resumo:* ${total} compromisso(s) • ${pendentes} agendado(s) • ${concluidos} concluído(s)`);
-  linhas.push('');
-
-  linhas.push(`Prezado(a) *${nomeDiretor}*,`);
-  if (total > 0) {
-    linhas.push(`Segue a relação dos compromissos e atividades programados em sua agenda para hoje (${diaFmt}):`);
-  } else {
-    linhas.push(`Não constam compromissos ou atividades registrados em sua agenda para a data de hoje (${diaFmt}).`);
+  if (!eventos || eventos.length === 0) {
+    return 'Nenhum compromisso agendado para hoje.';
   }
-  linhas.push('');
 
-  if (total > 0) {
-    linhas.push('─────────────────────────────');
-    linhas.push('*DETALHAMENTO DOS COMPROMISSOS*');
-    linhas.push('─────────────────────────────');
-    linhas.push('');
-
-    eventos.forEach((ev, idx) => {
-      const dataIniFmt = formatarDataBr(ev.cr4a1_data_inicio);
-      const dataFimFmt = formatarDataBr(ev.cr4a1_data_fim);
-      const faixaData =
-        dataFimFmt && dataFimFmt !== dataIniFmt ? `${dataIniFmt} a ${dataFimFmt}` : dataIniFmt;
+  return eventos
+    .map((ev) => {
       const horario = ev.cr4a1_dia_inteiro
         ? 'Dia inteiro'
         : `${ev.cr4a1_hora_inicio || '08:00'}${ev.cr4a1_hora_fim ? ` – ${ev.cr4a1_hora_fim}` : ''}`;
-
       const titulo = (ev.cr4a1_titulo || 'Compromisso sem título').trim();
-      const tipo = (ev.cr4a1_tipo || 'Evento').trim();
-      const status = ev.cr4a1_concluida === 'Sim' ? '✅ Concluído' : '⏳ Agendado';
-      const wsNome = ev.cr4a1_workspace_id ? wsMap.get(ev.cr4a1_workspace_id) : '';
-      const detalhes = (ev.cr4a1_detalhes || '').trim();
-
-      linhas.push(`${idx + 1}. *${horario}* | *${titulo}*`);
-
-      const tags = [];
-      if (tipo) tags.push(`Tipo: ${tipo}`);
-      if (wsNome) tags.push(`Setor: ${wsNome}`);
-      if (faixaData && faixaData !== diaFmt) tags.push(`Período: ${faixaData}`);
-      if (tags.length > 0) {
-        linhas.push(`   📌 ${tags.join(' | ')}`);
-      }
-
-      linhas.push(`   Status: ${status}`);
-
-      if (detalhes) {
-        linhas.push(`   📝 Detalhes: ${detalhes}`);
-      }
-      linhas.push('');
-    });
-  }
-
-  linhas.push('─────────────────────────────');
-  linhas.push('_Emitido via Kairós Agenda_');
-
-  return linhas.join('\n');
+      return `*${horario}* | *${titulo}*`;
+    })
+    .join('\n');
 };
 
 /**
