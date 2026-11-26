@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { FileDown, Check, Users, CalendarDays, Loader2 } from 'lucide-react';
+import { FileDown, Check, Users, CalendarDays, Loader2, MessageSquare, Copy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -9,7 +9,12 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { DateField } from './ui/date-field';
 import { parseRoles } from '../utils/permissions';
-import { exportarAgendaDiretorPdf, filtrarEventosDoDiretor } from '../utils/exportarAgendaDiretoriaPdf';
+import {
+  exportarAgendaDiretorPdf,
+  filtrarEventosDoDiretor,
+  gerarTextoAgendaWhatsapp,
+  copiarTextoClipboard
+} from '../utils/exportarAgendaDiretoriaPdf';
 
 export const ExportarDiretoriaPdfModal = ({
   isOpen,
@@ -34,6 +39,7 @@ export const ExportarDiretoriaPdfModal = ({
   const [diaSelecionado, setDiaSelecionado] = useState(hojeIso);
   const [selecionados, setSelecionados] = useState([]);
   const [exportando, setExportando] = useState(false);
+  const [copiando, setCopiando] = useState(false);
 
   const diaEfetivo = diaSelecionado || hojeIso;
   const intervaloDia = useMemo(
@@ -52,6 +58,77 @@ export const ExportarDiretoriaPdfModal = ({
       setSelecionados([]);
     } else {
       setSelecionados(diretores.map((d) => d.cr4a1_username));
+    }
+  };
+
+  const handleCopiarDiretorIndividual = async (diretorAlvo) => {
+    setCopiando(true);
+    try {
+      const emitidoPor = currentUser?.cr4a1_nome_exibicao || currentUser?.cr4a1_username || '';
+      const eventosDir = filtrarEventosDoDiretor(events, diretorAlvo.cr4a1_username, intervaloDia);
+      const texto = gerarTextoAgendaWhatsapp({
+        diretor: diretorAlvo,
+        eventos: eventosDir,
+        workspaces,
+        emitidoPor,
+        diaIso: diaEfetivo
+      });
+
+      const copiou = await copiarTextoClipboard(texto);
+      const nomeDir = diretorAlvo.cr4a1_nome_exibicao || diretorAlvo.cr4a1_username;
+      if (copiou) {
+        toast.success(`Agenda de ${nomeDir} copiada para o WhatsApp!`);
+      } else {
+        toast.error('Não foi possível copiar automaticamente para a área de transferência.');
+      }
+    } catch (err) {
+      console.error('Erro ao copiar agenda do WhatsApp:', err);
+      toast.error('Erro ao gerar texto para o WhatsApp.');
+    } finally {
+      setCopiando(false);
+    }
+  };
+
+  const handleCopiarWhatsapp = async () => {
+    if (selecionados.length === 0) {
+      toast.error('Selecione pelo menos um membro da Diretoria.');
+      return;
+    }
+
+    setCopiando(true);
+    try {
+      const emitidoPor = currentUser?.cr4a1_nome_exibicao || currentUser?.cr4a1_username || '';
+      const alvos = diretores.filter((d) => selecionados.includes(d.cr4a1_username));
+
+      const blocosTexto = alvos.map((dir) => {
+        const eventosDir = filtrarEventosDoDiretor(events, dir.cr4a1_username, intervaloDia);
+        return gerarTextoAgendaWhatsapp({
+          diretor: dir,
+          eventos: eventosDir,
+          workspaces,
+          emitidoPor,
+          diaIso: diaEfetivo
+        });
+      });
+
+      const separador = '\n\n' + '═'.repeat(30) + '\n\n';
+      const textoCompleto = blocosTexto.join(separador);
+
+      const copiou = await copiarTextoClipboard(textoCompleto);
+      if (copiou) {
+        toast.success(
+          alvos.length === 1
+            ? `Agenda de ${alvos[0].cr4a1_nome_exibicao || alvos[0].cr4a1_username} copiada para o WhatsApp!`
+            : `${alvos.length} agendas copiadas para o WhatsApp (área de transferência)!`
+        );
+      } else {
+        toast.error('Não foi possível copiar automaticamente para a área de transferência.');
+      }
+    } catch (err) {
+      console.error('Erro ao copiar agenda do WhatsApp:', err);
+      toast.error('Erro ao gerar texto para o WhatsApp.');
+    } finally {
+      setCopiando(false);
     }
   };
 
@@ -103,7 +180,7 @@ export const ExportarDiretoriaPdfModal = ({
             <FileDown className="size-5 text-primary" /> Exportar Agenda do Dia (Diretoria)
           </DialogTitle>
           <DialogDescription>
-            Exporta um relatório formal em PDF com os compromissos e atividades do dia para cada membro da Diretoria selecionado (um arquivo separado por diretor).
+            Exporte relatórios formais em PDF ou copie o resumo estruturado para o WhatsApp dos compromissos e atividades do dia de cada diretor selecionado.
           </DialogDescription>
         </DialogHeader>
 
@@ -189,9 +266,26 @@ export const ExportarDiretoriaPdfModal = ({
                           )}
                         </div>
                       </div>
-                      <Badge variant="secondary" className="shrink-0 text-[11px]">
-                        {qtd} {qtd === 1 ? 'evento hoje' : 'eventos no dia'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="secondary" className="shrink-0 text-[11px]">
+                          {qtd} {qtd === 1 ? 'evento hoje' : 'eventos no dia'}
+                        </Badge>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                          title={`Copiar agenda de ${nome} para o WhatsApp`}
+                          disabled={copiando || exportando}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCopiarDiretorIndividual(d);
+                          }}
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                      </div>
                     </label>
                   );
                 })}
@@ -200,12 +294,24 @@ export const ExportarDiretoriaPdfModal = ({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} disabled={exportando}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} disabled={exportando || copiando}>
             Cancelar
           </Button>
-          <Button onClick={handleExportar} disabled={exportando || selecionados.length === 0} className="gap-1.5">
-            {exportando ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCopiarWhatsapp}
+            disabled={exportando || copiando || selecionados.length === 0}
+            className="gap-1.5 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+          >
+            {copiando ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4 text-emerald-600 dark:text-emerald-400" />}
+            {selecionados.length > 1
+              ? `Copiar p/ WhatsApp (${selecionados.length})`
+              : 'Copiar p/ WhatsApp'}
+          </Button>
+          <Button onClick={handleExportar} disabled={exportando || copiando || selecionados.length === 0} className="gap-1.5">
+            {exportando ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
             {selecionados.length > 1
               ? `Exportar ${selecionados.length} PDFs`
               : 'Exportar PDF'}
