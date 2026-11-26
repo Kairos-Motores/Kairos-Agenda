@@ -466,6 +466,10 @@ body {
   background-color: var(--bg-primary);
 }
 
+.calendar-week-row:hover {
+  z-index: 30 !important;
+}
+
 .calendar-day-card {
   min-height: 80px;
   background-color: var(--bg-primary);
@@ -474,7 +478,7 @@ body {
   flex-direction: column;
   overflow: visible !important;
   position: relative;
-  transition: z-index 0s, background-color 0.15s ease, box-shadow 0.18s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: background-color 0.15s ease, box-shadow 0.18s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .calendar-month-grid .calendar-day-card {
@@ -499,14 +503,14 @@ body {
 /* --- HOVER CARD: Visualização Mensal (apenas em ponteiros finos/mouse para não travar no touch mobile) --- */
 @media (hover: hover) and (pointer: fine) {
   .calendar-day-card:hover {
-    z-index: 50 !important;
+    z-index: 60 !important;
     background-color: var(--bg-primary) !important;
     box-shadow:
-      0 0 0 2px var(--text-accent),
-      0 20px 60px rgba(0,0,0,0.18),
-      0 8px 20px rgba(0,0,0,0.1);
-    transform: scale(1.04) translateY(-4px);
-    border-radius: 12px;
+      inset 0 0 0 2px var(--text-accent),
+      0 14px 32px rgba(0,0,0,0.18),
+      0 6px 14px rgba(0,0,0,0.1);
+    transform: scale(1.03);
+    border-radius: 10px;
   }
 }
 

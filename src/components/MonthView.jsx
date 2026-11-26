@@ -273,7 +273,7 @@ export const MonthView = ({
                     flex: 1,
                     minHeight: 0,
                     borderBottom: weekIdx < weeks.length - 1 ? '1px solid var(--border-color)' : 'none',
-                    overflow: 'hidden',
+                    overflow: 'visible',
                   }}
                 >
                   {/* Células de fundo e alvos droppables para cada dia da semana */}
