@@ -60,6 +60,17 @@ export const extrairDescricaoSemTarefas = (html) => {
   return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
 };
 
+// Retorna o HTML da descrição excluindo apenas as listas de tarefas, preservando
+// formatação, marca-texto e imagens coladas para exibição na tela de visualização.
+export const extrairDescricaoHtmlSemTarefas = (html) => {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('ul[data-type="taskList"], li[data-type="taskItem"]').forEach(el => el.remove());
+  const temTexto = Boolean((doc.body.textContent || '').trim());
+  const temImagem = Boolean(doc.body.querySelector('img'));
+  return (temTexto || temImagem) ? doc.body.innerHTML : '';
+};
+
 // Marca (ou desmarca) todas as microtarefas de uma vez — usado quando o cartão inteiro é
 // concluído, pra manter o card e a checklist sempre consistentes entre si.
 export const marcarTodasTarefas = (html, concluida) => {

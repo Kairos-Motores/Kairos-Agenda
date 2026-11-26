@@ -43,7 +43,7 @@ import { parseAssignees, joinAssignees } from '../utils/assignees';
 import { matchesSearch } from '../utils/search';
 import { themeColors } from '../constants/materialColors';
 import { corUrgenciaData } from '../utils/dateUrgency';
-import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto, extrairDescricaoSemTarefas } from '../utils/descricaoTarefas';
+import { extrairTarefas, alternarTarefaNaDescricao, marcarTodasTarefas, htmlParaTexto, extrairDescricaoSemTarefas, extrairDescricaoHtmlSemTarefas } from '../utils/descricaoTarefas';
 import { compressImage } from '../utils/compressImage';
 import { parseAnexos, primeiraImagem } from '../utils/anexos';
 import { corTextoLegivel } from '../utils/cor';
@@ -5714,15 +5714,17 @@ const FichaForm = ({
               </div>
             )}
 
-            {/* Descrição Formatada */}
-            {extrairDescricaoSemTarefas(form.descricao)?.trim() ? (
+            {/* Descrição Formatada (com suporte a imagens coladas) */}
+            {extrairDescricaoHtmlSemTarefas(form.descricao) ? (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Descrição
                 </Label>
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none text-xs sm:text-sm text-foreground/90 leading-relaxed overflow-x-auto"
-                  dangerouslySetInnerHTML={{ __html: extrairDescricaoSemTarefas(form.descricao) }}
+                <RichTextEditor
+                  key={form.descricao}
+                  value={extrairDescricaoHtmlSemTarefas(form.descricao)}
+                  editable={false}
+                  minHeightClass="min-h-0"
                 />
               </div>
             ) : !temTarefas ? (
@@ -5730,6 +5732,41 @@ const FichaForm = ({
                 <p className="text-xs text-muted-foreground italic">Esta ficha não possui descrição detalhada.</p>
               </div>
             ) : null}
+
+            {/* Observação rápida (editável direto na tela de visualização) */}
+            <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="mb-0 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="size-3.5 text-primary" /> Observação
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2.5 text-[11px]"
+                  onClick={() => {
+                    cancelarAutosavePendente();
+                    onSaveRapido?.(form, 'Observação salva.');
+                  }}
+                >
+                  Salvar observação
+                </Button>
+              </div>
+              <Textarea
+                value={form.campoTexto || ''}
+                onChange={e => set('campoTexto', e.target.value)}
+                onBlur={() => {
+                  const origRef = parseFichaMeta(fichaOriginal?.cr4a1_atividades).campoTexto || '';
+                  if ((form.campoTexto || '') !== origRef) {
+                    cancelarAutosavePendente();
+                    onSaveRapido?.(form, 'Observação salva.');
+                  }
+                }}
+                rows={2}
+                placeholder="Adicione uma observação rápida nesta ficha sem precisar entrar na edição..."
+                className="min-h-[64px] bg-secondary/50 text-xs sm:text-sm"
+              />
+            </div>
 
             {/* Microtarefas / Checklist Interativo */}
             {temTarefas && (
